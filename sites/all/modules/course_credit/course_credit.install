@@ -1,0 +1,288 @@
+<?php
+
+/**
+ * Implements hook_install().
+ *
+ * Install a default content type, set some defaults.
+ */
+function course_credit_install() {
+  drupal_install_schema('course_credit');
+  course_credit_install_default_credit_type();
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function course_credit_uninstall() {
+  drupal_uninstall_schema('course_credit');
+}
+
+/**
+ * Implements hook_schema().
+ */
+function course_credit_schema() {
+  $schema = array();
+
+  $schema['course_credit'] = array(
+    'description' => 'Holds information about course credit.',
+    'fields' => array(
+      'nid' => array(
+        'type' => 'int',
+        'description' => 'Course node ID.',
+        'not null' => TRUE,
+      ),
+      'type' => array(
+        'description' => 'Machine-readable type name used for views and tokens.',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+      ),
+      'increments' => array(
+        'description' => 'Increment by which credit can be awarded.',
+        'type' => 'numeric',
+        'precision' => 6,
+        'scale' => 2,
+      ),
+      'min' => array(
+        'description' => 'Minimum credit.',
+        'type' => 'numeric',
+        'precision' => 6,
+        'scale' => 2,
+      ),
+      'max' => array(
+        'description' => 'Maximum credit.',
+        'type' => 'numeric',
+        'precision' => 6,
+        'scale' => 2,
+      ),
+      'enable_variable_credit' => array(
+        'description' => 'Variable credit.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'active' => array(
+        'description' => 'Active.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'code' => array(
+        'description' => 'Credit code.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => FALSE,
+      ),
+      'expiration_type' => array(
+        'description' => "example: 'date', 'credit_awarded', 'course_complete', or 'calendar_year'.",
+        'type' => 'varchar',
+        'length' => 255,
+      ),
+      'expiration_date' => array(
+        'description' => "Absolute date (in seconds) for date expiration type.",
+        'type' => 'int',
+      ),
+      'expiration_offset' => array(
+        'description' => "Optional offset (in seconds) for relative expiration types.",
+        'type' => 'int',
+      ),
+    ),
+    'primary key' => array('nid', 'type'),
+  );
+
+  $schema['course_credit_type'] = array(
+    'description' => 'Holds information about course credit types.',
+    'fields' => array(
+      'type' => array(
+        'description' => 'Machine-readable type name used for views and tokens.',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+      ),
+      'title' => array(
+        'description' => 'Credit type title.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+      'description' => array(
+        'description' => 'Credit type description.',
+        'type' => 'text',
+        'not null' => TRUE,
+      ),
+      'increments' => array(
+        'description' => 'Default increment by which credit can be awarded.',
+        'type' => 'numeric',
+        'precision' => 6,
+        'scale' => 2,
+      ),
+      'min' => array(
+        'description' => 'Default minimum credit.',
+        'type' => 'numeric',
+        'precision' => 6,
+        'scale' => 2,
+      ),
+      'max' => array(
+        'description' => 'Default maximum credit.',
+        'type' => 'numeric',
+        'precision' => 6,
+        'scale' => 2,
+      ),
+      'enable_variable_credit' => array(
+        'description' => 'Default variable credit switch.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('type'),
+  );
+
+  $schema['course_credit_awarded'] = array(
+    'description' => 'Holds information about course credit awarded.',
+    'fields' => array(
+      'ccaid' => array(
+        'description' => 'Course credit awarded ID',
+        'type' => 'serial',
+        'not null' => TRUE,
+      ),
+      'nid' => array(
+        'description' => 'Course node ID.',
+        'type' => 'int',
+      ),
+      'uid' => array(
+        'description' => 'Course user ID.',
+        'type' => 'int',
+      ),
+      'type' => array(
+        'description' => 'Machine-readable type name used for views and tokens.',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+      ),
+      'credits' => array(
+        'description' => 'Credits awarded.',
+        'type' => 'numeric',
+        'precision' => 6,
+        'scale' => 2,
+      ),
+      'date' => array(
+        'description' => 'Date of award.',
+        'type' => 'int',
+      ),
+      'expiration' => array(
+        'description' => 'Expiration date.',
+        'type' => 'int',
+      ),
+      'status' => array(
+        'description' => 'Credit approved.',
+        'type' => 'int',
+      ),
+    ),
+    'primary key' => array('ccaid'),
+    'unique keys' => array('triplet' => array('type', 'nid', 'uid')),
+  );
+
+  return $schema;
+}
+
+/**
+ * Helper funtion to install default credit types.
+ */
+function course_credit_install_default_credit_type() {
+  drupal_get_schema(null, TRUE);
+
+  $credit_type = array(
+    'type' => 'cecredits',
+    'title' => 'CE Credits',
+    'description' => 'The default credit type for courses',
+    'increments' => .25,
+    'min' => 0,
+    'max' => 100,
+    'enable_variable_credit' => 1,
+    'active' => 1,
+  );
+
+  module_load_include('module', 'course_credit', 'course_credit');
+  course_credit_save_credit_type($credit_type);
+}
+
+/**
+ * Change ctid field to a varchar. Migrate type column to ctid.
+ */
+function course_credit_update_6008() {
+  $ret = array();
+
+  $schema = course_credit_schema();
+
+  // Add new type column to tables.
+  $tables = array('course_credit_awarded', 'course_credit');
+  $field = 'type';
+
+  foreach ($tables as $table) {
+    db_add_field($ret, $table, $field, $schema[$table]['fields'][$field]);
+  }
+
+  // Update numeric credit type to alphanumeric.
+  $sql = "select * from {course_credit_type}";
+  $result = db_query($sql);
+  while ($row = db_fetch_object($result)) {
+    $ret[] = update_sql("UPDATE {course_credit_awarded} set type = '$row->type' where ctid = $row->ctid");
+    $ret[] = update_sql("UPDATE {course_credit} set type = '$row->type' where ctid = $row->ctid");
+    $ret[] = update_sql("UPDATE {course_credit_type} set type = '$row->type' where ctid = $row->ctid");
+  }
+
+  // Drop primary keys.
+  db_drop_primary_key($ret, 'course_credit_awarded');
+  db_drop_primary_key($ret, 'course_credit');
+  db_drop_unique_key($ret, 'course_credit_type', 'type');
+  // Drop auto increment, so we can drop the key.
+  $ret[] = update_sql("ALTER TABLE {course_credit_type} CHANGE ctid ctid int(11)");
+  db_drop_primary_key($ret, 'course_credit_type');
+
+  // Drop old ctid columns.
+  db_drop_field($ret, 'course_credit_awarded', 'ctid');
+  db_drop_field($ret, 'course_credit', 'ctid');
+  db_drop_field($ret, 'course_credit_type', 'ctid');
+
+  // Set new primary keys.
+  db_add_primary_key($ret, 'course_credit_awarded', array('type', 'nid', 'uid'));
+  db_add_primary_key($ret, 'course_credit', array('nid', 'type'));
+  db_add_primary_key($ret, 'course_credit_type', array('type'));
+
+  return $ret;
+}
+
+/**
+ * Add ccaid field, convert existing primary key to unique, add new primary key
+ * (for views, services).
+ */
+function course_credit_update_6010() {
+  $ret = array();
+
+  db_drop_primary_key($ret, 'course_credit_awarded');
+  db_add_field($ret, 'course_credit_awarded', 'ccaid', array('type' => 'serial'), array('primary key' => array('ccaid')));
+  db_add_unique_key($ret, 'course_credit_awarded', 'triplet', array('type', 'nid', 'uid'));
+
+  return $ret;
+}
+
+/**
+ * Add much needed indexes. 
+ */
+function course_credit_update_6011() {
+  $ret = array();
+
+  db_add_index($ret, 'course_credit_awarded', 'type', array('type'));
+  db_add_index($ret, 'course_credit_awarded', 'nid_uid', array('nid', 'uid'));
+
+  db_add_index($ret, 'course_credit', 'type', array('type'));
+
+  db_add_index($ret, 'course_credit_type', 'type', array('type'));
+
+  return $ret;
+}
+

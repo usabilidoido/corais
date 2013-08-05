@@ -1,0 +1,278 @@
+/*
+ * CKFinder
+ * ========
+ * http://ckfinder.com
+ * Copyright (C) 2007-2012, CKSource - Frederico Knabben. All rights reserved.
+ *
+ * The software, this file, and its contents are subject to the CKFinder
+ * License. Please read the license.txt file before using, installing, copying,
+ * modifying, or distributing this file or part of its contents. The contents of
+ * this file is part of the Source Code of CKFinder.
+ *
+ */
+
+#ckeditor_translation.__fileOverview#
+
+/**
+ * Contains the dictionary of language entries.
+ * @namespace
+ */
+CKFinder.lang['#ckeditor_translation.__languageCode#'] =
+{
+	appTitle : '#ckeditor_translation.appTitle#',
+
+	// Common messages and labels.
+	common :
+	{
+		// Put the voice-only part of the label in the span.
+		unavailable		: '#ckeditor_translation.common.unavailable#',
+		confirmCancel	: '#ckeditor_translation.common.confirmCancel#',
+		ok				: '#ckeditor_translation.common.ok#',
+		cancel			: '#ckeditor_translation.common.cancel#',
+		confirmationTitle	: '#ckeditor_translation.common.confirmationTitle#',
+		messageTitle	: '#ckeditor_translation.common.messageTitle#',
+		inputTitle		: '#ckeditor_translation.common.inputTitle#',
+		undo			: '#ckeditor_translation.common.undo#',
+		redo			: '#ckeditor_translation.common.redo#',
+		skip			: '#ckeditor_translation.common.skip#',
+		skipAll			: '#ckeditor_translation.common.skipAll#',
+		makeDecision	: '#ckeditor_translation.common.makeDecision#',
+		rememberDecision: '#ckeditor_translation.common.rememberDecision#'
+	},
+
+
+	// Language direction, 'ltr' or 'rtl'.
+	dir : '#ckeditor_translation.dir#',
+	HelpLang : '#ckeditor_translation.HelpLang#',
+	LangCode : '#ckeditor_translation.LangCode#',
+
+	// Date Format
+	//		d    : Day
+	//		dd   : Day (padding zero)
+	//		m    : Month
+	//		mm   : Month (padding zero)
+	//		yy   : Year (two digits)
+	//		yyyy : Year (four digits)
+	//		h    : Hour (12 hour clock)
+	//		hh   : Hour (12 hour clock, padding zero)
+	//		H    : Hour (24 hour clock)
+	//		HH   : Hour (24 hour clock, padding zero)
+	//		M    : Minute
+	//		MM   : Minute (padding zero)
+	//		a    : Firt char of AM/PM
+	//		aa   : AM/PM
+	DateTime : '#ckeditor_translation.DateTime#',
+	DateAmPm : ['#ckeditor_translation.DateAmPm[0]#', '#ckeditor_translation.DateAmPm[1]#'],
+
+	// Folders
+	FoldersTitle	: '#ckeditor_translation.FoldersTitle#',
+	FolderLoading	: '#ckeditor_translation.FolderLoading#',
+	FolderNew		: '#ckeditor_translation.FolderNew#',
+	FolderRename	: '#ckeditor_translation.FolderRename#',
+	FolderDelete	: '#ckeditor_translation.FolderDelete#',
+	FolderRenaming	: '#ckeditor_translation.FolderRenaming#',
+	FolderDeleting	: '#ckeditor_translation.FolderDeleting#',
+
+	// Files
+	FileRename		: '#ckeditor_translation.FileRename#',
+	FileRenameExt	: '#ckeditor_translation.FileRenameExt#',
+	FileRenaming	: '#ckeditor_translation.FileRenaming#',
+	FileDelete		: '#ckeditor_translation.FileDelete#',
+	FilesLoading	: '#ckeditor_translation.FilesLoading#',
+	FilesEmpty		: '#ckeditor_translation.FilesEmpty#',
+	FilesMoved		: '#ckeditor_translation.FilesMoved#',
+	FilesCopied		: '#ckeditor_translation.FilesCopied#',
+
+	// Basket
+	BasketFolder		: '#ckeditor_translation.BasketFolder#',
+	BasketClear			: '#ckeditor_translation.BasketClear#',
+	BasketRemove		: '#ckeditor_translation.BasketRemove#',
+	BasketOpenFolder	: '#ckeditor_translation.BasketOpenFolder#',
+	BasketTruncateConfirm : '#ckeditor_translation.BasketTruncateConfirm#',
+	BasketRemoveConfirm	: '#ckeditor_translation.BasketRemoveConfirm#',
+	BasketEmpty			: '#ckeditor_translation.BasketEmpty#',
+	BasketCopyFilesHere	: '#ckeditor_translation.BasketCopyFilesHere#',
+	BasketMoveFilesHere	: '#ckeditor_translation.BasketMoveFilesHere#',
+
+	BasketPasteErrorOther	: '#ckeditor_translation.BasketPasteErrorOther#',
+	BasketPasteMoveSuccess	: '#ckeditor_translation.BasketPasteMoveSuccess#',
+	BasketPasteCopySuccess	: '#ckeditor_translation.BasketPasteCopySuccess#',
+
+	// Toolbar Buttons (some used elsewhere)
+	Upload		: '#ckeditor_translation.Upload#',
+	UploadTip	: '#ckeditor_translation.UploadTip#',
+	Refresh		: '#ckeditor_translation.Refresh#',
+	Settings	: '#ckeditor_translation.Settings#',
+	Help		: '#ckeditor_translation.Help#',
+	HelpTip		: '#ckeditor_translation.HelpTip#',
+
+	// Context Menus
+	Select			: '#ckeditor_translation.Select#',
+	SelectThumbnail : '#ckeditor_translation.SelectThumbnail#',
+	View			: '#ckeditor_translation.View#',
+	Download		: '#ckeditor_translation.Download#',
+
+	NewSubFolder	: '#ckeditor_translation.NewSubFolder#',
+	Rename			: '#ckeditor_translation.Rename#',
+	Delete			: '#ckeditor_translation.Delete#',
+
+	CopyDragDrop	: '#ckeditor_translation.CopyDragDrop#',
+	MoveDragDrop	: '#ckeditor_translation.MoveDragDrop#',
+
+	// Dialogs
+	RenameDlgTitle		: '#ckeditor_translation.RenameDlgTitle#',
+	NewNameDlgTitle		: '#ckeditor_translation.NewNameDlgTitle#',
+	FileExistsDlgTitle	: '#ckeditor_translation.FileExistsDlgTitle#',
+	SysErrorDlgTitle : '#ckeditor_translation.SysErrorDlgTitle#',
+
+	FileOverwrite	: '#ckeditor_translation.FileOverwrite#',
+	FileAutorename	: '#ckeditor_translation.FileAutorename#',
+
+	// Generic
+	OkBtn		: '#ckeditor_translation.OkBtn#',
+	CancelBtn	: '#ckeditor_translation.CancelBtn#',
+	CloseBtn	: '#ckeditor_translation.CloseBtn#',
+
+	// Upload Panel
+	UploadTitle			: '#ckeditor_translation.UploadTitle#',
+	UploadSelectLbl		: '#ckeditor_translation.UploadSelectLbl#',
+	UploadProgressLbl	: '#ckeditor_translation.UploadProgressLbl#',
+	UploadBtn			: '#ckeditor_translation.UploadBtn#',
+	UploadBtnCancel		: '#ckeditor_translation.UploadBtnCancel#',
+
+	UploadNoFileMsg		: '#ckeditor_translation.UploadNoFileMsg#',
+	UploadNoFolder		: '#ckeditor_translation.UploadNoFolder#',
+	UploadNoPerms		: '#ckeditor_translation.UploadNoPerms#',
+	UploadUnknError		: '#ckeditor_translation.UploadUnknError#',
+	UploadExtIncorrect	: '#ckeditor_translation.UploadExtIncorrect#',
+
+	// Flash Uploads
+	UploadLabel			: '#ckeditor_translation.UploadLabel#',
+	UploadTotalFiles	: '#ckeditor_translation.UploadTotalFiles#',
+	UploadTotalSize		: '#ckeditor_translation.UploadTotalSize#',
+	UploadSend			: '#ckeditor_translation.UploadSend#',
+	UploadAddFiles		: '#ckeditor_translation.UploadAddFiles#',
+	UploadClearFiles	: '#ckeditor_translation.UploadClearFiles#',
+	UploadCancel		: '#ckeditor_translation.UploadCancel#',
+	UploadRemove		: '#ckeditor_translation.UploadRemove#',
+	UploadRemoveTip		: '#ckeditor_translation.UploadRemoveTip#',
+	UploadUploaded		: '#ckeditor_translation.UploadUploaded#',
+	UploadProcessing	: '#ckeditor_translation.UploadProcessing#',
+
+	// Settings Panel
+	SetTitle		: '#ckeditor_translation.SetTitle#',
+	SetView			: '#ckeditor_translation.SetView#',
+	SetViewThumb	: '#ckeditor_translation.SetViewThumb#',
+	SetViewList		: '#ckeditor_translation.SetViewList#',
+	SetDisplay		: '#ckeditor_translation.SetDisplay#',
+	SetDisplayName	: '#ckeditor_translation.SetDisplayName#',
+	SetDisplayDate	: '#ckeditor_translation.SetDisplayDate#',
+	SetDisplaySize	: '#ckeditor_translation.SetDisplaySize#',
+	SetSort			: '#ckeditor_translation.SetSort#',
+	SetSortName		: '#ckeditor_translation.SetSortName#',
+	SetSortDate		: '#ckeditor_translation.SetSortDate#',
+	SetSortSize		: '#ckeditor_translation.SetSortSize#',
+	SetSortExtension		: '#ckeditor_translation.SetSortExtension#',
+
+	// Status Bar
+	FilesCountEmpty : '#ckeditor_translation.FilesCountEmpty#',
+	FilesCountOne	: '#ckeditor_translation.FilesCountOne#',
+	FilesCountMany	: '#ckeditor_translation.FilesCountMany#',
+
+	// Size and Speed
+	Kb				: '#ckeditor_translation.Kb#',
+	Mb				: '#ckeditor_translation.Mb#',
+	Gb				: '#ckeditor_translation.Gb#',
+	SizePerSecond	: '#ckeditor_translation.SizePerSecond#',
+
+	// Connector Error Messages.
+	ErrorUnknown	: '#ckeditor_translation.ErrorUnknown#',
+	Errors :
+	{
+	 10 : '#ckeditor_translation.Errors.10#',
+	 11 : '#ckeditor_translation.Errors.11#',
+	 12 : '#ckeditor_translation.Errors.12#',
+	102 : '#ckeditor_translation.Errors.102#',
+	103 : '#ckeditor_translation.Errors.103#',
+	104 : '#ckeditor_translation.Errors.104#',
+	105 : '#ckeditor_translation.Errors.105#',
+	109 : '#ckeditor_translation.Errors.109#',
+	110 : '#ckeditor_translation.Errors.110#',
+	115 : '#ckeditor_translation.Errors.115#',
+	116 : '#ckeditor_translation.Errors.116#',
+	117 : '#ckeditor_translation.Errors.117#',
+	118 : '#ckeditor_translation.Errors.118#',
+	201 : '#ckeditor_translation.Errors.201#',
+	202 : '#ckeditor_translation.Errors.202#',
+	203 : '#ckeditor_translation.Errors.203#',
+	204 : '#ckeditor_translation.Errors.204#',
+	205 : '#ckeditor_translation.Errors.205#',
+	206 : '#ckeditor_translation.Errors.206#',
+	207 : '#ckeditor_translation.Errors.207#',
+	300 : '#ckeditor_translation.Errors.300#',
+	301 : '#ckeditor_translation.Errors.301#',
+	500 : '#ckeditor_translation.Errors.500#',
+	501 : '#ckeditor_translation.Errors.501#'
+	},
+
+	// Other Error Messages.
+	ErrorMsg :
+	{
+		FileEmpty		: '#ckeditor_translation.ErrorMsg.FileEmpty#',
+		FileExists		: '#ckeditor_translation.ErrorMsg.FileExists#',
+		FolderEmpty		: '#ckeditor_translation.ErrorMsg.FolderEmpty#',
+
+		FileInvChar		: '#ckeditor_translation.ErrorMsg.FileInvChar#',
+		FolderInvChar	: '#ckeditor_translation.ErrorMsg.FolderInvChar#',
+
+		PopupBlockView	: '#ckeditor_translation.ErrorMsg.PopupBlockView#',
+		XmlError		: '#ckeditor_translation.ErrorMsg.XmlError#',
+		XmlEmpty		: '#ckeditor_translation.ErrorMsg.XmlEmpty#',
+		XmlRawResponse	: '#ckeditor_translation.ErrorMsg.XmlRawResponse#'
+	},
+
+	// Imageresize plugin
+	Imageresize :
+	{
+		dialogTitle		: '#ckeditor_translation.Imageresize.dialogTitle#',
+		sizeTooBig		: '#ckeditor_translation.Imageresize.sizeTooBig#',
+		resizeSuccess	: '#ckeditor_translation.Imageresize.resizeSuccess#',
+		thumbnailNew	: '#ckeditor_translation.Imageresize.thumbnailNew#',
+		thumbnailSmall	: '#ckeditor_translation.Imageresize.thumbnailSmall#',
+		thumbnailMedium	: '#ckeditor_translation.Imageresize.thumbnailMedium#',
+		thumbnailLarge	: '#ckeditor_translation.Imageresize.thumbnailLarge#',
+		newSize			: '#ckeditor_translation.Imageresize.newSize#',
+		width			: '#ckeditor_translation.Imageresize.width#',
+		height			: '#ckeditor_translation.Imageresize.height#',
+		invalidHeight	: '#ckeditor_translation.Imageresize.invalidHeight#',
+		invalidWidth	: '#ckeditor_translation.Imageresize.invalidWidth#',
+		invalidName		: '#ckeditor_translation.Imageresize.invalidName#',
+		newImage		: '#ckeditor_translation.Imageresize.newImage#',
+		noExtensionChange : '#ckeditor_translation.Imageresize.noExtensionChange#',
+		imageSmall		: '#ckeditor_translation.Imageresize.imageSmall#',
+		contextMenuName	: '#ckeditor_translation.Imageresize.contextMenuName#',
+		lockRatio		: '#ckeditor_translation.Imageresize.lockRatio#',
+		resetSize		: '#ckeditor_translation.Imageresize.resetSize#'
+	},
+
+	// Fileeditor plugin
+	Fileeditor :
+	{
+		save			: '#ckeditor_translation.Fileeditor.save#',
+		fileOpenError	: '#ckeditor_translation.Fileeditor.fileOpenError#',
+		fileSaveSuccess	: '#ckeditor_translation.Fileeditor.fileSaveSuccess#',
+		contextMenuName	: '#ckeditor_translation.Fileeditor.contextMenuName#',
+		loadingFile		: '#ckeditor_translation.Fileeditor.loadingFile#'
+	},
+
+	Maximize :
+	{
+		maximize : '#ckeditor_translation.Maximize.maximize#',
+		minimize : '#ckeditor_translation.Maximize.minimize#'
+	},
+
+	Gallery :
+	{
+		current : '#ckeditor_translation.Gallery.current#'
+	}
+};

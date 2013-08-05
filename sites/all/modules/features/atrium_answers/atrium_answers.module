@@ -1,0 +1,7 @@
+<?php
+
+include_once('atrium_answers.features.inc');
+
+function atrium_answers_init() {
+  drupal_add_css(drupal_get_path('module', 'atrium_answers') . '/atrium_answers.css');
+}

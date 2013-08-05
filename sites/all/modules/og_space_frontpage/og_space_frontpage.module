@@ -1,0 +1,17 @@
+<?php
+/**
+ * Implementation of hook_nodeapi().
+ **/
+function og_space_frontpage_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+  // Check if we're looking at a group node (which we don't want to do).
+  // If we are, find the Space frontpage path and redirect there.
+  if (og_is_group_type($node->type) && $op == "load" && arg(0) == 'node' && is_numeric(arg(1)) && arg(2) == "") {
+    $page_nid = arg(1);
+    if ($page_nid == $node->nid) {
+      // Grab the PURL value for this group.
+      $purl = purl_load(array('provider' => 'spaces_og', 'id' => $node->nid));
+      drupal_goto($purl['value']);
+    }
+  }
+}
+?>

@@ -1,0 +1,155 @@
+<?php
+
+/**
+ * @file
+ * OG Invite Restrict lets site admins restrict their OG invites to current users of the site.
+ *
+ * This modules modifies the OG Invite page by not allowing email addresses entered into the
+ * "invitee" field. It also adds autocomplete to the field to help complete entered usernames.
+ */
+
+
+function og_invite_restrict_help($path, $arg) {
+  switch ($path) {
+    case 'admin/modules#description':
+      return t('OG Invite Restrict lets site admins restrict their OG invites to current users of the site.');
+    case 'admin/help#og_invite_restrict':
+      return t('This modules modifies the OG Invite page by not allowing email addresses entered into the
+"invitee" field. It also adds autocomplete to the field to help complete entered usernames.
+<br/><br/>
+Once installed, there is absolutely no configuration for this module.
+<br/><br/>
+Be sure to permission to "access user profiles" to any users who will be using this. If you don\'t want to
+do that, just remove the "access" line in the og_invite_restrict_menu function to allow access to all.
+<br/><br/>
+');
+  }
+}
+
+
+function og_invite_restrict_perm() {
+  return array('can be invited to join groups');
+}
+
+function og_invite_restrict_menu() {
+  $items = array();
+
+  $items['og/autocomplete'] = array(
+    'title' => t('og_invite_restrict multiple user autocomplete'),
+    'page callback' => '_og_invite_restrict_multipleuser_autocomplete',
+    'access arguments' => array('access user profiles'),
+    'type' => MENU_CALLBACK
+  );
+
+  return $items;
+}
+
+function og_invite_restrict_form_alter(&$form, $form_state, $form_id) {
+  $recipients_string = '';
+  if (isset($form_state['values'])) {
+    if (isset($form_state['values']['mails'])) {
+      $recipients_string = $form_state['values']['mails'];
+    }
+  }
+  //----- this modifies the og invite form to only allow usernames and to add autocomplete
+  if ($form_id == 'og_invite_form') {
+    $form['mails']['#title'] = t('Usernames');
+    $form['mails']['#description'] = t('Enter up to 10 usernames. Separate multiple usernames by commas. Each person will receive an invitation message from you.');
+    $form['mails']['#type'] = 'textfield';
+    $form['mails']['#maxlength'] = 200;
+    $form['mails']['#autocomplete_path'] = 'og/autocomplete';
+    $form['mails']['#validate'] = array('_og_invite_restrict_multipleuser_autocomplete_validate' => array());
+    $form['mails']['#default_value'] = $recipients_string;
+  }
+}
+
+/* This is the magical function that does the multiple user autocomplete on the og invite page.
+ *   This code borrows heavily from the user_autocomplete and taxonomy autocomplete functions
+ */
+function _og_invite_restrict_multipleuser_autocomplete($string) {
+  // The user enters a comma-separated list of tags. We only autocomplete the last tag.
+  // This regexp allows the following types of user input:
+  // this, "somecmpany, llc", "and ""this"" w,o.rks", foo bar
+  $names = explode(',', $string);
+  $names = array_map('trim', $names);
+  $search = array_pop($names);
+
+  // Retrieve list of allowed roles
+  $rid_result = db_query("SELECT rid FROM {permission} WHERE perm LIKE '%can be invited to join groups%'");
+  $have_results = FALSE;
+  while ($rid = db_fetch_array($rid_result)) {
+    $have_results = TRUE;
+    $rids .= $rid['rid'] .',';
+  }
+  if ($have_results) {
+    $rids = rtrim($rids, ',');
+    if ($search != '') {
+      if (module_exists('realname')) {
+        $sql = 'SELECT u.uid, u.name, r.realname FROM {users} u INNER JOIN {realname} r USING(uid) ';
+        $sql .= ' LEFT JOIN {users_roles} ur ON u.uid = ur.uid';
+        $sql .= ' WHERE u.status <> 0 AND LOWER(r.realname) LIKE LOWER(\'%%%s%%\')';
+        $sql .= ' AND ur.rid IN (%s)';
+        $sql .= ' ORDER BY r.realname ASC';
+        $result = db_query_range($sql, $search, $rids, 0, 10);
+        $prefix = count($names) ? implode(', ', $names) .', ' : '';
+        $matches = array();
+        while ($user = db_fetch_object($result)) {
+          $account = user_load(array('uid' => $user->uid));
+          $matches[$prefix . $user->name] = $user->realname;
+          if ($user->realname != $user->name) {
+            $matches[$prefix . $user->name] .= ' ('. $user->name .')';
+          }
+        }
+        drupal_json($matches);
+        }
+      else {
+        $result = db_query_range("SELECT name FROM {users} u LEFT JOIN {users_roles} ur ON u.uid = ur.uid WHERE LOWER(u.name) LIKE LOWER('%s%%') AND ur.rid IN (%s)", $search, $rids, 0, 10);
+        //print drupal_to_js(sprintf("SELECT name FROM {users} u LEFT JOIN {users_roles} ur ON u.uid = ur.uid WHERE LOWER(u.name) LIKE LOWER('%s%%') AND ur.rid IN (%s)", $search, $rids));
+        $prefix = count($names) ? implode(', ', $names) .', ' : '';
+        $matches = array();
+        while ($user = db_fetch_object($result)) {
+          $n = $user->name;
+          // Commas and quotes in terms are special cases, so encode 'em.
+          if (preg_match('/,/', $user->name) || preg_match('/"/', $user->name)) {
+            $n = '"'. preg_replace('/"/', '""', $user->name) .'"';
+          }
+          $matches[$prefix . $n] = check_plain($user->name);
+        }
+        drupal_json($matches);
+      }
+    }
+  }
+  else {
+    drupal_json(array()); // prevent Drupal autocomplete error message
+  }
+}
+
+/* This validation function makes sure that the user only enters potential usernames in the 'mails'
+ *   field. We want to only throw and error if we see something that looks like an email address.
+ *   Therefore, we'll look for the "@" symbol, and if we see it anywhere, we throw and error. The
+ *   og module will do validation as well, so this is just a cursory check.
+ */
+function _og_invite_restrict_multipleuser_autocomplete_validate($form_values) {
+  if (_og_invite_restrict_checkforemails($form_values['#value'])) {
+    form_set_error('mails', t('You may only invite registered users of this site. Please enter usernames only.'));
+  }
+}
+
+function _og_invite_restrict_checkforemails($usernames) {
+  if (stristr($usernames, '@')) {
+    return FALSE;
+  }
+  else {
+    return TRUE;
+  }
+}
+
+/**
+ * Implementation of hook_simpletest().
+ */
+function og_invite_restrict_simpletest() {
+  $module_name = 'og_invite_restrict'; // Change this to your module name.
+  $dir = drupal_get_path('module', $module_name) .'/tests';
+  $tests = file_scan_directory($dir, '\.test$');
+  return array_keys($tests);
+}

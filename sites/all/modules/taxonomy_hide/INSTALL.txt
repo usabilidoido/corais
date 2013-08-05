@@ -1,0 +1,11 @@
+INSTALLATION:
+
+1. Place the entire taxonomy_hide directory into your Drupal modules directory.
+
+2. Enable this module by navigating to:
+
+     Administer > Site building > Modules
+
+3. Specify at Administer > Site configuration > Taxonomy hide which vocabularies
+   you want to hide, and whether you want to enable grouping of vocabulary
+   terms.

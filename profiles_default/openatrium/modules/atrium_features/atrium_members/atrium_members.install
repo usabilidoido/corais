@@ -1,0 +1,29 @@
+<?php
+
+/**
+ * Update for Kit compliance
+ */
+function atrium_members_update_6001() {
+  $components = array(
+    'views' => array(
+      'atrium_members' => array(
+        'members_listing' => array(),
+       ),
+    ),
+    'contexts' => array(
+      'spaces-feature-members' => 'members_section',
+      'atrium-members-directory' => 'members_directory',
+    ),
+    'spaces_presets' => array(
+      'atrium_user_simple' => 'atrium_members_simple',
+    ),
+  );
+
+  module_load_include('inc', 'atrium', 'includes/atrium_update_kit');
+  atrium_kit_comply_overrides($components); 
+  atrium_kit_comply_presets($components);
+  atrium_kit_comply_spaces_presets($components);
+  atrium_kit_comply_contexts($components);
+
+  return array(array('success' => true, 'query' => 'Atrium Members updated for Kit compliance.'));
+}

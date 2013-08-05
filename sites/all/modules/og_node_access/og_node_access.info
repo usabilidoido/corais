@@ -1,0 +1,11 @@
+name = "OG Node Access"
+description = "Allows seemless rebuilding of node access records for specified groups."
+core = "6.x"
+dependencies[] = "og_access"
+
+; Information added by drupal.org packaging script on 2011-12-23
+version = "6.x-1.0-alpha2"
+core = "6.x"
+project = "og_node_access"
+datestamp = "1324621548"
+

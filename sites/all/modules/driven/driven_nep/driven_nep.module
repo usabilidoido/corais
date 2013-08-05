@@ -1,0 +1,104 @@
+<?php
+// $Id: driven_nep.module,v 1.2 2010/04/01 01:02:02 arhak Exp $
+
+/**
+ * Implements hook_enable().
+ */
+function driven_nep_enable() {
+  // weight above every other module
+  // since altering the node_form to restrict #access
+  // requires every other form_alter to be already executed
+  // (brought by workflow's driven properties [#758086]) 
+  db_query("UPDATE {system} SET weight = 1000 WHERE name = 'driven_nep' AND type = 'module'");
+}
+
+/**
+ * Implements hook_node_type().
+ */
+function driven_nep_node_type($op, $info) {
+  switch ($op) {
+    case 'delete':
+      $driver_mod = 'driven_nep';
+      $node_type = $info->type;
+      driven_props_delete_settings($driver_mod, $node_type);
+      break;
+  }
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function driven_nep_form_alter(&$form, &$form_state, $form_id) {
+  if (isset($form['type']) && isset($form['#node']) && $form['type']['#value'] . '_node_form' == $form_id) {
+    $nid = $form['nid']['#value'];
+    if (!isset($nid)) {
+      // it is being created, not edited
+      return; // step out
+    }
+    if (isset($form['#driven_nep:disable']) && $form['#driven_nep:disable']) {
+      // we were told to be quiet
+      // i.e. someone is preparing a node_form and don't wan't us in the middle of it
+      // (e.g. comment_driven)
+      return; // step out
+    }
+    $node = $form['#node'];
+    $node_type = $node->type;
+    
+    $driver_mod = 'driven_nep';
+    //if (!driven_props_get_type_enabled($driver_mod, $node_type)) {
+    //  // driven properties are disabled
+    //  return; // step out of the way
+    //}
+    $driven_props = driven_props_get_properties($driver_mod, $node_type);
+    if (empty($driven_props)) {
+      // no driven properties (they might be disabled altogether)
+      return; // step out of the way
+    }
+    
+    // IMPORTANT: apply supported behaviors/policies
+    $policies = driven_props_get_policies($driver_mod, $node_type);
+    // IMPORTANT: apply Access Control Policies
+    if (module_exists('driven_acp')) {
+      driven_acp_apply_to_properties($driven_props, $policies);
+    }
+    else {
+      // deny access flag onto every chosen property
+      foreach ($driven_props as $property_id => &$prop) {
+        $prop['#access'] = FALSE;
+      }
+    }
+    // apply access control from flagged properties
+    driven_access_control_to_form($form, $driven_props, FALSE);
+  }
+}
+
+/**
+ * Implements hook_driven_props_type_settings().
+ */
+function driven_nep_driven_props_type_settings() {
+  $type_settings = array(
+    'task_title' => t('edition hidden'),
+    'menu_title' => 'Edition hidden',
+    'description_tail' => t('hidden on node edition'),
+    'behaviors' => array(
+      'driven_acp',
+    ),
+  );
+  return $type_settings;
+}
+
+/**
+ * Implements hook_prop_behavior_alter().
+ */
+function driven_nep_prop_behavior_alter(&$form, $node_type, $prop, $behavior) {
+  if ($behavior == 'driven_acp') {
+    // make clear what would be the default setting
+    $form['acp']['#default_value'] = 'deny_all_roles';
+    foreach ($form['acp']['#options'] as $index => $value) {
+      // avoid in_array, which succeeds comparing zero vs string
+      if ($index !== 'deny_for_roles' && $index !== 'deny_all_roles') {
+        unset($form['acp']['#options'][$index]);
+      }
+    }
+  }
+}

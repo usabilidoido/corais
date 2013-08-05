@@ -1,0 +1,32 @@
+.quiz-progress-item-list {
+  height: 300px;
+  overflow: auto;
+  padding: 4px;
+}
+
+.quiz-progress-item-list li {
+  padding: 4px;
+}
+
+.quiz-progress-item-table tr td.answered a,
+.quiz-progress-item-list li.answered a {
+  color: #33A333;
+}
+
+.quiz-progress-item-table tr td.skipped a,
+.quiz-progress-item-list li.skipped a {
+  /*background: url("../img/skipped.png") no-repeat scroll right top transparent;*/
+  color: #A30000;
+  padding-right: 2em;
+}
+
+#tooltip {
+  position: absolute;
+  z-index: 3000;
+  border: 1px solid #111;
+  background-color: #2F2F2F;
+  padding: 5px;
+  opacity: 0.85;
+  color: #FFF;
+}
+#tooltip h3, #tooltip div { margin: 0; }

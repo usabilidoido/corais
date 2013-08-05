@@ -1,0 +1,54 @@
+<?php
+
+// $Id: session_api.install,v 1.1.2.1 2009/02/25 00:54:48 jhedstrom Exp $
+
+/**
+ * Implementation of hook_install().
+ */
+function session_api_install() {
+  drupal_install_schema('session_api');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function session_api_uninstall() {
+  drupal_uninstall_schema('session_api');
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function session_api_schema() {
+  $schema['session_api'] = array(
+    'description' => t('Map Session API IDs to the {sessions} sid field.'),
+    'fields' => array(
+      'sid' => array(
+        'type' => 'serial',
+        'not null' => TRUE,
+      ),
+      'session_id' => array(
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('sid'),
+    'unique keys' => array(
+      'session_id' => array('session_id'),
+    ),
+  );
+
+  return $schema;
+}
+
+/**
+ * Remove cleanup variables.
+ */
+function session_api_update_6100() {
+  $ret = array();
+
+  $ret[] = update_sql("DELETE FROM {variable} WHERE name LIKE 'session_api_run_cron_%'");
+
+  return $ret;
+}

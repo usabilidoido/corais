@@ -1,0 +1,15 @@
+name = Content Taxonomy Tree
+description = Defines a dynamic tree widget for Content Taxonomy
+dependencies[] = content 
+dependencies[] = content_taxonomy 
+dependencies[] = taxonomy
+dependencies[] = taxonomy_manager
+package = CCK
+core = 6.x
+
+; Information added by drupal.org packaging script on 2011-05-11
+version = "6.x-2.x-dev"
+core = "6.x"
+project = "content_taxonomy"
+datestamp = "1305115487"
+

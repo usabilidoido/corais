@@ -1,0 +1,976 @@
+<?php
+// $Id: offers_wants.module,v 1.9 2010/10/02 15:54:27 matslats Exp $
+
+/*
+ * Provides a content type called proposition for offers and wants with a dedicated vocabulary,
+ * various optional properties on a settings page, and views.
+ * The views in code are adapted for the settings.
+ * * makes a nice taxnonomy navigation block using jquerymenu
+ * * Time limited propositions, inlcuding notification before expiry.
+ * * Data structure allows for sales, loans and communally owned goods
+ * * goods and services
+ * * optional 'wants' in addition to offers.
+ */
+
+function offers_wants_help($path, $args) {
+  if ($path == 'admin/settings/ow') {
+    $help[] = t('This panel saves you digging around in Drupal by giving you easy options while managing other parts of the system.');
+    $help[] = t('Offers and wants are organised using two vocabularies.');
+    $help[] = t('The first is like categories and subcategories in the yellow pages. Create and organise your categories here:');
+    $help[] = l(t('Edit categories'), 'admin/content/taxonomy/'.variable_get('offers_wants_cat_vid', 1)) .'</p>';
+    $help[] = '<p>'.t("Proposition Types is a second, optional way to find things.");
+    if ($type_vid = variable_get('offers_wants_type_vid', 0)) {
+      $help[] = t("Here are some ideas which have been used by our community:");
+      $help[] = '<ul><li>'. t("Loans - in order to foster sharing goods amongst your community members,  and encourage efficient resource use.").'</li>';
+      $help[] = '<li>'. t("Tips - in order to allow your members to share ways on living better in your area.").'</li>';
+      $help[] = '<li>'. t("Outings - in order to allow your members to self-organise and build ties.").'</li>';
+      $help[] = '<li>'. t("Gifts - in order to foster generosity, while publicly recognising the act.").'</li>';
+      $help[] = '<li>'. t("To dos - in order to list and share the tasks linked to making your association work.") .'</li></ul>';
+      $help[] = t("We encourge you to experiment, and tell us about it.");
+      $help[] = l(t('Edit types'), 'admin/content/taxonomy/'.variable_get('offers_wants_type_vid', 0));
+    }
+    else {
+      $help[] = "The vocabulary hasn't been initialised, please contact Communtiy Forge.";
+    }
+    return '<p>'. implode(' ', $help) .'<p>';
+  }
+}
+/*
+ * Implements hook_menu
+ */
+function offers_wants_menu() {
+  $items['admin/settings/ow'] = array(
+    'title' => 'Offers and wants controls',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('propositions_settings_form'),
+    'access arguments' => array('administer nodes'),
+  );
+  $items['node/add/offer'] = array(
+    'title' => 'Create offer proposition',
+    'page callback' => '_node_add_proposition',
+    'page arguments' => array('0'),
+    'access arguments' => array('post propositions'),
+    'file' => 'node.pages.inc',
+    'file path' => drupal_get_path('module', 'node'),
+    'type' => MENU_SUGGESTED_ITEM
+  );
+  if (variable_get('offers_wants_proposition_wants', TRUE)) {
+    $items['node/add/want'] = array(
+      'title' => 'Create request propositions',
+      'page callback' => '_node_add_proposition',
+      'page arguments' => array('1'),
+      'access arguments' => array('post propositions'),
+      'file' => 'node.pages.inc',
+      'file path' => drupal_get_path('module', 'node'),
+      'type' => MENU_SUGGESTED_ITEM
+    );
+  }
+  return $items;
+}
+
+/**
+ * Implements hook_node_info)().
+  * This hook is required for modules to define one or more node types.
+ */
+function offers_wants_node_info(){
+  $types['proposition'] = array(
+    'name' => t('Proposition'),
+    'module' => 'offers_wants',
+    'description' => t('Something which could meet a need in the community'),
+    'has_title' => TRUE,
+    'title_label' => t('Brief description'),
+    'has_body' => variable_get('proposition_has_body', TRUE),
+    'body_label' => t('More information'),
+    'status' => TRUE
+  );
+  return $types;
+}
+
+function offers_wants_views_api() {
+  return array(
+    'api' => 2,
+    'path' => drupal_get_path('module', 'offers_wants') . '/views',
+  );
+}
+
+/**
+ * Implements hook_perm()
+ */
+function offers_wants_perm(){
+  return array('post propositions', 'view propositions');
+}
+
+/**
+ * Implements hook_access()
+ */
+function offers_wants_access($op, $node = NULL, $account = NULL){
+  if (is_object($node)) {
+    if (in_array($GLOBALS['user']->uid, array(1, $node->uid)))return TRUE;
+    if (!$node->status) return FALSE;
+  }
+  switch ($op){
+    case 'view':
+      return user_access('view propositions');
+    case 'create':
+	    return user_access('post propositions');
+    case 'update':
+    case 'delete':
+      //user can always access their own offers/wants
+      return $node->uid == $account->uid || user_access('administer nodes');
+  }
+}
+/**
+ * Implements hook_block()
+ */
+function offers_wants_block($op = 'list', $delta = 0, $edit = array()) {
+  if (!in_array($op, array('list', 'view'))) return;
+  $function = 'offers_wants_block_'.$op;
+  return $function($delta);
+}
+function offers_wants_block_list($delta) {
+  $blocks['propositions_taxonomy_block'] = array(
+    'info' => 'Offers/Wants categories',
+    'visibility' => 1,
+    'pages' => "offers*\nwants*",
+    'cache' => BLOCK_NO_CACHE
+  );
+  $blocks['add_proposition'] = array(
+    'info' => 'Add proposition',
+    'visibility' => 1,
+    'pages' => "offers*\nwants*\nexchanges*",
+  );
+  return $blocks;
+}
+function offers_wants_block_view($delta) {
+  if (!user_access('post propositions')) return;
+  $want = strpos($_GET['q'], 'want') !== FALSE;
+  switch ($delta) {
+    case 'propositions_taxonomy_block':
+      return array(
+        'subject' => $want ? t('Want categories') : t('Offer categories'),
+        'content' => _ow_jmenu_categories($want),
+      );
+    case 'add_proposition':
+      if ($_GET['q'] == 'node/add/proposition') return; //to prevent confusion!
+      return array(
+        'subject' => t('Post offer/want'),
+        'content' => drupal_get_form('proposition_start_form', $want),
+      );
+  }
+}
+
+/*
+ * menu callback
+ * wrapper around the node_form to prefil the 'want' field
+ */
+function _node_add_proposition($want){
+  $node = array(
+    'want' => $want,
+    'type' => 'proposition',
+    'uid' => $GLOBALS['user']->uid
+  );
+  $want ? drupal_set_title(t('I would like to request')) : drupal_set_title(t('I would like to offer'));
+  return drupal_get_form('proposition_node_form', $node);
+}
+
+/*
+ * implements node hook_load
+ */
+function offers_wants_load($node) {
+  return db_fetch_array(db_query("SELECT * FROM {offers_wants} WHERE nid = %d", $node->nid));
+}
+
+
+/**
+ * Implements node hook_form)().
+ */
+function offers_wants_form(&$node, $form_state, $prelim = FALSE){
+  $inlines = array();
+  //there is a preliminary block which can retrieves and populate the first fields of this form
+  if (isset($form_state['post']['form_id']) && $form_state['post']['form_id'] == 'proposition_start_form') {
+    $node->want = $form_state['post']['want'];
+    $node->title = $form_state['post']['title'];
+  }
+
+  $wants = variable_get('offers_wants_proposition_wants', TRUE);
+  if ($wants && !isset($node->want)) {
+    $form['want'] = array(
+      //'#title' => , array('@offerwant' => '')),
+      '#type' => 'radios',
+      '#options' => array(
+        t('I would like to offer'),
+        t('I would like to request'),
+      ),
+      '#default_value' => isset($node->want) ? $node->want : '',
+      '#required' => TRUE,
+      '#weight' => -10,
+    );
+    $inlines = array('#edit-want-0-wrapper', '#edit-want-1-wrapper', '.form-radios');
+
+  }
+  else {
+    $val = isset($node->want) ? $node->want : 0;
+    $form['want'] = array(
+      '#type' => 'hidden',
+      '#value' => $val,
+    );
+    $title = $val? t('I would like to request') : t('I would like to offer');
+  }
+
+  $type = node_get_types('type', $node);
+  $form['title'] = array (
+    '#type' => 'textfield',
+    '#title' => isset($title) ? $title : check_plain($type->title_label),
+    '#required' => TRUE,
+    '#default_value' => $node->title,
+    '#weight' => -5, //this is hardcoded in node_content_form
+    '#max_length' => 128,
+  );
+  if ($type->has_body) {
+    $form['body'] = array (
+      '#type' => 'textarea',
+      '#title' => check_plain($type->body_label),
+      '#default_value' => $node->body,
+      '#required' => FALSE,
+      '#rows' => 7,
+      '#weight' => -4,
+    );
+
+  }
+  if ($prelim) return $form;
+
+  $form['uid'] = array(
+    '#type' => 'value',
+    '#value' => $node->uid ? $node->uid : $GLOBALS['user']->uid
+  );
+  if (variable_get('offers_wants_expiry', TRUE)) {
+    $period = variable_get('offers_wants_publish_period', 0);
+
+    $form['expires'] = array (
+      '#title' => t('Stop displaying this proposition on (date)'),
+      '#description' => t('leave blank to make your proposition permanent'),
+      '#type' => 'date_popup',
+      '#date_format' => 'm/d/Y',
+      '#date_year_range' => '0:+1',
+      '#default_value' => $node->expires ? _ow_mysql_timestamp($node->expires) : '',
+      '#weight' => 2,
+      '#attributes' => array('style' => 'float:none;')
+    );
+    $inlines[] = '#edit-expires-datepicker-popup-0-wrapper';
+    drupal_set_html_head('<style>#edit-expires-wrapper div{float:none;}</style>');
+    /*
+    if ($period) {
+      $periods = _ow_get_periods();
+      $description[] = t("You may choose an expiry date for your proposition.");
+      $description[] = t("This is useful for show tickets, or for help moving house, which you no longer want to display after a given date.");
+      $description[] = t("If this field is left blank, your proposition will be displayed for @time. @days days before the expiry date you will receive a renewal request.", array(
+        '@time' => $periods[$period],
+        '@days' => variable_get('offers_wants_expire_notice_days', 10)
+      ));
+      $description[] = t("If you do not renew your proposition, it will no longer be displayed on the community's list after the expiry date.");
+      $description[] = t("You will however, be able to edit or delete it on your personal list of propositions.");
+    }
+    */
+  }
+  if (!$node->nid) {
+    $name = db_result(db_query("SELECT name FROM {role} WHERE rid = %d", variable_get('offers_wants_broadcast', 0)));
+    if ($name) {
+      $form['broadcast'] = array(
+        '#title' => t('Notify all @role users', array('@role' => $name)),
+        '#type' => 'checkbox',
+        '#return_value' => variable_get('offers_wants_broadcast', 0),
+        '#weight' => 15
+      );
+    }
+  }
+  $inlines[] = 'form#node-form .form-text';
+  $inlines[] = '#node-form .form-item label';
+  drupal_set_html_head('<style>'.implode(', ', $inlines).'{display:inline;}</style>');
+  drupal_set_html_head('<style>form#node-form .form-text{width:inherit;}</style>');
+  $form_state['redirect'] = 'user/'.$GLOBALS['user']->uid.'/directory';
+  return $form;
+}
+
+function offers_wants_form_proposition_node_form_alter(&$form, $form_state) {
+  if (isset($form['broadcast'])) {
+    $form['#submit'][] = 'offers_wants_broadcast_submit';
+  }
+}
+
+function offers_wants_validate(&$node) {
+  _ow_reformat_expiry_time($node);
+  if($node->expires) {
+    if ($node->expires < strtotime('tomorrow')) {//that means midnight tonight
+      form_set_error('expires', t('Expiry date must be after today'));
+    }
+    elseif($node->expires < strtotime ('+'.variable_get('offers_wants_expire_notice_days', 10). ' days')) {
+      $days = intval(($node->expires - time())/(3600*24));
+      drupal_set_message(t('The proposition will expire in @days days', array('@days' => $days)), 'warning');
+    }
+  }
+}
+
+/*
+ * implements node hook_update
+ */
+function offers_wants_update($node) {
+  drupal_write_record('offers_wants', $node, array('nid'));
+}
+/*
+ * implements node hook_insert
+ */
+function offers_wants_insert($node) {
+  drupal_write_record('offers_wants', $node);
+}
+
+
+/*
+ * implements node hook_nodeapi
+ */
+function offers_wants_nodeapi(&$node, $op) {
+  if ($node->type != 'proposition') return;
+  if ($op == 'prepare') {
+    if (!empty($node->translation_source)) {
+      $fields = array('expires', 'end', 'want', 'taxonomy');
+      foreach ($fields as $field) {
+        $node->$field = $node->translation_source->$field;
+      }
+    }
+  }
+  if ($op == 'presave') {
+    _ow_reformat_expiry_time($node);
+    if (variable_get('offers_wants_expiry', TRUE) && $node->expires > 0) {
+      $node->status = $node->expires > time();
+    }
+  }
+}
+
+function _ow_reformat_expiry_time(&$node) {
+  //only check that the expiry date is after today
+  $unixtime = strtotime($node->expires);
+  if ($unixtime == 0) {
+    $period = variable_get('offers_wants_publish_period', '+1 year');
+    if ($period) {
+      $unixtime = strtotime($period);
+      $node->end == TRUE;
+    }
+  }
+  $node->expires = $unixtime;
+}
+
+/*
+ * implements hook_theme
+ */
+function offers_wants_theme() {
+  return array(
+    'proposition_node_form' => array(
+      'template' => 'proposition_node_form',
+      'arguments' => array(
+        'form' => array()
+      )
+    ),
+  );
+}
+
+/*
+ * Helper explanation for the taxonomy hierarchical select (assuming its on)
+ */
+function offers_wants_form_alter(&$form, $form_state, $form_id) {
+  switch($form_id) {
+    case 'proposition_node_form':
+      //hide the form element if the type vocab has only one item
+      $type_vid = variable_get('offers_wants_type_vid', 0);
+      $cat_vid = variable_get('offers_wants_cat_vid', 0);
+      $tweaks = array();
+      if (count(taxonomy_get_tree($type_vid)) < 2) {
+        unset($form['taxonomy'][$type_vid]);
+      }
+      else {//tweak the formatting of the multiselect field
+        if (!empty($form['taxonomy'][$type_vid]['#multiple'])) $tweaks[] = $type_vid;
+      }
+      if ($form['taxonomy'][$cat_vid]['#type'] == 'select') $tweaks[] = $cat_vid;
+      foreach ($tweaks as $vid) {
+        drupal_set_html_head("<style>#edit-taxonomy-$vid{display:block;}</style>");
+      }
+      //get rid of extraneous form elements
+      $form['menu']['#access'] = FALSE;
+      unset($form['buttons']['preview']);
+      if (isset($form['buttons']['delete'])) {  //redirect interferes with delete
+        unset($form['#redirect']);
+      }
+      unset($form['#pre_render']);
+      $cat_vid = variable_get('offers_wants_cat_vid', 0);
+      //make some cosmetic adjustments to the hierarchical select widget
+      $form['#after_build'][] = 'offers_wants_after_build_node_form';
+      $form['taxonomy'][$cat_vid]['#title'] = t('It belongs in these categories');
+      $form['taxonomy'][$cat_vid]['#description'] = '';
+      $form['options']['#collapsed'] = FALSE;
+      unset($form['options']['sticky']);
+      break;
+  }
+}
+
+
+function offers_wants_form_node_type_form_alter(&$form, $form_state) {
+  if ($form['#node_type']->orig_type != 'proposition') return;
+  $link = l('Offers/Wants settings', 'admin/settings/ow');
+  $form['comment']['comment']['#disabled'] = TRUE;
+  $form['comment']['comment']['#description'] = t('Disabled field. See !link', array('!link' => $link));
+  $form['comment']['comment']['#options'] = array();
+  $form['submission']['body_label']['#description'] = t('Enable and disable the field at !link', array('!link' => $link));
+}
+
+/*
+ * after build form callback to modify expiry field on node form
+ */
+function offers_wants_after_build_node_form($form) {
+  $vid = variable_get('offers_wants_cat_vid', 0);
+  unset($form['expires']['date']['#description']);
+  if (isset($form['taxonomy'][$vid]['dropbox']['visible']['title'])) {
+    $form['taxonomy'][$vid]['dropbox']['visible']['title']['#value'] = t("Selected categories");
+  }
+  return $form;
+  //if we change the #value of the button, it doesn't work. Hmph. So we use t() to change the value, at least in other languages
+  //$form['taxonomy'][$vid]['hierarchical_select']['dropbox_add']['#value'] = t('Add my @type to this category', array('@type' => $type));
+  t('Add');
+}
+
+/*
+ * Manage proposition expiry and notifications
+ * There is no log kept for notifications sent
+ * Rather, it checks if any notifications have come due since the previous cron run
+ */
+function offers_wants_cron() {
+  if (!variable_get('offers_wants_expiry', TRUE)) return;
+  $previous = variable_get('ow_cron_previous', 0);
+  variable_set('ow_cron_previous', time());
+  //what nodes will expire in under x days
+  if ($notice_period = variable_get('offers_wants_expire_notice_days', 4)*24*3600) {
+    //get all the nodes which are x days ahead of the previous cron, and send notification
+    $result = db_query(
+      "SELECT n.nid
+        FROM {offers_wants} p LEFT JOIN {node} n ON n.nid = p.nid
+        WHERE n.status = 1
+          AND p.expires > %d
+          AND p.expires < %d
+          AND end = 0",
+      array(':previous' => $previous + $notice_period, ':expires' => time() + $notice_period)
+    );
+    while ($nid = db_result($result)) {
+      $node = node_load($nid);
+      $account = user_load($node->uid);
+      drupal_mail('offers_wants', 'expiry', $account->mail, user_preferred_language($account), array('account' => $account, 'node' => $node));
+      $notices[] = $account->mail ." - node $nid expires " . date('d m Y', $node->expires);
+    }
+    echo count($notices)." propositions auto-expiring between ".date('d m Y', $previous + $notice_period)." and ". date('d m Y', time() + $notice_period). ": ". implode("\n<br />", $notices);
+  }
+  //now expire the nodes that are past their dates.
+  db_query("UPDATE {offers_wants} p LEFT JOIN {node} n ON n.nid = p.nid
+    SET status = 0
+    WHERE p.expires > 0 AND p.expires < ". time()
+  );
+}
+
+function propositions_settings_form() {
+  $vocabs = taxonomy_get_vocabularies('proposition');
+  foreach ($vocabs as $vid => $vocab) {
+    $options[$vid] = $vocab->name;
+  }
+  unset($options[variable_get('offers_wants_type_vid', 0)]);
+  if (count($options)) {
+    $form['offers_wants_cat_vid'] = array(
+      '#title' => t("Main vocabulary for 'proposition' categories"),
+      '#description' => t('This vocabulary cannot be deleted.'),
+      '#type' => 'select',
+      '#options' => $options,
+      '#default_value' => variable_get('offers_wants_cat_vid', key($options)),
+      '#weight' => -10
+    );
+  }
+  else{
+    $form['offers_wants_cat_vid'] = array(
+      '#type' => 'hidden',
+      '#value' => key($options)
+    );
+  }
+  $type = node_get_types('type', 'proposition');
+  $form['properties'] = array(
+    '#title' => t('Extra fields'),
+    '#description' => t('Propositions have optional properties to help identify them more clearly. Use more properties for larger systems, as well as increasing the granularity in the vocabulary.') . ' '.
+      t('Enabling too many of these properties will make the user experience cumbersome.'),
+    '#type' => 'fieldset',
+    'proposition_has_body' => array(
+      '#title' => t("Enable 'details' field"),
+      '#type' => 'checkbox',
+      '#default_value' => $type->has_body,
+      '#weight' => 2
+    ),
+    'offers_wants_proposition_wants' => array(
+      '#title' => t('Enable wants in addition to offers'),
+      '#type' => 'checkbox',
+      '#default_value' => variable_get('offers_wants_proposition_wants', TRUE),
+      '#weight' => 4
+    ),
+    //this is a duplicate of the setting on admin/content/node-type/proposition
+    'comment_proposition' => array(
+      '#title' => t('Enable comments on propositions'),
+      '#type' => 'checkbox',
+      '#default_value' => variable_get('comment_proposition', 2),
+      '#return_value' => 2,
+      '#weight' => 6
+    ),
+    '#weight' => -6
+  );
+
+  $form['expiry'] = array(
+    '#title' => t('Proposition expiry'),
+    '#type' => 'fieldset',
+    '#description' => t('Send reminders before propositions expire'),
+    '#collapsible' => TRUE,
+    '#collapsed' => !variable_get('offers_wants_expiry', TRUE),//would be nice to make this respond live
+    'offers_wants_expiry' => array(
+      '#title' => t('Enable expiry dates'),
+      '#description' => t('Propositions are automatically unpublished when they expire, and can be seen only by the owner and admin.'),
+      '#type' => 'checkbox',
+      '#default_value' => variable_get('offers_wants_expiry', TRUE),
+      '#weight' => -4
+    ),
+    'offers_wants_publish_period' => array(
+      '#title' => t('Default period for trade notices'),
+      '#type' => 'select',
+      '#options' => _ow_get_periods(),
+      '#default_value' => variable_get('offers_wants_publish_period', 0),
+      '#weight' => -2
+    ),
+    'offers_wants_expire_notice_days' => array(
+      '#title' => t('Number of days before expiry to send reminder mail'),
+      '#type' => 'textfield',
+      '#default_value' => variable_get('offers_wants_expire_notice_days', 10),
+      '#weight' => 1
+    ),
+    'offers_wants_expire_notice_subject' => array(
+      '#title' => t('Mail template'),
+      '#description' => t('Use the following tokens:') .' !username, !type, !days, !title, !link_url',
+      '#type' => 'textfield',
+      '#default_value' => _ow_mails('offers_wants_expire_notice_subject'),
+      '#weight' => 2
+    ),
+    'offers_wants_expire_notice_template' => array(
+      '#title' => t('Mail template'),
+      '#description' => t('Use the following tokens:') .' !username, !type, !days, !title, !link_url',
+      '#type' => 'textarea',
+      '#default_value' => _ow_mails('offers_wants_expire_notice_template'),
+      '#weight' => 3
+    ),
+    '#weight' => -2,
+  );
+  $options = array('0' => t("Don't send"));
+  $excluded = array(DRUPAL_AUTHENTICATED_RID, DRUPAL_ANONYMOUS_RID);
+  $result = db_query("SELECT rid, name FROM {role} WHERE rid NOT IN (%s)", implode(',', $excluded));
+  while ($role = db_fetch_object($result)) {
+    $options[$role->rid] = $role->name;
+  }
+  $description = array(
+    t('If a proposition is urgent, users may check this box to mail all users with this role.'),
+    t('N.B. This will send all the mails at the same time. A slow web server or a large list may not send all mails before the page request times out.'),
+  );
+  $form['offers_wants_broadcast'] = array(
+    '#title' => t('Broadcast'),
+    '#description' => implode(' ', $description),
+    '#type' => 'select',
+    '#options' => $options,
+    '#default_value' => variable_get('offers_wants_broadcast', 0),
+    '#weight' => -1
+  );
+  return system_settings_form($form);
+}
+
+function proposition_types_validate($element, $form_state) {
+  if (!strlen($element['#value'])) return;
+  $types = explode('|', $element['#value']);
+
+  array_filter($types);
+  if (count($types) < 2) {
+    form_error($element, t("Leave 'types' blank or put at least 2 types are required, separated by pipes.") .'"|"');
+  }
+}
+/*
+ * implements hook_form_FORMID_alter
+ * because you can't set extra submit handlers in systems settings forms
+ */
+function offers_wants_form_propositions_settings_form_alter(&$form) {
+  //array_unshift($form['#submit'], 'propositions_settings_form_submit');
+  $form['#submit'][] = 'propositions_settings_form_submit';
+  $form['#submit'][] = 'views_invalidate_cache';
+  $form['#submit'][] = 'menu_rebuild';
+}
+
+function propositions_settings_form_submit($form, &$form_state) {
+  //set the node body field
+  db_query("UPDATE {node_type} SET has_body = %d, modified = 1 WHERE type = 'proposition'",
+    array(':body' => $form_state['values']['proposition_has_body'])
+  );
+  if (module_exists('views_ui')) {
+    drupal_set_message(
+      t("Some views respond to settings on this page, but only 'default' views.") .' '.
+        t("'Overridden' views are not affected, but can be 'Reverted'."),
+      'warning'
+    );
+  }
+  db_query("UPDATE {node} SET comment = %d WHERE type = 'proposition'", $form_state['values']['comment_proposition']);
+}
+
+function offers_wants_form_taxonomy_form_term_alter($form, $form_state) {
+  $form['#submit'][] = 'views_invalidate_cache';
+  $form['#submit'][] = 'menu_rebuild';
+}
+
+//because the popup calendar insists on using mysql time
+function _ow_mysql_timestamp($unixtime = NULL) {
+  return date('Y-m-d H:i:s', $unixtime);
+}
+
+function _ow_get_periods() {
+  return array(
+    0 => t('Permanent'),
+    '+1 week' => t('1 week'),
+    '+2 weeks' => t('2 weeks'),
+    '+1 month' => t('1 month'),
+    '+2 months' => t('2 months'),
+    '+3 months' => t('3 months'),
+    '+6 months' => t('6 months'),
+    '+1 year' => t('1 year')
+  );
+}
+/*
+ * implements THEME hook
+ * adjusts the menu tabs on the offers and wants views to stay within the existing category
+ * I think in drupal 6 this HAS to be done at the theme level, even though it's horrible
+ */
+function phptemplate_menu_item_link($link) {
+  if (empty($link['localized_options'])) {
+    $link['localized_options'] = array();
+  }
+  if (is_numeric(arg(2))) {
+    if(in_array(substr($link['href'], 0, 6), array('offers', 'wants/'))) {
+      $link['href'] .= '/'.arg(2);
+    }
+  }
+  return l($link['title'], $link['href'], $link['localized_options']);
+}
+
+/*
+ * this does all the work of the taxonomyblocks module and none of the mess
+ */
+function _ow_jmenu_categories($want) {
+  global $language;
+  //get the terms objects with the parent ID
+  $result1 = db_query("SELECT * FROM {term_data} d
+    LEFT JOIN {term_hierarchy} h ON h.tid = d.tid
+    WHERE d.vid = %d
+    ORDER BY d.weight", variable_get('offers_wants_cat_vid', 0));
+  //get the number of nodes per term
+  $result2 = db_query("SELECT tn.tid, count(tn.nid) AS count
+      FROM {offers_wants} cp
+      LEFT JOIN {node} n ON n.nid = cp.nid
+      RIGHT JOIN {term_node} tn ON tn.nid = cp.nid
+      LEFT JOIN {users} u ON u.uid = n.uid
+      WHERE cp.want = %d AND n.language in ('', '%s') AND n.status = 1 AND u.status = 1
+      GROUP BY tn.tid",
+    array($want, $language->language)
+  );
+  while ($count = db_fetch_array($result2)) {
+    $counts[$count['tid']] = $count['count'];
+  }
+  $tree = array();
+  $children = array();
+  $direction = $want ? 'wants' : 'offers';
+  //this way of building the tree assumes that there are only 2 levels
+  while ($term = db_fetch_array($result1)) {
+    //if (!$counts[$term['tid']]) continue;
+    $term['title'] = $term['name'];
+    $term['href'] = $direction.'/all/'.$term['tid'];
+    $term['count'] = $counts[$term['tid']];
+    if ($term['parent'] && $counts[$term['tid']]) {//so this is a child
+      //$term['title'] .= ' ('.$counts[$term['tid']].')';
+      $children[$term['tid']]['link'] = $term;
+    }
+    elseif (!$term['parent']){
+      $parents[] = $term['tid'];
+      $tree[$term['tid']]['link'] = $term;
+    }
+  }
+  //put the children under the parents
+  //if the hierarchical select module is saving 'term lineage'
+  //then the parent counts should be correct already
+  //other wise we would all the child count to the parent
+  foreach ($children as $tid => $term){
+    $parent = &$term['link']['parent'];
+    //$tree[$parent]['link']['count'] += $term['link']['count'];
+    $tree[$parent]['link']['has_children'] = TRUE;
+    $tree[$parent]['below'][$term['link']['tid']]= $term;
+  }
+  //we append the parent count after in case the settings change later.
+  foreach ($tree as $tid => $parent) {
+    if ($parent['link']['count']) {
+      //$tree[$tid]['link']['title'] .= ' ('.$tree[$tid]['link']['count'].')';
+    }
+    else {
+      unset($tree[$tid]);
+    }
+  }
+  $trail = array(arg(0).'/all/');
+  return theme('menu_creation_by_array', $tree, $trail);
+}
+
+
+/**
+ * Implements hook_link)().
+ * creates links to show at the bottom of each proposition
+ * helps with horizontal navigation
+ */
+function offers_wants_link($type, $node) {
+  if ($node->type != 'proposition' || !$node->uid) return;
+  $name = strip_tags(theme('username', user_load($node->uid)));
+
+  $links['propositions'] = array(
+    'title' => t("Other propositions from @name", array('@name'=> $name)),
+    'href' => 'user/'.$node->uid.'/propositions',
+  );
+
+  if (user_access('access user profiles')) {
+    $links['contact'] = array(
+      'title' => t('Send an email to @name', array('@name' => $name)),
+      'href' => 'user/'.$node->uid.'/contact',
+    );
+    $links['userprofile'] = array(
+      'title' => t("See @name's profile", array('@name' => $name)),
+      'href' => 'user/'.$node->uid,
+    );
+  }
+  foreach($node->taxonomy as $tid => $term) {
+    $vocabs[$term->vid][$term->tid] = $term;
+  }
+
+  $subtype = $node->want ? 'wants' : 'offers';
+
+  $category_vid = variable_get('offers_wants_cat_vid', 0);
+  $category = array();
+  if (isset($vocabs[$category_vid])) {
+    foreach ($vocabs[$category_vid] as $tid => $term) {
+      $links[$term->name] = array(
+        'title' => t('See more in category @name', array('@name' => $term->name)),
+        'href' => $subtype .'/'. $term->tid
+      );
+    }
+  }
+  $type_vid = variable_get('offers_wants_type_vid', 0);
+  $type = array();
+  if (isset($vocabs[$type_vid])) {
+    foreach ($vocabs[$type_vid] as $tid => $term) {
+      $links[$term->name] = array(
+        'title' => t('See more of type @name', array('@name' => $term->name)),
+        'href' => $subtype .'/'. $term->tid
+      );
+    }
+  }
+
+  return $links;
+}
+
+/*
+ * implements hook_preprocess_node
+ * prepares variables for node-proposition.tpl.php
+ */
+function offers_wants_preprocess_node(&$variables) {
+  if ($variables['type'] != 'proposition') return;
+  $variables['expires'] = $variables['expires'] ? format_date($variables['expires'], 'small') : NULL;
+  $variables['subtype'] = $variables['want'] ? 'want' : 'offer';
+}
+
+/*
+ * implements hook_preprocess_proposition_node_form
+ * prepares category widgets variables for proposition-node-form.tpl.php
+ */
+function offers_wants_preprocess_proposition_node_form(&$variables) {
+  foreach (element_children($variables['form']['taxonomy']) as $name) {
+    $variables['vocabs'][$name] = $variables['form']['taxonomy'][$name];
+  }
+  unset($variables['form']['taxonomy']);
+}
+
+
+function proposition_start_form($form_state, $want = FALSE) {
+  $node = (object)array();
+  $form_state = array();
+  //prefill the direction if we are on the offers or wants views page
+  $node->want = $want;
+  $form = offers_wants_form($node, $form_state, TRUE);
+  $form['#action'] = url('node/add/proposition');
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Continue')
+  );
+  return $form;
+}
+
+
+/**
+* Implements of hook_registry_alter
+*/function offers_wants_theme_registry_alter(&$theme_registry) {
+  //include this modules tpl.php files in the theme registry for 'node'
+  $idx = array_search('modules/node', $theme_registry['node']['theme paths']);
+  if ($idx !== False) {
+    array_splice(
+      $theme_registry['node']['theme paths'],
+      $idx+1,
+      0,
+      drupal_get_path('module', 'offers_wants')
+    );
+  }
+}
+
+/*
+ * implements hook_form_FORM_ID_alter
+ * prevent the key vocabs from being deleted
+ */
+function offers_wants_form_taxonomy_form_vocabulary_alter(&$form, $form_state) {
+  $fixed = array(variable_get('offers_wants_cat_vid', 0), variable_get('offers_wants_type_vid', 0));
+  if (in_array($form['vid']['#value'], $fixed)) {
+    unset($form['delete']);
+  }
+}
+
+function offers_wants_views_plugins() {
+  return array(
+    'module' => 'offers_wants',
+    'display' => array(
+      'print-table' => array(
+        'title' => 'print-table',
+        'help' => t('An html table sent direct to the browser'),
+        'handler' => 'views_plugin_display_print_table',
+        'path' => drupal_get_path('module', 'offers_wants').'/views',
+        'uses hook menu' => TRUE,
+        'use ajax' => FALSE,
+        'use pager' => FALSE,
+        'accept attachments' => TRUE,
+      )
+    ),
+  );
+}
+
+/*
+ * implements theme hook_preprocess_CALLBACK
+ * adds a css class to views tables for propositions
+ */
+function offers_wants_preprocess_views_view_table(&$vars) {
+  if (isset($vars['view']->query->tables['node']['offers_wants'])) {
+    foreach ($vars['result'] as $rownum => $row) {
+      array_shift($vars['row_classes'][$rownum]); //this gets rid of the odd/even class
+      $vars['row_classes'][$rownum][] = $row->offers_want_want ? 'want' : 'offer';
+    }
+  }
+}
+
+/*
+ * implements theme hook_preprocess_CALLBACK
+ * adds a css class to views tables for propositions
+ */
+function offers_wants_preprocess_views_view_list(&$vars) {
+  if (isset($vars[view]->field['want'])) {
+    foreach($vars['classes'] as $id => $field) {
+      $vars['classes'][$id] .= $row->offers_want_want ? 'want' : ' offer';
+    }
+  }
+}
+
+/*
+ * implements hook_form_FORM_ID_alter
+ */
+function offers_wants_form_contact_mail_user_alter(&$form, $form_state) {
+  if (!empty($_GET['subject'])) {
+    $form['subject']['#default_value'] = urldecode($_GET['subject']);
+  }
+}
+
+function offers_wants_broadcast_submit($form, $form_state) {
+  $rid = &$form_state['values']['broadcast'];
+  $result = db_query("SELECT mail FROM {users} u LEFT JOIN {users_roles} ur ON u.uid = ur.uid WHERE ur.rid = $rid");
+  while ($mail = db_result($result)) {
+    $mails[] = $mail;
+  }
+  $params = array(
+    'title' => $form_state['values']['title'],
+    'body' => $form_state['values']['body'],
+    'uid' => $form_state['values']['uid'],
+    'want' => $form_state['values']['want'],
+    'recipients' => $mails
+  );
+  global $language;
+  drupal_mail('offers_wants', 'broadcast', variable_get('site_mail', 'blah'), $language->language, $params);
+}
+
+
+function _ow_mails($key) {
+  $text = variable_get($key, '');
+  if ($text) return $text;
+
+  switch($key) {
+    case 'offers_wants_expire_notice_subject': return t('Your proposition is about to expire');
+    case 'offers_wants_expire_notice_template': return  t('Dear !username
+
+Your have a proposition which will expire in !days days
+
+"!title"
+
+If you do nothing it will disappear
+
+To refresh it, just alter the expiry date at
+!link_url
+
+The team at !site');
+  }
+}
+/*
+ * implements hook_comment
+ * mail the author of the proposition
+ */
+function offers_wants_comment($comment, $op) {
+  $comment = (object)$comment;
+  $node = node_load($comment->nid);
+  if ($op == 'insert' && $node->type == 'proposition') {
+    $node_author = user_load($node->uid);
+    $params = array('comment' => $comment, 'commenter' => user_load($comment->uid));
+    drupal_mail('offers_wants', 'comment', $node_author->mail, user_preferred_language($account), $params);
+  }
+}
+
+
+
+function offers_wants_mail($key, &$message, $params) {
+  if ($key == 'expiry') {
+    $type = node_get_types('type', $params['node']);
+    $language = $message['language'];
+    $variables = user_mail_tokens($params['account'], $language);
+    $variables['!days'] = variable_get('offers_wants_expire_notice_days', 4);
+    $variables['!link_url'] = url('node/'.$params['node']->nid.'/edit', array('absolute' => TRUE));
+    $variables['!title'] = $params['node']->title;
+    $message['subject'] = strtr(_ow_mails('offers_wants_expire_notice_subject'), $variables);
+    $message['body'] = strtr(_ow_mails('offers_wants_expire_notice_template'), $variables);
+  }
+  elseif($key == 'broadcast') {
+    $sender = user_load($params['uid']);
+    $template = t('Urgent proposition from @name');
+    $prefix = $params['want'] ? t('Want:') : t('Offer:');
+    $message['subject'] = $prefix .' '. $params['title'];
+    $message['body'] = t('Urgent proposition from @name', array('@name' => $sender->name)) ."\n\n" . $params['body'];
+    $message['headers']['Reply-To'] = $sender->mail;
+    $message['headers']['Bcc'] = implode(', ', $params['recipients']);
+  }
+  elseif($key == 'comment') {
+    $message['subject'] = $params['comment']->subject;
+    $message['body'] = t('@user has commented on your proposition:', array('@user' => $params['commenter']->name)) ."\n\n";
+    $message['body'] .= $params['comment']->comment ."\n\n";
+    $message['body'] .= url('node/'.$params['comment']->nid, array('absolute' => TRUE));
+  }
+}

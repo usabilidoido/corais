@@ -1,0 +1,340 @@
+<?php
+
+define('USERPOINTS_KARMA_POINTS',              'userpoints_karma_points_');
+define('USERPOINTS_KARMA_TAG',                 'userpoints_karma_tag');
+define('USERPOINTS_KARMA_TAG_DEFAULT',         'userpoints_karma');
+define('USERPOINTS_KARMA_POINTS_NOTIFY',       'userpoints_karma_points_notify');
+
+define('USERPOINTS_KARMA_POINTS_VOTER_TID',    'userpoints_karma_points_voter_tid');
+define('USERPOINTS_KARMA_POINTS_VOTER',        'userpoints_karma_points_voter');
+define('USERPOINTS_KARMA_POINTS_VOTER_OWN',    'userpoints_karma_points_voter_own');
+define('USERPOINTS_KARMA_POINTS_VOTER_CHANGE', 'userpoints_karma_points_voter_change');
+define('USERPOINTS_KARMA_POINTS_VOTER_HIDE',   'userpoints_karma_points_voter_hide');
+
+/** 
+ * Userpoints settings
+ */
+function userpoints_karma_userpoints($op = 'settings', $params = array()) {
+  if ($op == 'setting') {
+    $group = 'karma';
+    $form[$group] = array(
+      '#type'        => 'fieldset',
+      '#title'       => t('Karma points'),
+      '#description' => t('Settings for userpoints karma module.'),
+      '#collapsible' => TRUE,
+      '#collapsed'   => TRUE,
+    );
+
+    $form[$group][USERPOINTS_KARMA_TAG] = array(
+      '#type'          => 'textfield',
+      '#title'         => t('VotingAPI Tag'),
+      '#description'   => t('Different VotingAPI modules use a different tag. In order for Userpoints Karma to work, the vote up/down tag must be set ot this value'),
+      '#default_value' => variable_get(USERPOINTS_KARMA_TAG, USERPOINTS_KARMA_TAG_DEFAULT),
+    );
+
+    $form[$group][USERPOINTS_KARMA_POINTS . 'up'] = array(
+      '#type'          => 'textfield',
+      '#title'         => t('Vote up points'),
+      '#description'   => t('This is normally a positive number.'),
+      '#description'   => t('Points that the node/comment author will gain when another user votes up the node or comment. This is normally a positive number.'),
+      '#default_value' => variable_get(USERPOINTS_KARMA_POINTS . 'up', 0),
+    );
+
+    $form[$group][USERPOINTS_KARMA_POINTS . 'down'] = array(
+      '#type'          => 'textfield',
+      '#title'         => t('Vote down points'),
+      '#description'   => t('Points that the node/comment author will lose when another user votes down the node or comment. This is normally a negative number.'),
+      '#default_value' => variable_get(USERPOINTS_KARMA_POINTS . 'down', 0),
+    );
+
+    $form[$group][USERPOINTS_KARMA_POINTS_NOTIFY] = array(
+      '#type'          => 'checkbox',
+      '#title'         => t('Notify content author'),
+      '#description'   => t('Should the author be notified when they login that their content has caused them to gain/lose points? If checked, then upon login, the author will see a message summarizing the points gained/lost since they were last on the site.'),
+      '#default_value' => variable_get(USERPOINTS_KARMA_POINTS_NOTIFY, 0),
+    );
+
+    $form[$group][USERPOINTS_KARMA_POINTS_VOTER] = array(
+      '#type'          => 'textfield',
+      '#title'         => t('Voter points cost'),
+      '#description'   => t('This is the number of points to subtract from the voter for using the vote up / down. This can be a negative number if it "costs" users to vote, or a positive number to "award" users for voting. Use 0 if you do not want to "charge" users to vote.'),
+      '#default_value' => variable_get(USERPOINTS_KARMA_POINTS_VOTER, 0),
+    );
+
+    $form[$group][USERPOINTS_KARMA_POINTS_VOTER_HIDE] = array(
+      '#type'          => 'checkbox',
+      '#title'         => t('Hide voting widget'),
+      '#description'   => t('Should the voting widget be hidden when voting costs points, but the user does not have enough points to vote? If this is checked, then the voting widget will be hidden, otherwise, the voting widget will be visible, but users with insufficient points will not have their votes registering.'),
+      '#default_value' => variable_get(USERPOINTS_KARMA_POINTS_VOTER_HIDE, 0),
+    );
+
+    $form[$group][USERPOINTS_KARMA_POINTS_VOTER_TID] = array(
+      '#type'          => 'select',
+      '#title'         => t('Voter cost points category'),
+      '#description'   => t('The voting user will have points deducted from this category. Leave this uncategrized if you have one points pool.'),
+      '#options'       => userpoints_get_categories(),
+      '#default_value' => variable_get(USERPOINTS_KARMA_POINTS_VOTER_TID, 0),
+    );
+
+    $form[$group][USERPOINTS_KARMA_POINTS_VOTER_OWN] = array(
+      '#type'          => 'checkbox',
+      '#title'         => t('Vote on own content'),
+      '#description'   => t('Should a voter be allowed to vote on their own content? Check this if users are allowed to vote up their own content.'),
+      '#default_value' => variable_get(USERPOINTS_KARMA_POINTS_VOTER_OWN, 0),
+    );
+
+    $form[$group][USERPOINTS_KARMA_POINTS_VOTER_CHANGE] = array(
+      '#type'          => 'checkbox',
+      '#title'         => t('Vote change'),
+      '#description'   => t('Can a voter change a vote they have cast before? Beware that enabling this can cause some users to game the system, e.g. vote down certain posts then later vote them up or vice versa.'),
+      '#default_value' => variable_get(USERPOINTS_KARMA_POINTS_VOTER_CHANGE, 0),
+    );
+
+    return $form;
+  }
+}
+
+/**
+ * We alter the destination for that menu path, hijacking that path ...
+ */
+function userpoints_karma_menu_alter(&$items) {
+  $items['vote/%/%/%/%/%/%']['page callback'] = 'userpoints_karma_vote';
+}
+
+/**
+ * We override the vud_vote function with our own, so that users can't
+ * vote more than once
+ */
+function userpoints_karma_vote($type, $content_id, $value, $tag, $widget, $token) {
+  ctools_include('ajax');
+  global $user;
+
+  // We do some validations to prevent certain things ...
+
+  // Get the tag for vote up down
+  $vud_tag = variable_get('vud_tag', 'vote');
+  $upk_tag = variable_get(USERPOINTS_KARMA_TAG, USERPOINTS_KARMA_TAG_DEFAULT);
+  if ($vud_tag != $upk_tag) {
+    // vote up down is not configured with the Userpoints Karma tag, log it and return
+    // This is to prevent having other vote modules' votes being grouped with
+    // this karma module
+    watchdog('karma', t('Vote Up Down tag is not set to @tag. For userpoints_karma to work, it has to be changed, or disable the userpoints_karma module', array('@tag' => $upk_tag)));
+    ctools_ajax_render_error(t('Vote Up Down tag is not set to @tag. For userpoints_karma to work, it has to be changed, or disable the userpoints_karma module', array('@tag' => $upk_tag)));
+  }
+
+  if (!$user->uid) {
+    // Anonymous users can't do karma
+    ctools_ajax_render_error('Anonymous users can\'t do karma.');
+  }
+
+  if (!variable_get(USERPOINTS_KARMA_POINTS_VOTER_OWN, 0)) {
+    // Get the content item's uid
+    $uid = userpoints_karma_get_content_uid($type, $content_id);
+
+    // User cannot vote up/down their own content
+    if ($uid == $user->uid) {
+      ctools_ajax_render_error('Users cannot vote up/down their own content.');
+    }
+  }
+
+  if (!variable_get(USERPOINTS_KARMA_POINTS_VOTER_CHANGE, 0)) {
+    if (userpoints_karma_user_voted($user->uid, $type, $content_id)) {
+      // User has voted before on this item, we exit ...
+      ctools_ajax_render_error('You\'ve already voted on this item.');
+    }
+  }
+
+  if (userpoints_karma_voter_cost()) {
+    ctools_ajax_render_error('You don\'t have enough karma to place this vote.');
+  }
+
+  // All is well, call the original function now ...
+  vud_vote($type, $content_id, $value, $tag, $widget, $token);
+}
+
+/** 
+ * Check if voting costs points, and the user has enough ...
+ */
+function userpoints_karma_voter_cost() {
+  // Check if voting costs points, and whether the user has enough
+  $voter_cost = variable_get(USERPOINTS_KARMA_POINTS_VOTER, 0);
+  if ($voter_cost < 0) {
+    // It costs points to vote
+    if (userpoints_karma_points() < abs($voter_cost)) {
+      if (variable_get(USERPOINTS_KARMA_POINTS_VOTER_HIDE, 0)) {
+        return TRUE;
+      }
+    }
+  }
+  return FALSE;
+}
+
+function userpoints_karma_get_content_uid($type, $cid) {
+  // Get the content item's uid.
+  // We don't do full node_load() here for performance reasons
+  if ($type == 'node') {
+    return db_result(db_query('SELECT uid FROM {node} WHERE nid = %d', $cid));
+  }
+  else if ($type == 'comment') {
+    return db_result(db_query('SELECT uid FROM {comments} WHERE cid = %d', $cid));
+  }
+  else {
+    return 0;
+  }
+}
+
+/**
+ * Check if the voter has voted before on this specific content item
+ */
+function userpoints_karma_user_voted($uid, $type, $cid) {
+  // Check if the user has voted on this node using karma
+  $upk_tag = variable_get(USERPOINTS_KARMA_TAG, USERPOINTS_KARMA_TAG_DEFAULT);
+  $num = (int)db_result(db_query("SELECT COUNT(*) FROM {votingapi_vote}
+    WHERE uid = %d
+    AND   content_type = '%s'
+    AND   content_id   = %d
+    AND   tag          = '%s'",
+    $uid, $type, $cid, $upk_tag));
+
+  if ($num > 0) {
+    return TRUE;
+  }
+  else {
+    return FALSE;
+  }
+}
+
+/** 
+ * Implementation of hook_votingapi_insert()
+ */
+function userpoints_karma_votingapi_insert($votes) {
+  userpoints_karma_do_karma('insert', $votes);
+}
+
+/** 
+ * Implementation of hook_votingapi_delete()
+ */
+function userpoints_karma_votingapi_delete($votes) {
+  userpoints_karma_do_karma('delete', $votes);
+}
+
+/**
+ * This is where we make the user gain/lose points
+ */
+function userpoints_karma_do_karma($op, $votes) {
+  global $user;
+
+  $upk_tag = variable_get(USERPOINTS_KARMA_TAG, USERPOINTS_KARMA_TAG_DEFAULT);
+
+  foreach($votes as $vote) {
+    if ($vote['tag'] != $upk_tag) {
+      // This vote belongs to another module, so we ignore
+      return;
+    }
+
+    // Do the point gain/loss
+    if ($vote['value'] > 0) {
+      $type = 'up';
+    }
+    if ($vote['value'] < 0) {
+      $type = 'down';
+    }
+
+    // Check if we should deduct the cost points from the voter
+    $voter_cost = variable_get(USERPOINTS_KARMA_POINTS_VOTER, 0);
+
+    // Check if the user is changing their vote
+    if ($op == 'delete') {
+      // Reverse the sign of the cost, so it is like a refund
+      $voter_cost = $voter_cost * -1;
+    }
+
+    // Deduct or add the cost from the voter
+    if (0 != $voter_cost) {
+      $params = array(
+        'uid'         => $user->uid,
+        'points'      => $voter_cost,
+        'tid'         => variable_get(USERPOINTS_KARMA_POINTS_VOTER_TID, 0),
+        'entity_id'   => $vote['content_id'],
+        'entity_type' => $vote['content_type'],
+        'operation'   => "karma:$op:$type:voter:" . $vote['vote_id'],
+        'display'     => FALSE,
+      );
+      userpoints_userpointsapi($params);
+    }
+
+    // Award the points to the content owner
+    $params = array(
+      'uid'         => userpoints_karma_get_content_uid($vote['content_type'], $vote['content_id']),
+      'points'      => variable_get(USERPOINTS_KARMA_POINTS . $type, 0),
+      'entity_id'   => $vote['content_id'],
+      'entity_type' => $vote['content_type'],
+      'operation'   => "karma:$op:$type:author:" . $vote['vote_id'],
+      'display'     => FALSE,
+    );
+    userpoints_userpointsapi($params);
+  }
+}
+
+function userpoints_karma_user($op, &$edit, &$account, $category = NULL) {
+  global $user;
+
+  switch ($op) {
+    case 'login':
+      if (variable_get(USERPOINTS_KARMA_POINTS_NOTIFY, 0)) {
+
+        $points_up = variable_get(USERPOINTS_KARMA_POINTS . 'up', 0);
+        $points_dn = variable_get(USERPOINTS_KARMA_POINTS . 'down', 0);
+
+        // Get the number of points the author
+        $sum_up = db_result(db_query("SELECT SUM(points) FROM {userpoints_txn}
+          WHERE operation LIKE 'karma:%%:author:%%'
+          AND uid = %d
+          AND time_stamp >= %d
+          AND points > 0",
+          $user->uid, $user->access, $points_up));
+
+        $sum_dn = db_result(db_query("SELECT SUM(points) FROM {userpoints_txn}
+          WHERE operation LIKE 'karma:%%:author:%%'
+          AND uid = %d
+          AND time_stamp >= %d
+          AND points < 0",
+          $user->uid, $user->access, $points_dn));
+
+        theme('userpoints_karma_message', $sum_up, $sum_dn);
+      }
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_theme()
+ */
+function userpoints_karma_theme() {
+  return array(
+    'userpoints_karma_message' => array(
+      'arguments' => array(
+        'sum_up' => NULL,
+        'sum_dn' => NULL,
+      ),
+    ),
+  );
+}
+
+function theme_userpoints_karma_message($sum_up, $sum_dn) {
+  if ($sum_up) {
+    drupal_set_message(t('Some of your contributions to this site were voted up by other users, and you have earned !points points.', array('!points' => $sum_up)));
+  }
+
+  if ($sum_dn) {
+    drupal_set_message(t('Some of your contributions to this site were voted down by other users, and you have lost !points points.', array('!points' => $sum_dn)));
+  }
+}
+
+/**
+ * Helper function for displaying the number of points
+ */
+function userpoints_karma_points() {
+  global $user;
+  return userpoints_get_current_points($user->uid, variable_get(USERPOINTS_KARMA_POINTS_VOTER_TID, 0));
+}

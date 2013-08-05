@@ -1,0 +1,67 @@
+/**
+ * Menu icon ==========================================================
+ */
+#features-menu li a.icon-reader span.icon { background:url(images/icon.png) no-repeat; }
+
+/* 'body' is here simply to make this more specific than the theme rule which comes after it. */
+body span.feature-atrium_reader { background:url(images/icon.png) 0px -40px no-repeat; }
+
+/**
+ * News tab ===========================================================
+ */
+div.view-atrium-reader-blocks .item-list .related-title,
+div.view-atrium-reader-blocks .item-list .author,
+div.view-atrium-reader .item-list .author,
+div.view-atrium-reader .item-list .related-title {
+  font-size:11px;
+  font-weight:bold;
+  }
+
+div.view-atrium-reader .item-list li {
+  padding-top:10px;
+  padding-bottom:9px;
+  }
+
+div.view-atrium-reader .item-list .description { font-size:13px; }
+
+body.page-reader .view-display-id-page_3 .description, /* Twitter page */
+div.view-atrium-reader .item-list .title {
+  font-size:16px;
+  line-height:20px;
+  }
+
+/**
+ * Images tab =========================================================
+ */
+div.view-atrium-reader table.views-view-grid td { border:1px solid #fff; }
+
+div.view-atrium-reader table.views-view-grid div.title {
+  font-size:11px;
+  font-weight:normal;
+  }
+
+div.view-atrium-reader table.views-view-grid .description {
+  height:100px;
+  overflow:hidden;
+  }
+
+div.view-atrium-reader table.views-view-grid img {
+  display:block;
+  margin:0px auto;
+  width:100px;
+  height:auto;
+  }
+
+  div.view-atrium-reader-blocks table.views.view-grid td { padding:0px 5px; }
+
+div.view-atrium-reader-blocks div.grid-item .description {
+  height:40px;
+  overflow:hidden;
+  }
+
+  div.view-atrium-reader-blocks img {
+    display:block;
+    margin:0px auto;
+    width:50px;
+    height:auto;
+    }

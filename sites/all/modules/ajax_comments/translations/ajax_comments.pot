@@ -1,0 +1,91 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2009-05-21 11:29+0000\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Last-Translator: NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: ajax_comments.module:38;49;164
+msgid "Please wait..."
+msgstr ""
+
+#: ajax_comments.module:122;135;149
+msgid "Preview"
+msgstr ""
+
+#: ajax_comments.module:141;149;152 ajax_comments.js:0
+msgid "Save"
+msgstr ""
+
+#: ajax_comments.module:259
+msgid "Settings"
+msgstr ""
+
+#: ajax_comments.module:263
+msgid "Form always expanded"
+msgstr ""
+
+#: ajax_comments.module:264
+msgid "This setting allows to render comments as collapsed link by default."
+msgstr ""
+
+#: ajax_comments.module:269
+msgid "Blink new comment"
+msgstr ""
+
+#: ajax_comments.module:270
+msgid "This effect helps to find new comment after replying to long threads."
+msgstr ""
+
+#: ajax_comments.module:275
+msgid "Default row count"
+msgstr ""
+
+#: ajax_comments.module:276
+msgid "Allows to control comment forms' textarea size. Leave blank to use system defined."
+msgstr ""
+
+#: ajax_comments.module:281
+msgid "Row count in replies"
+msgstr ""
+
+#: ajax_comments.module:282
+msgid "Usually, there is no need in big forms for replies, so this setting allows to reduce their size."
+msgstr ""
+
+#: ajax_comments.module:288
+msgid "Content types"
+msgstr ""
+
+#: ajax_comments.module:294
+msgid "Select node types you want to activate ajax comments on. If you select nothing, AJAX Comments will be enabled everywhere."
+msgstr ""
+
+#: ajax_comments.module:338;356
+msgid "delete"
+msgstr ""
+
+#: ajax_comments.module:364
+msgid "preview"
+msgstr ""
+
+#: ajax_comments.module:83 ajax_comments.info:0
+msgid "AJAXifies comments on site."
+msgstr ""
+
+#: ajax_comments.module:0
+msgid "ajax_comments"
+msgstr ""
+
+#: ajax_comments.info:0
+msgid "AJAX Comments"
+msgstr ""
+
+#: ajax_comments.js:0
+msgid "Are you sure you want to delete the comment? Any replies to this comment will be lost. This action cannot be undone."
+msgstr ""

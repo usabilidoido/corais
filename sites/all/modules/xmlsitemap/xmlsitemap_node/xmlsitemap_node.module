@@ -1,0 +1,473 @@
+<?php
+// $Id: xmlsitemap_node.module,v 1.19.2.131 2009/09/06 16:54:15 davereid Exp $
+
+/**
+ * @file
+ * Adds nodes to the sitemap.
+ */
+
+/**
+ * @addtogroup xmlsitemap
+ * @{
+ */
+
+/*****************************************************************************
+ * Drupal hooks.
+ ****************************************************************************/
+
+/**
+ * Implementation of hook_comment().
+ */
+function xmlsitemap_node_comment($a1, $op) {
+  switch ($op) {
+    case 'insert':
+    case 'update':
+    case 'delete':
+    case 'publish':
+    case 'unpublish':
+      $maxcomments = (integer) db_result(db_query('SELECT MAX(comment_count) FROM {node_comment_statistics}'));
+      if ($nid = is_array($a1) ? $a1['nid'] : $a1->nid) {
+        if (!($node = node_load($nid))) {
+          return;
+        }
+        $comments = (integer) db_result(db_query('SELECT comment_count
+          FROM {node_comment_statistics}
+          WHERE nid = %d', $nid)
+        );
+        $query = "SELECT nid, changed, previously_changed, comment_ratio, priority_override
+          FROM {xmlsitemap_node}
+          WHERE nid = %d";
+        if (($link = db_fetch_object(db_query($query, $nid))) !== FALSE) {
+          $row = $link;
+          if ($node->changed > $row->changed) {
+            $row->previously_changed = $row->changed;
+            $row->changed = $node->changed;
+          }
+        }
+        else {
+          $row = new stdClass();
+          $row->nid = $nid;
+          $row->changed = $node->changed;
+          $row->previously_changed = $node->created;
+        }
+        if ($maxcomments > 1) {
+          $row->comment_ratio = $comments / $maxcomments;
+        }
+        drupal_write_record('xmlsitemap_node', $row, ($link !== FALSE) ? 'nid' : NULL);
+      }
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_cron().
+ */
+function xmlsitemap_node_cron() {
+  if (($limit = variable_get('xmlsitemap_cron_limit', 100)) != -1) {
+    $sql = "SELECT n.* FROM {node} n
+      LEFT JOIN {xmlsitemap_node} xn ON xn.nid = n.nid
+      WHERE xn.nid IS NULL
+        AND n.status = 1";
+    $result = db_query_range($sql, 0, $limit);
+    $sitemap_changed = FALSE;
+    while ($node = db_fetch_object($result)) {
+      if (module_exists('comment')) {
+        $maxcomments = (integer) db_result(db_query('SELECT MAX(comment_count) FROM {node_comment_statistics}'));
+        $comments = (integer) db_result(db_query('SELECT comment_count
+          FROM {node_comment_statistics}
+          WHERE nid = %d', $node->nid)
+        );
+      }
+      else {
+        $maxcomments = 0;
+      }
+      $row = new stdClass();
+      $row->nid = $node->nid;
+      $row->changed = $node->changed;
+      $row->previously_changed = $node->created;
+      if ($maxcomments > 1) {
+        $row->comment_ratio = $comments / $maxcomments;
+      }
+      drupal_write_record('xmlsitemap_node', $row);
+      $sitemap_changed = TRUE;
+    }
+    if ($sitemap_changed) {
+      xmlsitemap_flag_sitemap();
+    }
+  }
+}
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function xmlsitemap_node_form_alter(&$form, &$form_state, $form_id) {
+  if (isset($form['type']) && $form_id == $form['type']['#value'] .'_node_form') {
+    $node = $form['#node'];
+    if (!isset($form['xmlsitemap'])) {
+      $form['xmlsitemap'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('XML sitemap'),
+        '#collapsible' => TRUE,
+        '#access' => user_access('override node settings') || user_access('administer nodes'),
+        '#weight' => 30,
+      );
+    }
+    $options = xmlsitemap_priority_options('both');
+    $default = variable_get('xmlsitemap_node_type_priority_'. $node->type, '0.5');
+    $form['xmlsitemap']['priority_override'] = array(
+      '#type' => 'select',
+      '#title' => t('Priority'),
+      '#description' => t('The default priority is %priority.', array('%priority' => $options[$default])),
+      '#default_value' => isset($node->priority_override) ? $node->priority_override : -2.0,
+      '#options' => $options,
+      '#access' => user_access('override node settings') || user_access('administer nodes'),
+    );
+  }
+}
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ */
+function xmlsitemap_node_form_node_type_form_alter(&$form, &$from_state) {
+  if (isset($form['identity']['type'])) {
+    if (!isset($form['xmlsitemap'])) {
+      $form['xmlsitemap'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('XML sitemap'),
+        '#collapsible' => TRUE,
+        '#weight' => 30,
+      );
+    }
+    $form['xmlsitemap']['xmlsitemap_node_type_priority'] = array(
+      '#type' => 'select',
+      '#title' => t('Priority adjustment'),
+      '#description' => t('This number will be added to the priority of this content type.'),
+      '#default_value' => variable_get('xmlsitemap_node_type_priority_'. $form['#node_type']->type, 0.5),
+      '#options' => xmlsitemap_priority_options('exclude'),
+    );
+    $form['#submit'][] = 'xmlsitemap_node_type_submit';
+  }
+}
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ */
+function xmlsitemap_node_form_xmlsitemap_settings_alter(&$form, &$from_state) {
+  $options = xmlsitemap_priority_options();
+  $form['xmlsitemap_node'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Node settings'),
+    '#description' => t('The settings for the nodes to include in the sitemap.'),
+    '#collapsible' => TRUE,
+    '#weight' => 1,
+  );
+  $form['xmlsitemap_node']['xmlsitemap_node_promote_priority'] = array(
+    '#type' => 'select',
+    '#title' => t('Promotion priority adjustment'),
+    '#description' => t("This number will be added to the priority of each post that is promoted to the front page. This setting doesn't apply for the nodes for which the priority is overriden."),
+    '#default_value' => variable_get('xmlsitemap_node_promote_priority', 0.3),
+    '#options' => $options,
+  );
+  $form['xmlsitemap_node']['xmlsitemap_node_comment_priority'] = array(
+    '#type' => 'select',
+    '#title' => t('Comment ratio priority adjustment'),
+    '#description' => t("This number will be added to the priority of the post with the highest number of comments; for the other posts, the number is calculated proportionally to the number of comments. This doesn't apply if the maximum number of comments is one, nor for the nodes for which the priority is overriden."),
+    '#default_value' => variable_get('xmlsitemap_node_comment_priority', 0.2),
+    '#options' => $options,
+  );
+}
+
+/**
+ * Implementation of hook_node_operations().
+ */
+function xmlsitemap_node_node_operations() {
+  $operations = array(
+    'xmlsitemap_add_nodes' => array(
+      'label' => t('Add the selected posts to the XML sitemap'),
+      'callback' => '_xmlsitemap_node_priority_operations',
+      'callback arguments' => array('priority' => 0.5),
+    ),
+    'xmlsitemap_change_nodes_priority' => array(
+      'label' => t('Change the XML sitemap priority of the selected posts to default'),
+      'callback' => '_xmlsitemap_node_priority_operations',
+      'callback arguments' => array('priority' => -2.0),
+    ),
+    'xmlsitemap_remove_nodes' => array(
+      'label' => t('Remove the selected posts from the XML sitemap'),
+      'callback' => '_xmlsitemap_node_priority_operations',
+      'callback arguments' => array('priority' => -1.0),
+    ),
+  );
+  return $operations;
+}
+
+/**
+ * Implementation of hook_node_type().
+ */
+function xmlsitemap_node_node_type($op, $info) {
+  if ($op == 'delete') {
+    variable_del('xmlsitemap_node_type_priority_'. $info->type);
+  }
+  elseif ($op == 'update' && !empty($info->old_type) && $info->type != $info->old_type) {
+    variable_set('xmlsitemap_node_type_priority_'. $info->type, variable_get('xmlsitemap_node_type_priority_'. $info->old_type, 0.5));
+    variable_del('xmlsitemap_node_type_priority_'. $info->old_type);
+  }
+}
+
+/**
+ * Implementation of hook_nodeapi().
+ */
+function xmlsitemap_node_nodeapi(&$node, $op, $teaser = NULL, $page = NULL) {
+  switch ($op) {
+    case 'prepare':
+      if (isset($node->nid)) {
+        $priority_override = db_result(db_query("SELECT priority_override
+          FROM {xmlsitemap_node} WHERE nid = %d",
+          $node->nid)
+        );
+        $node->priority_override = $priority_override !== FALSE ? $priority_override : -2.0;
+      }
+      break;
+    case 'insert':
+      $row = new stdClass();
+      $row->nid = $node->nid;
+      $row->changed = $node->changed;
+      $row->previously_changed = $node->created;
+      $row->priority_override = isset($node->priority_override) ? $node->priority_override : -2.0;
+      drupal_write_record('xmlsitemap_node', $row);
+      if ($node->status) {
+        xmlsitemap_flag_sitemap();
+      }
+      break;
+    case 'update':
+      if (($result = db_fetch_object(db_query("SELECT nid, changed, previously_changed, comment_ratio, priority_override FROM {xmlsitemap_node} WHERE nid = %d", $node->nid))) === FALSE) {
+        $row = new stdClass();
+        $row->nid = $node->nid;
+        $row->changed = $node->changed;
+        $row->previously_changed =  $node->created;
+        $row->priority_override = isset($node->priority_override) ? $node->priority_override : -2.0;
+      }
+      else {
+        $row = $result;
+        $row->previously_changed = $row->changed;
+        $row->changed = $node->changed;
+        if (isset($node->priority_override)) {
+          $row->priority_override =  $node->priority_override;
+        }
+      }
+      drupal_write_record('xmlsitemap_node', $row, $result === FALSE ? NULL : 'nid');
+      xmlsitemap_flag_sitemap();
+      break;
+    case 'delete':
+      db_query("DELETE FROM {xmlsitemap_node} WHERE nid = %d", $node->nid);
+      db_query("DELETE FROM {xmlsitemap} WHERE type = 'node' AND id = %d", $node->nid);
+      if ($node->status) {
+        xmlsitemap_flag_sitemap();
+      }
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_xmlsitemap_description().
+ */
+function xmlsitemap_node_xmlsitemap_description() {
+  return '<dt>'. t('XML sitemap node') .'</dt>'.
+    '<dd>'. t('<em>XML sitemap node</em> adds nodes (content) to the sitemap. The default priority of a node is determined by a combination of its <a href="@content">content type</a> priority, whether it appears on the front page of your site, and the number of comments it has received. You can override the default priority for individual nodes when you add or edit a node.', array('@content' => url('admin/content/types'))) .'</dd>';
+}
+
+/**
+ * Implementation of hook_xmlsitemap_link_status().
+ */
+function xmlsitemap_node_xmlsitemap_link_status($type, $id, $sid) {
+  if (!($node = node_load($id, NULL, TRUE))) {
+    return XMLSITEMAP_LINK_DISABLED;
+  }
+  if ($node->status) {
+    return 0;
+  }
+  return XMLSITEMAP_LINK_DISABLED;
+}
+
+/**
+ * Implementation of hook_xmlsitemap_links().
+ */
+function xmlsitemap_node_xmlsitemap_links() {
+  $anon_account = drupal_anonymous_user();
+  $query = "SELECT n.nid, n.vid, n.type, n.language, n.uid, n.created, n.promote, xn.changed, xn.previously_changed, xn.priority_override, xn.comment_ratio
+    FROM {node} n
+    INNER JOIN {xmlsitemap_node} xn ON n.nid = xn.nid
+    WHERE n.status > 0";
+  $result = db_query($query);
+  $row = new stdClass();
+  $row->module = 'xmlsitemap_node';
+  $row->type = 'node';
+  while ($node = db_fetch_object($result)) {
+    $row->loc = 'node/'. $node->nid;
+    $row->id = $node->nid;
+    $row->sid = $node->vid;
+    $row->language = $node->language;
+    $row->changed = $node->changed;
+    $row->changefreq = max(REQUEST_TIME - $node->changed, empty($node->previously_changed) ? $node->changed - $node->created : $node->changed - $node->previously_changed);
+    $priority = xmlsitemap_node_get_priority($node);
+    $row->priority = ($priority == -1.0) ? $priority : min(max(round($priority, 1), 0.0), 1.0);
+    $old_row = db_fetch_object(db_query("SELECT lid, type, language, priority FROM {xmlsitemap} WHERE loc = '%s'", $row->loc));
+    $node_access = node_access('view', node_load(array('nid' => $node->nid), NULL, TRUE), $anon_account);
+    $row->priority = $node_access ? $row->priority : -1;
+    if ($old_row === FALSE) {
+      drupal_write_record('xmlsitemap', $row);
+    }
+    elseif ($old_row->type == 'node' && ($old_row->priority != $row->priority || $old_row->language != $row->language)) {
+      $row->lid = $old_row->lid;
+      drupal_write_record('xmlsitemap', $row, 'lid');
+    }
+  }
+}
+
+/*****************************************************************************
+ * Menu callbacks / form builders, submit/validate functions.
+ ****************************************************************************/
+
+/**
+ * Add submit actions to forms.
+ */
+function xmlsitemap_node_type_submit($form, &$form_state) {
+  xmlsitemap_flag_sitemap();
+}
+
+/*****************************************************************************
+ * Public functions.
+ ****************************************************************************/
+
+/**
+ * Get the node priority in the sitemap.
+ * @param $node
+ *   The node object.
+ * @param $load
+ *   TRUE if priority_override must be loaded from the module table.
+ * @return
+ *   The priority for the node.
+ * @see xmlsitemap_node_set_priority()
+ */
+function xmlsitemap_node_get_priority($node, $load = FALSE) {
+  if (!isset($node->priority_override) && $load) {
+    $priority_override = db_result(db_query("SELECT xn.priority_override FROM {xmlsitemap_node} xn ON WHERE xn.nid = %d", $node->nid));
+    if ($priority_override !== FALSE) {
+      $node->priority_override = $priority_override;
+    }
+  }
+  if (isset($node->priority_override) && $node->priority_override != -2.0) {
+    $priority = $node->priority_override;
+  }
+  elseif (($priority = variable_get('xmlsitemap_node_type_priority_'. $node->type, 0.5)) != -1.0) {
+    if ($node->promote) {
+      $priority += variable_get('xmlsitemap_node_promote_priority', 0.3);
+    }
+    $priority += $node->comment_ratio * variable_get('xmlsitemap_node_comment_priority', 0.2);
+  }
+  if (!isset($priority)) {
+    $priority = -1.0;
+  }
+  return $priority;
+}
+
+/**
+ * Set the node priority in the sitemap.
+ * @param $node
+ *   The node object, or the node ID.
+ * @param $priority
+ *   The priority for the node.
+ * @return
+ *   The node object, or FALSE.
+ */
+function xmlsitemap_node_set_priority($node, $priority) {
+  if (!is_numeric($node)) {
+    $node = (object) $node;
+    $nid = $node->nid;
+  }
+  else {
+    $nid = $node;
+    $node = node_load($nid);
+  }
+  if ($node) {
+    $result = db_fetch_object(db_query("SELECT nid, changed, previously_changed, comment_ratio, priority_override
+      FROM {xmlsitemap_node}
+      WHERE nid = %d", $nid)
+    );
+    if ($result === FALSE) {
+      $row = new stdClass();
+      $row->nid = $nid;
+      $row->changed = $node->changed;
+      $row->previously_changed = $node->created;
+    }
+    else {
+      $row = $result;
+      if ($node->changed > $row->changed) {
+        $row->previously_changed = $row->changed;
+        $row->changed = $node->changed;
+      }
+    }
+    $row->priority_override = $priority;
+    drupal_write_record('xmlsitemap_node', $row, $result === FALSE ? NULL : 'nid');
+    return $node;
+  }
+  return FALSE;
+}
+
+/*****************************************************************************
+ * Private functions - node operation callbacks.
+ ****************************************************************************/
+
+/**
+ * Node operations callback.
+ */
+function _xmlsitemap_node_priority_operations($nodes, $priority) {
+  if (count($nodes)) {
+    $batch = array(
+      'operations' => array(
+        array('_xmlsitemap_node_batch_process', array($nodes, $priority))
+      ),
+      'finished' => 'xmlsitemap_batch_operations_finished',
+      'title' => t('Processing'),
+      'progress_message' => '',
+      'error_message' => t('The update has encountered an error.'),
+    );
+    batch_set($batch);
+  }
+}
+
+/*****************************************************************************
+ * Private functions - batch operation callbacks.
+ ****************************************************************************/
+
+/**
+ * Node operations batch process callback.
+ */
+function _xmlsitemap_node_batch_process($nodes, $priority, &$context) {
+  if (!isset($context['sandbox']['progress'])) {
+    $context['sandbox']['progress'] = 0;
+    $context['sandbox']['max'] = count($nodes);
+    $context['sandbox']['nodes'] = $nodes;
+    if (module_exists('comment')) {
+      $context['sandbox']['maxcomments'] = (integer) db_result(db_query('SELECT MAX(comment_count) FROM {node_comment_statistics}'));
+    }
+  }
+  $nid = array_shift($context['sandbox']['nodes']);
+  if ($node = xmlsitemap_node_set_priority($nid, $priority)) {
+    $context['results'][] = l($node->title, 'node/'. $nid);
+    if (count($context['results']) > 6) {
+      array_shift($context['results']);
+    }
+  }
+  $context['sandbox']['progress']++;
+  if ($context['sandbox']['progress'] != $context['sandbox']['max']) {
+    $context['finished'] = $context['sandbox']['progress'] / $context['sandbox']['max'];
+  }
+  else {
+    xmlsitemap_flag_sitemap();
+  }
+}
+
+/**
+ * @} End of "addtogroup xmlsitemap".
+ */

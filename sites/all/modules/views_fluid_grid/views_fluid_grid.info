@@ -1,0 +1,13 @@
+; $Id: views_fluid_grid.info,v 1.1.2.1 2009/09/27 13:03:45 markuspetrux Exp $
+name = Views Fluid Grid
+description = Exposes a views style plugin to render items on a fluid grid.
+dependencies[] = views
+package = Views
+core = 6.x
+
+; Information added by drupal.org packaging script on 2009-12-03
+version = "6.x-1.1"
+core = "6.x"
+project = "views_fluid_grid"
+datestamp = "1259804464"
+

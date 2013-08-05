@@ -1,0 +1,48 @@
+<?php
+// $Id: comment_driven_inspect.module,v 1.1 2010/03/27 23:02:25 arhak Exp $
+
+// this constant will be available only if the module is enabled
+// therefore, to test for it an approach might be
+// if (module_exists('comment_driven_inspect') && user_access(COMMENT_DRIVEN_INSPECT__PERM))
+// which avoids attempting an unexistent constant
+define('COMMENT_DRIVEN_INSPECT__PERM', 'inspect property changes');
+
+/**
+ * Implementats hook_init().
+ */
+function comment_driven_inspect_init() {
+  $module_path = drupal_get_path('module', 'comment_driven_inspect');
+  // make the styles available even when there is no diff summary
+  // that way themers can rely on it
+  drupal_add_css($module_path . '/comment_driven_inspect.css');
+}
+
+/**
+ * Implements hook_perm(). 
+ */
+function comment_driven_inspect_perm() {
+  return array(COMMENT_DRIVEN_INSPECT__PERM);
+}
+
+/**
+ * Implements hook_menu().
+ */
+function comment_driven_inspect_menu() {
+  // @d6
+  $build_root = 'admin/build/';
+  
+  // this menu is not about configuration, it is closer to site building
+  // and it won't share a common parent menu with other modules
+  // since comment_driven_import is supposed to be a temporal module
+  // while this might remain enabled being a useful inspector tool
+  $menu[$build_root . 'comment-driven-inspect'] = array(
+    'title' => 'Comment driven inspect',
+    'access arguments' => array(COMMENT_DRIVEN_INSPECT__PERM),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('comment_driven_inspect_form'),
+    'file' => 'comment_driven_inspect.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+  
+  return $menu;
+}

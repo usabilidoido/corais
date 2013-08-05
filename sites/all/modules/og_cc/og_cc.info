@@ -1,0 +1,3 @@
+name = OG CC
+description = Creates a block containing the group Creative Commons Licence
+core = 6.x

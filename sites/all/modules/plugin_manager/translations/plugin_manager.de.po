@@ -1,0 +1,460 @@
+# $Id: plugin_manager.de.po,v 1.1.2.1 2009/06/16 21:21:58 hass Exp $
+#
+# LANGUAGE translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  ftp.backend.inc,v 1.3.2.21 2008/12/21 03:22:13 joshuarogers
+#  plugin_manager.admin.inc,v 1.52.2.80 2009/01/15 15:45:11 joshuarogers
+#  plugin_manager.module,v 1.51.2.55 2008/12/28 21:45:18 joshuarogers
+#  plugin_manager_search.js,v 1.1.2.15 2008/12/26 21:00:59 jabapyth
+#  ssh.backend.inc,v 1.3.2.6 2008/12/15 20:09:29 joshuarogers
+#  plugin_manager.info,v 1.2.2.5 2008/09/23 02:25:53 jabapyth
+#  plugin_manager.install,v 1.13.2.10 2008/12/15 20:09:29 joshuarogers
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: German translation of plugin_manager\n"
+"POT-Creation-Date: 2009-06-16 23:03+0200\n"
+"PO-Revision-Date: 2009-06-16 23:19+0100\n"
+"Last-Translator: Alexander Haß\n"
+"Language-Team: Alexander Haß\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+"X-Poedit-Language: German\n"
+"X-Poedit-Country: GERMANY\n"
+"X-Poedit-SourceCharset: utf-8\n"
+
+#: ftp.backend.inc:19
+msgid "FTP Path"
+msgstr "FTP-Pfad"
+
+#: ftp.backend.inc:20
+msgid "This is the apparent path to your Drupal installation for FTP.  Leave this blank if you wish for the system to attempt to guess the correct location.<br />(ex: If the Drupal installation is at /home/user1/www and your ftp home is /home/user1 then /www would be placed here.)"
+msgstr ""
+
+#: ftp.backend.inc:84;182
+msgid "Cannot install plugin of type @type"
+msgstr ""
+
+#: ftp.backend.inc:96;281
+msgid "No ftp server could be found."
+msgstr ""
+
+#: ftp.backend.inc:102;287
+msgid "Could not login to the ftp server."
+msgstr ""
+
+#: ftp.backend.inc:121;306
+msgid "A drupal install was automatically located on ftp at @ftp_path."
+msgstr ""
+
+#: ftp.backend.inc:129;314
+msgid "Your provided drupal install directory is invalid."
+msgstr ""
+
+#: ftp.backend.inc:129;314
+msgid "Change it here."
+msgstr ""
+
+#: ftp.backend.inc:136
+msgid "Could not guess the ftp directory for drupal.  Set it here."
+msgstr ""
+
+#: ftp.backend.inc:148
+msgid "Unable to create directory @file"
+msgstr "Verzeichnis @file konnte nicht erstellt werden"
+
+#: ftp.backend.inc:154
+msgid "Unable to upload @file"
+msgstr "@file konnte nicht hochgeladen werden"
+
+#: ftp.backend.inc:191
+msgid "The supplied username/password combination was not accepted, or no local ftp server is running."
+msgstr ""
+
+#: ftp.backend.inc:220;321;423
+msgid "Could not guess the ftp directory for drupal."
+msgstr ""
+
+#: ftp.backend.inc:394
+msgid "The supplied username/password combination was not accepted, or no ftp server is running."
+msgstr ""
+
+#: plugin_manager.admin.inc:10
+msgid "Search for the modules you want to install, add them to your queue, and then install them."
+msgstr ""
+
+#: plugin_manager.admin.inc:15
+msgid "Search for the themes you want to install, add them to your queue, and then install them."
+msgstr ""
+
+#: plugin_manager.admin.inc:23
+msgid "WARNING: This manual install page is to be used with great caution. *Always* inspect an archive before you upload it to your site if you are unsure of the source. It is suggested that you not use this page during normal operations, but use instead the regular install page"
+msgstr ""
+
+#: plugin_manager.admin.inc:27
+msgid "Plugin Tarball"
+msgstr ""
+
+#: plugin_manager.admin.inc:30;178
+msgid "Installation method"
+msgstr "Installationsmethode"
+
+#: plugin_manager.admin.inc:35;183;451
+msgid "Hostname"
+msgstr "Hostadresse"
+
+#: plugin_manager.admin.inc:41;188;457
+msgid "Username"
+msgstr "Benutzername"
+
+#: plugin_manager.admin.inc:46;197;462
+msgid "Password"
+msgstr "Passwort"
+
+#: plugin_manager.admin.inc:51
+msgid "Type"
+msgstr "Typ"
+
+#: plugin_manager.admin.inc:54
+msgid "This lets the system know where to install the plugin."
+msgstr ""
+
+#: plugin_manager.admin.inc:58;202
+#: plugin_manager.module:27
+msgid "Install"
+msgstr "Installieren"
+
+#: plugin_manager.admin.inc:78
+msgid "File could not be uploaded."
+msgstr "Die Datei konnte nicht hochgeladen werden."
+
+#: plugin_manager.admin.inc:93;374
+msgid "Unable to install @name"
+msgstr "@name konnte nicht installiert werden"
+
+#: plugin_manager.admin.inc:108
+msgid "Successfully installed plugin.  Go Here to enable it."
+msgstr ""
+
+#: plugin_manager.admin.inc:123
+msgid "%title version"
+msgstr ""
+
+#: plugin_manager.admin.inc:132
+msgid "Continue to Step 2"
+msgstr ""
+
+#: plugin_manager.admin.inc:154
+msgid "%plugin_title md5_file hash (copy/paste from above or <a href=\"!uri\">available here</a>)"
+msgstr ""
+
+#: plugin_manager.admin.inc:165
+msgid "Continue to Step 3"
+msgstr ""
+
+#: plugin_manager.admin.inc:193
+msgid "Save Username"
+msgstr "Benutzername speichern"
+
+#: plugin_manager.admin.inc:210
+msgid "Now you're done.  Unless it is stated otherwise above, your modules and/or themes should be properly installed now.  So what should you do now?"
+msgstr ""
+
+#: plugin_manager.admin.inc:210
+msgid "If you installed new modules, you can enable them here."
+msgstr ""
+
+#: plugin_manager.admin.inc:210
+msgid "If you installed new themes, you can select them here."
+msgstr ""
+
+#: plugin_manager.admin.inc:233
+msgid "Nothing has been queued for install."
+msgstr ""
+
+#: plugin_manager.admin.inc:251;291
+msgid "Could not download @name"
+msgstr "@name konnte nicht heruntergeladen werden"
+
+#: plugin_manager.admin.inc:255
+msgid "Downloaded @name"
+msgstr "@name wurde heruntergeladen"
+
+#: plugin_manager.admin.inc:314
+msgid "The md5sum is incorrect for @plugin"
+msgstr "Die md5sum für @plugin ist falsch"
+
+#: plugin_manager.admin.inc:379
+msgid "Successfully installed @name."
+msgstr "@name wurde erfolgreich installiert."
+
+#: plugin_manager.admin.inc:379
+msgid "View README.txt"
+msgstr ""
+
+#: plugin_manager.admin.inc:446
+msgid "Removal method"
+msgstr ""
+
+#: plugin_manager.admin.inc:467
+#: plugin_manager.module:45
+msgid "Uninstall"
+msgstr "Deinstallieren"
+
+#: plugin_manager.admin.inc:492
+msgid "Illegal Uninstall. Please report this bug."
+msgstr ""
+
+#: plugin_manager.admin.inc:500
+msgid "Successfully uninstalled @plugin."
+msgstr "@plugin wurde erfolgreich deinstalliert."
+
+#: plugin_manager.admin.inc:503
+msgid "Unable to uninstall @plugin."
+msgstr "@plugin konnte nicht deinstalliert werden."
+
+#: plugin_manager.admin.inc:530
+msgid "There are no available updates for your drupal installation."
+msgstr "Derzeit stehen für diese Drupal-Installation keine Aktualisierungen zu Verfügung."
+
+#: plugin_manager.admin.inc:562
+msgid "It looks like you have some outdated modules.  Go Here to update your site automatically."
+msgstr ""
+
+#: plugin_manager.admin.inc:576
+msgid "The repository is out of date.  Update it by clicking here."
+msgstr ""
+
+#: plugin_manager.admin.inc:606;612
+#: plugin_manager.module:81
+msgid "Search"
+msgstr "Suchen"
+
+#: plugin_manager.admin.inc:619
+msgid "Tags"
+msgstr "Tags"
+
+#: plugin_manager.admin.inc:622
+msgid "Browse By"
+msgstr ""
+
+#: plugin_manager.admin.inc:626
+msgid "Alphabetical"
+msgstr "Alphabetisch"
+
+#: plugin_manager.admin.inc:634
+#: plugin_manager_search.js:0
+msgid "Install Queue"
+msgstr ""
+
+#: plugin_manager.admin.inc:643
+msgid "Install Queued Plugins"
+msgstr ""
+
+#: plugin_manager.admin.inc:654
+msgid "Search Results"
+msgstr "Suchergebnisse"
+
+#: plugin_manager.admin.inc:689
+msgid "There are no available backends for use."
+msgstr ""
+
+#: plugin_manager.admin.inc:696
+msgid "Stored Username"
+msgstr "Gespeicherter Benutzername"
+
+#: plugin_manager.admin.inc:701
+msgid "Stored Hostname"
+msgstr "Gespeicherte Hostadresse"
+
+#: plugin_manager.admin.inc:703
+msgid "(Usually localhost) For non-standard port, put host:port (eg. localhost:27)."
+msgstr ""
+
+#: plugin_manager.admin.inc:708
+msgid "Choose Latest Version"
+msgstr "Neueste Version auswählen"
+
+#: plugin_manager.admin.inc:709
+msgid "If this is selected, the plugin manager will skip version selection and automatically select the most recent version."
+msgstr ""
+
+#: plugin_manager.admin.inc:717
+msgid "@backend Settings"
+msgstr "@backend Einstellungen"
+
+#: plugin_manager.admin.inc:727
+msgid "This backend provides no configuration options."
+msgstr ""
+
+#: plugin_manager.admin.inc:734
+msgid "Save Settings"
+msgstr "Einstellungen speichern"
+
+#: plugin_manager.admin.inc:746
+msgid "The settings have been saved."
+msgstr "Die Einstellungen wurden gespeichert."
+
+#: ssh.backend.inc:54;111
+msgid "Could not connect to ssh on this host."
+msgstr ""
+
+#: plugin_manager.module:134
+msgid "This allows users to install new modules and themes much more easily. To use this module, use the search box below to look for modules and themes.  Alternatively, you can just select a category to view.  Add any found modules and themes to the queue.  Finally, click on the Install tab to continue with fetching and installing the modules."
+msgstr ""
+
+#: plugin_manager.module:136
+msgid "Note: the more items you select, the longer the installation will take, potentially causing it to time out."
+msgstr ""
+
+#: plugin_manager.module:138
+msgid "This will only show plugins that are currently disabled and are not part of Drupal core."
+msgstr ""
+
+#: plugin_manager.module:138
+msgid "(Disable modules here)"
+msgstr ""
+
+#: plugin_manager.module:140
+msgid "This is for manual installation of plugins"
+msgstr ""
+
+#: plugin_manager.module:204
+msgid "@remote could not be saved."
+msgstr "@remote konnte nicht gespeichert werden."
+
+#: plugin_manager.module:245
+msgid "Neither the tar executable nor the Archive/Tar package could be located."
+msgstr ""
+
+#: plugin_manager.module:325
+msgid "The repository was updated successfully."
+msgstr ""
+
+#: plugin_manager.module:354
+msgid "Downloading the release history failed for @project."
+msgstr ""
+
+#: plugin_manager.module:400
+msgid "The plugin manager cannot run because neither the tar executable nor the Archive/Tar package could be located."
+msgstr ""
+
+#: plugin_manager.module:407
+msgid "No backends are usable."
+msgstr ""
+
+#: plugin_manager.module:452;520;538;556
+msgid "Project Page"
+msgstr "Projektseite"
+
+#: plugin_manager.module:148
+msgid "access plugin manager"
+msgstr "Zugriff auf den Plugin-Manager"
+
+#: plugin_manager.module:148
+msgid "manually install plugins"
+msgstr "Plugins manuell installieren"
+
+#: plugin_manager.module:148
+msgid "install plugins"
+msgstr "Plugins installieren"
+
+#: plugin_manager.module:148
+#, fuzzy
+msgid "plugin manager settings"
+msgstr "Einstellungen des Plugin-Managers"
+
+#: plugin_manager.module:148
+msgid "uninstall plugins"
+msgstr "Plugins deinstallieren"
+
+#: plugin_manager.module:17
+#: plugin_manager.info:0
+msgid "Plugin Manager"
+msgstr "Plugin-Manager"
+
+#: plugin_manager.module:18
+msgid "Automatically install new content."
+msgstr ""
+
+#: plugin_manager.module:28
+msgid "Install the themes and modules that have been selected."
+msgstr ""
+
+#: plugin_manager.module:36
+msgid "Settings"
+msgstr "Einstellungen"
+
+#: plugin_manager.module:37
+msgid "Control the way that the Plugin Manager operates."
+msgstr ""
+
+#: plugin_manager.module:46
+msgid "Uninstall themes and plugins that were installed with the Plugin Manager."
+msgstr ""
+
+#: plugin_manager.module:54
+msgid "Update"
+msgstr "Aktualisieren"
+
+#: plugin_manager.module:55
+#, fuzzy
+msgid "Update modules that are out of date."
+msgstr "Veraltete Module aktualisieren."
+
+#: plugin_manager.module:63
+msgid "Manual Install"
+msgstr "Manuelle Installation"
+
+#: plugin_manager.module:71
+msgid "Reload Repository"
+msgstr "Repository neu laden"
+
+#: plugin_manager.module:82
+msgid "Search for new themes and modules to queue for installation."
+msgstr ""
+
+#: plugin_manager.module:0
+msgid "plugin_manager"
+msgstr "plugin_manager"
+
+#: plugin_manager.install:14
+msgid "The table that contains all information gathered from the repository."
+msgstr ""
+
+#: (duplicate) plugin_manager.install:186
+msgid "SimpleXML"
+msgstr "SimpleXML"
+
+#: (duplicate) plugin_manager.install:187
+#: ;195
+msgid "Unavailable"
+msgstr "Nicht verfügbar"
+
+#: (duplicate) plugin_manager.install:194
+msgid "Archive_Tar or popen"
+msgstr "Archive_Tar oder popen"
+
+#: plugin_manager.info:0
+msgid "Enables the automated installation of modules and themes from drupal.org"
+msgstr ""
+
+#: plugin_manager.info:0
+msgid "Administration"
+msgstr "Verwaltung"
+
+#: plugin_manager_search.js:0;0;0;0
+msgid "Remove"
+msgstr "Entfernen"
+
+#: plugin_manager_search.js:0
+msgid "Clear Queue: Are you sure?"
+msgstr ""
+
+#: plugin_manager_search.js:0;0;0
+msgid "Add"
+msgstr "Hinzufügen"
+

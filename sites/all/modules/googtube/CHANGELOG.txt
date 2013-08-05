@@ -1,0 +1,8 @@
+
+Googtube.module - March, 7th 2007
+--------------------------------------
+- Patch applied to stop regex from eating html following a url and includes google.ca domain.  Thanks David Lesieur.
+
+googtube.module - December, 19th 2006
+--------------------------------------
+- initial release.

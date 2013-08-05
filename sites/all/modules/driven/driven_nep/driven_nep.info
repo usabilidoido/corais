@@ -1,0 +1,20 @@
+; $Id: driven_nep.info,v 1.1 2010/03/27 22:56:52 arhak Exp $
+
+name = Driven Node Edition Policy
+description = Selectively prevents driven properties from being available on node edition.
+
+package = Driven
+; @d6
+core = 6.x
+
+dependencies[] = driven_props
+
+; @d7
+files[] = driven_ned.module
+
+; Information added by drupal.org packaging script on 2010-05-01
+version = "6.x-1.0-alpha3"
+core = "6.x"
+project = "driven"
+datestamp = "1272741606"
+

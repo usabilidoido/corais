@@ -1,0 +1,13 @@
+name = Googtube
+description = "Youtube and Vimeo Video links are automatically converted into embedded videos."
+core = 6.x
+version = "6.x-2.x-dev"
+project = "googtube"
+
+
+; Information added by drupal.org packaging script on 2012-08-29
+version = "6.x-2.2"
+core = "6.x"
+project = "googtube"
+datestamp = "1346254133"
+

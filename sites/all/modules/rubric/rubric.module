@@ -1,0 +1,778 @@
+<?php
+// $Id: rubric.module,v 1.2 2009/09/08 15:49:41 btopro Exp $
+//ELMS: Rubric - This is a plugin for the Assignment Studio to add rubric functionality making assessment much faster.  Also has assessment creation tool sets.
+//Copyright (C) 2008  The Pennsylvania State University
+//
+//Bryan Ollendyke
+//bto108@psu.edu
+//
+//Keith D. Bailey
+//kdb163@psu.edu
+//
+//12 Borland
+//University Park,  PA 16802
+//
+//This program is free software; you can redistribute it and/or modify
+//it under the terms of the GNU General Public License as published by
+//the Free Software Foundation; either version 2 of the License,  or
+//(at your option) any later version.
+
+//This program is distributed in the hope that it will be useful,
+//but WITHOUT ANY WARRANTY; without even the implied warranty of
+//MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//GNU General Public License for more details.
+
+//You should have received a copy of the GNU General Public License along
+//with this program; if not,  write to the Free Software Foundation,  Inc.,
+//51 Franklin Street,  Fifth Floor,  Boston,  MA 02110-1301 USA.
+
+/**
+ * @file
+ * Added functionality to the assignment studio so that instructors can create rubrics to assess assignments more critically then comment fields
+ *
+ *
+ */
+
+/**
+ * Implementation of hook_perm().
+ */
+function rubric_perm() {
+  return array('modify rubric content','view student feedback inline');
+}
+
+/**
+ * Implementation of hook_init().
+ */
+function rubric_init(){
+
+}
+
+/**
+ * Implementation of hook_menu()
+ */
+function rubric_menu() {
+  $items = array();
+  $items['admin/settings/rubric'] = array(
+    'title' => 'Rubric',
+    'description' => 'The Rubric module allows for creation of online rubrics that can be optionally used in the assignment studio.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rubric_settings'),
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+  $items['rubric/ajax'] = array(
+    'access arguments' => array('access rubric'),
+    'page callback'  => '_rubric_ajax',
+	'access callback'  => TRUE,
+    'type'  => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+function rubric_settings() {
+//roles to consider student
+  $options = array();
+  $result = db_query("SELECT type,name FROM {node_type}");
+  while ($types = db_fetch_array($result) ) {
+    $options[$types['type']] = $types['name'];
+  }
+  $form["rubric_content_type"] = array(
+    '#type' => 'select',
+    '#title' => t("Rubric Content Type"),
+    '#default_value' => variable_get("rubric_content_type", 'rubric'),
+	'#options' => $options,
+	'#multiple' => FALSE,
+    '#description' => t("Set which content type should be given rubric functionality."),
+  );
+  $form['submit'] = array('#type' => 'submit', '#value' => t('Save configuration') );
+  $form['#submit'] = array('rubric_settings_submit');
+  return $form;
+}
+
+function rubric_settings_submit($form, &$form_state){
+  foreach ($form_state['values'] as $var => $value) {
+    variable_set($var,$value);
+  }
+  drupal_set_message(t('Rubric settings have been saved'));
+}
+
+function rubric_form_alter(&$form, $form_state, $form_id) {
+ if ($form_id == variable_get('rubric_content_type','rubric') .'_node_form') {
+  $form['rubric'] = array(
+    '#type' => 'fieldset',
+    '#title' => 'Rubric',
+    '#collapsible' => 1,
+    '#collapsed' => 1,
+  );
+  $form['rubric']['rubric_builder'] = array(
+	'#value' => _rubric_load_rubric(arg(1)),
+  );
+ }
+}
+//helper function to display student view of a completed rubric (also used for instructor review)
+function _rubric_student_display($rubric_nid, $grading = true, $assignment_nid = null) {
+  $total_points = 0;
+  $output='<table class="rubric_grading_display">';
+  $query1 = "
+	   SELECT {rubric_category}.category_id, title, description
+	   FROM {rubric_node_category} 
+	   JOIN {rubric_category} ON {rubric_category}.category_id = {rubric_node_category}.category_id 
+	   WHERE nid=%s 
+	   ORDER BY weight";
+	   
+  $query2 = "
+	   SELECT {rubric_criterion}.criterion_id, title, description
+	   FROM {rubric_category_criterion} 
+	   JOIN {rubric_criterion} ON {rubric_criterion}.criterion_id = {rubric_category_criterion}.criterion_id 
+	   WHERE category_id=%s 
+	   ORDER BY weight";
+  $query3 = "
+   SELECT MAX(suggested_points) AS possible_score
+   FROM {rubric_level} 
+   JOIN {rubric_criterion_level} ON {rubric_level}.level_id = {rubric_criterion_level}.level_id 
+   WHERE criterion_id=%s";
+  
+  //used to recall selected values for a graded or partially graded rubric
+   if ($assignment_nid != null) {
+     $result = db_query("SELECT rubric_values,score,overall_feedback FROM {assignment_studio_gradebook} WHERE nid=%s",$assignment_nid);
+	 while ($val = db_fetch_array($result)) {
+       $feedback_ids = unserialize($val['rubric_values']);
+	   $overall_score = $val['score'];
+	   $overall_feedback = $val['overall_feedback'];
+	 }
+	 if ($feedback_ids != '') { 
+	 $query5 = "SELECT rubric_criterion_level.level_id, points, feedback, rubric_criterion_level.criterion_id
+		FROM rubric_node_category
+		JOIN rubric_category_criterion ON rubric_node_category.category_id=rubric_category_criterion.category_id
+		JOIN rubric_criterion_level ON rubric_category_criterion.criterion_id=rubric_criterion_level.criterion_id
+		JOIN rubric_feedback ON rubric_feedback.level_id=rubric_criterion_level.level_id
+		WHERE nid=%s AND feedback_id IN(%s)";
+	 $result5 = db_query($query5,$rubric_nid,implode(',',$feedback_ids));
+	 while ($feedback = db_fetch_array($result5)) {
+	   $stored_rubric_values[$feedback['criterion_id']]['feedback'] = $feedback['feedback'];
+	   $stored_rubric_values[$feedback['criterion_id']]['points'] = $feedback['points'];
+	   $stored_rubric_values[$feedback['criterion_id']]['level_id'] = $feedback['level_id'];
+	 }
+    }
+   }
+   $total_saved_points = 0;
+	$result1 = db_query($query1,$rubric_nid);
+	while ($category = db_fetch_array($result1)) {
+	  $category_id = $category['category_id'];
+	  
+	  $output.='<tr>
+	  <td colspan="4" class="rubric_grading_category rubric_grading_category_'. $category_id .'">'. $category['title'] .' <span> - '. $category['description'] .'</span></td>
+	</tr>
+	<tr class="rubric_grading_heading">
+      <td class="rubric_grading_criterion">Criterion</td>
+	  <td class="rubric_grading_center">Earned</td>
+	  <td class="rubric_grading_center">Possible</td>
+	  <td>Feedback</td>
+    </tr>';
+	  $result2 = db_query($query2,$category['category_id']);
+	if ($grading) {
+	  while ($criterion = db_fetch_array($result2)) {
+	    $saved_feedback = '';
+		$saved_points = '';
+		$image = _rubric_fetch_image('lock');
+		$default_points = '';
+		$default_feedback = '';
+		$points_class = '';
+		$feedback_class = '';
+		$disabled_text ='disabled="disabled"';
+		
+		$criterion_id = $criterion['criterion_id'];
+		$possible_score = db_result(db_query($query3,$criterion_id));
+		$total_points+= $possible_score;
+		if ($assignment_nid != null) {
+		  $saved_feedback = $stored_rubric_values[$criterion_id]['feedback'];
+		  $saved_points = $stored_rubric_values[$criterion_id]['points'];
+		  $total_saved_points+= $saved_points;
+		  if ($stored_rubric_values[$criterion_id]['level_id'] != '') {
+			  $result = db_query("SELECT text, suggested_points, suggested_feedback FROM {rubric_level} WHERE level_id=%s",$stored_rubric_values[$criterion_id]['level_id']);
+			  while ($val = db_fetch_array($result)) {
+				$default_feedback = $val['text'] .' - '. $val['suggested_feedback'];
+				$default_points = $val['suggested_points'];
+			  }
+		  }
+		  if ($saved_points != '') {
+		    $image = _rubric_fetch_image('lock','','style="display:inherit"');
+			  if ($default_points != $saved_points) {
+				$points_class = 'rubric_grading_input_changed';
+				$image = _rubric_fetch_image('lock-open','','style="display:inherit"');
+				$disabled_text = '';
+			  }
+			  if ($default_feedback != $saved_feedback) {
+				$feedback_class = 'rubric_grading_input_changed';
+			  }
+		  }
+		}
+		$output.='
+		<tr id="rubric_grading_criterion_'. $criterion_id .'">
+		  <td class="rubric_grading_criterion">'.$criterion['title'].'</td>
+		  <td class="rubric_grading_center rubric_grading_earned"><input type="text" value="'. $saved_points .'" size="2" '. $disabled_text .' class="rubric_grading_earned_input '. $points_class .'"/>'. $image .'</td>
+		  <td class="rubric_grading_center rubric_grading_possible">'. $possible_score .'</td>
+		  <td class="rubric_grading_feedback"><textarea rows="2" class="rubric_grading_feedback_textarea '. $feedback_class .'">'. $saved_feedback .'</textarea></td>
+		</tr>';
+	  }
+	}
+	else {
+	  while ($criterion = db_fetch_array($result2)) {
+	    $saved_feedback = '';
+		$saved_points = '';
+		$criterion_id = $criterion['criterion_id'];
+		$possible_score = db_result(db_query($query3,$criterion_id));
+		$total_points+= $possible_score;
+		$saved_feedback = $stored_rubric_values[$criterion_id]['feedback'];
+		$saved_points = $stored_rubric_values[$criterion_id]['points'];
+		$total_saved_points+= $saved_points;
+		$output.='
+		<tr id="rubric_grading_criterion_'. $criterion_id .'">
+		  <td class="rubric_grading_criterion">'.$criterion['title'].'</td>
+		  <td class="rubric_grading_center rubric_grading_earned">'. $saved_points .'</td>
+		  <td class="rubric_grading_center rubric_grading_possible">'. $possible_score .'</td>
+		  <td class="rubric_grading_feedback">'. $saved_feedback .'</td>
+		</tr>';
+	  }
+	}
+  }
+  if ($grading) {
+	 //need to figure out if all rows have scores for final input enabling
+	  $total_criterion = db_result(db_query("SELECT COUNT(criterion_id)
+		FROM rubric_node_category
+		JOIN rubric_category_criterion ON rubric_node_category.category_id=rubric_category_criterion.category_id
+		WHERE nid=%s",$rubric_nid));
+		$total_class = '';
+		$total_disabled = 'disabled="disabled"';
+	  if (count($stored_rubric_values) == $total_criterion) {
+		if ($total_saved_points != $overall_score) {
+		  $total_image = _rubric_fetch_image('lock-open','','style="display:inherit"');
+		  $total_class = 'rubric_grading_input_changed';
+		  $total_disabled = '';
+		}
+		else {
+		  $total_image = _rubric_fetch_image('lock','','style="display:inherit"');
+		}
+	  }
+	  else {
+		$total_image = _rubric_fetch_image('lock');
+	  }
+	  $output.='
+		<tr class="rubric_grading_total_row">
+		  <td  class="rubric_grading_criterion rubric_grading_total">Total</td>
+		  <td class="rubric_grading_center rubric_grading_total_earned"><input type="text" value="'. $overall_score .'" size="2" '. $total_disabled .' class="rubric_grading_total_earned_input '. $total_class .'" />'. $total_image .'</td>
+		  <td class="rubric_grading_center rubric_grading_total_possible">'. $total_points .'</td>
+		  <td class="rubric_grading_feedback"><textarea rows="2" id="rubric_grading_overall_feedback">'. $overall_feedback .'</textarea></td>
+		</tr>
+	  </table>
+	  ';
+  }
+  else {
+    $output.='<tr class="rubric_grading_total_row">
+      <td  class="rubric_grading_criterion rubric_grading_total">Total</td>
+	  <td class="rubric_grading_center rubric_grading_total_earned">'. $overall_score .'</td>
+	  <td class="rubric_grading_center rubric_grading_total_possible">'. $total_points .'</td>
+	  <td class="rubric_grading_feedback">'. $overall_feedback .'</td>
+    </tr>
+  </table>
+  ';
+  }
+  return $output;
+}
+function _rubric_load_rubric($nid,$display_mode = 'edit',$assignment_nid = null) {
+  if ($nid == 'add') {
+    global $user;
+    $nid = (-1)*($user->uid);
+	$count = db_result(db_query("SELECT COUNT(nid) FROM {rubric_node_category} WHERE nid=%s",$nid));
+	if ($count == 0) {
+      $category_id = _rubric_add_category(0,$nid);
+      $criterion_id = _rubric_add_criterion(0,$category_id);
+      $level_id1 = _rubric_add_level(0,$criterion_id);
+      $level_id2 = _rubric_add_level(0,$criterion_id);
+	}
+  }
+  else if ($display_mode == 'edit') {
+    $count = db_result(db_query("SELECT COUNT(category_id) 
+   FROM {rubric_node_category} 
+   WHERE nid=%s",$nid));
+   if ($count == 0) {
+      $category_id = _rubric_add_category(0,$nid);
+      $criterion_id = _rubric_add_criterion(0,$category_id);
+      $level_id1 = _rubric_add_level(0,$criterion_id);
+      $level_id2 = _rubric_add_level(0,$criterion_id);
+	}
+  }
+  
+   $output = '';
+   //load the node / interface
+   $query1 = "
+   SELECT {rubric_category}.category_id, title, description
+   FROM {rubric_node_category} 
+   JOIN {rubric_category} ON {rubric_category}.category_id = {rubric_node_category}.category_id 
+   WHERE nid=%s 
+   ORDER BY weight";
+   
+   $query2 = "
+   SELECT {rubric_criterion}.criterion_id, title, description
+   FROM {rubric_category_criterion} 
+   JOIN {rubric_criterion} ON {rubric_criterion}.criterion_id = {rubric_category_criterion}.criterion_id 
+   WHERE category_id=%s 
+   ORDER BY weight";
+   
+   $query3 = "
+   SELECT {rubric_level}.level_id, suggested_points, text, suggested_feedback
+   FROM {rubric_level} 
+   JOIN {rubric_criterion_level} ON {rubric_level}.level_id = {rubric_criterion_level}.level_id 
+   WHERE criterion_id=%s 
+   ORDER BY suggested_points DESC";
+   
+   $query4 = "
+   SELECT COUNT(level_id) AS level_count
+   FROM {rubric_criterion_level} 
+   WHERE criterion_id=%s";
+   
+   //used to recall selected values for a graded or partially graded rubric
+   if ($assignment_nid != null) {
+     $query5 = "SELECT rubric_values FROM {assignment_studio_gradebook} WHERE nid=%s";
+     $feedback_ids = unserialize(db_result(db_query($query5,$assignment_nid)));
+	 if ($feedback_ids != '') {
+		 $result = db_query("SELECT level_id FROM {rubric_feedback} WHERE feedback_id IN (%s)",implode(',',$feedback_ids));
+		 while ($feedback = db_fetch_array($result)) {
+		   $stored_rubric_values[] = $feedback['level_id'];
+		 }
+	 }
+   }
+   
+   $result1 = db_query($query1,$nid);
+   while ($category = db_fetch_array($result1)) {
+     $category_id = $category['category_id'];
+	 $category_title = $category['title'];
+	 $category_description = $category['description'];
+	 if ($display_mode == 'edit') {
+     $output.='
+	 <div class="rubric_category" id="rubric_category_'. $category_id .'">
+       <div class="rubric_category_header">
+         <div class="rubric_category_title">'. $category_title .'</div>
+         <div class="rubric_category_description">'. $category_description .'</div>
+         '. _rubric_fetch_image('info') .'
+       </div>
+	   <div class="rubric_category_criteria">';
+	   }
+	   else {
+	     $output.='
+	 <div class="rubric_category" id="rubric_category_'. $category_id .'">
+       <div class="rubric_category_header">
+         <div class="rubric_category_title">'. $category_title /*.' ('. _rubric_count_criterion($category['category_id']) .')*/.'</div>
+         <div class="rubric_category_description">'. $category_description .'</div>
+         '. _rubric_fetch_image('info') .'
+       </div>
+	   <div class="rubric_category_criteria">';
+	   }
+	   $result2 = db_query($query2,$category['category_id']);
+       while ($criterion = db_fetch_array($result2)) {
+	     $criterion_id = $criterion['criterion_id'];
+	     $criterion_title = $criterion['title'];
+	     $criterion_description = $criterion['description'];
+         $output.='
+		 <div class="rubric_category_criterion" id="rubric_criterion_'. $criterion_id .'">
+           <div class="rubric_category_criterion_header">
+             <div class="rubric_category_criterion_title">'. $criterion_title .'</div>
+             <div class="rubric_category_criterion_description">'. $criterion_description .'</div>
+             '. _rubric_fetch_image('info') .'
+           </div>
+           <div class="rubric_category_criterion_levels">';
+		 $result3 = db_query($query3,$criterion['criterion_id']);
+		 $result4 = db_query($query4,$criterion['criterion_id']);
+		 $level_count = db_result($result4);
+		 while ($level = db_fetch_array($result3)) {
+		   $level_id = $level['level_id'];
+		   $level_points = $level['suggested_points'];
+		   $level_text = $level['text'];
+		   $level_feedback = $level['suggested_feedback'];
+		   $selected_class = '';
+		   if($assignment_nid != null && $feedback_ids != '') {
+		     if (in_array($level_id,$stored_rubric_values)) {
+		       $selected_class = 'rubric_category_criterion_level_selected ';
+		     }
+		   }
+		   $output.='
+		   <div class="'. $selected_class .'rubric_category_criterion_level rubric_'. $level_count .'-level" id="rubric_level_'. $level_id .'">
+            <div class="level_gui">
+              <div class="rubric_category_criterion_level_points">'. $level_points .'</div>
+            </div>
+            <div class="rubric_category_criterion_level_title">'. $level_text .'</div>
+            <div class="rubric_category_criterion_level_description">'. $level_feedback .'</div>
+          </div>';
+		 }
+		 $output.='</div></div>';
+       }
+	 $output.='</div></div>';
+   }
+   $output = '<div id="rubric_categories">'. $output .'</div>
+  <div id="rubric_tooltip">
+  <div id="rubric_tooltip_close">X</div>
+  <div id="rubric_tooltip_title"></div>
+  <div id="rubric_tooltip_description"></div>
+  </div>';
+  if ($display_mode == 'edit') {
+	return $output . _rubric_interface();
+  }
+  else {
+    return $output;
+  }
+}
+
+function _rubric_interface() {
+return '
+<div id="rubric_gui">
+  <div id="rubric_gui_mode_preview" class="rubric_gui_mode_option">'. _rubric_fetch_image('preview','Preview rubric') .' (P)review</div>
+  <div id="rubric_gui_mode_add" class="rubric_gui_mode_option">'. _rubric_fetch_image('add','Add rubric components') .' (A)dd</div>
+  <div id="rubric_gui_mode_edit" class="rubric_gui_mode_option">'. _rubric_fetch_image('edit','Edit rubric components') .' (E)dit</div>
+  <div id="rubric_gui_mode_delete" class="rubric_gui_mode_option">'. _rubric_fetch_image('trash','Delete rubric components') .' (D)elete</div>
+</div>
+<div id="rubric_gui_preview_pane">
+  <div id="rubric_gui_preview_points"></div>
+  <div id="rubric_gui_preview_feedback"></div>
+</div>
+<div id="rubric_gui_edit">
+  <span id="rubric_gui_points_text">Points:</span> <input id="rubric_gui_points" class="rubric_input" size="2" maxlength="3" type="textfield"> '. _rubric_fetch_image('arrow-up','Move up') .' '. _rubric_fetch_image('arrow-down','Move down') .'<br />
+  Title: <input id="rubric_gui_title" class="rubric_input" size="20" type="textfield"/><br />
+  Details: <textarea id="rubric_gui_description" class="rubric_input" cols="20" rows="4"></textarea>
+  <input type="button" value="Save" />
+</div>';
+}
+
+function _rubric_count_criterion($category_id) {
+  $sql="SELECT COUNT({rubric_criterion}.criterion_id)
+   FROM {rubric_category_criterion} 
+   JOIN {rubric_criterion} ON {rubric_criterion}.criterion_id = {rubric_category_criterion}.criterion_id 
+   WHERE category_id=%s 
+   ORDER BY weight";
+   return db_result(db_query($sql,$category_id));
+}
+//hook_nodeapi
+function rubric_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+  //hacky because I just needed to get it done; safegaurd against students editing these fields
+  if ($node->type == variable_get("assignment_studio_default_type", "assignment")) {
+    drupal_add_css(drupal_get_path('module','rubric') .'/rubric_hide.css');
+  }
+if(arg(0) != 'assignment_studio' && arg(1) != 'ajax'){
+  global $user;
+  if ($node->type == variable_get('rubric_content_type','rubric')) {
+  switch($op){
+    case 'prepare':
+	  if (user_access('modify rubric content')) {
+	    db_query("DELETE FROM {rubric_node_category} WHERE nid=%s",(-1)*($user->uid));
+	  }
+	case 'validate':
+	  drupal_add_css(drupal_get_path('module','rubric') .'/rubric.css');
+      drupal_add_js(drupal_get_path('module','rubric') .'/scripts/rubric_edit.js');
+	  if ($node->nid == '') {
+	    $js_variables = array(
+	      'mode' => 'edit',
+	      'nid' => (-1)*($user->uid),
+	      'active_id' => '',
+	      'active_title' => '',
+	      'active_description' => '',
+        );
+	  }
+	  else {
+	    $js_variables = array(
+	      'mode' => 'edit',
+	      'nid' => $node->nid,
+	      'active_id' => '',
+	      'active_title' => '',
+	      'active_description' => '',
+        );
+	  }
+      drupal_add_js(array('rubric' => $js_variables), "setting");
+	  
+	break;
+    case 'insert':
+	  global $user;
+	  db_query("UPDATE {rubric_node_category} SET nid=%s WHERE nid=%s",$node->nid,(-1)*($user->uid));
+	break;
+	case 'view':
+	  drupal_add_css(drupal_get_path('module','rubric') .'/rubric.css');
+	  drupal_add_css(drupal_get_path('module','rubric') .'/rubric_view.css');
+      drupal_add_js(drupal_get_path('module','rubric') .'/scripts/rubric_view.js');
+	  $node->content['body']['#value'].= '<div>'. _rubric_load_rubric($node->nid,'view') .'</div>';
+	break;
+	case 'delete':
+	  db_query("DELETE FROM {rubric_node_category} WHERE nid=%s",$node->nid);
+	break;
+  }
+ }
+ else {
+   //check to see if this node is in the gradebook.  If it is, AND this is the student or an admin level user then show the rubric.
+   switch($op){
+     case 'view':
+	 if ($user->uid == $node->uid || user_access('view student feedback inline')) {
+         $r_nid = db_result(db_query("SELECT r_nid FROM {assignment_studio_gradebook} WHERE nid=%s AND completed_date<>0",$node->nid));
+         if ($r_nid != '') {
+	       drupal_add_css(drupal_get_path('module','rubric') .'/rubric.css');
+	       drupal_add_css(drupal_get_path('module','rubric') .'/rubric_view.css');
+		   drupal_add_css(drupal_get_path('module','rubric') .'/rubric_grading.css');
+           drupal_add_js(drupal_get_path('module','rubric') .'/scripts/rubric_view.js');
+		   drupal_add_js('misc/collapse.js');
+           $node->content['body']['#value'].= '<fieldset class="collapsible"><legend>Instructor Feedback</legend><div>'. _rubric_student_display($r_nid,false,$node->nid) .'</div></fieldset><fieldset class="collapsible"><legend>Selected Feedback</legend><div>'. _rubric_load_rubric($r_nid,'view',$node->nid) .'</div></fieldset>';
+         }
+	   }
+	 break;
+   }
+ }
+}
+}
+
+function _rubric_fetch_image($name,$desc = '',$extra = '') {
+  switch($name) {
+    case 'info':
+	  $desc = 'Description - Click here for details';
+	break;
+	case 'error':
+	  $desc = 'Error - Click here for details';
+	break;
+	case 'warning':
+	  $desc = 'Warning - Click here for details';
+	break;
+	case 'comment':
+	  $desc = 'Feedback - Click here for detailed feedback';
+	default:
+	  if ($desc == '') {
+	    $desc = $name;
+	  }
+	break;
+  }
+
+  return '<img '. $extra .' class="rubric_image rubric_image_'. $name .'" src="'. base_path() . drupal_get_path('module','rubric') .'/images/'. $name .'.png" title="'. $desc .'" alt="'. $desc .'"/>';
+}
+
+//Routing all assignment studio calls through this function
+function _rubric_ajax() {
+  //need to figure out which arg is which
+  //arg 0 is always "rubric"
+  //arg 1 is always "ajax"
+  $action = arg(2); //action that's being performed (save currently)
+  $element = arg(3); //category, criterion or level
+  $var1 = arg(4); //nid if it extists, 0 for new
+  $var2 = arg(5); //id if it exists, 0 for new
+  $var3 = arg(6); //additional data like title or text
+  $var4 = arg(7); //additional data like description or suggested_feedback
+  $var5 = arg(8); //additional data like points
+  switch ($action) {
+    case 'add':
+	  switch($element){ 
+	    case 'category':
+		  $category_id = $var1;
+		  $nid = $var2;
+		  print _rubric_add_category($category_id,$nid);
+		break;
+		case 'criterion':
+		  $criterion_id = $var1;
+		  $category_id = $var2;
+		  print _rubric_add_criterion($criterion_id,$category_id);
+		break;
+		case 'level':
+	      $level_id = $var1;
+		  $criterion_id = $var2;
+	      print _rubric_add_level($level_id,$criterion_id);
+        break;
+	  }
+	break;
+	case 'edit':
+	  $el_id = $var1;
+      $type = $var2;
+      $value = _rubric_unscrub_feedback($var3);
+	  switch($element){ 
+	    case 'category':
+		  $query = "UPDATE {rubric_category} SET %s='%s' WHERE category_id=%s";
+		break;
+		case 'criterion':
+		  $query = "UPDATE {rubric_criterion} SET %s='%s' WHERE criterion_id=%s";
+		break;
+		case 'level':
+		  if ($type == 'points') {
+		    $query = "UPDATE {rubric_level} SET suggested_%s=%s WHERE level_id=%s";
+		  }
+		  else {
+		    $query = "UPDATE {rubric_level} SET %s='%s' WHERE level_id=%s";
+		  }
+		break;
+	  }
+	  db_query($query,$type,$value,$el_id);
+	break;
+	case 'delete':
+	  switch($element){ 
+	    case 'category':
+		  $nid = $var1;
+	      $category_id = $var2;
+		  db_query("DELETE FROM {rubric_node_category} WHERE nid=%s AND category_id=%s",$nid,$category_id);
+		break;
+		case 'criterion':
+		  $category_id = $var1;
+	      $criterion_id = $var2;
+		  db_query("DELETE FROM {rubric_category_criterion} WHERE category_id=%s AND criterion_id=%s",$category_id,$criterion_id);
+		break;
+		case 'level':
+		  $criterion_id = $var1;
+	      $level_id = $var2;
+		  db_query("DELETE FROM {rubric_criterion_level} WHERE criterion_id=%s AND level_id=%s",$criterion_id,$level_id);
+		break;
+	  }
+	break;
+	case 'move':
+	  if ($element == 'criterion') {
+	    $criterion_id = $var1;
+		$category_id = $var2;
+		$new_category_id = $var3;
+		$query = "UPDATE {rubric_category_criterion} SET category_id=%s WHERE category_id=%s AND criterion_id=%s";
+		db_query($query,$new_category_id,$category_id,$criterion_id);
+	  }
+	break;
+	case 'weight':
+	  switch($element) {
+	    case 'category':
+		  $category_id = $var1;
+		  $nid = $var2;
+		  $weight = $var3;
+		    $query = "UPDATE {rubric_node_category} SET weight=%s WHERE nid=%s AND category_id=%s";
+		  db_query($query,$weight,$nid,$category_id);
+		break;
+		case 'criterion':
+		  $criterion_id = $var1;
+		  $category_id = $var2;
+		  $weight = $var3;
+		  $query = "UPDATE {rubric_category_criterion} SET weight=%s WHERE category_id=%s AND criterion_id=%s";
+		    db_query($query,$weight,$category_id,$criterion_id);
+		break;
+		case 'level':
+		  $level_id = $var1;
+		  $criterion_id = $var2;
+		  $weight = $var3;
+		  $query = "UPDATE {rubric_criterion_level} SET weight=%s WHERE criterion_id=%s AND level_id=%s";
+		  db_query($query,$weight,$criterion_id,$level_id);
+		break;
+	  }
+	break;
+	default:
+	  print ' ';
+	break;
+  }
+  exit();
+}
+
+function _rubric_add_category($category_id,$nid) {
+  $query = "SELECT title, description FROM {rubric_category} WHERE category_id=%s";
+  $result = db_query($query,$category_id);
+  while ($category = db_fetch_array($result)) {
+	$title = $category['title'];
+	$description = $category['description'];
+  }
+  $query = "INSERT INTO {rubric_category} (title,description) VALUES('%s','%s')";
+  db_query($query,$title, $description);
+  $new_category_id = db_last_insert_id('rubric_category', 'category_id');
+  //make the association to the criterion
+  $query = "SELECT weight FROM {rubric_node_category} WHERE nid=%s AND category_id=%s";
+  $weight = db_result(db_query($query,$nid,$category_id));
+  if($weight == '') {
+    $weight = 0;
+  }
+  $query = "INSERT INTO {rubric_node_category} VALUES(%s,%s,%s)";
+  db_query($query,$nid,$new_category_id,$weight+1);
+  
+  //reweighting query
+  $query = "SELECT category_id, weight FROM {rubric_node_category} WHERE nid=%s AND weight>=%s AND category_id<>%s ORDER BY weight";
+  $result = db_query($query,$nid,$weight+1,$new_category_id);
+  while ($category = db_fetch_array($result)) {
+	db_query("UPDATE {rubric_node_category} SET weight=%s WHERE nid=%s AND category_id=%s",$category['weight']+1,$nid,$category['category_id']);
+  }
+  return $new_category_id;
+}
+
+function _rubric_add_criterion($criterion_id,$category_id) {
+  $query = "SELECT title, description FROM {rubric_criterion} WHERE criterion_id=%s";
+  $result = db_query($query,$criterion_id);
+  while ($criterion = db_fetch_array($result)) {
+	$title = $criterion['title'];
+	$description = $criterion['description'];
+  }
+  $query = "INSERT INTO {rubric_criterion} (title,description) VALUES('%s','%s')";
+  db_query($query,$title, $description);
+  $new_criterion_id = db_last_insert_id('rubric_criterion', 'criterion_id');
+  //make the association to the criterion
+  $query = "SELECT weight FROM {rubric_category_criterion} WHERE category_id=%s AND criterion_id=%s";
+  $weight = db_result(db_query($query,$category_id,$criterion_id));
+  $query = "INSERT INTO {rubric_category_criterion} VALUES(%s,%s,%s)";
+  db_query($query,$category_id,$new_criterion_id,$weight+1);
+  
+   //reweighting query
+  $query = "SELECT criterion_id, weight FROM {rubric_category_criterion} WHERE category_id=%s AND weight>=%s AND criterion_id<>%s ORDER BY weight";
+  $result = db_query($query,$category_id,$weight+1,$new_criterion_id);
+  while ($criterion = db_fetch_array($result)) {
+	db_query("UPDATE {rubric_category_criterion} SET weight=%s WHERE category_id=%s AND criterion_id=%s",$criterion['weight']+1,$category_id,$criterion['criterion_id']);
+  }
+  return $new_criterion_id;
+}
+
+//levels will order based on point value, the ability to sort by weight is made available though for future functionality if needed
+function _rubric_add_level($level_id,$criterion_id) {
+  $query = "SELECT text, suggested_points, suggested_feedback FROM {rubric_level} WHERE level_id=%s";
+  $result = db_query($query,$level_id);
+  while ($level = db_fetch_array($result)) {
+	$text = $level['text'];
+	$points = $level['suggested_points'];
+	$feedback = $level['suggested_feedback'];
+  }
+  $query = "INSERT INTO {rubric_level} (text,suggested_points,suggested_feedback) VALUES('%s',%s,'%s')";
+  db_query($query,$text, $points, $feedback);
+  $new_level_id = db_last_insert_id('rubric_level', 'level_id');
+  //make the association to the criterion
+  $query = "SELECT weight FROM {rubric_criterion_level} WHERE criterion_id=%s AND level_id=%s";
+  $weight = db_result(db_query($query,$criterion_id,$level_id));
+  $query = "INSERT INTO {rubric_criterion_level} VALUES(%s,%s,%s)";
+  db_query($query,$criterion_id,$new_level_id,0);
+  
+  //reweighting query
+  /*$query = "SELECT level_id, weight FROM {rubric_criterion_level} WHERE criterion_id=%s AND weight>=%s AND level_id<>%s ORDER BY weight";
+  $result = db_query($query,$criterion_id,$weight+1,$new_level_id);
+  while ($level = db_fetch_array($result)) {
+	db_query("UPDATE {rubric_criterion_level} SET weight=%s WHERE criterion_id=%s AND  level_id=%s",$level['weight']+1,$criterion_id,$level['level_id']);
+  }*/
+  return $new_level_id;
+}
+
+function _rubric_get_value($field,$type,$id) {
+  return db_result(db_query("SELECT %s FROM {rubric_%s} WHERE %s_id=%s",$field,$type,$type,$id));
+}
+
+//get total points
+function _rubric_get_total($tid) {
+  $max_score = 0;
+  $query = "SELECT criterion_id
+  FROM {term_node} 
+  JOIN {node} ON {node}.vid = {term_node}.vid 
+  JOIN {rubric_node_category} ON {rubric_node_category}.nid = {node}.nid 
+  JOIN {rubric_category_criterion} ON {rubric_category_criterion}.category_id = {rubric_node_category}.category_id 
+  WHERE type='%s' AND tid=%s";
+  
+  $query2 = "SELECT MAX(suggested_points) AS max_score
+   FROM {rubric_criterion_level}
+  JOIN {rubric_level} ON {rubric_criterion_level}.level_id = {rubric_level}.level_id
+  WHERE criterion_id=%s";
+  
+  $result = db_query($query,variable_get('rubric_content_type','rubric'),$tid);
+  while ($criterion = db_fetch_array($result)) {
+	  $max_score+= db_result(db_query($query2,$criterion['criterion_id']));
+  }
+  return $max_score;
+}
+
+function _rubric_unscrub_feedback($feedback) {
+  $feedback = str_replace('@comma@',',',$feedback);
+  $feedback = str_replace('@pound@','#',$feedback);
+  $feedback = str_replace('@amp@','&',$feedback);
+  $feedback = str_replace('@plus@','+',$feedback);
+  $feedback = str_replace('@fwdslash@','/',$feedback);
+  $feedback = str_replace('@bckslash@','\\',$feedback);
+  return $feedback;
+}

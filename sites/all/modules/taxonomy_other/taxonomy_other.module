@@ -1,0 +1,366 @@
+<?php
+// $Id: taxonomy_other.module,v 1.1.2.5 2008/08/06 23:07:13 rellis Exp $
+
+/**
+ * @file
+ * Add '- Other -' to taxonomy select lists.
+ */
+
+/**
+ * Implementation of hook_help().
+ */
+function taxonomy_other_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#taxonomy_other':
+
+      // Filter README.txt to get help text.
+      $help = filter_filter('process', 1, NULL, file_get_contents(dirname(__FILE__) . "/README.txt") );
+
+      // Make admin/... strings into links.
+      $help = preg_replace('#(admin/[\w/]+)#e', 'l("$1", "$1")', $help);
+      $help = str_replace('admin/user/permissions"', 'admin/user/permissions#module-taxonomy_other"', $help);
+
+      // Make '= Headline' into '<strong>Headline</strong>'
+      $help = preg_replace('#^<p>=\s(.*?)</p>$#m', '<p><strong>$1</strong></p>', $help);
+
+      // Make '*' bulleted list items into an HTML unordered list.
+      $help = preg_replace('#<p>\*\s(.*?)</p>#s', '<li><p>$1</p></li>', $help);
+      $help = preg_replace('#<li>#', '<ul><li>', $help, 1);
+      $help = strrev(preg_replace(strrev('#</li>#'), strrev('</li>'), strrev($help), 1));
+
+      return $help;
+  }
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function taxonomy_other_perm() {
+  return array('add other terms');
+}
+
+/**
+ * Implementation of hook_form_{taxonomy_form_vocabulary}_alter().
+ */
+function taxonomy_other_form_taxonomy_form_vocabulary_alter (&$form, &$form_state) {
+
+  // Add new taxonomy_other vocabulary setting.
+  $form['settings']['taxonomy_other'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Users can add terms'),
+    '#default_value' => (int) in_array($form['vid']['#value'], variable_get('taxonomy_other_vids', array())),
+    '#description' => t('Allows users to add new terms. Adds \'- Other -\' to select lists.'),
+  );
+
+  // Add setting to hide taxonomy_other-created terms.
+  $form['settings']['taxonomy_other_show_terms'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Show user-added terms'),
+    '#default_value' => (int) in_array($form['vid']['#value'], variable_get('taxonomy_other_show_terms_vids', array())),
+    '#description' => t('Allows users to select terms added by other users.'),
+  );
+
+  // Sink 'weight' to the bottom of the settings.
+  if (!isset($form['settings']['weight']['#weight'])) {
+    $form['settings']['weight']['#weight'] = 1;
+  }
+
+  // Register form callbacks.
+  $form['#validate'][] = 'taxonomy_other_taxonomy_form_vocabulary_validate';
+  $form['#submit'][]   = 'taxonomy_other_taxonomy_form_vocabulary_submit';
+}
+
+/**
+ * Validate callback for 'taxonomy_form_vocabulary'.
+ */
+function taxonomy_other_taxonomy_form_vocabulary_validate($form, &$form_state) {
+  // Don't allow both 'Multiple select' and taxonomy_other.
+  if (!empty($form_state['values']['multiple']) && !empty($form_state['values']['taxonomy_other'])) {
+    form_set_error('taxonomy_other', t('Sorry, %mtitle and %ttitle cannot both be checked.',
+      array('%mtitle' => $form['settings']['multiple']['#title'], '%ttitle' => $form['settings']['taxonomy_other']['#title'])));
+    $form_state['values']['taxonomy_other'] = 0;
+    $form_state['rebuild'] = true;
+  }
+}
+
+/**
+ * Submit callback for 'taxonomy_form_vocabulary'.
+ * Saves settings to variables 'taxonomy_other_vids' and 'taxonomy_other_show_terms_vids'.
+ */
+function taxonomy_other_taxonomy_form_vocabulary_submit($form, &$form_state) {
+  $vid = $form_state['values']['vid'];
+  foreach (array('taxonomy_other', 'taxonomy_other_show_terms') as $setting) {
+    $vids = variable_get($setting . '_vids', array());
+    if (!empty($form_state['values'][$setting])) {
+      $vids[$vid] = $vid;
+    }
+    else {
+      unset($vids[$vid]);
+    }
+    variable_set($setting . '_vids', $vids);
+  }
+}
+
+/**
+ * Implementation of hook_form_alter().
+*/
+function taxonomy_other_form_alter(&$form, &$form_state, $form_id) {
+
+  // Alter node forms.
+  if ($form_id == $form['type']['#value'] . '_node_form') {
+    $new_fields = 0;
+
+    // For taxonomy vocabularies that use taxonomy_other...
+    foreach(variable_get('taxonomy_other_vids', array()) as $vid) {
+
+      // Vocabulary in use on this form?
+      if (isset($form['taxonomy'][$vid])) {
+
+        // Hide terms?
+        if (!in_array($vid, variable_get('taxonomy_other_show_terms_vids', array()))) {
+          $hide = array_flip(taxonomy_other_get_tids($vid));
+          if (isset($form['taxonomy'][$vid]['#default_value'][0])) {
+            unset($hide[$form['taxonomy'][$vid]['#default_value'][0]]);
+          }
+          // Remove the options from the select list.
+          foreach ($form['taxonomy'][$vid]['#options'] as $opt_key => $opt) {
+            if (is_object($opt) && isset($opt->option) && is_array($opt->option)) {
+              foreach (array_keys($opt->option) as $opt_tid) {
+                if (isset($hide[$opt_tid])) {
+                  unset($form['taxonomy'][$vid]['#options'][$opt_key]);
+                }
+              }
+            }
+          }
+        }
+
+        // For users with permissions, add '- Other -' select option and a text field for a new term.
+        if (user_access('add other terms')) {
+
+          // Add the select option.
+          $form['taxonomy'][$vid]['#options'][] =  (object) array('option' => array('taxonomy_other' => t('- Other -')));
+
+          // Add a specific weight for the select list, so we can make the text field follow immediately after.
+          $form['taxonomy'][$vid]['#weight'] = $form['taxonomy'][$vid]['#weight'] += 0.1 * $vid;
+
+          // Add the text field.
+          $form['taxonomy']['taxonomy_other_' . $vid] = array(
+            '#type' => 'textfield',
+            '#size' => 128,
+            '#title' => t('Other %title', array('%title' => $form['taxonomy'][$vid]['#title'])),
+            '#id' => 'taxonomy-other-' . $vid,
+            '#description' => t('Add your own category.'),
+            '#weight' => $form['taxonomy'][$vid]['#weight'] + 0.01,
+          );
+
+          // Get any previously queued new term.
+          if (!empty($form['nid']['#value'])) {
+            if ($name = taxonomy_other_queue($form['nid']['#value'], $vid)) {
+              $form['taxonomy']['taxonomy_other_' . $vid]['#default_value'] = $name;
+              $form['taxonomy'][$vid]['#value'] = 'taxonomy_other';
+            }
+          }
+
+          // Count.
+          $new_fields++;
+        }
+      }
+    }
+
+    // If we've added fields, register the submit and validate callbacks and add javascript.
+    if ($new_fields) {
+      $form['#validate'][] = 'taxonomy_other_node_form_validate';
+      $form['#submit'][]   = 'taxonomy_other_node_form_submit';
+      drupal_add_js(drupal_get_path('module', 'taxonomy_other') . '/taxonomy_other.js');
+    }
+  }
+}
+
+/**
+ * Validation callback for '*_node_form'.
+ */
+function taxonomy_other_node_form_validate(&$form, &$form_state) {
+
+  // If a term is required and taxonomy_other is selected but empty,
+  //  generate a form error like the form API would...
+  foreach ($form_state['values']['taxonomy'] as $vid => $tid) {
+    if ($tid == 'taxonomy_other' && !empty($form['taxonomy'][$vid]['#required']) 
+          && empty($form_state['values']['taxonomy']['taxonomy_other_' . $vid])) {
+      form_set_error('taxonomy][' . $vid, t('!name field is required.', array('!name' => $form['taxonomy'][$vid]['#title'])));
+    }
+  }
+
+  // Re-add the javascript for cached forms.
+  if (form_get_errors()) {
+    drupal_add_js(drupal_get_path('module', 'taxonomy_other') . '/taxonomy_other.js');
+  }
+}
+
+/**
+ * Submit callback for '*_node_form'.
+ */
+function taxonomy_other_node_form_submit($form, &$form_state) {
+
+  // Loop through through vocabularies with 'taxonomy_other' set.
+  foreach(variable_get('taxonomy_other_vids', array()) as $vid) {
+
+    // New term posted?
+    if (!empty($form_state['values']['taxonomy']['taxonomy_other_' . $vid])) {
+      $term = array();
+      $name = $form_state['values']['taxonomy']['taxonomy_other_' . $vid];
+
+      // Queue the term for creation.
+      if (empty($term)) {
+        taxonomy_other_queue('', $vid, $name);
+      }
+
+      // Remove our taxonomy_other form value so it doesn't interfere with the taxonomy module.
+      unset($form_state['values']['taxonomy']['taxonomy_other_' . $vid]);
+
+      // For created terms, let taxonomy module handle term<->node associations.
+      if ($term['tid']) {
+        $form_state['values']['taxonomy'][$vid] = $term['tid'];
+      }
+      else {
+        // Hide queued terms from the taxonomy module.
+        unset($form_state['values']['taxonomy'][$vid]);
+      }
+    }
+  }
+}
+
+/**
+ * Keep track of new terms for unpublished nodes.
+ *
+ * - If $nid, $vid and $name are specified, save the term in the database queue.
+ * - If $vid and $name are specified, save the term in the static queue.
+ * - If $nid and $vid are specified, retrieve the term from the queue.
+ * - If only $nid is specified, retrieve all the terms from the static and database queue.
+ *
+ * @param $nid
+ *   Node id.
+ * @param $vid
+ *   Vocabulary id.
+ * @param $name
+ *   Name of the new term.
+ *
+ * @return
+ *   Depends on the arguments.
+ */
+function taxonomy_other_queue($nid = '', $vid = '', $name = '') {
+  static $q = array();
+
+  if ($nid && $vid && $name) {
+    db_query("DELETE FROM {taxonomy_other_queue} WHERE nid = %d AND vid = %d", $nid, $vid);
+    return db_query("INSERT INTO {taxonomy_other_queue} (nid, vid, name) values(%d, %d, '%s')", $nid, $vid, $name);
+  }
+  elseif ($vid && $name) {
+    $q[$vid] = $name;
+  }
+  elseif ($nid && $vid) {
+    return db_result(db_query("SELECT name FROM {taxonomy_other_queue} WHERE nid = %d AND vid = %d", $nid, $vid));
+  }
+  elseif ($nid) {
+    $result = db_query("SELECT vid, name FROM {taxonomy_other_queue} WHERE nid = %d", $nid);
+    while ($term = db_fetch_object($result)) {
+      if (!isset($q[$term->vid])) {
+        $q[$term->vid] = $term->name;
+      }
+    }
+    return $q;
+  }
+}
+
+/**
+ * Remove queued terms for a node.
+ */
+function taxonomy_other_dequeue($nid) {
+  return db_query("DELETE FROM {taxonomy_other_queue} WHERE nid = %d", $nid);
+}
+
+/**
+ * Create the term and assign it to the node.
+ */
+function taxonomy_other_save(&$node, $vid, $name) {
+
+  // Check for duplicates because taxonomy_save_term() doesn't.
+  foreach (taxonomy_get_term_by_name($name) as $t) {
+    if ($vid == $t->vid) {
+       $term = (array) $t;
+       break;
+    }
+  }
+
+  // Not a duplicate?
+  if (empty($term)) {
+
+    // Create term.
+    $term = array('vid' => $vid, 'name' => $name, 'tid' => 0, 'description' => '', 'weight' => 0);
+    taxonomy_save_term($term);
+
+    // Remember this module created it.
+    $record = (object) array('tid' => $term['tid']);
+    drupal_write_record('taxonomy_other_term', $record);
+  }
+
+  // Assign to node.
+  $node->taxonomy[$vid] = $term['tid'];
+  taxonomy_node_save($node, $node->taxonomy);
+
+  return $term;
+}
+
+/**
+ * Get the terms for a vocabulary that were created by this module.
+ *
+ * @param $vid
+ *   A vocabulary id.
+ * @return
+ *   An array of terms.
+ */
+function taxonomy_other_get_tids($vid) {
+  $tids = array();
+  $result = db_query("SELECT t.tid FROM {term_data} t INNER JOIN {taxonomy_other_term} ot ON (t.tid = ot.tid) WHERE t.vid = %d", $vid);
+  while ($term = db_fetch_object($result)) {
+    $tids[] = $term->tid;
+  }
+  return $tids;
+}
+
+/**
+ * Implementation of hook_nodeapi().
+ */
+function taxonomy_other_nodeapi(&$node, $op) {
+  if ($op == 'insert' || $op == 'update') {
+    foreach (taxonomy_other_queue($node->nid) as $vid => $name) {
+      if ($node->status) {
+        taxonomy_other_save($node, $vid, $name);
+        taxonomy_other_dequeue($node->nid);
+      }
+      else { // Not published, just queue...
+        taxonomy_other_queue($node->nid, $vid, $name); // Add to db queue.
+      }
+    }
+  }
+  elseif ($op == 'delete') {
+    taxonomy_other_dequeue($node->nid); // Delete from db queue.
+  }
+}
+
+/**
+ * Implementation of hook_taxonomy().
+ */
+function taxonomy_other_taxonomy($op, $type, $array) {
+  if ($op == 'delete') {
+    if ($type == 'vocabulary') {
+      $terms = taxonomy_other_get_tids($array['vid']);
+      if (!empty($terms)) {
+        $d = implode(',', array_pad(array(), count($terms), '%d'));
+        db_query("DELETE FROM {taxonomy_other_term} WHERE tid IN (" . $d . ")", $terms);
+      }
+    }
+    elseif ($type == 'term') {
+      db_query("DELETE FROM {taxonomy_other_term} WHERE tid = '%d'", $array['tid']);
+    }
+  }
+}

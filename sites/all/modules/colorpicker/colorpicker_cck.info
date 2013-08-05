@@ -1,0 +1,14 @@
+; $Id$
+name = Colorpicker Widget
+description = Adds a color picker widget.
+package = CCK
+core = 6.x
+dependencies[] = colorpicker
+dependencies[] = content
+dependencies[] = text
+; Information added by drupal.org packaging script on 2010-11-27
+version = "6.x-2.1"
+core = "6.x"
+project = "colorpicker"
+datestamp = "1290827765"
+

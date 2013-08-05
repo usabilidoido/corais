@@ -1,0 +1,43 @@
+<?php
+// $Id: pg_fundraising_giftaid.install,v 1.4.2.2 2011/02/18 02:15:35 dokumori Exp $
+/**
+ * Implementation of hook_install().
+ */
+function pg_fundraising_giftaid_install() {
+  drupal_install_schema('pg_fundraising_giftaid');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function pg_fundraising_giftaid_uninstall() {
+  drupal_uninstall_schema('pg_fundraising_giftaid');
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function pg_fundraising_giftaid_schema() {
+  $schema['fundraising_giftaid'] = array(
+    'description' => t('GiftAid application'),
+    'fields' => array(
+      'nid'    => array('type' => 'int', 'length' => 10, 'unsigned' => TRUE, 'not null' => TRUE),
+      'txnid'  => array('type' => 'int', 'unsigned' => TRUE),
+    ),
+    'primary key' => array('txnid'),
+  );
+  
+//  $schema['fundraising_record'] = array(
+//    'description' => t('Stores per-node fundraising config'),
+//    'fields' => array(
+//      'txnid'     => array('type' => 'int', 'unsigned' => TRUE),
+//      'nid'       => array('type' => 'int', 'unsigned' => TRUE),
+//      'user_info' => array('type' => 'text', 'not null' => TRUE, 'default' => ''),
+//      'email'     => array('type' => 'varchar', 'length' => 255, 'not null' => TRUE, 'default' => ''),
+//    ),
+//    'indexes' => array('email' => array('email')),
+//    'primary key' => array('nid'),
+//  );
+  return $schema;
+}
+

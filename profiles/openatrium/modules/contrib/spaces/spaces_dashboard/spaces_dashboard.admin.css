@@ -1,0 +1,40 @@
+div#dashboard-form-links {
+  float:left;
+  width: 20%;}
+
+div#dashboard-form-links ul {
+  margin: 0px;
+  border-top:1px solid #ccc;}
+
+div#dashboard-form-links ul li {
+  background: none;
+  margin: 0px;
+  padding: 0px;}
+  
+div#dashboard-form-links ul li a {
+  display:block;
+  padding: 4px;
+  border-style: solid;
+  border-color: #ccc;
+  border-width: 0px 0px 1px 1px;
+  background: #eee;
+  overflow: hidden;}
+
+div#dashboard-form-links ul li a.active {
+  background: #fff;
+  margin-right: -1px;
+  padding-left: 5px;}
+
+div#dashboard-form-content {
+  float:right;
+  width: 80%;
+  }
+
+div#dashboard-form-content div.table-wrapper {
+  padding: 20px;
+  border: 1px solid #ccc;
+  background: #fff;}
+
+/* Layouts/regions */
+table.spaces-dashboard-regions td.label,
+table.spaces-dashboard-regions th.label { width:95%; }

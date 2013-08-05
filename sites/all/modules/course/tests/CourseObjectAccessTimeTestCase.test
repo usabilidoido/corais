@@ -1,0 +1,91 @@
+<?php
+
+require_once drupal_get_path('module', 'course') . '/tests/CourseTestCase.test';
+
+/**
+ * Tests for course object access based on time.
+ */
+class CourseObjectAccessTimeTestCase extends CourseTestCase {
+
+  public static function getInfo() {
+    // Note that getInfo() strings are not translated with t().
+    return array(
+      'name' => 'Course object time access',
+      'description' => 'Ensure that Course object time access plugin functions properly.',
+      'group' => 'Course',
+    );
+  }
+
+  /**
+   * Test course object open date.
+   */
+  public function testCourseObjectRestrictByRelease() {
+    $now = time();
+    $courseNode = $this->createCourseNode();
+    $options = array();
+
+    // Test restricting by release.
+    $o1 = $this->createCourseObject($courseNode);
+
+    // Set the release to 100 seconds in the future.
+    $options['plugins']['access']['timing']['release'] = gmdate('c', $now + 100);
+    $o1->addOptions($options);
+    $this->assertFalse($o1->access('take'), 'Check that user cannot take not released object.');
+    $this->assertTrue($o1->access('see'), 'Check that user can still see not released object.');
+
+    // Set the hide until release option.
+    $options['plugins']['access']['timing']['release_hidden'] = 1;
+    $o1->addOptions($options);
+    $this->assertFalse($o1->access('see'), 'Check that object is hidden if hidden is checked and object is not released.');
+  }
+
+  /**
+   * Test course object expiration date.
+   */
+  public function testCourseObjectRestrictByExpiration() {
+    $now = time();
+    $courseNode = $this->createCourseNode();
+    $options = array();
+
+    // Test restricting by expiration.
+    $o2 = $this->createCourseObject($courseNode);
+
+    // Set the expiration to 10 seconds ago.
+    $options['plugins']['access']['timing']['expiration'] = gmdate('c', $now - 100);
+    $o2->addOptions($options);
+    $this->assertFalse($o2->access('take'), 'Check that user cannot take expired course object.');
+    $this->assertTrue($o2->access('see'), 'Check that user can see expired course object.');
+
+    // Set the hide when expired option.
+    $options['plugins']['access']['timing']['expiration_hidden'] = 1;
+    $o2->addOptions($options);
+    $this->assertFalse($o2->access('see'), 'Check that object is hidden if hidden is checked and object is expired.');
+  }
+
+  /**
+   * Check that user cannot access course object outside of duration period.
+   */
+  public function testCourseObjectDuration() {
+    $now = time();
+    $courseNode = $this->createCourseNode();
+    $options = array();
+
+    course_enrol($courseNode);
+    $o3 = $this->createCourseObject($courseNode);
+
+    // Start the course object 5 minutes ago.
+    $o3->getFulfillment()->setOption('date_started', $now - 300);
+    $this->assertTrue($o3->access('take'), 'Check that user can access course object without duration.');
+
+    // Set the duration to 1 minute.
+    $options['plugins']['access']['timing']['duration'] = 60;
+    $o3->addOptions($options);
+    $this->assertFalse($o3->access('take'), 'Check that user cannot access course object when duration has passed.');
+
+    // Extend the duration to 10 minutes.
+    $options['plugins']['access']['timing']['duration'] = 600;
+    $o3->addOptions($options);
+    $this->assertTrue($o3->access('take'), 'Check that user can access course object when duration has been extended.');
+  }
+
+}

@@ -1,0 +1,162 @@
+<?php
+
+// Permission that allows to access the content architecture.
+define('GRAPHMIND_FUTURES_WHEEL__PERM__ACCESS_FUTURES_WHEEL', 'access futures wheel');
+
+
+/**
+ * Implementation of hook_perm().
+ * @return array
+ */
+function graphmind_futures_wheel_perm() {
+  return array(
+    GRAPHMIND_FUTURES_WHEEL__PERM__ACCESS_FUTURES_WHEEL,
+  );
+}
+
+
+/**
+ * Implementation of hook_graphmind_flashvars_alter().
+ *
+ * @param array &$flashvars
+ * @param int $nid
+ */
+function graphmind_futures_wheel_graphmind_flashvars_alter(&$flashvars, $nid) {
+  if (graphmind_futures_wheel_is_node_futures_wheel($nid)) {
+    $flashvars['workflow'] = 'futures_wheel';
+  }
+}
+
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ * Add futures wheel plugin settings to the node form.
+ *
+ * @param array $form
+ * @param array $form_status
+ */
+function graphmind_futures_wheel_form_graphmind_node_form_alter(&$form, &$form_state) {
+  $futures_wheel_plugin_is_default = graphmind_futures_wheel_is_node_futures_wheel($form['nid']['#value']);
+  if ($futures_wheel_plugin_is_default === NULL) {
+    $futures_wheel_plugin_is_default = variable_get('graphmind_futures_wheel_plugin_is_default', 0);
+  }
+  $form['graphmind']['graphmind_futures_wheel'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Futures wheel'),
+    '#description' => t('Use futures wheel to visualize the map.'),
+    '#default_value' => $futures_wheel_plugin_is_default,
+  );
+}
+
+
+/**
+ * Implementation of hook_nodeapi().
+ */
+function graphmind_futures_wheel_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+	switch ($op) {
+		case 'insert' :
+			if ($node->graphmind_futures_wheel == 1) {
+				graphmind_futures_wheel_add_node($node->nid);
+			}
+			break;
+		case 'update':
+      if (isset($node->graphmind_futures_wheel)) {
+        if ($node->graphmind_futures_wheel == 1) {
+          graphmind_futures_wheel_add_node($node->nid);
+        } else {
+          graphmind_futures_wheel_remove_node($node->nid);
+        }
+      }
+			break;
+	}
+}
+
+
+/**
+ * Check if the node uses the Futures wheel plugin.
+ *
+ * @param integer $nid
+ * @return
+ */
+function graphmind_futures_wheel_is_node_futures_wheel($nid) {
+  if (!$nid) return NULL;
+
+  $res = db_fetch_object(db_query('SELECT COUNT(nid) AS count FROM {graphmind_futures_wheel} WHERE nid = %d;', $nid));
+
+  return (int)$res->count >= 1;
+}
+
+
+/**
+ * Add the node to the DB - indicates that it uses the plugin.
+ *
+ * @param integer $nid
+ * @return
+ */
+function graphmind_futures_wheel_add_node($nid) {
+  if (!$nid) return NULL;
+
+  if (graphmind_futures_wheel_is_node_futures_wheel($nid)) {
+    return FALSE;
+  }
+
+  db_query('INSERT INTO {graphmind_futures_wheel} (nid) VALUES (%d);', $nid);
+  return TRUE;
+}
+
+
+/**
+ * Remove node from DB - node doesn't use the plugin.
+ *
+ * @param integer $nid
+ * @return
+ */
+function graphmind_futures_wheel_remove_node($nid) {
+  if (!$nid) return NULL;
+
+  if (!graphmind_futures_wheel_is_node_futures_wheel($nid)) {
+    return FALSE;
+  }
+
+  db_query('DELETE FROM {graphmind_futures_wheel} WHERE nid = %d;', $nid);
+  return TRUE;
+}
+
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ * Add settings to the node type form.
+ *
+ * @param array $form
+ * @param array $form_status
+ */
+function graphmind_futures_wheel_form_node_type_form_alter($form, $form_status) {
+  if ($form['#node_type']->type == 'graphmind') {
+    $form['graphmind_futures_wheel'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Graphmind - futures wheel settings'),
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+      'graphmind_futures_wheel_plugin_is_default' => array(
+        '#type' => 'checkbox',
+        '#title' => t('Futures wheel as a default display'),
+        '#description' => t('Select for making the Futures wheel plugin the default display.'),
+        '#default_value' => variable_get('graphmind_futures_wheel_plugin_is_default', 0),
+      ),
+    );
+    $form['#submit'][] = 'graphmind_futures_wheel_node_type_form_submit';
+  }
+}
+
+
+/**
+ * Submit callback for the node type form.
+ *
+ * @param array $form
+ * @param array $form_status
+ */
+function graphmind_futures_wheel_node_type_form_submit($form, $form_status) {
+  variable_set('graphmind_futures_wheel_plugin_is_default', $form_status['values']['graphmind_futures_wheel_plugin_is_default']);
+}
+
+

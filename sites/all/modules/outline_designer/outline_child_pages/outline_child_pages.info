@@ -1,0 +1,11 @@
+name = Outline Child Pages
+description = Allow user to outline their own books if they have the 'add content to books' permission without needing 'administer book outlines'
+dependencies[] = outline_designer
+package = Outline Designer
+core = "6.x"
+; Information added by drupal.org packaging script on 2011-02-16
+version = "6.x-1.3"
+core = "6.x"
+project = "outline_designer"
+datestamp = "1297889562"
+

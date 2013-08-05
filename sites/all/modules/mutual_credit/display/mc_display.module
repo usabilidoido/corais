@@ -1,0 +1,448 @@
+<?php
+//$Id
+define ('GOOGLE_CHARTS_URI', 'http://chart.apis.google.com/chart?');
+define('EXCHANGES_PAGER_ELEMENT', 1);
+
+/*
+function mc_display_help($path) {
+  if ($path == 'user/%/bureau') {
+    return '';
+  }
+}*/
+
+/*
+ * mc_display - get you started with displaying exchanges to users
+ * provides five themed dislays and some views to
+ * each display is encapsulated in a block for convenience, but can be called seperately
+ * the five are:
+ *  - balance_history
+ *  - balance_limits
+ *  - balances
+ *  - statement (not a view, but may be in Drupal 7!)
+ * and a views
+ *  - mc_all_exchanges (with exposed filters for accountants)
+ * each producing blocks
+ */
+
+//TODO module options global display order for exchanges i.e. asc or desc
+
+function mc_display_menu() {
+  return array(
+    'user/%user/bureau' => array(
+      'title' => 'Bureau',
+      'description' => 'Example page showing user data',
+      'page callback' => 'show_bureau',
+      'page arguments' => array(1),
+      'access callback' => 'user_view_access',
+      'access arguments' => array(1),
+      'weight' => 5,
+      'type' => MENU_LOCAL_TASK
+    )
+  );
+}
+
+function show_bureau($account) {
+  $currencies = currencies_load();
+  $output = '<h3>'.t('Balance history') .'</h3>';
+  $output .= show_balance_history($account, array_keys($currencies));
+
+  $output .= '<h3>'.t('Exchanges') .'</h3>';
+  $output .= show_user_exchanges($account, array_keys($currencies));
+
+  $output .= '<h3>'.t('Balances') .'</h3>';
+  $output .= show_balances($account, array_keys($currencies));
+
+  //this depends on the user_limits module
+  $output .= '<h3>'.t('Balance-ometer') .'</h3>';
+  
+  // this foreach displays balance-o-meter for every active currency that the user has more or less than 0
+  foreach ($currencies as $cid){
+	$balances = mc_balances($account, $cid->nid);
+	if ($balances['cleared_balance'] != 0){
+		$output .= show_balance_ometer($account, $cid->nid);
+	}
+  }
+    
+  return $output;
+}
+
+/*
+ * First five functions are the ones you would use in panels or in hook_user($op == view)
+ */
+
+//$extent can be 'limits' or 'balance'
+function show_balance_history($account, $cids, $extent = 'limits', $since = 0) {
+  $histories = array();
+  foreach($cids as $cid) {
+    $hist = get_balance_history($account, $cid, $since);
+    if (count($hist)) {
+      $histories[$cid] = $hist;
+    }
+  }
+  return theme('balance_history', $histories);
+}
+
+
+//because there's no caching 
+function show_user_exchanges($account, $cids, $per_page = 25) {
+  //see the api for the full list of options
+  $options = array(
+    'order' => 'DESC',//this could be an option
+  );
+  $output = '';
+  foreach ($cids as $cid) {
+    $exchanges = mc_api_user_exchanges($account->uid, $cid, $options);
+    $output .= theme('statement', $exchanges, $account, $per_page, $cid);
+  }
+  return $output;
+}
+
+function show_balances($account, $cids) {
+  foreach($cids as $cid) {
+    $cache = mc_balances($account, $cid);
+    $balances[$cid] = $cache;
+  }
+  return theme('balances', $balances);
+}
+
+
+function show_balance_ometer($account, $cid) {
+  $balances = mc_balances($account, $cid);
+  //this chart makes no sense if there isn't a max (or min) limit
+  if (!is_numeric($balances['max']) || !is_numeric($balances['min'])) {
+    $currency = node_load($cid);
+    drupal_set_message(t('Balance-ometer requires minimum and maximum balances for currency: !link', array('!link' => l($currency->title, 'node/'.$currency->nid.'/edit'))));
+    return;
+  }
+  return theme('balance_ometer', node_load($cid), $balances['cleared_balance'], $balances['max'], $balances['min']);
+}
+
+/**
+ * http://api.drupal.org/api/function/hook_theme/6
+ * This hook is required for modules to define one or more node types.
+ */
+function mc_display_theme($existing, $type, $theme, $path) {
+  $templates_dir = drupal_get_path('module', 'mc_display') .'/theme';
+  //we load the inc so it's aware of the preprocess functions
+  return array(
+    'balance_history' => array(
+      'template' => 'balance_history',
+      'path' => $templates_dir,
+      'arguments' => array(
+        'histories' => array(),
+        'extent' => NULL,
+        'legend' => ''
+      )
+    ),
+    'balances' => array(
+      'template' => 'balances',
+      'path' => $templates_dir,
+      'arguments' => array(
+        'balances' => array() //array with cid for keys
+      )
+    ),
+    //similar to balance limits, but only shows one currency
+    'balance_ometer' => array(
+      'template' => 'balance_ometer',
+      'path' => $templates_dir,
+      'arguments' => array(
+        'currency' => 0,
+        'balance' => 0,
+        'max' => 0,
+        'min' => 0,
+      )
+    ),
+    'statement' => array(
+      'template' => 'statement',
+      'path' => $templates_dir,
+      'arguments' => array(
+        'exchanges' => array(),
+        'account' => NULL,
+        'per_page' => 10,
+        'cid' => NULL
+      )
+    ),
+  );
+}
+function mc_display_perm(){
+  return array(
+    'view all balances',
+  );
+}
+
+
+function mc_display_block($op = 'list', $delta = 0, $edit = array()) {
+  $function = 'mc_display_block_'.$op;
+  return $function($delta, $edit);
+}
+function mc_display_block_list($delta) {
+  //other blocks are provided by views
+  $blocks = array(
+    'mc_balance_history' => array(
+      'info' => 'MC '. t("User balance(s) since creation")
+    ),
+    'mc_balances' => array(
+      'info' => 'MC '. t("All user balance(s) now")
+    ),
+    'mc_statement' => array(
+      'info' => 'MC '. t("List of user's exchanges")
+    ),
+    'balance_ometer' => array(
+      'info' => 'MC '. t("Balance-o-meter")
+    )
+  );
+  if (module_exists('mc_user_limits')) {
+    $blocks['balance_limits'] = array(
+      'info' => 'MC '. t("Limits for user"),
+      'visibility' => 0,
+      'pages' => 'exchange/*'
+    );
+  }
+  return $blocks;
+}
+
+function mc_display_block_view($delta) {
+  $uid = $GLOBALS['user']->uid;
+  if (!$uid) return;
+  $edit = variable_get('block_'.$delta, array());
+  switch ($delta) {
+    case 'mc_balance_history':
+      if (arg(0) !='user') return;
+      $account = user_uid_optional_load(arg(1));
+      if (!user_access('view all balances') && !$account->uid == $uid) return;
+      if (!isset($edit['cids'])) {
+        $edit['cids'] = array_keys(currencies_load());
+      }
+      $since = isset($edit['start_time']) ? strtotime($edit['start_time']) : 0;
+      return array(
+        'subject' => t('Balance history'),
+        'content' => show_balance_history($account, $edit['cids'], $since),
+      );
+      break;
+
+    case 'mc_balances':
+      if (arg(0) != 'user') return;
+      $account = user_uid_optional_load(arg(1));
+      if (!user_access('view all balances') && !$account->uid == $uid) return;
+      if (!isset($edit['cid'])) {
+        $edit['cids'] = array_keys(currencies_load());
+      }
+
+      return array(
+        'subject' => t("@user's balances", array('@user' => strip_tags(theme('username', $account)))),
+        'content' => show_balances($account, $edit['cids'])
+      );
+      break;
+
+    case 'balance_limits':
+      if (arg(0) != 'user') return;
+      $account = user_uid_optional_load(arg(1));
+      if (!user_access('view all balances') && !$account->uid == $uid) return;
+      if (!isset($edit['cid'])) {
+        $edit['cids'] = array_keys(currencies_load());
+      }
+
+      return array(
+        'subject' => t("@user's limits", array('@user' => strip_tags(theme('username', $account)))),
+        'content' => theme('balance_limits', $account, $edit['cids'])
+      );
+      break;
+
+    case 'balance_ometer':
+      if (arg(0) != 'user') return;
+      $account = user_uid_optional_load(arg(1));
+      if (!user_access('view all balances') && !$account->uid == $uid) return;
+      if (!isset($edit['cids'])) {
+        $edit['cids'] = array_keys(currencies_load());
+      }
+	  	  	  // this foreach displays balance-o-meter for every active currency that the user has more or less than 0
+	  $currencies = currencies_load();
+		 foreach ($currencies as $cid){
+			$balances = mc_balances($account, $cid->nid);
+			if ($balances['cleared_balance'] != 0){
+				$balance_currencies .= show_balance_ometer($account, $cid->nid);
+			}
+		 }
+      return array(
+        'subject' => t("@user's credit", array('@user' => strip_tags(theme('username', $account)))),
+        //'content' => show_balance_ometer($account, array_pop($edit['cids']))
+						
+		'content' => $balance_currencies
+      );
+      break;
+
+    case 'mc_statement':
+      if (arg(0) != 'user') return;
+      $account = user_uid_optional_load(arg(1));
+      //because each exchange knows its own visibility, we don't check access here
+      if (!isset($edit['cids'])) {
+        $edit['cids'] = array_keys(currencies_load());
+      }
+      $per_page = isset($edit['per_page']) && $edit['per_page'] ? intval($edit['per_page']) : 10;
+      return array(
+        'subject' => t("@user's exchanges", array('@user' => strip_tags(theme('username', $account)))),
+        'content' => show_user_exchanges($account, $edit['cids'], $per_page),
+      );
+  }
+}
+
+function mc_display_block_configure($delta){
+  $edit = variable_get('block_'.$delta, array());
+  $currencies = currencies_load();
+  switch($delta) {
+    case 'mc_balance_history':
+      $form['start_time'] = array(
+        '#title' => t('Starting from'),
+        '#description' => t("!strtotime string. Using a relative date like '@example1' will mean this can't be cached. Better use '@example2'",
+          array('!strtotime' => l('strtotime()', 'http://php.net/strtotime'), '@example1'=> '-1 year', '@example2' => 'first day last year')) . ' '.
+          t("Leave blank to use each user's creation date."),
+        '#type' => 'textfield',
+        '#weight' => 0,
+        '#element_validate' => array('mc_validate_strtotime'),
+        '#default_value' => $edit['start_time'],
+        '#size' => '10',
+      );
+      if (count($currencies) > 1) {
+        $form['cids'] = mc_currency_picker($currencies, $edit, TRUE);
+      }
+      $form['extent'] = array(
+        '#title' => t('Vertical extent of chart'),
+        '#description' => t("The chart can show either the maximum extents of the user's credit limits, or of their balance to date."),
+        '#type' => 'radios',
+        '#default_value' => $edit['extent'],
+        '#required' => TRUE,
+        '#options' => array(
+          'limits' => t('Currency'),
+          'balance' => t('Balance')
+        ),
+      );
+    break;
+    case 'mc_statement':
+      if (count($currencies) > 1) {
+        $form['cids'] = mc_currency_picker($currencies, $edit, TRUE);
+      }
+      $form['per_page'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Number of exchanges to show on one page'),
+        '#description' =>t('Enter an integer'),
+        '#default_value' => $edit['per_page'],
+        '#size' => '3',
+      );
+      break;
+    //these do not have a start time
+    case 'mc_balances':
+      if (count($currencies) > 1) {
+        $form['cids'] = mc_currency_picker($currencies, $edit, TRUE);
+      }
+      break;
+    case 'balance_ometer': //chose one currency only
+      if (count($currencies) > 1) {
+        $form['cids'] = mc_currency_picker($currencies, $edit, FALSE);
+      }
+      break;
+  }
+  return $form;
+}
+function mc_display_block_save($delta, $values) {
+  //save each of the fields, if they exist
+  $fields = array('cids', 'start_time', 'extent', 'per_page');
+  foreach ($fields as $field) {
+    if ($values[$field]) {
+      $edit[$field] = $values[$field];
+    }
+  }
+  variable_set('block_'.$delta, $edit);
+}
+
+function mc_validate_strtotime(&$element, $form_state) {
+  if (isset($element['#value']) && strlen($element['#value']) && !strtotime($element['#value'])) {
+    form_error($element, t('Not a valid strtotime() string'));
+  }
+}
+
+
+/*
+ * PREPROCESSING FUNCTIONS
+*/
+
+//this function would be a view except views can't yet do "WHERE payer_uid = $x OR payee_uid = $x"
+function template_preprocess_statement(&$vars) {
+  //add a load of fields from the
+  module_load_include('inc', 'mcapi');
+  if ($vars['cid']) {
+    $vars['currency'] = node_load($vars['cid']);
+  }
+  while (list($key, $exchange) = each($vars['exchanges'])) {
+    //changing the exchange held in $vars into an array and add the preprocess fields
+    $exchange = mc_preprocess_exchange($exchange) + (array)$exchange;
+    
+    $exchange['balance'] = theme('money', $exchange['balance'], $exchange['cid']);
+    if ($exchange['payee_uid'] == $vars['account']->uid) {
+      //change the sign on the money to negative
+      $exchange['income'] = theme('money', $exchange['quantity'], $exchange['cid']);
+      $exchange['expenditure'] = '';
+      $exchange['classes'][] = 'credit';
+      $exchange['other'] =  $exchange['payer'];
+    }
+    elseif ($exchange['payer_uid'] == $vars['account']->uid) {
+      $exchange['income'] = '';
+      $exchange['expenditure'] = theme('money', $exchange['quantity'], $exchange['cid']);
+      $exchange['classes'][] = 'debit';
+      //negate the quantity  (and derived amount)
+      $exchange['quantity'] = -$exchange['quantity'];
+      $exchange['other'] =  $exchange['payee'];
+    }
+    //finally we have to get the links by hand, which won't show up without node_view
+    $vars['exchanges'][$key] = $exchange;
+  }
+}
+
+function template_preprocess_balances(&$vars) {
+  foreach ($vars['balances'] as $cid => $amounts) {
+    $vars['currencies'][$cid] = node_load($cid);
+    foreach ($amounts as $key => $amount) {
+      $vars['themed_balances'][$cid][$key] = theme('money', $amount, $cid);
+    }
+  }
+}
+
+function get_balance_history($account, $cid, $since = NULL) {
+  if (!isset($since)) {
+    $since = $account->created;
+  }
+  $options = array(
+    'from' => $since,
+  );
+  $exchanges = mc_api_user_exchanges($account->uid, $cid, $options);
+  $points = array();
+  //make the first point for each currency
+  if (!$since) {
+    $points = array($account->created => 0);
+  }
+  foreach($exchanges as $exchange) {
+    //one point per exchange produces diagaonal lines
+    $points[$exchange->created] = $exchange->balance;
+  }
+  //add a final point at now, showing the current and final balance
+  $points[time()] = $exchange->balance;
+  return $points;
+}
+
+
+/*
+ * Needed for the views 2 module
+ */
+function mc_display_views_api() {
+  return array(
+    'api' => 2,
+    'path' => drupal_get_path('module', 'mc_display') .'/views',
+  );
+}
+
+function mc_display_form_alter($form, $form_state, $form_id) {
+  if ($form_id == 'views_exposed_form') {
+    $description = t('Comma separated usernames');
+    $form['payee_uid']['#description'] = $description;
+    $form['payer_uid']['#description'] = $description;
+  }
+}

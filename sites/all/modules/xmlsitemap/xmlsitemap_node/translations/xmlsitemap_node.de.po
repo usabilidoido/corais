@@ -1,0 +1,92 @@
+# $Id: xmlsitemap_node.de.po,v 1.1.2.8 2009/07/29 21:09:40 hass Exp $
+#
+# LANGUAGE translation of Drupal (gsitemap.module)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  gsitemap.module,v 1.56.2.7 2007/03/18 21:55:39 darrenoh
+#  gsitemap.info,v 1.3.2.3 2007/02/13 15:57:06 darrenoh
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: German translation of xmlsitemap_node\n"
+"POT-Creation-Date: 2009-07-29 23:02+0200\n"
+"PO-Revision-Date: 2009-07-29 23:08+0100\n"
+"Last-Translator: Alexander Haß\n"
+"Language-Team: Alexander Hass\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Poedit-Language: German\n"
+"X-Poedit-Country: GERMANY\n"
+"X-Poedit-SourceCharset: utf-8\n"
+
+#: xmlsitemap_node/xmlsitemap_node.module:141
+msgid "Priority adjustment"
+msgstr "Prioritätsanpassung"
+
+#: xmlsitemap_node/xmlsitemap_node.module:142
+msgid "This number will be added to the priority of this content type."
+msgstr "Diese Zahl wird der Priorität dieses Inhaltstypen hinzugefügt."
+
+#: xmlsitemap_node/xmlsitemap_node.module:157
+msgid "Node settings"
+msgstr "Beitragseinstellungen"
+
+#: xmlsitemap_node/xmlsitemap_node.module:158
+msgid "The settings for the nodes to include in the sitemap."
+msgstr "Die Einstellungen für die in der Sitemap zu enthaltenden Beiträge."
+
+#: xmlsitemap_node/xmlsitemap_node.module:164
+msgid "Promotion priority adjustment"
+msgstr "Anpassung der Promotions-Priorität"
+
+#: xmlsitemap_node/xmlsitemap_node.module:165
+msgid "This number will be added to the priority of each post that is promoted to the front page. This setting doesn't apply for the nodes for which the priority is overriden."
+msgstr "Dieser Wert wird der Priorität jedes Beitrages hinzugefügt, welcher auf der Startseite beworben wird. Diese Einstellung wird nicht bei Beiträgen angewendet, deren Priorität übersteuert wird."
+
+#: xmlsitemap_node/xmlsitemap_node.module:171
+msgid "Comment ratio priority adjustment"
+msgstr "Anpassung der Kommentar-Priorität"
+
+#: xmlsitemap_node/xmlsitemap_node.module:172
+msgid "This number will be added to the priority of the post with the highest number of comments; for the other posts, the number is calculated proportionally to the number of comments. This doesn't apply if the maximum number of comments is one, nor for the nodes for which the priority is overriden."
+msgstr "Diese Zahl wird der Priorität des Beitrages mit der höchsten Anzahl an Kommentaren zugeordnet. Für andere Beiträge wird die Zahl proportional zur Anzahl der Kommentare berechnet. Dies ist nicht der Fall, wenn die maximale Anzahl an Kommentaren eins ist oder für Beiträge bei denen die Priorität übersteuert wird."
+
+#: xmlsitemap_node/xmlsitemap_node.module:184
+msgid "Add the selected posts to the XML sitemap"
+msgstr "Die ausgewählten Beiträge zur XML-Sitemap hinzufügen"
+
+#: xmlsitemap_node/xmlsitemap_node.module:189
+msgid "Change the XML sitemap priority of the selected posts to default"
+msgstr "Die XML-Sitemap-Priorität der ausgewählten Beiträge auf den Standardwert zurücksetzen"
+
+#: xmlsitemap_node/xmlsitemap_node.module:194
+msgid "Remove the selected posts from the XML sitemap"
+msgstr "Die ausgewählten Beiträge aus der XML-Sitemap entfernen"
+
+#: xmlsitemap_node/xmlsitemap_node.module:273
+#: xmlsitemap_node/xmlsitemap_node.info:0
+msgid "XML sitemap node"
+msgstr "XML-Sitemap - Beitrag"
+
+#: xmlsitemap_node/xmlsitemap_node.module:274
+msgid "<em>XML sitemap node</em> adds nodes (content) to the sitemap. The default priority of a node is determined by a combination of its <a href=\"@content\">content type</a> priority, whether it appears on the front page of your site, and the number of comments it has received. You can override the default priority for individual nodes when you add or edit a node."
+msgstr "<em>XML-Sitemap-Beitrag</em> fügt Beiträge (Inhalt) zur Sitemap hinzu. Die standardmäßige Priorität eines Beitrages wird aus einer Kombination der <a href=\"@content\">Inhaltstypen</a>-Priorität, ob dieser auf der Startseite der Website erscheint und der Anzahl der eingegangenen Kommentare bestimmt. Die standardmäßige Priorität kann für individuelle Beiträge beim Hinzufügen oder Bearbeiten übersteuert werden."
+
+#: xmlsitemap_node/xmlsitemap_node.module:429
+msgid "Processing"
+msgstr "Verarbeitung läuft"
+
+#: xmlsitemap_node/xmlsitemap_node.module:431
+msgid "The update has encountered an error."
+msgstr "Die Aktualisierung hat einen Fehler festgestellt."
+
+#: xmlsitemap_node/xmlsitemap_node.module:0
+msgid "xmlsitemap_node"
+msgstr "xmlsitemap_node"
+
+#: xmlsitemap_node/xmlsitemap_node.info:0
+msgid "Add node links to the sitemap."
+msgstr "Fügt Links von Beiträgen in die Sitemap ein."
+

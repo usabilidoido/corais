@@ -1,0 +1,15 @@
+; $Id: casetracker_actions.info,v 1.1.2.1 2009/07/27 02:37:30 jmiccolis Exp $
+name = CT Actions
+description = Provides Actions for Case Tracker
+core = 6.x
+package = "Case Tracker"
+dependencies[] = casetracker
+
+
+
+; Information added by drupal.org packaging script on 2011-01-03
+version = "6.x-1.0-beta9"
+core = "6.x"
+project = "casetracker"
+datestamp = "1294082452"
+

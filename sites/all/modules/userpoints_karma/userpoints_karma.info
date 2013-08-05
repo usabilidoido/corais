@@ -1,0 +1,13 @@
+name = Userpoints Karma
+description = Userpoints Karma: node and comment authors gain or lose points as other vote up/down their nodes/comments
+package = Userpoints
+dependencies[] = vud
+dependencies[] = userpoints
+core = 6.x
+
+; Information added by drupal.org packaging script on 2011-02-25
+version = "6.x-1.x-dev"
+core = "6.x"
+project = "userpoints_karma"
+datestamp = "1298620578"
+

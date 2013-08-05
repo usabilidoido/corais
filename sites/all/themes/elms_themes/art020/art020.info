@@ -1,0 +1,24 @@
+name = "Art 20"
+description = "Theme for Art 020"
+core = "6.x"
+engine = "phptemplate"
+
+regions[left] = "Left sidebar"
+regions[right] = "Right sidebar"
+regions[content] = "Content"
+regions[header] = "Header"
+regions[footer] = "Footer"
+
+stylesheets[all][] = "css/style.css"
+stylesheets[all][] = "css/accessibility.css"
+
+scripts[] = "js/script.js"
+scripts[] = "js/jquery.accordion.pack.js"
+scripts[] = "js/jquery.easing.js"
+
+; Information added by drupal.org packaging script on 2012-06-21
+version = "6.x-1.0"
+core = "6.x"
+project = "elms_themes"
+datestamp = "1340301979"
+

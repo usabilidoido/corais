@@ -1,0 +1,4 @@
+/* $Id: content_complete.css,v 1.1.2.2 2009/09/11 15:42:57 pvhee Exp $ */
+
+.content-complete-percent-bar-wrapper { width: 100%; border: 1px solid #000; padding: 1px; }
+.content-complete-percent-bar { height: 10px; background-color: #777777; }

@@ -1,0 +1,29 @@
+<?php
+/**
+ * @file
+ *
+ */
+// $Id: attachments.install,v 1.3 2010/06/19 15:31:11 adaddinsane Exp $
+
+drupal_load('module', 'attachments') ;
+
+/**
+ * Implementation of hook_install().
+ */
+function attachments_install() {
+  $t = get_t() ;
+  drupal_set_message($t("Attachments settings are available under !link",
+    array('!link' => l('Home › Administer › Site configuration › File uploads › File uploads extensions',  Attachments::URL_SETTINGS))
+  ));
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function attachments_uninstall() {
+  variable_del(Attachments::VAR_EXTENSIONS) ;
+  variable_del(Attachments::VAR_EXTENSION_SWITCH) ;
+  variable_del(Attachments::VAR_OTHER_EXTS) ;
+  variable_del(Attachments::VAR_STYLE) ;
+  variable_del(Attachments::VAR_MAX_FILES) ;
+}

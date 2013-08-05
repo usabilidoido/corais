@@ -1,0 +1,23 @@
+<?php
+// $Id$
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function media_ustream_uninstall() {
+  variable_del('media_ustream_api_key');
+}
+
+/**
+ * Implementation of hook_update_n().
+ */
+function media_ustream_update_6100(&$sandbox) {
+  $ret = array();
+  $emvideo_ustream_api_key = variable_get('emvideo_ustream_api_key', '');
+  $media_ustream_api_key = variable_get('media_ustream_api_key', '');
+  if (empty($media_ustream_api_key) && !empty($emvideo_ustream_api_key)) {
+    variable_set('media_ustream_api_key', $emvideo_ustream_api_key);
+  }
+  variable_del('emvideo_ustream_api_key');
+  return $ret;
+}

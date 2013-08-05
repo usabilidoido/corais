@@ -1,0 +1,56 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Install and uninstall functions for Booknav
+ */
+
+/**
+ * Require file with constants
+ */
+require_once "includes/constants.inc.php";
+
+/**
+ * Implementation of hook_install
+ * 
+ * Import default values into {variable}
+ *
+ * @return void
+ * @author Børge Warvik
+ */
+function booknav_install() {
+  
+  variable_set(BOOKNAV_GENERATE_BLOCK_PER_BOOK, BOOKNAV_GENERATE_BLOCK_PER_BOOK_DEFAULT);
+  variable_set(BOOKNAV_USE_TOP_BOOK_NODE_AS_BLOCK_TITLE,  BOOKNAV_USE_TOP_BOOK_NODE_AS_BLOCK_TITLE_DEFAULT);
+  
+  variable_set(BOOKNAV_TREEVIEW_COOKIE_ID, BOOKNAV_TREEVIEW_COOKIE_ID_DEFAULT);
+  variable_set(BOOKNAV_TREEVIEW_PERSISTENT, BOOKNAV_TREEVIEW_PERSISTENT_DEFAULT);
+  variable_set(BOOKNAV_TREEVIEW_SHOW_EXPAND_COLLAPSE_LINKS, BOOKNAV_TREEVIEW_SHOW_EXPAND_COLLAPSE_LINKS_DEFAULT);
+  variable_set(BOOKNAV_TREEVIEW_ANIMATE, BOOKNAV_TREEVIEW_ANIMATE_DEFAULT);
+  variable_set(BOOKNAV_TREEVIEW_COLLAPSED, BOOKNAV_TREEVIEW_COLLAPSED_DEFAULT);
+  variable_set(BOOKNAV_TREEVIEW_UNIQUE, BOOKNAV_TREEVIEW_UNIQUE_DEFAULT);
+  
+}
+
+/**
+ * Implementation of hook_uninstall
+ * 
+ * Delete variables from {variable}
+ *
+ * @return void
+ * @author Børge Warvik
+ */
+function booknav_uninstall() {
+  
+  variable_del(BOOKNAV_GENERATE_BLOCK_PER_BOOK);
+  variable_del( BOOKNAV_USE_TOP_BOOK_NODE_AS_BLOCK_TITLE);
+  
+  variable_del(BOOKNAV_TREEVIEW_COOKIE_ID);
+  variable_del(BOOKNAV_TREEVIEW_PERSISTENT);
+  variable_del(BOOKNAV_TREEVIEW_SHOW_EXPAND_COLLAPSE_LINKS);
+  variable_del(BOOKNAV_TREEVIEW_ANIMATE);
+  variable_del(BOOKNAV_TREEVIEW_COLLAPSED);
+  variable_del(BOOKNAV_TREEVIEW_UNIQUE);
+  
+}

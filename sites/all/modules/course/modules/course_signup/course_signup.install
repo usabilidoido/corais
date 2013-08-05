@@ -1,0 +1,18 @@
+<?php
+/**
+ * @file
+ * Install, update and uninstall functions for the course_signup module.
+ *
+ */
+
+/**
+ * Implements hook_install().
+ *
+ * Set courses to use signup.
+ */
+function course_signup_install() {
+  module_load_include('module', 'course', 'course');
+  foreach (course_get_types() as $type) {
+    variable_set('signup_node_default_state_' . $type, 'enabled_on');
+  }
+}

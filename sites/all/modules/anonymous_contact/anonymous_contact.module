@@ -1,0 +1,149 @@
+<?php
+/**
+ * Implementation of hook_menu().
+ */
+function anonymous_contact_menu() {
+  $items['user/%user/contact_form'] = array(
+    'title' => 'Contact',
+    'description' => 'Contact a User without needing to log in',
+    'page callback' => 'anonymous_contact_page',
+    'page arguments' => array(1),
+    'access arguments' => array('access anonymous contact form'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['contact_form/%user'] = array(
+    'title' => 'Contact',
+    'description' => 'Contact a User without needing to log in',
+    'page callback' => 'anonymous_contact_page',
+    'page arguments' => array(1),
+    'access arguments' => array('access anonymous contact form'),
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function anonymous_contact_perm() {
+  return array('access anonymous contact form');
+}
+
+/**
+ * Contact form page
+ */
+function anonymous_contact_page($account) {
+  if (FALSE == $account) {
+    $output = t('No user was found with that ID');
+  }
+  elseif (!valid_email_address($account->mail)) {
+    $output = t('Unfortunately !name has not provided a valid e-mail address.  This means we would be unable to deliver any e-mail to them.', array('!name' => $account->name));
+  }
+  elseif (!flood_is_allowed('contact', variable_get('contact_hourly_threshold', 3))) {
+    $output = t('You cannot contact more than %number members per hour. Please try again later.', array('%number' => variable_get('contact_hourly_threshold', 3)));
+  }
+  else {
+    drupal_set_title(check_plain(t('Contact !name', array('!name' => $account->name))));
+    $output = drupal_get_form('anonymous_contact_form', $account);
+  }
+  return $output;
+}
+
+/**
+ * The contact form.
+ */
+function anonymous_contact_form(&$form_state, $recipient) {
+
+  $form['recipient'] = array('#type' => 'value', '#value' => $recipient);
+  $form['name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Your name'),
+    '#required' => TRUE,
+  );
+  $form['from'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Your e-mail'),
+    '#required' => TRUE,
+  );
+  $form['to'] = array('#type' => 'item',
+    '#title' => t('To'),
+    '#value' => theme('username', $recipient),
+  );
+  $form['subject'] = array('#type' => 'textfield',
+    '#title' => t('Subject'),
+    '#maxlength' => 50,
+    '#required' => TRUE,
+  );
+  $form['message'] = array('#type' => 'textarea',
+    '#title' => t('Message'),
+    '#rows' => 15,
+    '#required' => TRUE,
+  );
+  $form['copy'] = array('#type' => 'checkbox',
+    '#title' => t('Send yourself a copy.'),
+  );
+  $form['submit'] = array('#type' => 'submit',
+    '#value' => t('Send e-mail'),
+  );
+  return $form;
+}
+
+/**
+ * Validate the anonymous contact form submission.
+ */
+function anonymous_contact_form_validate($node, &$form) {
+  if (!valid_email_address($form['values']['from'])) {
+    form_set_error('from', t('"!email" doesn\'t appear to be a valid e-mail address.', array('!email' => $form['values']['from'])));
+  }
+}
+
+/**
+ * Process the anonymous contact form submission.
+ */
+function anonymous_contact_form_submit($form, &$form_state) {
+  global $language;
+
+  $account = $form_state['values']['recipient'];
+
+  // Send to the requested user.
+  $to = $account->mail;
+  $from = sprintf('"%s" <%s>', $form_state['values']['name'], $form_state['values']['from']);
+  $fake_user->name = $form_state['values']['name'];
+  $fake_user->mail = $form_state['values']['from'];
+  // Save both users and all form values for email composition.
+  $values = $form_state['values'];
+  $values['account'] = $account;
+  $values['user'] = $fake_user;
+
+  // Send the e-mail in the requested user language.
+  drupal_mail('anonymous_contact', 'user_mail', $to, user_preferred_language($account), $values, $from);
+
+  // Send a copy if requested, using current page language.
+  if ($form_state['values']['copy']) {
+    drupal_mail('anonymous_contact', 'user_copy', $from, $language, $values, $from);
+  }
+
+  flood_register_event('contact');
+  watchdog('anonymous_contact', '%name-from sent %name-to an e-mail.', array('%name-from' => $form_state['values']['from'], '%name-to' => $account->name));
+  drupal_set_message(t('The message has been sent.'));
+  // Back to the requested users profile page.
+}
+
+/**
+ * Implementation of hook_mail().
+ */
+function anonymous_contact_mail($key, &$message, $params) {
+  $language = $message['language'];
+  switch ($key) {
+    case 'user_mail':
+    case 'user_copy':
+      $user = $params['user'];
+      $account = $params['account'];
+      $message['subject'] .= '['. variable_get('site_name', 'Drupal') .'] '. $params['subject'];
+      $message['body'][] = "$account->name,";
+      $message['body'][] = t("!name has sent you a message via the contact form at !site.", array('!name' => $user->name, '!site' => variable_get('site_name', 'Drupal')), $language->language);
+      $message['body'][] = t('Message:', NULL, $language->language);
+      $message['body'][] = $params['message'];
+      break;
+  }
+}

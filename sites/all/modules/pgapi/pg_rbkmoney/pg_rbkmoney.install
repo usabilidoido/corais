@@ -1,0 +1,17 @@
+<?php
+
+/**
+ * Implementation of hook_install().
+ */
+function pg_rbkmoney_install() {
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function pg_rbkmoney_uninstall() {
+  variable_del('pg_rbkmoney_eshopId');
+  variable_del('pg_rbkmoney_rate');
+  variable_del('pg_rbkmoney_action');
+  variable_del('pg_rbkmoney_secretkey');
+}

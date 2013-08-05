@@ -1,0 +1,138 @@
+<?php
+
+/**
+ * @file
+ * This is the un/install file for the Mass Contact module.
+ *
+ * This module enables users to contact multiple users through selected roles.
+ */
+
+/**
+ * Implementation of hook_schema().
+ */
+function mass_contact_schema() {
+  $schema['mass_contact'] = array(
+    'description' => t('The base table for nodes.'),
+    'fields' => array(
+      'cid' => array(
+        'description' => t('The primary id field for the category table.'),
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE),
+      'category' => array(
+        'description' => t('The name of the category.'),
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => ''),
+      'recipients' => array(
+        'description' => t('A list of the users to receive the message.'),
+        'type' => 'text',
+        'size' => 'big',
+        'not null' => TRUE),
+      'reply' => array(
+        'description' => t('.'),
+        'type' => 'text',
+        'size' => 'big',
+        'not null' => TRUE),
+      'weight' => array(
+        'description' => t('.'),
+        'type' => 'int',
+        'size' => 'tiny',
+        'unsigned' => FALSE,
+        'not null' => TRUE,
+        'default' => 0),
+      'selected' => array(
+        'description' => t('.'),
+        'type' => 'int',
+        'size' => 'tiny',
+        'unsigned' => FALSE,
+        'not null' => TRUE,
+        'default' => 0),
+    ),
+    'primary key' => array('cid'),
+    'unique keys' => array(
+      'category' => array('category')
+    ),
+  );
+
+  return $schema;
+}
+
+
+/**
+ * Implementation of hook_install().
+ */
+function mass_contact_install() {
+  drupal_install_schema('mass_contact');
+  drupal_set_message(t('All tables and entries required by the Mass Contact module have been created.'));
+}
+
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function mass_contact_uninstall() {
+  drupal_uninstall_schema('mass_contact');
+
+//  db_query('DELETE FROM node_type WHERE type = "mass_contact"');
+
+  db_query("DELETE FROM {variable} WHERE name LIKE 'mass_contact_%'");
+}
+
+
+/**
+ * Implementation of hook_update().
+ *
+ * Updates permission names.
+ */
+function mass_contact_update_6000() {
+  $ret = array();
+
+  $result = db_query('SELECT * FROM {permission}');
+  while ($permission = db_fetch_object($result)) {
+    if (strstr($permission->perm, 'access mass contact form')) {
+      $new_permission = str_replace ('access mass contact form', 'send mass contact e-mails', $permission->perm);
+      $ret[] = update_sql('UPDATE {permission} SET perm = "'. $new_permission .'" WHERE rid = '. $permission->rid .' AND tid = '. $permission->tid);
+    }
+  }
+
+  return $ret;
+}
+
+
+/**
+ * Implementation of hook_update().
+ *
+ * Changes a database field name to match the code that's using it.
+ */
+function mass_contact_update_6001() {
+  $ret = array();
+  $ret[] = update_sql("UPDATE {variable} SET name = 'mass_contact_html_d' WHERE name = 'mass_contact_HTML_d'");
+  return $ret;
+}
+
+
+/**
+ * Implementation of hook_update().
+ *
+ * Update the defaults for weight/selected to integers instead of strings.
+ */
+function mass_contact_update_6002() {
+  $ret = array();
+  // Can't use db_field_set_default() due to Drupal bug http://drupal.org/node/517642
+  $ret[] = update_sql('ALTER TABLE {mass_contact} ALTER COLUMN weight SET DEFAULT 0');
+  $ret[] = update_sql('ALTER TABLE {mass_contact} ALTER COLUMN selected SET DEFAULT 0');
+  return $ret;
+}
+
+
+/**
+ * Implementation of hook_update().
+ *
+ * Remove a now unused variable.
+ */
+function mass_contact_update_6003() {
+  variable_del('mass_contact_when_to_optout');
+  return array();
+}

@@ -1,0 +1,20 @@
+name = "Atrium Activity"
+description = "Activity streams for showing new posts, updates and comments."
+core = "6.x"
+package = "Features"
+dependencies[] = "comment"
+dependencies[] = "context"
+features[context][] = "activity_profile"
+features[ctools][] = "context:context:3"
+features[views][] = "activity_listing"
+features[views_api][] = "api:2"
+kitf = "1.0-draft"
+
+; Autodetected dependencies that are omitted: og_views, spaces
+
+; Information added by drupal.org packaging script on 2012-07-26
+version = "6.x-1.3"
+core = "6.x"
+project = "atrium_features"
+datestamp = "1343327209"
+

@@ -1,0 +1,12 @@
+span.spaces-feature.feature-atrium_credit, span.spaces-feature.node-exchange {
+  background: url(money_icon20.png);
+}
+
+#features-menu li a.icon-exchanges span.icon {
+  background: url(money_icon40.png);
+}
+
+li.sign  a, li.signall a {
+  padding-left: 20px;
+  background: url(tick_icon.png) 3px 0 no-repeat;
+}

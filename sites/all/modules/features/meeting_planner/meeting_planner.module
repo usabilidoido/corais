@@ -1,0 +1,8 @@
+<?php // $Id: meeting_planner.module,v 1.1.2.1 2010/11/14 14:24:30 zeropaper Exp $ 
+
+include_once('meeting_planner.features.inc');
+
+function meeting_planner_init() {
+  drupal_add_css(drupal_get_path('module', 'meeting_planner') . '/meeting_planner.css');
+}
+// http://openatrium.com/build_a_feature

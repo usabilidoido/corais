@@ -1,0 +1,13 @@
+name = Quiz Reports
+description = "Show a report for every question in a quiz."
+core = 6.x
+php = 5
+package = Quiz Reports
+dependencies[] = quiz
+
+; Information added by drupal.org packaging script on 2011-03-22
+version = "6.x-1.1"
+core = "6.x"
+project = "quiz_reports"
+datestamp = "1300804269"
+

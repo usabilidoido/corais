@@ -1,0 +1,128 @@
+<p>
+Core Drupal 6.x supported modules.
+</p>
+
+<ul>
+<li><a href="#blog">Blog</a></li>
+<li><a href="#book">Book</a></li>
+<li><a href="#comment">Comment</a></li>
+<li><a href="#node">Node</a></li>
+</ul>
+
+<a name="blog"></a>
+<h3>Blog</h3>
+
+<p>
+The <em>Blog</em> module is <strong>fully supported</strong>.
+</p>
+
+<h4>Content types</h4>
+
+<p>
+You can import the <em>Blog entry</em> content type.
+</p>
+
+<h4>Content fields</h4>
+
+<p>
+The <em>Blog</em> module does not add any extra content fields.
+</p>
+
+<a name="book"></a>
+<h3>Book</h3>
+
+<p>
+The <em>Book</em> module is <strong>fully supported</strong>.
+</p>
+
+<h4>Content types</h4>
+
+<p>
+You can import the <em>Book page</em> content type.
+</p>
+
+<h4>Content fields</h4>
+
+<p>
+The <em>Book</em> module adds following content fields for content types that can be added to a book:
+</p>
+
+<table border="0">
+<thead>
+<tr><th>Content field</th><th>Format</th></tr>
+</thead>
+<tbody>
+<tr><th colspan="2">Book outline</th></tr>
+<tr><td>Book</td><td><a href="&topic:node_import/input-format&#book-reference">Book reference</a></td></tr>
+<tr><td>Parent item</td><td><a href="&topic:node_import/input-format&#book-page-reference">Book page reference</a></td></tr>
+<tr><td>Weight</td><td><a href="&topic:node_import/input-format&#weight">Weight</a> (-15:15)</td></tr>
+</tbody>
+</table>
+
+<a name="comment"></a>
+<h4>Comment</h4>
+
+<p>
+The <em>Comment</em> module is <strong>partially supported</strong>.
+</p>
+
+<h4>Content fields</h4>
+
+<p>
+The <em>Comment</em> module adds following content fields for all content types:
+</p>
+
+<table border="0">
+<thead>
+<tr><th>Content field</th><th>Format</th></tr>
+</thead>
+<tbody>
+<tr><th colspan="2">Comment settings</th></tr>
+<tr><td>Comment settings</td><td><a href="&topic:node_import/input-format&#allowed-values">Allowed values</a><dl>
+<dt>0</dt>
+<dd>Disabled</dd>
+<dt>1</dt>
+<dd>Read only</dd>
+<dt>2</dt>
+<dd>Read/write</dd>
+</dl></td></tr>
+</tbody>
+</table>
+
+<a name="node"></a>
+<h3>Node</h3>
+
+<p>
+The <em>Node</em> module is <strong>fully supported</strong>.
+</p>
+
+<h4>Content types</h4>
+
+<p>
+You can import any of the content types defined on <a href="&base_url&admin/content/types">the Content types administration page</a> such as <em>Page</em> or <em>Story</em>.
+</p>
+
+<h4>Content fields</h4>
+
+<p>
+The <em>Node</em> module adds following content fields for all content types:
+</p>
+
+<table border="0">
+<thead>
+<tr><th>Content field</th><th>Format</th></tr>
+</thead>
+<tbody>
+<tr><td>Title</td><td>Any string</td></tr>
+<tr><td>Body</td><td>Any string</td></tr>
+<tr><td>Input format</td><td><a href="&topic:node_import/input-format&#input-format">Input format</a></td></tr>
+<tr><th colspan="2">Authoring information</th></tr>
+<tr><td>Authored by</td><td><a href="&topic:node_import/input-format&#user-reference">User reference</a></td></tr>
+<tr><td>Authored on</td><td><a href="&topic:node_import/input-format&#date">Date</a></td></tr>
+<tr><th colspan="2">Publishing options</th></tr>
+<tr><td>Published</td><td><a href="&topic:node_import/input-format&#boolean">Boolean</a></td></tr>
+<tr><td>Promoted to front page</td><td><a href="&topic:node_import/input-format&#boolean">Boolean</a></td></tr>
+<tr><td>Sticky at top of lists</td><td><a href="&topic:node_import/input-format&#boolean">Boolean</a></td></tr>
+</tbody>
+</table>
+

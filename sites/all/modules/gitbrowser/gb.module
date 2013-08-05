@@ -1,0 +1,211 @@
+<?php
+// $Id: gb.module,v 1.22 2009/11/04 06:23:36 gordon Exp $
+/**
+ * @file
+ * Provide a git browsing API which allows other modules to add the ability
+ * to browse different repositories
+ */
+
+/**
+ * Implementation of hook_menu().
+ */
+function gb_menu() {
+  $items = array();
+  
+  $items['admin/settings/git'] = array(
+    'title' => 'Git browser',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('gb_settings'),
+    'access arguments' => array('administer site configuration'),
+    'description' => 'Configuration settings for Git Browser',
+    'file' => 'gb.admin.inc',
+  );
+  
+  return $items;
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function gb_theme() {
+  return array(
+    'commit_info' => array(
+      'arguments' => array('info' => NULL, 'path' => NULL, 'repos' => NULL),
+      'template' => 'commit-info',
+      'path' => drupal_get_path('module', 'gb') .'/templates',
+      'file' => 'theme.inc',
+    ),
+    'commit_diff' => array(
+      'arguments' => array('info' => NULL, 'path' => NULL, 'repos' => NULL, 'parent' => 0),
+      'template' => 'commit-diff',
+      'path' => drupal_get_path('module', 'gb') .'/templates',
+      'file' => 'theme.inc',
+    ),
+    'tag_info' => array(
+      'arguments' => array('info' => NULL, 'path' => NULL, 'repos' => NULL),
+      'template' => 'tag-info',
+      'path' => drupal_get_path('module', 'gb') .'/templates',
+      'file' => 'theme.inc',
+    ),
+    'format_person' => array(
+      'arguments' => array('person' => NULL),
+      'template' => 'format-person',
+      'path' => drupal_get_path('module', 'gb') .'/templates',
+      'file' => 'theme.inc',
+    ),
+    'format_file_list' => array(
+      'arguments' => array('info' => NULL, 'path' => NULL, 'repos' => NULL),
+      'template' => 'format-file-list',
+      'path' => drupal_get_path('module', 'gb') .'/templates',
+      'file' => 'theme.inc',
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_perm()
+ */
+function gb_perm() {
+  return array(
+    'access repository',
+    'access commit log',
+    'access commit',
+    'access commit diff',
+    'access tag details',
+    'access create head tag',
+    'access create commit tag',
+    'access create commit tag with changes',
+    'download archive',
+    'access git tools',
+    'fetch commits',
+    'checkout tag'
+  );
+}
+
+/**
+ * Implementation of hook_link().
+ */
+function gb_link($type, $object) {
+  static $archive_types = array('tar', 'zip');
+  $$type =& $object;
+  $links = array();
+
+  if ($type == 'commit') {
+    if (user_access('access commit')) {
+      $links['gb_details'] = array(
+        'title' => t('Commit'),
+        'href' => _gb_format_commit_url($commit['path'], $commit['hash'])
+      );
+    }
+    if (user_access('access commit diff')) {
+      $links['gb_diff'] = array(
+        'title' => t('Diff'),
+        'href' => _gb_format_commit_url($commit['path'], $commit['hash']) .'/diff'
+      );
+    }
+    if (user_access('access create commit tag')) {
+      $links['gb_tag'] = array(
+        'title' => t('Create tag'),
+        'href' => _gb_format_commit_url($commit['path'], $commit['hash']) .'/tag'
+      );
+    }
+    if (user_access('download archive')) {
+      foreach ($archive_types as $arch) {
+        $links['gb_download_'. $arch] = array(
+          'title' => $arch,
+          'href' => $commit['path'] .'/download/'. urlencode($commit['hash']) .'/'. $arch,
+          'attributes' => array('title' => t('Download @type', array('@type' => $arch))),
+        );
+      }
+    }
+  }
+  else if ($type == 'tag') {
+    if (user_access('access tag details')) {
+      $links['gb_tag'] = array(
+        'title' => t('Tag'),
+        'href' => _gb_format_tag_url($tag['path'], $tag['hash']),
+      );
+    }
+    if (user_access('access commit')) {
+      $links['gb_details'] = array(
+        'title' => t('Commit'),
+        'href' => _gb_format_commit_url($tag['path'], $tag['hash']),
+      );
+    }
+    if (user_access('checkout tag')) {
+      $links['gb_checkout'] = array(
+        'title' => t('Checkout'),
+        'href' => $tag['path'] .'/checkout/'. urlencode($tag['tag']),
+        'query' => drupal_get_destination(),
+      );
+    }
+    if (user_access('download archive')) {
+      foreach ($archive_types as $arch) {
+        $links['gb_download_'. $arch] = array(
+          'title' => $arch,
+          'href' => $tag['path'] .'/download/'. urlencode($tag['tag']) .'/'. $arch,
+          'attributes' => array('title' => t('Download @type', array('@type' => $arch))),
+        );
+      }
+    }
+  }
+  
+  return $links;
+}
+
+
+
+/**
+ * Run the Git command
+ */
+function gb_git($repos, $command) {
+  $cmd .= ' '. $command;
+  
+  $output = '';
+  if ($ret = gb_real_git($cmd, $output, $repos)) {
+    drupal_set_message(t('Problem running git "%cmd"', array('%cmd' => $cmd)), 'error');
+  }
+
+  return $output;
+}
+
+function gb_real_git($command, &$output, $repos = NULL) {
+  $cmd = variable_get('git_cmd', '/usr/bin/git');
+  if ($repos) {
+    $cmd .= ' --git-dir='. realpath($repos);
+  }
+  $cmd .= ' '.$command;
+  
+  exec($cmd, $output, $ret);
+  
+  return $ret;
+}
+
+function gb_git_passthru($repos, $command) {
+  $cmd = variable_get('git_cmd', '/usr/bin/git');
+  if ($repos) {
+    $cmd .= ' --git-dir='. realpath($repos);
+  }
+  $cmd .= ' '.$command;
+  
+  passthru($cmd, $ret);
+  
+  return $ret;
+}
+
+function _gb_parent_hash_title($repos, $hash, $parent) {
+  module_load_include('inc', 'gb');
+  $info = gb_get_commit_info($repos, $hash);
+  
+  return substr($info['parent'][$parent], 0, 7);
+}
+
+function _gb_access_parent($repos, $hash, $parent = 0) {
+  module_load_include('inc', 'gb');
+  $info = gb_get_commit_info($repos, $hash);
+
+  if ($parent == 0 || isset($info['parent'][$parent])) {
+    return TRUE;
+  }
+  return FALSE;
+}

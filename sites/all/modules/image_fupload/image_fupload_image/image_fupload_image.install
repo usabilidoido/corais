@@ -1,0 +1,16 @@
+<?php
+// $Id: image_fupload_image.install,v 1.3 2008/08/11 21:12:10 grandcat Exp $
+
+/**
+ * Implementation of hook_install().
+ */
+function image_fupload_image_install() {
+  // No need of this at the moment
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function image_fupload_image_uninstall() {
+  // No need of this at the moment
+}

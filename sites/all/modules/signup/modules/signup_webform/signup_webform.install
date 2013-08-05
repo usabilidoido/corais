@@ -1,0 +1,59 @@
+<?php
+/**
+ * @file signup_webform.install
+ */
+
+/**
+ * Implementation of hook_schema().
+ */
+function signup_webform_schema() {
+  // The relationship between signup and webform submissions is saved in its
+  // own table rather than in the signup form_data array to allow eventual
+  // access from Views.
+  $schema['signup_webform_submission'] = array(
+    'description' => 'Relates a {signup_log}.sid (as signup_sid) to one or more {webform_submissions}.sid (as submission_sid), giving access to the webform data saved for a given signup.',
+    'fields' => array(
+      'signup_sid' => array(
+        'description' => 'The signup ID: {signup_log}.sid.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'webform_nid' => array(
+        'description' => 'The {node}.id for the webform.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'submission_sid' => array(
+        'description' => 'The submission ID: {webform_submissions}.sid.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('signup_sid', 'webform_nid'),
+  );
+  
+  return $schema;
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function signup_webform_install() {
+  // Create tables.
+  drupal_install_schema('signup_webform');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function signup_webform_uninstall() {
+  // Remove tables.
+  drupal_uninstall_schema('signup_webform');
+}
+

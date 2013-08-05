@@ -1,0 +1,63 @@
+<?php
+
+include_once('atrium_profile.features.inc');
+
+/**
+ * Implementation of hook_menu_alter().
+ */
+function atrium_profile_menu_alter(&$items) {
+  // Remove node/add/profile as a suitable alternative is provided by
+  // content_profile.
+  if (isset($items['node/add/profile'])) {
+    unset($items['node/add/profile']);
+  }
+  if (isset($items['user/%user/view'])) {
+    $items['user/%user/view']['title'] = 'Profile';
+  }
+  if (isset($items['user/%user_category/edit'])) {
+    $items['user/%user_category/edit']['title'] = 'Account settings';
+  }
+  if (isset($items['user/%user/openid'])) {
+    $items['user/%user/openid']['title'] = 'OpenID';
+  }
+}
+
+/**
+ * Implementation of hook_views_pre_view().
+ */
+function atrium_profile_views_pre_build(&$view) {
+  if ($view->name == 'profile_display') {
+    // Forcefully set the user page context condition.
+    // @TODO: Try to refactor this as to not require this hack.
+    if ($view->current_display === 'page_1' && isset($view->args[0]) && $account = user_load($view->args[0])) {
+      $edit = array();
+      context_user('view', $edit, $account);
+    }
+    // Remove email display if site is in public mode.
+    if (variable_get('user_register', 0)) {
+      $fields = $view->display_handler->get_option('fields');
+      if (isset($fields['mail'])) {
+        unset($fields['mail']);
+        $view->display_handler->set_option('fields', $fields);
+      }
+    }
+  }
+}
+
+/**
+ * Implementation of hook_context_links_alter().
+ */
+function atrium_profile_context_links_alter(&$links) {
+  global $user;
+  if (module_exists('spaces') && ($space = spaces_get_space()) 
+  && $space->type == 'user' && $space->id == $user->uid && node_access('create', 'profile')) {
+    $prepend = array(
+      'profile' => array(
+        'title' => t('Edit my profile'),
+        'href' => "user/{$space->id}/edit/profile",
+        'custom' => TRUE,
+      ),
+    );
+    $links = $prepend + $links;
+  }
+}

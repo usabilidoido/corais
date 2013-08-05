@@ -1,0 +1,510 @@
+<?php
+// $Id: meetings.test,v 1.1.2.3 2010/08/16 08:38:13 auzigog Exp $
+
+
+/**
+ * Class for testing Meetings module
+ */
+class MeetingsTests extends DrupalWebTestCase {
+  protected $basic_user;
+  protected $basic_user_alt;
+  protected $admin_user;
+  
+  protected $sample_meeting;      // Created with form
+  protected $sample_meeting_path;
+  
+  protected $sample_meeting_node; // Created with node_save()
+  
+  /**
+   * getInfo() returns properties that are displayed in the test selection form
+   */
+  public static function getInfo() {
+    return array(
+      'name' => t('Meetings basic tests'),
+      'description' => t('Test basic functionality of Meetings'),
+      'group' => t('Meetings'),
+    );
+  }
+  
+  /**
+   * setUp() performs any pre-requisite tasks that need to happen
+   */
+  public function setUp() {
+    // Must include every single module that Meetings relies on
+    parent::setUp(
+      'content',
+      'ctools',
+      'date_api',
+      'date',
+      'date_timezone',
+      'date_popup',
+      'features',
+      'filefield',
+      'jquery_ui',
+      'token',
+      'messaging',
+      'notifications',
+      'notifications_content',
+      'notifications_team',
+      'strongarm',
+      'text',
+      'views',
+      'votingapi',
+      
+      'meetings'
+    );
+    
+    // Run a features rebuild to ensure our feature is fully installed.
+    features_rebuild();
+    
+    // Same deal. content_fields() doesn't store any feature fields until this is called
+    cache_clear_all();
+    
+    
+    // Hack to force a permissions refresh before using field-level permission
+    //  this is needed because the first time the permissions list is generated,
+    //  the cck fields (and field level permissions) aren't loaded.
+    $this->checkPermissions(array('access content'), TRUE);
+    
+    $basic_permissions = array(
+      'access content',
+      'create meeting content',
+      'edit own meeting content',
+    );
+    
+    $admin_permissions = array(
+      'access content',
+      'administer content types',
+      'administer nodes',
+      'access administration pages',
+      'administer site configuration',
+      'access site reports',
+      'administer permissions',
+      'administer users',
+      
+      'administer content types',
+      'administer voting api',
+      'administer views',
+      'administer notifications',
+      'administer messaging',
+      
+      'manage features',
+      'administer features',
+      
+      'edit all meeting fields',
+    );
+    
+    
+    $this->basic_user = $this->drupalCreateUser($basic_permissions);
+    //$this->basic_user_alt = $this->drupalCreateUser($basic_permissions);
+    $this->admin_user = $this->drupalCreateUser($admin_permissions);
+    
+    // Setup sample meeting
+    //$this->sample_meeting = $this->_create_meeting_form($this->basic_user);
+    //$this->sample_meeting_path = $this->getPath();
+    $this->sample_meeting_node = $this->_create_meeting_node($this->basic_user->uid);
+    
+  }
+
+  /*
+  public function testMeetingAll() {
+    $test_cycle = array(
+      'owner' => array(
+        'user'              => array('create meeting content', 'edit own meeting content'),
+        'create'            => TRUE,
+        'view'              => self::IGNORE,
+        'edit'              => self::IGNORE,
+        'delete'            => self::IGNORE,
+        'view attendance'   => TRUE,
+        'take attendance'   => TRUE,
+      ),
+      'edit all fields user' => array(
+        'user'              => array(MEETINGS_FIELD_EDIT_OVERRIDE_PERMISSION),
+        'create'            => self::IGNORE,
+        'view'              => self::IGNORE,
+        'edit'              => TRUE,
+        'fields'            => self::ALL_FIELDS,
+        'delete'            => self::IGNORE,
+        'view attendance'   => self::IGNORE,
+        'take attendance'   => self::IGNORE,
+      ),
+    );
+    
+    foreach ($test_cycle as $user_role=>$settings) {
+      $this->_run_suite($user_role, $settings);
+    }
+    
+    
+  }
+  
+  protected function _run_suite($user_role, $settings) {
+    if (is_array($settings['user'])) {
+      $settings['user'] = $this->drupalCreateUser($settings['user']);
+    }
+    $user = &$settings['user'];
+    
+    // Create
+    $form_values = $this->_create_meeting_form($user, $settings['create']);
+    $this->_create_meeting_assertions($user_role, $form_values, $settings['create']);
+    if($settings['create']) {
+      $path = $this->getPath();
+      $nid = $this->getNID();
+    } else {
+      $node = $this->_create_meeting_node($user);
+      $path = "node/{$node->nid}";
+      $nid = $node->nid;
+    }
+    
+    
+    // View
+    $this->_view_meeting($path, $user_role, $settings['view']);
+    
+    // Edit
+    $fields = isset($settings['fields']) ? $settings['fields'] : NULL;
+    $this->_edit_meeting($path, $user_role, $fields,  $settings['edit']);
+    
+    // View attendance
+    $this->_view_attendance($nid, $user_role, $settings['view attendance']);
+    
+    // Take attendance
+    
+    
+    // Delete
+    $this->_delete_meeting($path, $form_values['title'], $user_role, $settings['edit']);
+    
+    
+  }
+  */
+  
+  
+  /**
+   * Runs all tests. Just for develoment purposes at the moment to easiily
+   * enabled/disable certain tests. Al functions starting with _test should
+   * be called from here
+   */
+  public function testMeetingsAllBasic() {
+    //$this->_testCreateMeeting();
+    //$this->_testEditAllFields();
+    //$this->_testEditEachField();
+    $this->_testViewAttendance();
+  }
+  
+  
+  
+  
+  /**
+   *
+   */
+  public function _testCreateMeeting() {
+    $user = $this->drupalCreateUser(array(
+      'create meeting content',
+      'edit own meeting content',
+    ));
+    $access = TRUE;
+    $form_values = $this->_create_meeting_form($user, $access);
+    $this->_create_meeting_assertions($form_values, $access);
+  }
+  
+
+  /**
+   *  Helper function to create a meeting node using drupalCreateNode()
+   */
+  protected function _create_meeting_node($uid = NULL) {
+  // If a user was passed, then log that user in
+    $node = new stdClass();
+    $node->type = 'meeting';
+    $node->uid = empty($uid) ? $this->loggedInUser->uid : $uid;
+    $node->title = $this->randomName(8);
+    $node->field_meeting_purpose[0]['value'] = $this->randomName(16);
+    $node->field_meeting_date[0]['value'] = '2010-07-28T19:00:00';
+    $node->field_meeting_date[0]['value2'] = '2010-07-28T20:00:00';
+    $node->field_meeting_location[0]['value'] = $this->randomName(32);
+    $node->field_meeting_agenda[0]['value'] = $this->randomName(128)."\n".$this->randomName(128);
+    node_save($node);
+    
+    $this->drupalGet("node/{$node->nid}");
+    
+    return $node;
+  }
+  
+  
+  /**
+   * Helper function to create and view a meeting for the user that is currently
+   * logged in. Leaves assertions to the function that called it.
+   */
+  protected function _create_meeting_form($user = NULL, $access = FALSE) {
+    // If a user was passed, then log that user in
+    if($user != NULL) {
+      $this->drupalLogin($user);
+    }
+    
+    if ($access) {
+      // Create a simple meeting
+      $edit = array();
+      $edit['title'] = $this->randomName(8);
+      $edit['field_meeting_purpose[0][value]'] = $this->randomName(16);
+      // TODOO - Make these dates work with any system date format or locality
+      $edit['field_meeting_date[0][value][date]'] = '07/28/2010';
+      $edit['field_meeting_date[0][value][time]'] = '7:00PM';
+      $edit['field_meeting_date[0][value2][date]'] = '07/28/2010';
+      $edit['field_meeting_date[0][value2][time]'] = '8:00PM';
+      
+      $edit['field_meeting_location[0][value]'] = $this->randomName(32);
+      $edit['field_meeting_agenda[0][value]'] = $this->randomName(128)."\n".$this->randomName(128);
+      
+      $this->drupalPost('node/add/meeting', $edit, t('Save'));
+      return $edit;
+    }
+    else {
+      // Should give access denied
+      $this->drupalGet('node/add/meeting');
+    }
+  }
+  
+  /**
+   * Helper function for _create_meeting_form() to do assertions easily for
+   * different roles.
+   */
+  protected function _create_meeting_assertions($form_values, $access=TRUE) {
+    if ($access) {
+      $this->assertText(
+        t('Meeting @title has been created.', array('@title' => $form_values['title'])),
+        'Meeting create: found notification of successful creation'
+      );
+      $this->assertText(
+        $form_values['field_meeting_purpose[0][value]'],
+        'Meeting create: found purpose being displayed'
+      );
+      $this->assertText(
+        $form_values['field_meeting_location[0][value]'],
+        'Meeting create: found location being displayed'
+      );
+      $this->assertText(
+        $form_values['field_meeting_agenda[0][value]'],
+        'Meeting create: found agenda being displayed'
+      );
+    }
+    else {
+      $this->_access_denied_assertion('Meeting create');
+    }
+  }
+  
+      
+  protected function _view_meeting($path, $access=TRUE) {
+    return $this->drupalGet($path);
+    if ($access) {
+      $this->assertText(
+        t('Purpose'),
+        'Meeting view: found purpose label'
+      );
+      $this->assertText(
+        t('Agenda'),
+        'Meeting view: found agenda label'
+      );
+    }
+    else {
+      $this->_access_denied_assertion('Meeting view');
+    } 
+  }
+  
+
+  /**
+   * Has "edit all meeting fields" enabled
+   * Should be able to edit every field
+   */
+  public function _testEditAllFields() {
+    $user = $this->drupalCreateUser(array(
+      MEETINGS_FIELD_EDIT_OVERRIDE_PERMISSION,
+      'edit any meeting content',
+    ));
+    $this->drupalLogin($user);
+    
+    $this->_edit_meeting($this->sample_meeting_node->nid, TRUE);
+  }
+  
+  /**
+   * Test the ability to edit each field individually
+   */
+  public function _testEditEachField() {
+    $fields = $this->_get_all_meeting_fields();
+    
+    foreach($fields as $field_permission => $field_id) {
+      $user = $this->drupalCreateUser(
+        array(
+          'edit any meeting content',
+          $field_permission,
+        ),
+        TRUE
+      );
+      $this->drupalLogin($user);
+      
+      $present_fields = array($field_id);
+      
+      $this->_edit_meeting_fields($present_fields, $this->sample_meeting_node->nid, TRUE);
+    }
+  }
+  
+  /**
+   * Helper function to test edit meeting assertions.
+   * @arg $path be similar to node/4 and the function will add /edit
+   * @arg $fields array of $field_id to check
+   */
+  protected function _edit_meeting($nid, $access=TRUE) {
+    $this->drupalGet("node/$nid/edit");
+    
+    // Test for full editing access for all fields
+    if ($access) {
+      // Can't test the value of the title because we don't know it
+      $fields = $this->_get_all_meeting_fields(TRUE);
+      $this->_edit_meeting_fields($fields);
+      $this->assertFieldById(
+        'edit-submit',
+        t('Save'),
+        'Meeting edit: found save button'
+      );
+    }
+    // User should not have any edit access
+    else {
+      $this->assertNoFieldById(
+        'edit-title'
+      );
+      $this->assertNoFieldById(
+        'edit-submit'
+      );
+    }
+  }
+  
+  /**
+   * If $nid isn't set, just use the currently loaded page
+   */
+  protected function _edit_meeting_fields($fields, $nid = NULL, $access=TRUE) {
+    if($nid != NULL) {
+      $this->drupalGet("node/$nid/edit");
+    }
+    
+    if (is_array($fields)) {
+      foreach ($fields as $field_id) {
+        // Check for presence or absence of field based on $access
+        if ($access) {
+          $this->assertFieldById($field_id);
+        }
+        else {
+          $this->assertNoFieldById($field_id);
+        }
+      }
+    }
+  }
+  
+  
+  /**
+   * $path should be similar to node/4 and the function will add /delete
+   */
+  protected function _delete_meeting($path, $title, $access=TRUE) {
+    if ($access) {
+      $this->drupalGet($path.'/delete');
+      $this->assertText(
+        t('This action cannot be undone.'),
+        'Meeting delete: found presence of initial delete page'
+      );
+      $this->drupalPost($path.'/delete', array(), t('Delete'));
+      $this->assertTitle(
+        t('Meeting @title has been deleted.', array('@title'=>$title)),
+        'Meeting delete: found presence of initial delete page'
+      );
+    }
+    else {
+      $this->drupalGet($path.'/delete');
+      $this->_access_denied_assertion('Meeting delete');
+    }
+  }
+  
+  
+  /**
+   * See if a user can view the attendance page
+   */
+  public function _testViewAttendance() {
+    $user = $this->drupalCreateUser(array(
+      MEETINGS_VIEW_ATTENDANCE_PERMISSION
+    ));
+    $this->drupalLogin($user);
+    
+    $this->_view_attendance($this->sample_meeting_node->nid, TRUE);
+  }
+  
+  
+  protected function _view_attendance($nid, $access=TRUE) {
+    if($access) {
+      $this->drupalGet('node/{$nid}/attendance');
+      // TODO -- left off here
+    }
+    else {
+      $this->_access_denied_assertion('View attendance');
+    }
+  }
+  
+  protected function _access_denied_assertion($action) {
+    return $this->assertText(
+      t('Access Denied'),
+      $action .': access denied'
+    );
+  }
+  
+
+  
+  // Later on
+  // TODO: Test "invite whole group" then add a user to the group then see if they appear
+
+  protected function _get_all_meeting_fields($include_title = FALSE) {
+    $result = array();
+    if ($incldue_title) {
+      $result[] = 'edit-title';
+    }
+    
+    $result = array_merge($result, array(
+      'edit meeting purpose' => 'edit-field-meeting-purpose-0-value',
+      'edit meeting date' => 'edit-field-meeting-date-0-value-datepicker-popup-0',
+      'edit meeting location' => 'edit-field-meeting-location-0-value',
+      'edit meeting agenda' => 'edit-field-meeting-agenda-0-value',
+      'edit meeting notes' => 'edit-field-meeting-notes-0-value',
+      'edit meeting attachments' => 'edit-field-meeting-attachments-0-upload',
+    ));
+    return $result;
+  }
+  
+  /**
+   * Internal function for retrieving the path relative to the Drupal
+   * directory relative to the URL
+   */
+  protected function getPath($url=NULL) {
+    if (is_null($url)) {
+      $url = $this->getUrl();
+    }
+    global $base_url;
+    $base_url_path = $base_url . base_path();
+    $path = str_replace($base_url_path, '', $url);
+    return $path;
+  }
+  
+  /**
+   * Internal function for retrieving the NID from the URL
+   */
+  protected function getNID($url = NULL) {
+    if (is_null($url)) {
+      $url = $this->getUrl();
+    }
+    global $base_url;
+    $base_url_path = $base_url . base_path();
+    $path = str_replace($base_url_path, '', $url);
+    $parts = explode('/', $path);
+    $nid = $parts[1];
+    return $nid;
+  }
+  
+  /**
+   * Implementation of tearDown().
+   */
+  public function tearDown() {
+    parent::tearDown();
+  }
+
+}

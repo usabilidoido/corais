@@ -1,0 +1,39 @@
+<?php
+
+/**
+ * Implements hook_sshkey_validate().
+ */
+function sshkey_blacklist_sshkey_validate($key, $form, &$form_state) {
+  $vulnkey_path = variable_get('sshkey_blacklist_vulnkey_path', '');
+
+  if (!empty($vulnkey_path) && is_executable($vulnkey_path)) {
+    $output = $return_code = NULL;
+    exec('echo ' . escapeshellarg($key->value) . ' | ' . escapeshellcmd($vulnkey_path) . ' -v -', $output, $return_code);
+
+    if ($return_code == 0) {
+      form_set_error('value', t('The public key has been blacklisted.'));
+    }
+  }
+}
+
+function sshkey_blacklist_form_sshkey_settings_form_alter(&$form, $form_state) {
+  $form['blacklist'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Blacklist checking'),
+  );
+  $form['blacklist']['sshkey_blacklist_vulnkey_path'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Path to ssh-vulnkey'),
+    '#default_value' => variable_get('sshkey_blacklist_vulnkey_path', ''),
+    '#description' => t('Leave blank to disable blacklist checking.'),
+  );
+
+  $form['#validate'] = 'ssh_blacklist_form_sshkey_settings_form_validate';
+}
+
+function sshkey_blacklist_form_sshkey_settings_form_validate($form, &$form_state) {
+  $vulnkey_path = $form_state['values']['sshkey_blacklist_vulnkey_path'];
+  if (!empty($vulnkey_path) && !is_executable($vulnkey_path)) {
+    form_set_error('sshkey_blacklist_vulnkey_path', t('The ssh-vulnkey path %path is invalid or not executable by your webserver.', array('%path' => $vulnkey_path)));
+  }
+}

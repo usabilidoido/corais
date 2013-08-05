@@ -1,0 +1,17 @@
+// $Id: CHANGELOG.txt,v 1.2.2.3 2010/01/14 17:59:24 nonsie Exp $
+
+14-JAN-10
+672460 - Clicking on language link in domain overview crashes Apache
+
+04-DEC-09
+#650294 -  Allow language toggle for main domain by agentrickard
+
+02-DEC-09
+#632372 - Change module weight to be higher than i18n so that hook_translation_link_alter() executes in proper order
+
+28-AUG-09
+Do not redirect on the default domain
+
+02-JUN-09
+#478524 - missing domain_locale_restore_default() function
+#478526 - validate domain has languages set up before applying domain specific filtering

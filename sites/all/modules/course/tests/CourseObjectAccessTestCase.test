@@ -1,0 +1,145 @@
+<?php
+
+require_once drupal_get_path('module', 'course') . '/tests/CourseTestCase.test';
+
+/**
+ * Tests for course object access.
+ */
+class CourseObjectAccessTestCase extends CourseTestCase {
+
+  public static function getInfo() {
+    // Note that getInfo() strings are not translated with t().
+    return array(
+      'name' => 'Course object access',
+      'description' => 'Ensure that Course object access functions properly.',
+      'group' => 'Course',
+    );
+  }
+
+  /**
+   * Test sequential object access.
+   */
+  function testCourseObjectLinearWorkflow() {
+    // Create a course with 4 objects.
+    $courseNode = $this->createCourseNode();
+    for ($i = 1; $i <= 4; $i++) {
+      $temp = $this->createCourseObject($courseNode);
+      $temp->setOption('weight', $i)->save();
+    }
+
+    // Use the student user.
+    $user = $this->student_user;
+    $course = course_get_course($courseNode, $user, TRUE);
+
+    $co = $course->getObjects();
+
+    // Student should not be able to access the first object.
+    $this->assertFalse($co[0]->access('take', $user), 'Check that object 1 is not accessible.');
+
+    // (until they are enrolled)
+    course_enrol($courseNode, $user);
+
+    // User should be able to access first object, but no others.
+    $this->assertTrue($co[0]->access('take', $user), 'Check that object 1 is accessible after enrollment.');
+    $this->assertFalse($co[1]->access('take', $user), 'Check that object 2 is not accessible.');
+    $this->assertFalse($co[2]->access('take', $user), 'Check that object 3 is not accessible.');
+    $this->assertFalse($co[3]->access('take', $user), 'Check that object 4 is not accessible.');
+
+    // Set 1st object to complete.
+    $co[0]->getFulfillment()->setComplete(1)->save();
+    $this->assertTrue($co[1]->access('take', $user), 'Check that object 2 is accessible after object 1 is complete.');
+    $this->assertFalse($co[2]->access('take', $user), 'Check that object 3 is not accessible after object 1 is complete.');
+    $this->assertFalse($co[3]->access('take', $user), 'Check that object 4 is not accessible after object 1 is complete.');
+
+    // Complete the rest of the course objects.
+    $co[1]->getFulfillment()->setComplete(1)->save();
+    $co[2]->getFulfillment()->setComplete(1)->save();
+    $co[3]->getFulfillment()->setComplete(1)->save();
+
+    $this->assertTrue($course->getTracker()->getOption('complete'), 'Check that course is complete.');
+  }
+
+  /**
+   * Test an outline with both required and optional objects.
+   */
+  function testCourseObjectOptionalWorkflow() {
+    // Create a course with 4 objects.
+    $courseNode = $this->createCourseNode();
+    for ($i = 1; $i <= 4; $i++) {
+      $temp = $this->createCourseObject($courseNode);
+      $temp->setOption('weight', $i)->save();
+    }
+
+    // Use the student user.
+    $user = $this->student_user;
+    $course = course_get_course($courseNode, $user, TRUE);
+
+    $co = $course->getObjects();
+
+    course_enrol($courseNode, $user);
+
+    // Set all optional except the second object.
+    $co[0]->setOption('required', 0);
+    $co[1]->setOption('required', 1);
+    $co[2]->setOption('required', 0);
+    $co[3]->setOption('required', 0);
+
+    $this->assertFalse($co[2]->access('take', $user) || $co[3]->access('take', $user), 'User is blocked by second required object to get to fourth optional object.');
+
+    $this->assertTrue($co[0]->access('take', $user), 'User has access to first optional object.');
+    $this->assertTrue($co[1]->access('take', $user), 'User has access to second required object.');
+
+    // Complete the only required object.
+    $co[1]->getFulfillment()->setComplete(1);
+    $this->assertTrue($co[2]->access('take', $user) && $co[3]->access('take', $user), 'User granted access to remaining optional objects.');
+  }
+
+  /**
+   * Test hidden course objects do not show up in the course outline.
+   */
+  function testHiddenCourseObjects() {
+    // Create a course.
+    $courseNode = $this->createCourseNode();
+
+    // Use the student user.
+    $user = $this->student_user;
+
+    $o1 = $this->createCourseObject($courseNode);
+
+    // By default, should be visible.
+    $this->assertTrue($o1->access('see', $user));
+
+    // Make object hidden.
+    $o1->setOption('hidden', 1)->save();
+    $this->assertFalse($o1->access('see', $user));
+
+    // Make object not hidden.
+    $o1->setOption('hidden', 0)->save();
+    $this->assertTrue($o1->access('see', $user));
+  }
+
+  /**
+   * Test disabled course objects.
+   */
+  function testDisabledCourseObjects() {
+    // Create a course.
+    $courseNode = $this->createCourseNode();
+
+    // Use the student user.
+    $user = $this->student_user;
+
+    $o1 = $this->createCourseObject($courseNode);
+
+    // By default, should be visible.
+    $this->assertTrue($o1->access('see', $user));
+
+    // Make object enabled.
+    $o1->setOption('enabled', 1)->save();
+    $this->assertTrue($o1->access('see', $user));
+
+    // Make object disabled.
+    $o1->setOption('enabled', 0)->save();
+    $this->assertFalse($o1->access('see', $user));
+  }
+
+}

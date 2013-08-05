@@ -1,0 +1,70 @@
+<p class="help">
+The <a href="http://drupal.org/project/node_import">Node import module</a>
+for Drupal 6.x allows you to import content from tabular text files,
+such as <abbr title="Comma Separated Values">CSV</abbr> or <abbr title="Tab
+Separated Values">TSV</abbr> files. Possible uses include importing content
+from other systems into your site or importing large list of contacts or
+users.
+</p>
+
+<h3>What can it import?</h3>
+
+<p>
+The <em>Node import</em> module for Drupal 6.x is not limited to importing
+<strong>Node content</strong> (of any content type), but it can import
+<strong>Taxonomy vocabularies</strong>, <strong>Taxonomy terms</strong>
+and <strong>Users</strong> as well.
+</p>
+
+<p class="warning">
+This feature was not available on Drupal 5.x or earlier and is still in
+development.
+</p>
+
+<p>
+Imports are not limited to the administrator of the site, but the
+permission can be deligated to other users as well. Note however that
+users can only import content if they can create the content. This
+means that for example users will need the <em>create page content</em>
+permission to import <em>Page</em> content or the <em>administer
+users</em> permission to import <em>Users</em>.
+</p>
+
+<h3>File format</h3>
+
+<p>
+The <em>Node import</em> module accepts a <abbr title="Comma Separated
+Values">CSV</abbr>, <abbr title="Tab Separated Values">TSV</abbr> or any
+<strong>Delimiter Separated Values</strong> file as input. These files
+can be generated using most spreadsheet programs such as
+<a href="http://openoffice.org">OpenOffice.org Calc</a> or Microsoft
+Excel.
+</p>
+
+<p>
+Preparing your file for import is an important task:
+</p>
+
+<ul>
+<li>the first row should contain field names for each column,</li>
+<li>make sure you save your file in UTF8 character set,</li>
+<li>some fields may require a special format.</li>
+</ul>
+
+<p>
+You can find more information on the supported content fields and whether
+they require some special format in the documentation.
+</p>
+
+<h3>You can</h3>
+
+<ul>
+<li>manage imports at <a href="&base_url&admin/content/node_import">Administer &raquo; Content &raquo; Import content</a>,</li>
+<li>import content at <a href="&base_url&admin/content/node_import/add">Administer &raquo; Content &raquo; Import content &raquo; New import</a>,</li>
+<li>administer permissions at <a href="&base_url&admin/user/permissions">Administer &raquo; User management &raquo; Permissions</a>.
+Users with the <em>administer imports</em> permission can configure the
+module and manage the imports of all users, while users with the
+<em>import content</em> permission can only manage their own imports,</li>
+<li>file issues, read about known bugs, and download the latest version on <a href="http://drupal.org/project/node_import">the <em>Node import</em> project page</a>.</li>
+</ul>
+

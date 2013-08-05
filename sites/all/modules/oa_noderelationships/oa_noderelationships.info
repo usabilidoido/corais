@@ -1,0 +1,16 @@
+core = "6.x"
+dependencies[] = "context"
+description = "Enables the row select functionality in "Search and Reference" by forcing the Garland theme on that form."
+features[context][] = "oa_noderelationships"
+features[ctools][] = "context:context:3"
+name = "Node Relationships Fix for Open Atrium"
+package = "Features"
+project = "oa_noderelationships"
+version = "6.x-1.0"
+
+; Information added by drupal.org packaging script on 2011-06-06
+version = "6.x-1.0"
+core = "6.x"
+project = "oa_noderelationships"
+datestamp = "1307369819"
+

@@ -1,0 +1,233 @@
+<?php
+
+define("CALENDAR_VOCAB", 'Event Type');
+
+/**
+ * Placeholder to ensure migrations from older versions do not fail.
+ */
+function atrium_calendar_install() {
+
+  $vocabs = taxonomy_get_vocabularies();
+  foreach ($vocabs as $vocab) {
+    if ($vocab->name == CALENDAR_VOCAB) {
+        $vid = $vocab->vid;
+    }
+  }
+  
+  if (!$vid) {
+    _atrium_calendar_create_vocab();
+    $vid = db_last_insert_id('vocabulary', 'vid');
+    $new = TRUE;
+  }
+  
+  variable_set('atrium_calendar_vocab', $vid);
+  
+  if($vid){
+    _atrium_calendar_create_terms($vid, $new);
+  }else{
+    drupal_set_message(t('Something went wrong, no vocabulary found or created'),'error');
+  }
+
+}
+
+/**
+ * Update 6200: Install Feeds.
+ */
+function atrium_calendar_update_6200() {
+  drupal_install_modules(array('ctools', 'feeds'));
+  $modules = module_list();
+  if (!isset($modules['feeds'])) {
+    return array('#abort' => array('success' => FALSE, 'query' => 'Could not enable Feeds.'));
+  }
+  return array(array('success' => TRUE, 'query' => 'Enabled Feeds successfully.'));
+}
+
+/**
+ * Update 6201: Migrate existing feed nodes.
+ */
+function atrium_calendar_update_6201() {
+  $ret = array();
+
+  if (drupal_get_path('module', 'feedapi2feeds')) {
+    module_load_include('php', 'feedapi2feeds', 'feedapi2feeds');
+    $migration = new FeedAPI2Feeds();
+    try {
+      $migration->migrateType('feed_ical');
+    }
+    catch (Exception $e) {
+      $ret[] = array('success' => TRUE, 'query' => $e->getMessage());
+    }
+    $msgs = $migration->getMessages();
+    foreach ($msgs as $msg) {
+      $ret[] = array('success' => TRUE, 'query' => $msg);
+    }
+  }
+  return $ret;
+}
+
+/**
+ * Update for Kit compliance
+ */
+function atrium_calendar_update_6202() {
+  
+  $components = array(
+    'views' => array(
+      'atrium_calendar' => array(
+        'calendar_listing' => array(
+          'block_1' => array(
+            'module' => 'views',
+            'delta' => 'block_1',
+          ),
+        ),
+      ),
+      'atrium_calendar_feed_items' => array(
+        'calendar_feed_items' => array(
+          'block_1' => array(
+            'module' => 'views',
+            'delta' => 'block_1',
+          ),
+        ),
+      ),
+      'atrium_calendar_feeds' => array(
+        'calendar_feeds' => array(
+        ),
+      ),
+      'atrium_calendar_upcoming' => array(
+        'calendar_upcoming' => array(
+          'block_1' => array(
+            'module' => 'views',
+            'delta' => 'block_1',
+          ),
+        ),
+      ),
+    ),
+    'contexts' => array(
+      'atrium-calendar-event' => 'calendar_event',
+      'spaces-feature-calendar' => 'calendar_calendar',
+    ),
+  );
+
+  module_load_include('inc', 'atrium', 'includes/atrium_update_kit');
+  atrium_kit_comply_presets($components); 
+  atrium_kit_comply_overrides($components);
+  atrium_kit_comply_contexts($components);
+
+  return array(array('success' => true, 'query' => 'Atrium Calendar updated for Kit compliance.'));
+}
+
+/**
+ * Update to add Event Type taxonomy
+ */
+function atrium_calendar_update_6203() {
+  return _atrium_calendar_create_taxonomy();
+}
+
+/**
+ * Create the taxonomy for Atrium Calendar
+ * 
+ * Checks for existing taxonomy and adds or updates
+ *
+**/
+function _atrium_calendar_create_taxonomy(){
+  $vocabs = taxonomy_get_vocabularies();
+  foreach ($vocabs as $vocab) {
+    if (drupal_strtolower($vocab->name) == drupal_strtolower(CALENDAR_VOCAB)) {
+        $vid = $vocab->vid;
+    }
+  }
+  
+  if (!$vid) {
+    _atrium_calendar_create_vocab();
+    $vid = db_last_insert_id('vocabulary', 'vid');
+    $new = TRUE;
+  }
+  
+  variable_set('atrium_calendar_vocab', $vid);
+  
+  if($vid){
+    $success = _atrium_calendar_create_terms($vid, $new);
+    if($success) {
+      return array(array('success' => true, 'query' => CALENDAR_VOCAB .' created or updated'));
+    }else{
+      return array(array('success' => false, 'query' => 'Something went wrong, terms not created or updated'));
+    }
+  }else{
+    return array(array('success' => false, 'query' => 'Something went wrong, no vocabulary found or created'));
+  }
+}
+
+/**
+ * Create Group Type Vocabulary
+ */
+function _atrium_calendar_create_vocab() {
+  $vocabulary = array(
+    'name'  => CALENDAR_VOCAB,
+    'module' => 'atrium_calendar',
+    'help' => t('Select the type of event.'),
+    'required' => 1,
+    'multiple' => 0,
+    'nodes' => array(
+      'event' => 'event',
+      ),
+  );
+  taxonomy_save_vocabulary($vocabulary);
+}
+
+
+/**
+ * Create Terms for Group Type Vocabulary
+ *
+ * Cycles through each country listed in locations include, if the vocab
+ * already existed fetches the term ID and skips creating a new term entry.
+ * Finishes by updating the term_geo table with the coordinates for the country.
+ *
+ */
+function _atrium_calendar_create_terms($vid = NULL, $new = FALSE) {
+
+// TODO: add descriptions to each term, will use on calendar view page in the future.
+  $terms = array(
+    array(
+      'name' => 'Meeting',
+      'description' => '',
+      'vid' => $vid,
+      'weight' => '0',
+    ),
+    array(
+      'name' => 'Milestone',
+      'description' => '',
+      'vid' => $vid,
+      'weight' => '0',
+    ),
+    array(
+      'name' => 'Deliverable',
+      'description' => '',
+      'vid' => $vid,
+      'weight' => '0',
+    ),
+    array(
+      'name' => 'Other',
+      'description' => '',
+      'vid' => $vid,
+      'weight' => '0',
+    ));
+
+  if($new){
+    foreach ($terms as $term) {
+      taxonomy_save_term($term);
+    }
+  }else{
+    if($existing_terms = taxonomy_get_tree($vid)) {
+      foreach($terms as $term){
+        $match = FALSE;
+        foreach($existing_terms as $et){
+          if(drupal_strtolower($et->name) == drupal_strtolower($term['name'])) {
+            $match = TRUE;        
+          }
+        }
+        if(!$match) { taxonomy_save_term($term);}
+      }
+    }
+  }
+  return TRUE;
+}
+

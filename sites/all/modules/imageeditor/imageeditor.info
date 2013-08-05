@@ -1,0 +1,12 @@
+name = Image Editor
+description = Integration with different services for online image editing.
+package = CCK
+core = 6.x
+dependencies[] = imagefield
+dependencies[] = filefield_sources
+; Information added by drupal.org packaging script on 2011-07-22
+version = "6.x-1.1"
+core = "6.x"
+project = "imageeditor"
+datestamp = "1311362516"
+

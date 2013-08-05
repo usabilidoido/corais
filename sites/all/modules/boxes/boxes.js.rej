@@ -1,0 +1,30 @@
+***************
+*** 30,35 ****
+        if ($(this).hasClass('boxes-ajaxing')) {
+          return false;
+        }
+        // Put our button in.
+        this.form.clk = this;
+        var object = $(this), form = this.form, url = $(form).attr('action');
+--- 30,50 ----
+        if ($(this).hasClass('boxes-ajaxing')) {
+          return false;
+        }
++       // Detach wysiwyg editor if wysiwyg.module is enabled
++       if (Drupal.wysiwyg && Drupal.wysiwygDetach) {
++         for (i in Drupal.wysiwyg.instances) {
++           params = Drupal.wysiwyg.instances[i];
++           if ($(this).parents('form').find("#" + params.field).length){
++             element = $('#' + params.field);
++             Drupal.wysiwygDetach(element.context, params);
++           }
++         }
++       } else if (window.CKEDITOR && window.CKEDITOR.instances){
++         // CKEditor.module support
++         for (var i in window.CKEDITOR.instances) {
++           window.CKEDITOR.instances[i].updateElement();
++         }
++       }
+        // Put our button in.
+        this.form.clk = this;
+        var object = $(this), form = this.form, url = $(form).attr('action');

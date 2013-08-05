@@ -1,0 +1,114 @@
+<?php
+
+/**
+ * @file
+ * Allow user to set node as front page.
+ */
+
+/**
+ * Implementation of hook_help().
+ */
+function frontnode_help( $path, $arg ) {
+  switch ( $path ) {
+    case 'admin/help#frontnode':
+      return '<p>'. t('The "Front node" module allows users to set node as front page.') .'</p>';
+  }
+}
+
+/**
+ * Implementation of hook_disable().
+ */
+function frontnode_disable() {
+  _frontnode_back_to_orig();
+}
+
+/**
+ * Implementation of hook_enable().
+ */
+function frontnode_enable() {
+  variable_set('frontnode_nid', 0);
+  variable_set('frontnode_orig', variable_get('site_frontpage', 'node'));
+}
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function frontnode_form_alter(&$form, $form_state, $form_id) {
+
+  if (strpos($form_id, '_node_form') && isset($form['#node'])) {
+    // Handler for node
+    $node = $form['#node'];
+
+    // Add field
+    $form['options']['frontnode'] = array(
+      '#type' => 'checkbox',
+      '#access' => user_access('set node as front page'),
+      '#default_value' => _frontnode_frontpage($node->nid),
+      '#title' => t('Use node as front page')
+    );
+  }
+}
+
+/**
+ * Implementation of hook_nodeapi().
+ */
+function frontnode_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+  switch ($op) {
+    case 'load':
+      // Save information to object whether the node is use as front page
+      $node->frontnode = _frontnode_frontpage($node->nid) ? 1 : 0;
+      break;
+
+    case 'insert':
+    case 'update':
+      if ($node->frontnode == 1) {
+        _frontnode_set_frontpage($node->nid);
+      }
+      elseif ($node->frontnode == 0 && _frontnode_frontpage($node->nid)) {
+        _frontnode_back_to_orig();
+      }
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_perm().
+ *
+ */
+function frontnode_perm() {
+  return array('set node as front page');
+}
+
+/**
+ * Check whether node is used as front page.
+ *
+ * @param int $nid
+ *   Node ID to check.
+ */
+function _frontnode_frontpage($nid) {
+  return $nid == variable_get('frontnode_nid', 0) ? TRUE : FALSE;
+}
+
+/**
+ * Set node as front page.
+ *
+ * @param int $nid
+ *   Node ID which is use to be as front page.
+ */
+function _frontnode_set_frontpage($nid) {
+  // Store information about original front page only
+  if (! variable_get('frontnode_nid', 0)) {
+    variable_set('frontnode_orig', variable_get('site_frontpage', 'node'));
+  }
+  variable_set('frontnode_nid', $nid);
+  variable_set('site_frontpage', 'node/'. $nid);
+}
+
+/**
+ * Back to original front page site
+ */
+function _frontnode_back_to_orig() {
+  variable_set('frontnode_nid', 0);
+  variable_set('site_frontpage', variable_get('frontnode_orig', 'node'));
+  variable_set('frontnode_orig', '');
+}

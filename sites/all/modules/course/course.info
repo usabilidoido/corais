@@ -1,0 +1,18 @@
+name = Course
+core = 6.x
+description = Create Drupal e-learning courses.
+dependencies[] = ahah_helper
+dependencies[] = autoload
+dependencies[] = ctools
+dependencies[] = uuid
+php = 5
+files[] = includes/course_object.core.inc
+files[] = includes/course.core.inc
+package = Course
+
+; Information added by drupal.org packaging script on 2013-02-09
+version = "6.x-1.0+13-dev"
+core = "6.x"
+project = "course"
+datestamp = "1360371123"
+

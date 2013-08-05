@@ -1,0 +1,117 @@
+<?php
+
+include_once('atrium_reader.features.inc');
+
+/**
+ * Implementation of hook_help().
+ */
+function atrium_reader_help($path) {
+  if (($path == 'help#atrium_reader') || (context_get('spaces', 'feature') == 'reader')) {
+    switch ($path) {
+      case 'node/add/feed-reader':
+      case 'node/%/edit':
+        $atom_link = l(t('Atom'), 'http://en.wikipedia.org/wiki/Atom_%28standard%29', array('absolute' => TRUE));
+        $rss_link = l(t('RSS'), 'http://en.wikipedia.org/wiki/RSS', array('absolute' => TRUE));
+        $help = '';
+        $help .= '<h3>'. t('Reader') .'</h3>';
+        $help .= '<p>'. t('Tips for adding and editing feeds:') .'</p>';
+        $help .= '<ul>';
+        $help .= '<li>'. t('Add the title of your feed. You can leave it blank to use the default title provided by the feed itself.') .'</li>';
+        $help .= '<li>'. t('Enter the URL of the !atom or !rss feed you would like to subscribe to.', array('!atom' => $atom_link, '!rss' => $rss_link)) .'</li>';
+        $help .= '</ul>';
+        return $help;
+
+      case 'help#atrium_reader':
+      default:
+        $help = '';
+        $help .= '<h3>'. t('Reader') .'</h3>';
+        $help .= '<p>'. t('The Reader gives you a way to subscribe to news in your groups and share stories with your team members. You can add news, image and twitter feeds to each group.') .'</p>';
+        return $help;
+    }
+  }
+}
+
+/**
+ * Implementation of hook_init().
+ */
+function atrium_reader_init() {
+  drupal_add_css(drupal_get_path('module', 'atrium_reader') .'/atrium_reader.css');
+}
+
+/**
+ * Returns valid feed type options for reader feeds.
+ */
+function atrium_reader_get_types() {
+  $options = array();
+  if ($view = views_get_view('feed_reader_listing')) {
+    $view->build();
+    foreach ($view->display as $display_id => $display) {
+      if ($display_id != 'default' && !preg_match('/^block_/', $display_id)) {
+        $options[$display->display_title] = $display->handler->get_option('title');
+      }
+    }
+  }
+  return $options;
+}
+
+/**
+ * Implementation of hook_nodeapi().
+ */
+function atrium_reader_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+  if ($op == 'view' && $node->type == 'feed_reader' && menu_get_object() === $node) {
+    $type = !empty($node->field_reader_feedtype[0]['value']) ? $node->field_reader_feedtype[0]['value'] : 'news';
+    drupal_goto("reader/{$type}/{$node->nid}");
+  }
+}
+
+/**
+ * Implementation of hook_data_views_handlers_alter().
+ */
+function atrium_reader_data_views_handlers_alter(&$handlers) {
+  $handlers['field']['atrium_reader_handler_field_description'] = 'atrium_reader_handler_field_description';
+  $handlers['field']['atrium_reader_handler_field_title'] = 'atrium_reader_handler_field_title';
+}
+
+/**
+ * Implementation of hook_views_plugins().
+ */
+function atrium_reader_views_plugins() {
+  return array(
+    'module' => 'atrium_reader',
+    'access' => array(
+      'atrium_reader' => array(
+        'title' => t('Reader feed'),
+        'help' => t('Access will be granted based on mystery magic feed logic.'),
+        'handler' => 'atrium_reader_plugin_access',
+        'path' => drupal_get_path('module', 'atrium_reader') .'/views',
+        'uses options' => TRUE,
+      ),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_views_handlers().
+ */
+function atrium_reader_views_handlers() {
+  return array(
+    'info' => array('path' => drupal_get_path('module', 'atrium_reader') .'/views'),
+    'handlers' => array(
+      'atrium_reader_handler_field_description' => array(
+        'parent' => 'views_handler_field',
+      ),
+      'atrium_reader_handler_field_title' => array(
+        'parent' => 'views_handler_field',
+      ),
+    ),
+  );
+}
+
+
+/**
+ * Implementation of hook_enable().
+ */
+function atrium_reader_enable() {
+  //clear the cache to display in Feeds as available plugin.
+  cache_clear_all('plugins:feeds:plugins', 'cache');
+}

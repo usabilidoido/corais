@@ -1,0 +1,10 @@
+name = Token authentication
+description = Enable aggregators, feed readers and other simple clients to see private pages by providing an authentication token.
+core = 6.x
+
+; Information added by drupal.org packaging script on 2012-06-06
+version = "6.x-1.7"
+core = "6.x"
+project = "tokenauth"
+datestamp = "1338963731"
+

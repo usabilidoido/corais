@@ -1,0 +1,10 @@
+core = "6.x"
+description = "UI helper for displaying condensed, color-coded swatches and popups."
+name = "Crayon"
+
+; Information added by drupal.org packaging script on 2011-07-14
+version = "6.x-1.0-beta3"
+core = "6.x"
+project = "crayon"
+datestamp = "1310652715"
+

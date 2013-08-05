@@ -1,0 +1,11 @@
+name = Finder Text
+description = "Enables text fields and text areas for finder."
+core = 6.x
+package = "Finder"
+dependencies[] = finder
+; Information added by drupal.org packaging script on 2012-05-31
+version = "6.x-1.27"
+core = "6.x"
+project = "finder"
+datestamp = "1338438061"
+

@@ -1,0 +1,5 @@
+<?php // $Id$ 
+
+include_once('meeting_planner.features.inc');
+
+// http://openatrium.com/build_a_feature

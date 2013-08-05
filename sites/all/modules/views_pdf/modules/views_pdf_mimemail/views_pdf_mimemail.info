@@ -1,0 +1,16 @@
+name = Views PDF Mime Mail
+description = "Integrates Views PDF with Mime Mail."
+dependencies[] = views_pdf
+dependencies[] = mimemail
+dependencies[] = rules
+package = Views
+core = 6.x
+
+
+
+; Information added by drupal.org packaging script on 2011-06-22
+version = "6.x-1.0"
+core = "6.x"
+project = "views_pdf"
+datestamp = "1308772620"
+

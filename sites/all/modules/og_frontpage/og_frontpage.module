@@ -1,0 +1,14 @@
+<?php
+function og_frontpage_block($op = 'list', $delta = 0, $edit = array()) {
+  if ($op == 'list') {
+    $blocks[0] = array('info' => t('Group description'),
+      'weight' => 0, 'status' => 1);
+    return $blocks;
+  }
+
+  else if ($op == 'view') {
+	$space = spaces_get_space();
+	$content = $space->group->body;
+	return array('subject'=>t('Group description'), 'content'=>$content);
+  }  
+}

@@ -1,0 +1,60 @@
+<?php
+
+/**
+ * Master class for Course tests.
+ */
+class CourseTestCase extends DrupalWebTestCase {
+
+  public function setUp() {
+    $deps = $this->getModules();
+    call_user_func_array(array('parent', 'setUp'), $deps);
+
+    $this->admin_user = $this->drupalCreateUser(array('administer nodes', 'edit courses'));
+    $this->student_user = $this->drupalCreateUser(array('access content'));
+    $this->drupalLogin($this->admin_user);
+
+    // Flush handlers (because we created this one on the fly).
+    course_get_handlers(NULL, TRUE);
+
+    // Flush autoload. Fixes some issues with late declaration of classes.
+    autoload_flush_caches();
+  }
+
+  /**
+   * Create a course node using the test content type.
+   *
+   * @return stdClass
+   */
+  function createCourseNode(array $extra = array()) {
+    $node = $this->drupalCreateNode(array(
+      'type' => 'course_test',
+      ) + $extra);
+
+    return $node;
+  }
+
+  function getModules() {
+    return array('autoload', 'ahah_helper', 'ctools', 'uuid', 'course', 'course_test');
+  }
+
+  /**
+   * Create a new persistent course object on a Course.
+   *
+   * @param stdClass $courseNode
+   * @return Course
+   */
+  function createCourseObject($courseNode, $graded = FALSE) {
+    static $weight = 0;
+    if ($graded) {
+      $courseObject = course_get_course_object('course_test', 'course_test_graded_object');
+    }
+    else {
+      $courseObject = course_get_course_object('course_test', 'course_test_object');
+    }
+    $courseObject->setCourse($courseNode->nid);
+    $courseObject->setOption('weight', $weight++);
+    $courseObject->save();
+    return $courseObject;
+  }
+
+}

@@ -1,0 +1,21 @@
+// $Id: INSTALL.txt,v 1.2 2009/06/08 23:17:05 nonsie Exp $
+
+/**
+ * @file
+ * INSTALL file for Domain Internationalization.
+ */
+
+INSTALLATION:
+============
+
+1. Copy module folder to 'sites/all/modules/'.
+2. Modify settings.php and add the following to the bottom of the file:
+$conf['domain_i18n_variables'] = array(
+'variable_name',
+);
+Replace 'variable_name' with the name of the variable you wish to customize per domain and language. 
+For example to customize user registration email subject and body insert the following:
+$conf['domain_i18n_variables'] = array(
+'user_mail_register_no_approval_required_body',
+'user_mail_register_no_approval_required_subject',
+);

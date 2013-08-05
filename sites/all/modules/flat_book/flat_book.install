@@ -1,0 +1,84 @@
+<?php
+// $Id: flat_book.install,v 1.4 2010/09/24 03:19:10 criticalpatch Exp $
+/**
+ * @file
+ * install file for flat_book.
+ * creates default persistant variables.
+ */
+
+/**
+ * Implementation of hook_uninstall().
+ * Delete settings variables, empty cache, and remove custom table.
+ */
+function flat_book_uninstall() {
+  drupal_uninstall_schema('flat_book');
+  db_query("DELETE FROM {variable} WHERE name LIKE 'flat_book%%'");
+  cache_clear_all();
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function flat_book_install() {
+  drupal_install_schema('flat_book');
+}
+
+/**
+ * Implementation of hook_schema()
+ */
+function flat_book_schema() {
+  $schema['flat_book_flattened_nodes'] = array(
+    'description' => 'Stores which nodes have been flattened per book',
+    'fields' => array(
+      'bid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'The {book}.bid of the book which contains the nodes being flattened.',
+      ),
+      'nid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'The {node}.nid of the book page being flattened.',
+      ),
+    ),
+    'primary key' => array('nid'),
+  );
+  return $schema; 
+}
+
+/**
+ * Update to 6.x-1.2
+ * {flat_book_flattened_nodes} table added.
+ * @see http://drupal.org/node/150220 for why I have duplicated
+ * the schema.
+ */
+function flat_book_update_6102() {
+  $schema['flat_book_flattened_nodes'] = array(
+    'description' => 'Stores which nodes have been flattened per book',
+    'fields' => array(
+      'bid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'The {book}.bid of the book which contains the nodes being flattened.',
+      ),
+      'nid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'The {node}.nid of the book page being flattened.',
+      ),
+    ),
+    'primary key' => array('nid'),
+  );
+  $ret = array();
+  db_create_table($ret, 'flat_book_flattened_nodes', $schema['flat_book_flattened_nodes']);
+  $max = variable_get('flat_book_max_menu_depth', 3);
+  variable_set('flat_book_sitewide_max_depth', $max);
+  variable_del('flat_book_max_menu_depth');
+  return $ret;
+}

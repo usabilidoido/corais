@@ -1,0 +1,303 @@
+***************
+*** 19,25 ****
+        return $output;
+  
+      case 'og/users/%/roles':
+-       $output = t('<p>This form allows for the granting of additional user roles to individual members of this group. Any additional permissions only apply to the context of this group and not globally.</p><p>Group admin\'s may also be assigned to a default role. If a group admin default role has been set it can only be revoked by demoting the user.</p>');
+        return $output;
+    }
+  }
+--- 19,25 ----
+        return $output;
+  
+      case 'og/users/%/roles':
++       $output = '<p>' . t('This form allows to grant additional user roles to individual members of this group. Any additional permissions only apply to the context of this group and not globally.') . '</p>';
+        return $output;
+    }
+  }
+***************
+*** 281,287 ****
+    $router_item['options'] = array();
+    // OGUR: Allow privilege escalation; do not invoke access callbacks.
+    //_menu_check_access($router_item, $map);
+- 
+    // For performance, don't localize an item the user can't access.
+    if (!empty($router_item['access'])) {
+      _menu_item_localize($router_item, $map);
+--- 281,287 ----
+    $router_item['options'] = array();
+    // OGUR: Allow privilege escalation; do not invoke access callbacks.
+    //_menu_check_access($router_item, $map);
++   
+    // For performance, don't localize an item the user can't access.
+    if (!empty($router_item['access'])) {
+      _menu_item_localize($router_item, $map);
+***************
+*** 355,396 ****
+      $args = array($group_node->nid);
+      $placeholders = db_placeholders($args);
+      array_unshift($args, $account->uid);
+-     $role_status = array();
+      // INNER JOIN as extra sanity check (not only for role name).
+-     $result = db_query("SELECT ogur.rid, r.name, ogur.status FROM {og_users_roles} ogur INNER JOIN {role} r ON r.rid = ogur.rid WHERE ogur.uid = %d AND ogur.gid IN ($placeholders)", $args);
+      while ($role = db_fetch_object($result)) {
+-       // Get role status for Adhoc assignment
+-       $role_status[$role->rid] = $role->status;
+        // Add roles to account first, so we can statically cache all roles
+-       // afterwards, but only if role has not be revoked.
+-       if ($role->status) {
+-         $account->roles[$role->rid] = $role->name;
+-       }
+-     }
+- 
+-     // Adhoc role assignment to existing groups before ogur was installed setup.
+-     // Add default role for existing group members, if configured.
+-     $default_role = $group_node->og_user_roles_default_role ? $group_node->og_user_roles_default_role : variable_get('og_user_roles_default_role', 0);
+-     if ($default_role && !isset($account->roles[$default_role])) {
+-       // Check if the role has not be revoked.
+-       if (!isset($role_status[$default_role])) {
+-         $default_role_name = db_fetch_array(db_query('SELECT name FROM {role} WHERE rid = %d', $default_role));
+-         $account->roles[$default_role] = $default_role_name['name'];
+-         // To prevent future adhoc assignments we add the role
+-         og_user_roles_role_add($group_node->nid, $account->uid, $default_role);
+-       }
+      }
+-     // Add default role for existing group admins, if configured.
+-     if (($default_admin_role = variable_get('og_user_roles_default_admin_role', 0)) && !isset($account->roles[$default_admin_role])) {
+-       // Only group admins and managers get the default admin role.
+-       if((og_is_group_admin($group_node, $account) || $group_node->uid == $account->uid) && $default_admin_role != $default_role) {
+-         $default_admin_role_name = db_fetch_array(db_query('SELECT name FROM {role} WHERE rid = %d', $default_admin_role));
+-         $account->roles[$default_admin_role] = $default_admin_role_name['name'];
+-         // To prevent future adhoc assignments we add the role.
+-         og_user_roles_role_add($group_node->nid, $account->uid, $default_admin_role);
+-       }
+-     }
+- 
+      $roles = $account->roles;
+    }
+    else {
+--- 355,367 ----
+      $args = array($group_node->nid);
+      $placeholders = db_placeholders($args);
+      array_unshift($args, $account->uid);
+      // INNER JOIN as extra sanity check (not only for role name).
++     $result = db_query("SELECT ogur.rid, r.name FROM {og_users_roles} ogur INNER JOIN {role} r ON r.rid = ogur.rid WHERE ogur.uid = %d AND ogur.gid IN ($placeholders)", $args);
+      while ($role = db_fetch_object($result)) {
+        // Add roles to account first, so we can statically cache all roles
++       // afterwards.
++       $account->roles[$role->rid] = $role->name;
+      }
+      $roles = $account->roles;
+    }
+    else {
+***************
+*** 473,495 ****
+        break;
+  
+      case 'insert':
+-       if ($node->og_user_roles_default_role != 0 && og_is_group_type($node->type)) {
+          db_query("INSERT INTO {og_users_roles_group} (gid, default_role) VALUES (%d, %d)", $node->nid, $node->og_user_roles_default_role);
+        }
+        break;
+  
+      case 'update':
+-       if (og_is_group_type($node->type)) {
+-         // Check if node is set to the default
+-         if ($node->og_user_roles_default_role == 0) {
+-           // No need to fill the database with roles that are the default
+-           db_query("DELETE FROM {og_users_roles_group} WHERE gid = %d", $node->nid);
+-         }
+-         else {
+-           db_query("UPDATE {og_users_roles_group} SET default_role = %d WHERE gid = %d", $node->og_user_roles_default_role, $node->nid);
+-           if (!db_affected_rows()) {
+-             db_query("INSERT INTO {og_users_roles_group} (gid, default_role) VALUES (%d, %d)", $node->nid, $node->og_user_roles_default_role);
+-           }
+          }
+        }
+        break;
+--- 444,459 ----
+        break;
+  
+      case 'insert':
++       if (!empty($node->og_user_roles_default_role) && og_is_group_type($node->type)) {
+          db_query("INSERT INTO {og_users_roles_group} (gid, default_role) VALUES (%d, %d)", $node->nid, $node->og_user_roles_default_role);
+        }
+        break;
+  
+      case 'update':
++       if (!empty($node->og_user_roles_default_role) && og_is_group_type($node->type)) {
++         db_query("UPDATE {og_users_roles_group} SET default_role = %d WHERE gid = %d", $node->og_user_roles_default_role, $node->nid);
++         if (!db_affected_rows()) {
++           db_query("INSERT INTO {og_users_roles_group} (gid, default_role) VALUES (%d, %d)", $node->nid, $node->og_user_roles_default_role);
+          }
+        }
+        break;
+***************
+*** 541,547 ****
+   */
+  function og_user_roles_get_roles_by_group($gid, $uid) {
+    $assigned_roles = array();
+-   $result = db_query("SELECT rid FROM {og_users_roles} WHERE status = 1 AND uid = %d AND gid = %d", $uid, $gid);
+    while ($rid = db_result($result)) {
+      $assigned_roles[$rid] = $rid;
+    }
+--- 505,511 ----
+   */
+  function og_user_roles_get_roles_by_group($gid, $uid) {
+    $assigned_roles = array();
++   $result = db_query("SELECT rid FROM {og_users_roles} WHERE uid = %d AND gid = %d", $uid, $gid);
+    while ($rid = db_result($result)) {
+      $assigned_roles[$rid] = $rid;
+    }
+***************
+*** 561,575 ****
+  function og_user_roles_role_add($gid, $uid, $rid) {
+    $granted = db_result(db_query_range("SELECT rid FROM {og_users_roles} WHERE gid = %d AND uid = %d AND rid = %d", $gid, $uid, $rid, 0, 1));
+    if (!$granted) {
+-     db_query("INSERT INTO {og_users_roles} (uid, gid, rid, status) VALUES (%d, %d, %d, 1)", $uid, $gid, $rid);
+-   }
+-   else {
+-     db_query("UPDATE {og_users_roles} SET status=1 WHERE gid = %d AND uid = %d AND rid = %d", $gid, $uid, $rid);
+    }
+  }
+  
+  /**
+-  * Remove a role or all roles for a user in a group.
+   *
+   * @param $gid
+   *   The group ID.
+--- 525,536 ----
+  function og_user_roles_role_add($gid, $uid, $rid) {
+    $granted = db_result(db_query_range("SELECT rid FROM {og_users_roles} WHERE gid = %d AND uid = %d AND rid = %d", $gid, $uid, $rid, 0, 1));
+    if (!$granted) {
++     db_query("INSERT INTO {og_users_roles} (uid, gid, rid) VALUES (%d, %d, %d)", $uid, $gid, $rid);
+    }
+  }
+  
+  /**
++  * Revoke a role or all roles for a user in a group.
+   *
+   * @param $gid
+   *   The group ID.
+***************
+*** 588,612 ****
+  }
+  
+  /**
+-  * Revoke a role or all roles for a user in a group.
+-  *
+-  * @param $gid
+-  *   The group ID.
+-  * @param $uid
+-  *   The user ID.
+-  * @param $rid
+-  *   (Optional) The role ID to remove. If omitted, all roles are removed.
+-  */
+- function og_user_roles_role_revoke($gid, $uid, $rid = NULL) {
+-   if (is_null($rid)) {
+-     db_query("UPDATE {og_users_roles} SET status=0 WHERE gid = %d AND uid = %d", $gid, $uid);
+-   }
+-   else {
+-     db_query("UPDATE {og_users_roles} SET status=0 WHERE gid = %d AND uid = %d AND rid = %d", $gid, $uid, $rid);
+-   }
+- }
+- 
+- /**
+   * Retrieve all roles assignable in a group.
+   */
+  function og_user_roles_get_group_roles($node_type) {
+--- 549,554 ----
+  }
+  
+  /**
+   * Retrieve all roles assignable in a group.
+   */
+  function og_user_roles_get_group_roles($node_type) {
+***************
+*** 627,676 ****
+    // @todo Consider a better UI location for this.
+    if (isset($form['#node']) && $form_id == $form['#node']->type . '_node_form') {
+      $node = $form['#node'];
+-     if (og_is_group_type($node->type)) {
+-       $default = variable_get('og_user_roles_default_role', 0);
+-       // When editing an existing node use its default value
+-       if ($node->nid) {
+-         $default = (!empty($node->og_user_roles_default_role) ? $node->og_user_roles_default_role : 0);
+-       }
+-       // When a user has access allow the user to set the default group role
+-       if (user_access('override group default role')) {
+-         $options = array(0 => t('<default>'));
+-         $group_types_roles = variable_get('og_user_roles_roles_' . $node->type, array());
+-         // Get list of roles, not counting authenticated and anonymous user.
+-         $all_roles = array_map('check_plain', user_roles());
+-         $allowed_roles = array_intersect_key($all_roles, $group_types_roles);
+-         foreach ($all_roles as $rid => $role) {
+-           if ($group_types_roles[$rid]) {
+-             $options[$rid] = $role;
+-           }
+-         }
+- 
+-         // Check to see if only the default role is an option.
+-         // If the group has the default role set, allow it to be set to <default>,
+-         // so we can remove it from the database and not clutter up the database
+-         if (count($options) > 2 || !empty($node->og_user_roles_default_role)) {
+-           $weight = content_extra_field_weight($node->type, 'og_user_roles_default_role');
+-           $form['og_user_roles'] = array(
+-             '#type' => 'fieldset',
+-             '#title' => t('Group user roles'),
+-             '#weight' => !empty($weight) ? $weight : 5,
+-             '#collapsible' => TRUE,
+-             '#collapsed' => FALSE,
+-           );
+-           $form['og_user_roles']['og_user_roles_default_role'] = array(
+-             '#type' => 'select',
+-             '#title' => t('Default role for new members'),
+-             '#options' => $options,
+-             '#default_value' => $default,
+-             '#description' => t('Configure a default role to be assigned to new group members. User roles are used to set permissions. A group user role can be selected that all new members will be assigned. Group user roles are applied per a group.'),
+-           );
+-         }
+-         else {
+-           // When only the default role is an option hide the form
+-           $form['og_user_roles_default_role'] = array('#type' => 'value', '#value' => $default);
+-         }
+-       }
+      }
+    }
+  }
+--- 569,586 ----
+    // @todo Consider a better UI location for this.
+    if (isset($form['#node']) && $form_id == $form['#node']->type . '_node_form') {
+      $node = $form['#node'];
++     if (og_is_group_type($node->type) && user_access('override group default role')) {
++       $default = (!empty($node->og_user_roles_default_role) ? $node->og_user_roles_default_role : 0);
++       $options = array(0 => t('<default>'));
++       $options += og_user_roles_get_group_roles($node->type);
++ 
++       $form['og_user_roles_default_role'] = array(
++         '#type' => 'select',
++         '#title' => t('Default role for new members'),
++         '#options' => $options,
++         '#default_value' => $default,
++         '#description' => t('Configure a default role to be assigned to new group members.'),
++       );
+      }
+    }
+  }
+***************
+*** 683,689 ****
+      $extra['og_user_roles_default_role'] = array(
+        'label' => t('Default role for new members'),
+        'description' => t('Configure a default role to be assigned to new group members.'),
+-       'weight' => 5,
+      );
+      return $extra;
+    }
+--- 593,599 ----
+      $extra['og_user_roles_default_role'] = array(
+        'label' => t('Default role for new members'),
+        'description' => t('Configure a default role to be assigned to new group members.'),
++       'weight' => 0,
+      );
+      return $extra;
+    }

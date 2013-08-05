@@ -1,0 +1,11 @@
+name = Taskbar Migrate
+description = Migrate Appbar/Tray into Taskbar
+core = 6.x
+dependencies[] = taskbar_tacore
+package = "Taskbar"
+; Information added by drupal.org packaging script on 2012-07-08
+version = "6.x-1.4"
+core = "6.x"
+project = "taskbar"
+datestamp = "1341778043"
+

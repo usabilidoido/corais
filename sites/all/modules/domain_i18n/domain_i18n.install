@@ -1,0 +1,61 @@
+<?php
+// $Id: domain_i18n.install,v 1.2 2009/06/08 23:17:05 nonsie Exp $
+
+/**
+ * @file
+ * Installation file for Domain Internationalization (domain_i18n) module.
+ */
+
+/**
+ * Implementation of hook_schema().
+ */
+function domain_i18n_schema() {
+  $schema['domain_i18n_variables'] = array(
+    'description' => t('Domain specififc multilingual variables.'),
+    'fields' => array(
+      'name' => array(
+        'description' => t('The name of the variable.'),
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => ''),
+      'domain' => array(
+        'description' => t('The ID of the variable domain.'),
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0),
+      'language' => array(
+        'description' => t('The language of the variable.'),
+        'type' => 'varchar',
+        'length' => 12,
+        'not null' => TRUE,
+        'default' => ''),
+      'value' => array(
+        'description' => t('The value of the variable.'),
+        'type' => 'text',
+        'not null' => TRUE,
+        'size' => 'big'),
+      ),
+    'primary key' => array('name', 'language', 'domain'),
+    'indexes' => array(
+      'domain_language' => array('domain', 'language'),
+      'domain_language_name' => array('domain', 'language', 'name'),
+    ),
+    );
+  return $schema;
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function domain_i18n_install() {
+  drupal_install_schema('domain_i18n');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function domain_i18n_uninstall() {
+  drupal_uninstall_schema('domain_i18n');
+  variable_del('domain_i18n_settings');
+}

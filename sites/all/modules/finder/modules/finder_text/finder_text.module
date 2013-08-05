@@ -1,0 +1,151 @@
+<?php
+
+/**
+ * @file
+ * The finder text module.
+ */
+
+/**
+ * Implementation of hook_finder_element_handlers().
+ *
+ * @see hook_finder_element_handlers()
+ */
+function finder_text_finder_element_handlers() {
+  return array(
+    'text' => array(
+      '#title' => t('Text'),
+      '#module' => 'finder_text',
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ *
+ * @see hook_form_FORM_ID_alter()
+ */
+function finder_text_form_finder_admin_element_edit_alter(&$form, $form_state) {
+
+  $finder = &$form_state['storage']['finder'];
+  $finder_element_id = &$form_state['storage']['finder_element_id'];
+  $element = &$form_state['storage']['finder_element_defaults'];
+
+  if ($element->element == 'text') {
+
+    if ($element->settings['form']['rows']) {
+      $form['settings']['form']['default_value']['#type'] = 'textarea';
+    }
+
+    $form['settings']['form']['field_prefix'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Field prefix'),
+      '#default_value' => $element->settings['form']['field_prefix'],
+      '#weight' => 150,
+      '#description' => t('Displayed directly before the form input field.'),
+    );
+
+    $form['settings']['form']['field_suffix'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Field suffix'),
+      '#default_value' => $element->settings['form']['field_suffix'],
+      '#weight' => 160,
+      '#description' => t('Displayed directly after the form input field.'),
+    );
+
+    $form['settings']['form']['maxlength'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Max length'),
+      '#default_value' => $element->settings['form']['maxlength'],
+      '#weight' => 170,
+      '#description' => t('The maximum amount of characters to accept as input.'),
+    );
+
+    $form['settings']['form']['minlength'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Min length'),
+      '#default_value' => $element->settings['form']['minlength'],
+      '#weight' => 174,
+      '#description' => t('The minimum amount of characters to accept as input (if input is given).'),
+    );
+
+    $form['settings']['form']['size'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Size'),
+      '#default_value' => $element->settings['form']['size'],
+      '#weight' => 180,
+      '#description' => t('Width (in characters).  Leave blank to default to <em>60</em>'),
+    );
+
+    $form['settings']['form']['rows'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Rows'),
+      '#default_value' => $element->settings['form']['rows'] ? $element->settings['form']['rows'] : 0,
+      '#weight' => 190,
+      '#description' => t('Leave as 0 for single line textfield.'),
+    );
+
+    // Finder_text cannot support sorting of choices.
+    unset($form['settings']['choices']['sort']);
+
+    // Finder_text cannot support the 'per_result' feature.
+    if (isset($form['settings']['choices']['per_result'])) {
+      unset($form['settings']['choices']['per_result']);
+    }
+
+  }
+}
+
+/**
+ * Implementation of hook_finder_element().
+ *
+ * @see hook_finder_element()
+ * @see finder_text_finder_element_validate()
+ */
+function finder_text_finder_element($element, &$form_element) {
+  if ($element->element == 'text') {
+    $form_element['#type'] = 'textfield';
+
+    $properties = array(
+      'field_prefix',
+      'field_suffix',
+    );
+
+    if ($element->settings['form']['rows']) {
+      $form_element['#type'] = 'textarea';
+      $properties[] = 'rows';
+      $properties[] = 'cols';
+      $element->settings['form']['cols'] = $element->settings['form']['size'];
+    }
+    else {
+      $properties[] = 'maxlength';
+      $properties[] = 'minlength';
+      $properties[] = 'size';
+    }
+
+    foreach ($properties as $property) {
+      if ($element->settings['form'][$property]) {
+        $form_element['#'. $property] = $element->settings['form'][$property];
+      }
+    }
+
+    $form_element['#element_validate'][] = 'finder_text_finder_element_validate';
+  }
+}
+
+/**
+ * Internal validation for text element.
+ *
+ * @see finder_text_finder_element()
+ */
+function finder_text_finder_element_validate($element, &$form_state) {
+  if (isset($element['#minlength']) && $element['#minlength'] && $element['#value'] &&
+    strlen($element['#value']) < $element['#minlength']) {
+    form_error($element, t('%title requires a minimum of %char characters.',
+      array('%title' => $element['#title'], '%char' => $element['#minlength'])));
+  }
+  if (isset($element['#maxlength']) && $element['#maxlength'] && $element['#value'] &&
+    strlen($element['#value']) > $element['#maxlength']) {
+    form_error($element, t('%title allows a maximum of %char characters.',
+      array('%title' => $element['#title'], '%char' => $element['#maxlength'])));
+  }
+}

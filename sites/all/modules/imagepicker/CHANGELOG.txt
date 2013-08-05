@@ -1,0 +1,307 @@
+// $Id: CHANGELOG.txt,v 1.17.2.55 2010/11/08 12:45:31 hutch Exp $
+// $Name: DRUPAL-6--2-10 $
+
+Image Picker  for D6 in DRUPAL-6--2, 20010-11-08
+------------------------------------
+by hutch, changed img_date field to int, added date format to config
+
+Image Picker  for D6 in DRUPAL-6--2, 20010-11-07
+------------------------------------
+by hutch, fixed hook_form_alter reference bug and incompatibility with filepicker
+
+Image Picker  for D6 in DRUPAL-6--2, 20010-10-09
+------------------------------------
+by hutch, improved theming in browse and list
+fixed sql count in group table
+
+Image Picker  for D6 in DRUPAL-6--2, 20010-10-06
+------------------------------------
+by hutch, added groups to Bulk Operations
+
+Image Picker  for D6 in DRUPAL-6--2, 20010-09-23
+------------------------------------
+by hutch, added Bulk Operations to image list
+
+Image Picker  for D6 in DRUPAL-6--2, 20010-09-18
+------------------------------------
+by hutch, added IMAGEPICKER_PATH constant
+
+Image Picker  for D6 in DRUPAL-6--2, 20010-09-08
+------------------------------------
+by hutch, improved iframe integration
+
+Image Picker  for D6 in DRUPAL-6--2, 20010-08-23
+------------------------------------
+by hutch, improved wysiwyg support
+
+Image Picker  for D6 in DRUPAL-6--2, 20010-08-09
+------------------------------------
+by hutch, fixed public groups bug #873094
+added js to public groups form
+
+Image Picker  for D6 in DRUPAL-6--2, 20010-08-02
+------------------------------------
+by hutch, fixed groups paging, improved theming,
+added config for table paging.
+
+Image Picker  for D6 in DRUPAL-6--2, 20010-07-10
+------------------------------------
+by hutch, added menu access callback functions
+
+Image Picker  for D6 in DRUPAL-6--2, 20010-06-14
+------------------------------------
+by hutch, replaced include_once with module_load_include
+
+Image Picker  for D6 in DRUPAL-6--2, 20010-06-09
+------------------------------------
+by hutch, added class imgp_img to inserted image
+replaced split() with explode()
+
+Image Picker  for D6 in DRUPAL-6--2, 20010-05-15
+------------------------------------
+by hutch, added public select box,
+changed hidden formfields to 'value'
+
+Image Picker  for D6 in DRUPAL-6--2, 20010-05-14
+------------------------------------
+by hutch, added external hook 'imagepicker_upload_extra'
+
+Image Picker  for D6 in DRUPAL-6--2, 20010-05-13
+------------------------------------
+by hutch, fixed issues in #796524, #797612, added icons to admin/groups
+
+Image Picker  for D6 in DRUPAL-6--2, 20010-05-11
+------------------------------------
+by hutch, added suggested improvement, issue #795346
+
+Image Picker  for D6 in DRUPAL-6--2, 20010-04-28
+------------------------------------
+by hutch, added support for Colorbox iframe
+
+Image Picker  for D6 in DRUPAL-6--2, 20010-04-24
+------------------------------------
+by hutch, added support for Colorbox module
+
+Image Picker  for D6 in DRUPAL-6--2, 20010-02-25
+------------------------------------
+by hutch, Drupal.behaviors applied to js
+
+Image Picker  for D6 in DRUPAL-6--2, 20010-02-17
+------------------------------------
+by hutch, fixed bug in admin watermarks validation
+
+Image Picker  for D6 in DRUPAL-6--2, 20010-02-13
+------------------------------------
+by hutch, added icons
+
+Image Picker  for D6 in DRUPAL-6--2, 20010-01-17
+------------------------------------
+by hutch, E_NOTICE fixes
+
+Image Picker  for D6 in DRUPAL-6--2, 20010-01-16
+------------------------------------
+by hutch, fixed admin menu suppress on iframe, ckeditor insert code added
+
+Image Picker  for D6 in DRUPAL-6--2, 20010-01-04
+------------------------------------
+by hutch, improved insert code, added Used column to admin page
+
+Image Picker  for D6 in DRUPAL-6--2, 2009-12-11
+------------------------------------
+by hutch, added more user configuration, numerous bugfixes
+
+Image Picker  for D6 in DRUPAL-6--2, 2009-11-29
+------------------------------------
+by hutch, fixed error in admin/settings/general path
+
+Image Picker  for D6 in DRUPAL-6--2, 2009-11-26
+------------------------------------
+by hutch, improved js and theming, removed inline js, fixed opera bug
+
+Image Picker  for D6 in DRUPAL-6--2, 2009-11-13
+------------------------------------
+by hutch, fixed bug in paging
+
+Image Picker  for D6 in DRUPAL-6--2, 2009-11-06
+------------------------------------
+by hutch, added imagepicker_postlet module
+
+Image Picker  for D6 in DRUPAL-6--2, 2009-10-11
+------------------------------------
+by hutch, added quota by role
+
+Image Picker  for D6 in DRUPAL-6--2, 2009-10-02
+------------------------------------
+by hutch, fixed bug in reporting in imagepicker_image_check_functions()
+
+Image Picker  for D6 in DRUPAL-6--2, 2009-09-29
+------------------------------------
+by hutch, prevent exifinfo on gifs
+
+Image Picker  for D6 in DRUPAL-6--2, 2009-09-27
+------------------------------------
+by hutch, added exif info, fixed noisy no-exif message
+
+Image Picker  for D6 in DRUPAL-6--2, 2009-09-23
+------------------------------------
+by hutch, added batch import, copy
+
+Image Picker  for D6 in DRUPAL-6--2, 2009-09-14
+------------------------------------
+by hutch, #571198 fixed
+
+Image Picker  for D6 in DRUPAL-6--2, 2009-09-09
+------------------------------------
+by hutch, added group enable/disable, added to contrib
+
+Image Picker  for D6 in DRUPAL-6--2, 2009-08-29
+------------------------------------
+by hutch, added indexes to imagepicker_group_images
+added field descriptions to install schema
+fixed bug in user config tab
+
+Image Picker  for D6 in DRUPAL-6--2, 2009-08-05
+------------------------------------
+by hutch, added watermarks, save original
+and user config page
+
+Image Picker  for D6 in DRUPAL-6--2, 2009-07-22
+------------------------------------
+by hutch, added additional css feature
+
+Image Picker  for D6 in DRUPAL-6--2, 2009-07-16
+------------------------------------
+by hutch, added imagepicker.theme.inc
+
+Image Picker  for D6 in DRUPAL-6--2, 2009-07-16
+------------------------------------
+by hutch, fixed bug in form_alter re block form
+
+Image Picker  for D6 in DRUPAL-6--2, 2009-07-16
+------------------------------------
+by hutch, added link to groups in admin mode
+fixed bug in language in template
+
+Image Picker  for D6 in DRUPAL-6--2, 2009-07-09
+------------------------------------
+by hutch, added search to browse and list images
+cleaned up noisy messages
+
+Image Picker  for D6 in DRUPAL-6--2, 2009-07-01
+------------------------------------
+by hutch, added thickbox integration
+added contribs folder
+fixed #504914 quota bug
+fixed #504872 multiple lines in description
+revemped menus and improved theming
+
+Image Picker  for D6 in DRUPAL-6--2, 2009-06-28
+------------------------------------
+by hutch, added display description option
+
+Image Picker  for D6 in DRUPAL-6--2, 2009-06-16
+------------------------------------
+by hutch, #358644 fixed
+bug in stats display fixed
+
+Image Picker  for D6 in DRUPAL-6--2, 2009-05-30
+------------------------------------
+by hutch updated translations
+
+Image Picker  for D6 in DRUPAL-6--2, 2009-05-19
+------------------------------------
+by hutch fixed a bug in imagepicker_form_alter
+
+Image Picker  for D6 in DRUPAL-6--2, 2009-05-13
+------------------------------------
+by hutch added support for the wysiwyg module
+fixed a bug in imagepicker_form_alter
+fixed a bug in block_settings
+
+Image Picker  for D6 in DRUPAL-6--2, 2009-04-20
+------------------------------------
+by hutch Added quotas
+
+Image Picker  for D6 in DRUPAL-6--2, 2009-04-17
+------------------------------------
+by hutch, added roles and fixed support
+for module fckeditor-6.x-1.3
+
+Image Picker  for D6 in DRUPAL-6--2, 2009-03-07
+------------------------------------
+by hutch, branch to imagepicker 2
+
+Image Picker  for D6 in HEAD, 2008-11-11
+------------------------------------
+by hutch, added some help to readme.txt
+
+Image Picker  for D6 in HEAD, 2008-10-25
+------------------------------------
+by hutch, #321162 cleaned up css
+added the ability to use imagepicker.tpl.php
+if found in the default theme directory
+
+Image Picker for D6 in HEAD, 2008-09-23
+------------------------------------
+by hutch, fixed path in menu to edit in iframe
+
+Image Picker for D6 in HEAD, 2008-09-07
+------------------------------------
+by hutch, added order select box to browser
+
+Image Picker  for D6 in HEAD, 2008-09-04
+------------------------------------
+by hutch, added Use full url feature
+
+Image Picker  for D6 in HEAD, 2008-09-02
+------------------------------------
+by hutch, #302210 patch supplied by Joshua Hesketh
+improved admin settings and improved the javascript
+insertion method
+
+Image Picker  for D6 in HEAD, 2008-07-11
+------------------------------------
+by hutch, #281241 fixed excessive messages on install.
+
+Image Picker for D6 in HEAD, 2006-07-01
+------------------------------------
+by hutch, added imagepicker to My Account
+added paging to browse images
+various menu fixes
+
+Image Picker for D6 in HEAD, 2006-06-24
+------------------------------------
+by hutch, added support for lightbox2
+
+Image Picker for D6 in HEAD, 2006-06-15
+------------------------------------
+by hutch, fixed bug in install, added alignment options
+
+Image Picker for D6 in HEAD, 2006-06-14
+------------------------------------
+by hutch, beta version for Drupal 6
+
+Image Picker 5.x-1.x-dev, 2008-06-06
+------------------------------------
+by hutch, #266621 fixed bug in support for comments
+
+Image Picker 5.x-1.x-dev, 2008-06-04
+------------------------------------
+by hutch, #266621 added support for comments
+
+Image Picker 5.x-1.x-dev, 2008-05-31
+------------------------------------
+by hutch, brought module up to drupal coding standards
+
+Image Picker 5.x-1.x-dev, 2008-05-30
+------------------------------------
+By hutch, numerous changes by new maintainer
+fixed module path finding
+removed .htaccess file creation on install, not required
+fixed permissions
+added admin settings
+lots of cleanup and code comments
+
+Image Picker 5.x-1.x-dev, 2007-12-15
+------------------------------------
+Initial release of imagepicker module to HEAD

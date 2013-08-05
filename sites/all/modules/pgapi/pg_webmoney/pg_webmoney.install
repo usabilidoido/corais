@@ -1,0 +1,42 @@
+<?php
+
+/**
+ * Implementation of hook_install().
+ */
+function pg_webmoney_install() {
+  drupal_install_schema('pg_webmoney');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function pg_webmoney_uninstall() {
+  drupal_uninstall_schema('pg_webmoney');
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function pg_webmoney_schema() {
+  $schema['pg_webmoney_rates'] = array(
+    'description' => 'Stores webmoney rates information.',
+    'fields' => array(
+      'type'       => array('type' => 'varchar', 'length' =>  3, 'not null' => TRUE, 'default' => 'WMZ'),
+      'purse'      => array('type' => 'varchar',  'length' => 13, 'not null' => TRUE, 'default' => ''),
+      'secret_key' => array('type' => 'varchar',  'length' => 64, 'not null' => TRUE, 'default' => ''),
+      'rate'       => array('type' => 'numeric', 'size' => 'normal', 'precision' => 6, 'scale' => 4, 'default' => 0),
+    ),
+    'primary key' => array('type'),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implementation of hook_update_N().
+ */
+function pg_webmoney_update_0001() {
+  $ret = array();
+  db_change_field($ret, 'pg_webmoney_rates', 'rate', 'rate', array('type' => 'numeric', 'size' => 'normal', 'precision' => 6, 'scale' => 4, 'default' => 0));
+  return $ret;
+}

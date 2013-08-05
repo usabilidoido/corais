@@ -1,0 +1,12 @@
+name = Course credit
+description = Adds credit functionality to courses, including multiple credit types, credit mapping, and variable credit.
+package = Course
+core = 6.x
+dependencies[] = course
+
+; Information added by drupal.org packaging script on 2012-09-17
+version = "6.x-1.0-beta1"
+core = "6.x"
+project = "course_credit"
+datestamp = "1347894409"
+

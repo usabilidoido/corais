@@ -1,0 +1,61 @@
+<?php
+// $Id: gmapfield.function.test,v 1.1.2.2 2009/11/22 18:24:01 zzolo Exp $
+
+/**
+ * @file
+ * Testing class for functional testing for GMap Field
+ *
+ */
+
+/**
+ * Needs documentation
+ */
+class GmapFieldFunctionTestCase extends DrupalWebTestCase {
+
+  /**
+   * Implementation of getInfo().
+   */
+  function getInfo() {
+    return array(
+      'name' => t('GMap Field Functional Testing.'),
+      'description' => t('Functional testing of the GMap Field module.'),
+      'group' => t('GMap Field'),
+    );
+  }
+
+  /**
+   * Test creation of field
+   */
+  function testGmapFieldCreateCCKField() {
+    // Ensure that the right modules are enable
+    $this->drupalModuleEnable('content');
+    $this->drupalModuleEnable('gmap');
+    $this->drupalModuleEnable('gmapfield');
+
+    // Create user with the right permissions
+    $permissions = array(
+      'access content',
+      'administer content types',
+      'administer nodes',
+    );
+    $user = $this->drupalCreateUser($permissions);
+
+    // Login as user
+    $this->drupalLogin($user);
+
+    // Make test content type
+    $settings = array(
+      'type' => 'gmapfield_test_type',
+      'name' => 'GMap Field Test Content Type',
+      'description' => 'This is a test content type for the GMap Field module.',
+    );
+    $this->drupalCreateContentType($settings);
+
+    // Go go to Manage Fields
+
+    // Add GMap Field
+
+    // Logout User
+    $this->drupalLogout();
+  }
+}

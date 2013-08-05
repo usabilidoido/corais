@@ -1,0 +1,80 @@
+<?php
+// $Id: vimeotube.module,v 1.1 2010/07/13 21:41:28 bonked Exp $
+/**
+ * @file
+ * Provides an input filter to llow users to easily embed Vimeo.com videos by simply entering a vimeo url.
+ */
+
+/**
+ * Implementation of hook_help().
+ */
+function vimeotube_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#vimeotube':
+      $output = '<p>'. t('Vimeotube is a filter module that automatically converts vimeo video urls into embedded code.  Useful if users want to post videos easily.') .'</p>';
+      $output .= t('<p>Use Input Formats to enable the vimeotube filter</p>
+<ol>
+<li>Select an existing Input Format or add a new one</li>
+<li>Configure the Input Format</li>
+<li>Enable vimeotube filter and Save configuration</li>
+<li>Rearrange the weight of the googtube filter depending on what filters exist in the format. (Before Url Filter and after HTML works for me)</li>
+</ol>');
+      $output .= t('<p>You can</p>
+      <ul><li>enable the vimeotube in an input format from <a href="%admin-filters">administer &gt;&gt; Input Filter</a>.</li></ul>', array('%admin-filters' => url('admin/filters')));
+      $output .= '<p>'. t('For more information please read the configuration and customization handbook <a href="%googtube">vimeotube filter page</a>.', array('%vimeotube' => 'http://www.drupal.org/handbook/modules/vimeotube/')) .'</p>';
+      return $output;
+  }
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function vimeotube_menu() {
+  $items['admin/settings/vimeotube'] = array(
+    'title' => t('Vimeotube settings'),
+	'description' => t('Set the default sizes for vimeotube filtered videos.'),
+	'page callback' => 'drupal_get_form',
+	'page arguments' => array('vimeotube_admin_settings'),
+	'access arguments' => array('administer site configuration'),
+	'type' => MENU_NORMAL_ITEM,
+	'file' => 'vimeotube.admin.inc',
+  );
+  
+  return $items;
+}
+
+function vimeotube_filter_tips($delta, $format, $long = false) {
+  return t('Vimeo video links are automatically converted into embedded videos.');
+}
+
+function vimeotube_filter($op, $delta = 0, $format = -1, $text = '') {
+  switch ($op) {
+    case 'list':
+      return array(0 => t('vimeotube filter'));
+
+    case 'description':
+      return t('Vimeo video links are automatically converted into embedded videos.');
+    case 'process':
+      $text   = ' ' . $text . ' ';
+
+      //vimeo video regex
+      $text = preg_replace_callback('#(((http://)?)|(^./))(((www.)?)|(^./))vimeo\.com/([0-9]+)(?![^<]*</a>)#i', 'vimeotube_vimeo', $text);
+
+      $text = substr($text, 1, -1);      
+      return $text;
+
+	case 'no_cache':
+	  return false;
+
+    default:
+      return $text;
+  }
+}
+
+function vimeotube_vimeo($match) {
+  $width = variable_get('vimeotube_default_width', 400);
+  $height = variable_get('vimeotube_default_height', 225);
+  $parsed_url = parse_url(check_url($match[0]));
+  $vimeo_id = ltrim($parsed_url[path],"/");
+  return '<object width="'. $width .'" height="' . $height .'"><param name="allowfullscreen" value="true" /><param name="allowscriptaccess" value="always" /><param name="movie" value="http://vimeo.com/moogaloop.swf?clip_id=' . $vimeo_id . '&amp;server=vimeo.com&amp;show_title=1&amp;show_byline=1&amp;show_portrait=0&amp;color=&amp;fullscreen=1" /><embed src="http://vimeo.com/moogaloop.swf?clip_id=' . $vimeo_id . '&amp;server=vimeo.com&amp;show_title=1&amp;show_byline=1&amp;show_portrait=0&amp;color=&amp;fullscreen=1" type="application/x-shockwave-flash" allowfullscreen="true" allowscriptaccess="always" width="' . $width . '" height="' . $height . '"></embed></object>';
+}

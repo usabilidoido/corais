@@ -1,0 +1,631 @@
+<?php
+// $Id: image_fupload_imagefield.module,v 1.33 2009/04/08 12:44:42 grandcat Exp $
+
+/**
+ * Implementation of hook_help
+ */
+function image_fupload_imagefield_help($path, $arg) {
+// will come later...
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function image_fupload_imagefield_menu() {
+  $items['fupload/js/imagefield'] = array(
+    'title' => 'Image FUpload',
+    'page callback' => 'image_fupload_imagefield_node_create',
+    'access arguments' => array('mass upload images'),
+    'type' => MENU_CALLBACK,
+    'file' => 'field_file.inc',
+    'file path' => drupal_get_path('module', 'filefield'),
+  );  
+  return $items;  
+}
+
+function image_fupload_imagefield_theme() {  
+  return array(
+    // imagefield_widget form element type theme function.
+    'image_fupload_imagefield_widget' => array(
+      'arguments' => array('element' => null),
+      'file' => 'image_fupload_imagefield_widget.inc',
+    ),
+    // theme an imagefield field item. It calls imagefied_image with the proper item properties as arguments.
+    'image_fupload_imagefield_item' => array(
+      'arguments' => array('item' => null),
+    ),
+    // use to generate a preview (admin view) of an imagefield item for use in field item forms
+    // and filefield widgets. It is invoked by filefield_widget_process.
+    'image_fupload_imagefield_widget_preview' => array(
+      'arguments' => array('item' => null),
+    ),
+    // theme function for the field item elements. allows you to place children within the context
+    // of the parent.
+    'image_fupload_imagefield_widget_item' => array(
+      'arguments' => array('element' => null),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_form_alter() registry.
+ **/
+function image_fupload_imagefield_form_alter($form, $form_state, $form_id) {
+  global $user;  
+  // load available image node types & field information
+  $image_node_types = variable_get('image_node_types', array());
+  $node_type = substr($form_id, 0, (strlen($form_id) - 10)); // get node type  
+  
+  // examine whether this node type is configured as image fupload handler (basic check = performance)
+  if (image_node_type_load($node_type, TRUE)) {
+    // get field information
+    $field_name = $image_node_types[$node_type]['fieldname'];
+    $field = content_fields($field_name, $node_type);
+    // check whether image fupload widget is still chosen as widget and permission things
+    if ($field['widget']['type'] == "image_fupload_imagefield_widget" && arg(3) != "noflash" && arg(3) != "list_imagefields" && user_access('mass upload images')) {
+      // load needed JS & CSS - Files
+      $module_path = drupal_get_path('module', 'image_fupload');
+      drupal_add_js($module_path .'/swfupload/swfupload.js', 'module');
+      drupal_add_js($module_path .'/swfupload/swfupload.queue.js', 'module');
+      drupal_add_js($module_path .'/swfupload/fileprogress.js', 'module');
+      drupal_add_js($module_path .'/swfupload/handlers.js', 'module');
+      
+      // provide a link for further steps (preview list with editing) if permitted
+      $redirect_url = '';
+      if (user_access('edit captions')) {
+        $redirect_url = url('node/add/' .str_replace("_", "-", $node_type) .'/list_imagefields');
+      }
+      
+      // number of images allowed to be uploaded
+      switch ($field['multiple']) {
+        case "1":
+          $upload_limit_count = 100; // unlimited
+          break;
+        case "0":
+          $upload_limit_count = 1;
+          break;
+        default:
+          $upload_limit_count = $field['multiple'];
+      }
+      // don't observe number of fields in single storage mode
+      if ($field['widget']['fupload_mode'] == "single")
+        $upload_limit_count = 100; // unlimited
+      
+      $fupload_widget_weight = $field['widget']['weight'];
+      $file_max_size = parse_size($field['widget']['max_filesize_per_file']); // maximal allowed file size (bytes)  
+      drupal_add_js(theme('swfupload_settings', base_path() . $module_path, url('fupload/flash'), round($file_max_size/1024), ("*." .str_replace(" ", "; *.", $field['widget']['file_extensions'])), (!empty($user->sid) ? $user->sid : session_id()), $upload_limit_count, $node_type, $field_name, (!empty($field['required']) ? "true" : "false"), $field['widget']['fupload_mode'], $redirect_url), 'inline');
+      drupal_add_css($module_path .'/image_fupload-style.css', 'module', 'all', FALSE);
+      
+      // unvisible elements, will be written in cache
+      $form['node_type'] = array('#type' => 'value', '#value' => $node_type);
+      $form['field_name'] = array('#type' => 'value', '#value' => $field_name);
+      
+      // is it a new node?
+      if (!isset($form['#node']->nid)) {
+        // new node; remove our imagefield and its validation, also in cache
+        unset($form[$field_name], $form['#field_info'][$field_name], $form['#validate'][array_search('filefield_node_form_validate', $form['#validate'])]);
+        // hide submit button; will be clicked via JS if needed
+        $form['buttons']['submit']['#attributes'] = array('style' => 'display:none;');
+        
+        // we have to split up storage modes
+        if ($field['widget']['fupload_mode'] == "single") {
+          // one node per image - mode 
+          
+          if (user_access('edit captions')) { // user allowed to use preview list?
+            // delete fields which will be shown later in preview list; cache this
+            form_fields_destroy($form, $field['widget']['fupload_previewlist_field_settings']);
+            form_set_cache($form['form_build_id'], $form, $form_state); // save changed data in cache, include removed fields for image preview list --> no validation
+            unset($form['buttons']['preview']);
+          } else {
+            // basic form manipulations (normal mode)
+            unset($form['title']);
+            form_set_cache($form['form_build_id'], $form, $form_state); // save data in cache, don't include some unsets
+            unset($form['buttons']['preview']); // only make them unvisible            
+          }            
+          
+        } else {
+          // multiple images per node - mode ...puhh...
+          if (user_access('edit captions')) { // user allowed to use preview list?
+            // delete fields which will be shown later in preview list; cache this
+            form_fields_destroy($form, $field['widget']['fupload_previewlist_field_settings']);
+            form_set_cache($form['form_build_id'], $form, $form_state); // save changed data in cache, include removed fields for image preview list --> no validation
+            unset($form['buttons']['preview']);
+          } else {
+            // basic form manipulations (normal mode)
+            form_set_cache($form['form_build_id'], $form, $form_state); // save data in cache, don't include some unsets
+            unset($form['buttons']['preview']); // only make them unvisible            
+          }
+        }
+        
+      } else {
+        // edit already existing node
+        
+        // ... already done by following form manipulations
+      }
+      
+      // standard image fupload form; will be shown in the most cases (not for existing node in single mode)
+      if (isset($form['#node']->nid) && $field['widget']['fupload_mode'] == "single") {
+        // don't create fupload form
+      } else {
+        $form['fupload'] = array(
+          '#weight' => $fupload_widget_weight - 0.1,
+        );
+    
+        $form['fupload']['message'] = array(
+          '#value' => '<div id="jsstatus"></div>',
+          '#prefix' => '<div id="uploadform" style="visibility:hidden;"></div>', // needed to scroll to error and status messages
+          '#weight' => -7,
+        );
+        $form['fupload']['image'] = array(
+          '#type' => 'fieldset',
+          '#title' => t('Images'),
+          '#value' => '<span style="font-style:italic;">' .t('Click the "Select Images" icon on the left below to begin.') .'</span>',
+          '#weight' => -6,
+          '#attributes' => array('class' => 'flash', 'id' => 'fsUploadProgress'),          
+          '#collapsible' => FALSE,
+          '#collapsed' => FALSE,
+        );
+        $form['fupload']['upload_info'] = array(
+          '#value' => t('0 files uploaded.') . ' ',
+          '#prefix' => '<div id="divStatus" style="display: none;">',
+          '#suffix' => '</div>',
+          '#weight' => -5,
+        );
+        // Drupal 6 Bug: can't use "normal" buttons, only submit buttons are possible => workaround
+        $form['fupload']['upload_buttons'] = array(
+          '#prefix' => '<div class="fieldset-content">',
+          '#value' => '<span id="spanUploadButton"></span> <input id="btnCancel" type="button" value="'.t('Cancel All Uploads').'" onclick="swfu.cancelQueue();" disabled="disabled" /> ',	
+          '#suffix' => '</div>',
+          '#weight' => -4,
+        );
+        $form['fupload']['upload_buttons']['node_create'] = array(
+          '#type' => 'submit',
+          '#value' => t('Process queued images'),
+          '#weight' => -3,
+          '#ahah' => array(
+            'path' => 'fupload/js/imagefield',
+            'event' => 'click',
+            'method' => 'replace',
+            'wrapper' => 'jsstatus',
+            'progress' => array('type' => 'bar', 'message' => t('Images in queue are processed...')),
+          ),
+        );
+        $form['fupload']['upload_buttons']['delete_queue'] = array(
+          '#type' => 'submit',
+          '#value' => t('Delete queued images'),
+          '#weight' => -2,
+          '#ahah' => array(
+            'path' => 'fupload/js/deletequeue/' .$field_name,
+            'event' => 'click',
+            'method' => 'append',
+            'wrapper' => 'jsstatus',
+          ),
+        );
+        if (user_access('edit captions') && !isset($form['#node']->nid)) {
+          $form['fupload']['upload_buttons']['next_step'] = array(
+            '#value' => '<input type="button" value="'.t('Next step').'" id="imagepreviewlistbutton" style="visibility:hidden" />',
+            '#weight' => -1,
+          ); 
+        }
+        
+        if (isset($form['#node']->nid)) {
+          $form['fupload']['upload_info']['#value'] .= t('Queued files will be uploaded by clicking the "Upload images" button.');
+          $form['fupload']['upload_buttons']['submit'] = array(
+            '#value' => '<input type="button" value="'.t('Upload images').'" id="startuploadbutton" class="form-submit" onclick="startUploadProcess();window.location.href=\'#uploadform\'" /><br /><br />',
+            '#weight' => -2,
+          );
+        } else {
+          $form['fupload']['upload_info']['#value'] .=  t('Queued files will be uploaded by clicking the "Save" button at the bottom of this page.');
+          $form['buttons']['fupload_submit'] = array(
+            '#value' => '<input type="button" value="'.t('Save').'" id="startuploadbutton" class="form-submit" onclick="startUploadProcess();window.location.href=\'#uploadform\'" />',
+            '#weight' => 19,
+            '#submit' => array('node_form_submit'),
+          ); 
+        }
+        
+        //it seems we don't need it any more, but before, some testing
+        //if (!isset($form['#node']->nid) && !isset($form_state['redirect']))
+        //$form['#redirect'] = FALSE; // Important that $_POST is not empty after browser submit           
+      }
+    }
+  }
+}
+
+function image_fupload_imagefield_node_create() {
+  global $user;
+  
+  // Get some POST Variables
+  $form_build_id = $_POST['form_build_id'];
+  $form_id = $_POST['form_id'];
+  
+  if (isset($form_build_id) && isset($form_id)) {
+    $form_error = 0;
+    $message = ''; // message which will be returned to the user via JavaScript
+    $redirect_url = ''; // updated redirect url
+    
+    // Load the form from the Form API cache and check if valid
+    $form_state = array('rebuild' => TRUE, 'values' => $_POST); // rebuild option needed to prevent that "_image_node_form_submit" gets executed by drupal_process_form
+    if (!($form = form_get_cache($form_build_id, $form_state))) {
+      // code based on upload.module (15/08/2008)
+      form_set_error('form_token', t('Validation error, please try again. If this error persists, please contact the site administrator.'));
+      $output = theme('status_messages');
+      drupal_json(array('status' => TRUE, 'data' => $output));
+      exit();
+    }
+    
+    // some basic variables
+    $field_name = $form['field_name']['#value']; // name of imagefield
+    $node_type = $form['node_type']['#value']; // image node type
+    $field = content_fields($field_name, $node_type); // imagefield widget
+    // include node.pages.inc for some needed functions (node_form_submit_build_node)
+    module_load_include('inc', 'node', 'node.pages');
+    
+    // Remove images which couldn't be processed completly (--> mostly because of memory excaustion) --> physical removal done by cron
+    db_query("UPDATE {files} SET filename = '%s' WHERE uid = %d AND status = %d AND filename = '%s'", image_fupload_image_status($field_name, IMAGE_PROCESSED), $user->uid, FILE_STATUS_TEMPORARY, image_fupload_image_status($field_name, IMAGE_HALFPROCESSED));
+    
+    // Some form manipulations, if some fields are not sent
+    $form['#post'] = $_POST;
+    $form['#post']['form_id'] = $form['form_id']['#value']; 
+    if (!isset($form['title'])) {      
+      // Default Value; Title will be overwritten in the next steps
+      $form['#post']['title'] = 'Image';         
+      // New generated fields
+      $form['title'] = array('#type' => 'textfield', '#title' => 'title2change', '#default_value' => ''); // Needed that validation is successful
+    }
+    
+    // if we are editing already existing node, remove nid to prevent errors because node was changed before
+    if (isset($form['nid']['#value'])) {
+      $form['gallery_nid']['#value'] = $form['nid']['#value'];
+      unset($form['nid']['#value'], $form_state['values']['nid']);
+    }
+    
+    // Form validation
+    drupal_process_form($form_id, $form, $form_state);
+    if (!form_get_errors()) {
+      // prepare array for queuing images for imagefield (multiple images per node)
+      $imagefield_files = array();
+    
+      // validation passed
+      $result = db_query_range("SELECT * FROM {files} WHERE uid = %d AND status = %d AND filename = '%s'", $user->uid, FILE_STATUS_TEMPORARY, image_fupload_image_status($field_name, IMAGE_UNMACHINED), 0, 3);
+      while ($image = db_fetch_object($result)) {
+        $img_cache[] = $image; // cache our images
+        // Set status flag on image (work on picture can begin); if there are problems with this image, it will be kicked next time
+        db_query("UPDATE {files} SET filename = '%s' WHERE fid = %d", image_fupload_image_status($field_name, IMAGE_HALFPROCESSED), $image->fid);
+        
+        // Create a filename out of the given image information; used a theme function so that it can be customised; mapping new title only if title field is disabled for preview list
+        if ($form['title']['#title'] == "title2change") {
+          $form['title']['#value'] = theme('fupload_create_filename', $image, $field['widget']['fupload_title_replacements']);
+          $form_state['values']['title'] = $form['title']['#value'];
+        }
+        // import our file (uploaded in queue); code from [#292904] (thx to drewish) (D6 24/08/2008)
+        $validators = array_merge(filefield_widget_upload_validators($field), imagefield_widget_upload_validators($field));
+        $files_path = _fupload_import_widget_files_directory($field);
+        //drupal_set_message($files_path);
+        
+        // split up storage modes
+        if ($field['widget']['fupload_mode'] == "single") {
+          // one node per image - mode     
+          if ($file = field_file_save_file($image->filepath, $validators, $files_path)) {
+            // prepare node; code partially taken from function "node_form_submit" (D6 24/08/2008 node.pages.inc)
+            $node = node_form_submit_build_node($form, $form_state);
+            $insert = empty($node->nid);
+            // add new files to node
+            $node->$field_name = array(0 => $file);  
+            // save node
+            node_save($node);
+          
+            // report to watchdog
+            $node_link = l(t('view'), 'node/'. $node->nid);
+            $watchdog_args = array('@type' => $node->type, '%title' => $node->title);
+            $t_args = array('@type' => node_get_types('name', $node), '%title' => $node->title);
+
+            if ($insert) {
+              watchdog('content', '@type: added %title.', $watchdog_args, WATCHDOG_NOTICE, $node_link);
+              drupal_set_message(t('@type %title has been created.', $t_args));
+            }
+            else {
+              watchdog('content', '@type: updated %title.', $watchdog_args, WATCHDOG_NOTICE, $node_link);
+              drupal_set_message(t('@type %title has been updated.', $t_args));
+            }
+            if ($node->nid) {
+              $form_state['nid'] = $node->nid;
+              
+              // file inserting successful =) Prevent that same image is processed twice; deleted later by cron
+              db_query("UPDATE {files} SET filename = '%s' WHERE fid = %d", image_fupload_image_status($field_name, IMAGE_PROCESSED), $image->fid);
+              // mark file for preview list if necessary
+              if (user_access('edit captions'))
+                db_query("INSERT INTO {fupload_previewlist} (fieldname, uid, nid, fid, created) VALUES ('%s', %d, %d, %d, %d)", $field_name, $user->uid, $node->nid, $file['fid'], time());
+              
+            } else {
+              // In the unlikely case something went wrong on save, the node will be
+              // rebuilt and node form redisplayed the same way as in preview.
+              drupal_set_message(t('The post could not be saved.'), 'error');
+            } 
+          }         
+          
+        } else {
+          // multiple images per node - mode          
+          
+          // create gallery node if it doesn't exist
+          if (!isset($form['gallery_nid']['#value'])) {
+            $node = _fupload_node_save($form, $form_state, $form_build_id);            
+          } else {
+            $node->nid = $form['gallery_nid']['#value'];
+            // add removed node specific; in case that form is cached again
+            $form['nid']['#value'] = $node->nid;
+            $form_state['values']['nid'] = $node->nid;
+          }          
+          
+          // add images to node 
+
+          // add validation to check if some space is left for the file in our node
+          $validators['image_fupload_validate_total_filesize'] = array($node->nid, $field_name, parse_size($field['widget']['max_filesize_per_node'])); 
+                    
+          if ($file = field_file_save_file($image->filepath, $validators, $files_path)) {
+            // add images to queue to be merged into one node later --> better performance
+            $imagefield_files[] = $file;
+            drupal_set_message(t('Image %title added.', array('%title' => $file['filename'])));
+            
+            // file inserting successful =) Prevent that same image is processed twice; deleted later by cron
+            db_query("UPDATE {files} SET filename = '%s' WHERE fid = %d", image_fupload_image_status($field_name, IMAGE_PROCESSED), $image->fid);
+            // mark file for preview list if necessary
+            if (user_access('edit captions'))
+              db_query("INSERT INTO {fupload_previewlist} (fieldname, uid, nid, fid, created) VALUES ('%s', %d, %d, %d, %d)", $field_name, $user->uid, $node->nid, $file['fid'], time());
+          
+          } else {
+            // some validators couldn't be satisfied --> empty queue
+            $form_error = 2;
+          }
+        }
+        
+      }
+      // add queued images to node gallery (multiple storage mode)
+      if (count($imagefield_files)) {
+        $node = node_load($node->nid);
+        
+        // add files to node       
+        //$node->$field_name = array_merge((is_array($node->$field_name) ? $node->$field_name : array()), $imagefield_files);
+        $node->$field_name = array_merge($node->$field_name, $imagefield_files);
+        
+        node_save($node);
+      }  
+      
+      // build redirect url: multiple mode and no access to preview page
+      if (isset($form['gallery_nid']['#value']) && !user_access('edit captions')) {         
+         $redirect_url = 'node/' .$form['gallery_nid']['#value'];
+      }
+
+      // if alternative redirect url is provided, replace existing one
+      if (!empty($field['widget']['fupload_previewlist_redirecturl']) && !user_access('edit captions'))
+        $redirect_url = $field['widget']['fupload_previewlist_redirecturl'];
+      
+      // send updated redirect url via json_decode
+      if (!empty($redirect_url) && $form_error == 0)
+        $message .= '<input type="hidden" name="redirect_url" id="redirect_url" value="' .url($redirect_url) .'" />';
+        
+      // examine how many images are left in queue and inform JS by sending a hidden element
+      $result = db_fetch_object(db_query("SELECT COUNT(*) AS img_count FROM {files} WHERE uid = %d AND status = %d AND filename = '%s'", $user->uid, FILE_STATUS_TEMPORARY, image_fupload_image_status($field_name, IMAGE_UNMACHINED)));
+      $message .= '<input type="hidden" name="num_queued_images" id="num_queued_images" value="' . $result->img_count . '" />';      
+      
+    } else {
+      // error in received form (for example a required field was not filled) or during process; inform JS => user
+      if ($form_error != 2) // special case: some validators of imagefield weren't satisfied
+        $form_error = 1;
+      $message .= '<input type="hidden" name="num_queued_images" id="num_queued_images" value="0" />';
+    }    
+    
+    // Inform JS about errors
+    $message .= '<input type="hidden" name="form_errors" id="form_errors" value="' . $form_error . '"  />';
+    $message .= theme('status_messages'); // Theme all messages
+    
+    drupal_json(array('status' => TRUE, 'data' => $message));
+    
+  } else {
+    drupal_json(array('status' => FALSE, 'data' => t('Error: No or wrong POST Data')));
+  }     
+}
+
+/**
+ * CCK related stuff
+ */
+ 
+/**
+ * Implementation of hook_elements().
+ */
+function image_fupload_imagefield_elements() {
+  $elements = array();
+  $elements_imagefield = module_invoke('imagefield', 'elements');
+  $elements['image_fupload_imagefield_widget'] = $elements_imagefield['imagefield_widget'];
+  
+  return $elements;
+}
+
+/**
+ * Implementation of CCK's hook_widget_info().
+ */
+function image_fupload_imagefield_widget_info() {
+  return array(
+    'image_fupload_imagefield_widget' => array(
+      'label' => t('Image FUpload'),
+      'field types' => array('image', 'filefield'),
+      'multiple values' => CONTENT_HANDLE_CORE,
+      'callbacks' => array('default value' => CONTENT_CALLBACK_CUSTOM),      
+      'description' => t('An edit widget for image files being uploaded via Image FUpload, including a preview of the image and editing options.'),
+    ),
+  );
+}
+
+/**
+ * Implementation of CCK's hook_widget_settings().
+ */
+function image_fupload_imagefield_widget_settings($op, $widget) {
+  module_load_include('inc', 'image_fupload_imagefield', 'image_fupload_imagefield_widget');
+
+  switch ($op) {
+    case 'form':
+      return image_fupload_imagefield_widget_settings_form($widget);
+    case 'validate':
+      return image_fupload_imagefield_widget_settings_validate($widget);
+    case 'save':
+      return image_fupload_imagefield_widget_settings_save($widget);
+  }
+}
+
+/**
+ * Implementation of hook_widget().
+ *
+ * Assign default properties to item and delegate to filefield.
+ */
+function image_fupload_imagefield_widget($form, $form_state, $field, $items, $delta = 0) {
+  $element = call_user_func('imagefield_widget', $form, $form_state, $field, $items, $delta);
+  return $element;
+}
+
+/**
+ * Interact on changes to CCK ImageFields.
+ */
+function image_fupload_imagefield_content_fieldapi($op, $field, $new_instance = NULL) {
+  $image_node_types = variable_get('image_node_types', array());
+  switch ($op) {
+    case "delete instance":
+      // check if a image fupload related field is deleted
+      if ($image_node_types[$field['type_name']]['fieldname'] == $field['field_name'])
+        _fupload_imagepreview_settings('delete', $field['type_name']); // remove settings in variable image_node_types      
+      break;
+  }
+}
+
+/**
+ * Removing a given list of fields (ckk, node, imagefield, taxonomy) of form
+ * Validation for these fields will also be deactivated
+ */
+
+function form_fields_destroy($form, $fields_to_remove = array()) {
+  // collect information about fields being used by image preview list, if needed  
+  $fields = array();
+  foreach ($fields_to_remove as $key) {
+    $elements = explode("_", $key, 2);
+    if (!isset($fields[$elements[0]]) && $fields_to_remove[$key] != FALSE)
+      $fields[$elements[0]] = array();
+    if ($fields_to_remove[$key] != FALSE)
+      array_push($fields[$elements[0]], $elements[1]);
+  }
+  
+  // any node specific fields which should be removed ..argg
+  if (isset($fields['node'])) {
+    if (in_array("title", $fields['node']))
+      unset($form['title']);
+    if (in_array("description", $fields['node']))
+      unset($form['body_field']);
+  }
+  
+  if (isset($fields['taxonomy'])) {
+    // remove taxonomy items if necessary
+    for ($i = 0; $i < count($fields['taxonomy']); $i++) {
+        unset($form['taxonomy'][$fields['taxonomy'][$i]]);
+        unset($form['taxonomy']['tags'][$fields['taxonomy'][$i]]);
+      if (!count($form['taxonomy']['tags']))
+        unset($form['taxonomy']['tags']);      
+    }
+    // still anything left to render?
+    if (count(taxonomy_get_vocabularies($form['#node']->type)) == count($fields['taxonomy']))
+        unset($form['taxonomy']);
+  }
+  
+  if (isset($fields['cck'])) {
+    // remove cck fields if necessary
+    for ($i = 0; $i < count($fields['cck']);$i++) {
+      unset($form[$fields['cck'][$i]]);
+      unset($form['#field_info'][$fields['cck'][$i]]);
+    }
+    if (!count($form['#field_info']))
+      unset($form['#field_info']);
+  }
+}
+
+/**
+ * Theming related things
+ */
+
+function theme_image_fupload_imagefield_item($item) {
+  return theme('imagefield_item', $item);
+}
+
+function theme_image_fupload_imagefield_widget_preview($item = null) {
+  return theme('imagefield_widget_preview', $item);
+}
+
+function theme_image_fupload_imagefield_widget_item($element) {
+  return theme('imagefield_widget_item', $element);
+}
+
+/**
+* Determine the widget's files directory [#292904] (great thanks to drewish)
+*
+* @param $field CCK field
+* @return files directory path.
+*/
+function _fupload_import_widget_files_directory($field) {
+  $widget_file_path = $field['widget']['file_path'];
+  if (module_exists('token')) {
+    global $user;
+    $widget_file_path = token_replace($widget_file_path, 'user', $user);
+  }
+  return file_directory_path() .'/'. $widget_file_path;
+}
+
+/*
+* Build a node from $form and save it to database
+*/
+function _fupload_node_save($form, $form_state, $form_build_id) {
+  $node = node_form_submit_build_node($form, $form_state);
+  $insert = empty($node->nid);
+  // save node
+  node_save($node);
+          
+  // report to watchdog
+  $node_link = l(t('view'), 'node/'. $node->nid);
+  $watchdog_args = array('@type' => $node->type, '%title' => $node->title);
+  $t_args = array('@type' => node_get_types('name', $node), '%title' => $node->title);
+
+  if ($insert) {
+    watchdog('content', '@type: added %title.', $watchdog_args, WATCHDOG_NOTICE, $node_link);
+    drupal_set_message(t('@type %title has been created.', $t_args));
+  }
+  if ($node->nid) {
+    // will be saved in cache so that only one gallery node will be created
+    $form['gallery_nid']['#value'] = $node->nid; 
+    $form_state['values']['gallery_nid'] = $node->nid;
+              
+    // save form to cache
+    form_set_cache($form_build_id, $form, $form_state);               
+    return $node;
+    
+  } else {
+    // In the unlikely case something went wrong on save, the node will be
+    // rebuilt and node form redisplayed the same way as in preview.
+    drupal_set_message(t('The post could not be saved.'), 'error');
+    return FALSE;
+  }
+}
+
+/*
+* Validation function
+* Checkes if filesize sum of node doesn't exceed the limits
+*/
+
+function image_fupload_validate_total_filesize($file, $nid, $field_name, $node_size = 0) {
+  global $user;
+  $errors = array();
+  $total_size = 0;
+  
+  if ($node_size && $user->uid != 1) {
+    $result = db_query("SELECT f.filesize FROM {content_%s} AS t JOIN {files} AS f ON t.%s_fid = f.fid WHERE t.nid = %d", $field_name, $field_name, $nid);
+    while ($image = db_fetch_object($result)) {
+      $total_size += $image->filesize;
+    }    
+    if (($total_size + $file->filesize) > $node_size)
+      $errors[] = t('The new total filesize of this node, %tsize, would exceed field settings of %msize.', array('%tsize' => format_size($total_size + $file->filesize), '%msize' => format_size($node_size)));
+  }
+  return $errors;
+}

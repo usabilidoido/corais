@@ -1,0 +1,25 @@
+<?php
+
+/**
+ * @file
+ * The Node export DSV install file.
+ */
+
+/**
+ * Implementation of hook_install().
+ */
+function node_export_dsv_install() {
+  // Node export DSV is slow to fire on imports, and should allow other modules
+  // to respond first.
+  db_query("UPDATE {system} SET weight = 10 WHERE name = 'node_export_dsv'");
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function node_export_dsv_uninstall() {
+  variable_del('node_export_dsv_delimiter');
+  variable_del('node_export_dsv_enclosure');
+  variable_del('node_export_dsv_seperator');
+  variable_del('node_export_dsv_escape_eol');
+}

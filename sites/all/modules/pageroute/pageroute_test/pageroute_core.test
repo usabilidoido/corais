@@ -1,0 +1,302 @@
+<?php
+// $Id: pageroute_core.test,v 1.1.2.1 2009/12/05 11:45:44 sgilits Exp $
+
+/**
+ * @file
+ * Contains the core test for pageroute
+ */
+
+include_once('pageroute_test.inc');
+
+/**
+ * PageRoutePageTypesTestCase tests the core features of Pageroute.
+ */
+class PagerouteCoreTestCase extends PagerouteTestCase {
+  protected $routeId;
+  protected $user = NULL;
+  protected $route;
+  public static function getInfo() {
+    return array(
+      'name' => 'Page types test',
+      'description' => 'Tests all default page types.',
+      'group' => 'Pageroute',
+    );
+  }
+
+  function setUp() {
+    parent::setUp();
+    $this->route1 = "array (
+      'args' =>
+      array (
+      ),
+      'options' =>
+      array (
+        'tabs' =>'1',
+        'access' =>
+        array (
+          'allowed_roles' =>
+          array (
+            2 => 2,
+            1 => 0,
+            3 => 0,
+            4 => 0,
+          ),
+        ),
+        'redirect_path' => '',
+        'no_messages' => 1,
+      ),
+      'pages' =>
+      array (
+        0 =>
+        array (
+          'name' => 'p1',
+          'module' => 'pageroute',
+          'type' => 'add',
+          'title' => 'Page 1 -Add Page',
+          'options' =>
+          array (
+            'activated' => 1,
+            'no_tab' => 0,
+            'forward' => 'Forward',
+            'back' => 'Back',
+            'cancel' => 'Cancel',
+            'content-type' => 'story',
+            'preview' => 0,
+            'submit' => 1,
+          ),
+          'weight' => '-10',
+        ),
+        1 =>
+        array (
+          'name' => 'p2',
+          'module' => 'pageroute',
+          'type' => 'edit',
+          'title' => 'Page 2 - Edit Page',
+          'options' =>
+          array (
+            'activated' => 1,
+            'no_tab' => 0,
+            'forward' => 'Forward',
+            'back' => 'Back',
+            'cancel' => '',
+            'content-type' => 'story',
+            'preview' => 1,
+            'submit' => 1,
+            'nodelete' => 1,
+          ),
+          'weight' => '-10',
+        ),
+        2 =>
+        array (
+          'name' => 'p3',
+          'module' => 'pageroute',
+          'type' => 'view',
+          'title' => 'Page 3 - View page',
+          'options' =>
+          array (
+            'activated' => 1,
+            'no_tab' => 0,
+            'forward' => 'Forward',
+            'back' => 'Back',
+            'cancel' => '',
+            'nid' => '0',
+          ),
+          'weight' => '-10',
+        ),
+        3 =>
+        array (
+          'name' => 'p4',
+          'module' => 'pageroute',
+          'type' => 'view',
+          'title' => 'Page 4 - View page2',
+          'options' =>
+          array (
+            'activated' => 1,
+            'no_tab' => 0,
+            'forward' => 'Forward',
+            'back' => 'Back',
+            'cancel' => '',
+            'nid' => '0',
+          ),
+          'weight' => '-10',
+        ),
+        4 =>
+        array (
+          'name' => 'p5',
+          'module' => 'pageroute',
+          'type' => 'useredit',
+          'title' => 'Page 5 - Edit User',
+          'options' =>
+          array (
+            'activated' => 1,
+            'no_tab' => 0,
+            'forward' => 'Forward',
+            'back' => 'Back',
+            'cancel' => '',
+            'category' => 'account',
+            'submit' => 1,
+          ),
+          'weight' => '-10',
+        ),
+      ),
+      'pageIndex' =>
+      array (
+        'p1' => 0,
+        'p2' => 1,
+        'p3' => 2,
+        'p4' => 3,
+        'p5' => 4,
+      ),
+      'pageAccess' =>
+      array (
+      ),
+      'path' => 'pageroute1',
+      'pageDataCurrent' => NULL,
+      'pageDataPrevious' => NULL,
+    )";
+    $this->user = $this->useAdmin();
+    $node = array(
+      'body' => $this->randomName(32),
+      'title' => $this->randomName(8),
+    );
+    $this->drupalCreateNode($node);
+    $this->routeId = $this->importPageRoutes($this->route1);
+  }
+
+  function testingAddNode() {
+    $this->drupalGet('pageroute1/p1//');
+    $this->assertText('Page 1');
+  }
+
+  function testingEditNode() {
+    $this->drupalGet('pageroute1/p2//');
+    $this->assertText('Page 2');
+  }
+
+  function testingViewNode() {
+    $this->drupalGet('pageroute1/p3//1');
+    $this->assertText('Page 3');
+  }
+
+  function testingUserEdit() {
+    $this->drupalGet('pageroute1/p5//');
+    $this->assertText('Page 5');
+  }
+
+  function testingPage1Edit() {
+    $this->drupalGet('admin/build/pageroute/' . $this->routeId . '/page-edit/p1');
+    $this->assertText('p1');
+  }
+
+  function testingPage2Edit() {
+    $this->drupalGet('admin/build/pageroute/' . $this->routeId . '/page-edit/p2');
+    $this->assertText('p2');
+  }
+
+  function testingPage3Edit() {
+    $this->drupalGet('admin/build/pageroute/' . $this->routeId . '/page-edit/p3');
+    $this->assertText('p3');
+  }
+
+  function testingPage4Edit() {
+    $this->drupalGet('admin/build/pageroute/' . $this->routeId . '/page-edit/p4');
+    $this->assertText('p4');
+  }
+
+  function testingEditRoute() {
+    $this->drupalGet('admin/build/pageroute/' . $this->routeId . '/edit');
+    $this->assertText('Edit route');
+  }
+
+  function testingAddPage() {
+    $this->drupalGet('admin/build/pageroute/' . $this->routeId . '/add');
+    $this->assertText('Choose a page type:');
+  }
+
+  function testingClickThrougPages() {
+    $this->drupalGet('pageroute1/');
+    $this->assertText('Page 1');
+    
+    $title = 'My Title';
+    $body = 'My body';
+    $edit = array(
+      'title' => $title,
+      'body' => $body
+    );
+
+    $this->drupalPost(NULL, $edit, t('Forward'));
+
+    $this->assertText('Page 2');
+    $this->assertRaw($title);
+    $this->assertRaw($body);
+    $this->assertText('has been created.');
+    
+    $body = 'My new Body';
+    $edit = array(
+      'title' => $title,
+      'body' => $body
+    );
+
+    $this->drupalPost(NULL, $edit, t('Save'));
+    $this->assertText('has been updated.');
+    $this->drupalPost(NULL, $edit, t('Forward'));
+
+    $this->assertText('Page 3');
+    $this->assertRaw($title);
+    $this->assertRaw($body);
+    $this->assertText('has been updated.');
+    $edit = array();
+
+    $this->drupalPost(NULL, $edit, t('Forward'));
+
+    $this->assertText('Page 4');
+    $this->assertRaw($body);
+
+    $this->drupalPost(NULL, $edit, t('Forward'));
+
+    $this->assertText('Page 5');
+
+    $this->drupalPost(NULL, $edit, t('Save'));
+
+    $this->assertText('The changes have been saved.');
+  }
+
+  function testingNoSubmitButton() {
+    $route2 = str_replace("'submit' => 1", "'submit' => 0", $this->route1);
+    $route2 = str_replace("pageroute1", "pageroute2", $route2);
+    $this->user = $this->useAdmin();
+    $this->routeId = $this->importPageRoutes($route2);
+    $this->drupalGet('pageroute2/');
+    $this->assertText('Page 1');
+    
+    $title = 'My Title';
+    $body = 'My body';
+    $edit = array(
+      'title' => $title,
+      'body' => $body
+    );
+
+    $this->drupalPost(NULL, $edit, t('Forward'));
+
+    $this->assertText('Page 2');
+    $this->assertRaw($title);
+    $this->assertRaw($body);
+    $this->assertText('has been created.', 'Page Add: Saving without submit button doesn\'t work'); 
+    
+    $body = 'My new Body';
+    $edit = array(
+      'title' => $title,
+      'body' => $body
+    );
+
+    $this->drupalPost(NULL, $edit, t('Forward'));
+    $this->assertText('has been updated.', 'Page Edit: Saving without submit button doesn\'t work'); 
+    $this->assertText('My new Body');
+  }
+
+  function testingByModulesBug() {
+    $this->useAdmin();
+    $this->drupalGet("admin/by-module");
+    $this->assertRaw("This page shows you all available administration tasks for each module.");
+  }
+}

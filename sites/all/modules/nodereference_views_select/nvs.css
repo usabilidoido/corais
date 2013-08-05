@@ -1,0 +1,7 @@
+.nvs-field li, .nvs-field li * {
+	cursor:move;
+}
+
+.nvs-field li input {
+	cursor:default;
+}

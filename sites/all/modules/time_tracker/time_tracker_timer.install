@@ -1,0 +1,114 @@
+<?php
+/**
+ * @file
+ * Implementation of hook_install().
+ */
+function time_tracker_timer_schema() {
+  $schema = array();
+
+  $schema['time_tracker_timer'] = array(
+    'fields' => array(
+      'ttid' => array(
+        'type' => 'serial',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+      ),
+      'nid' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+      ),
+      'uid' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => 0,
+      ),
+      'start' => array(
+        'type' => 'int',
+        'unsigned' => FALSE,
+        'default' => 0,
+      ),
+      'stop' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'default' => 0,
+      ),
+      'total' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'default' => 0,
+      ),
+      'deductions' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('ttid'),
+  );
+
+  return $schema;
+}
+
+function time_tracker_timer_install() {
+  drupal_install_schema('time_tracker_timer');
+}
+
+function time_tracker_timer_uninstall() {
+  drupal_uninstall_schema('time_tracker_timer');
+}
+
+/**
+ * Adds the 'total' field to the timer table
+ */
+function time_tracker_timer_update_6100() {
+  $return = array();
+  db_add_field($return, 'time_tracker_timer', 'total', array('type' => 'int', 'not_null' => TRUE, 'unsigned' => TRUE));
+  return $return;
+}
+
+/**
+ * Adds the 'deductions' field to the timer table
+ */
+function time_tracker_timer_update_6101() {
+  $return = array();
+  db_add_field($return, 'time_tracker_timer', 'deductions', array('type' => 'int', 'not_null' => TRUE, 'unsigned' => TRUE));
+  return $return;
+}
+
+/**
+ * Remove the pid field
+ * Re-configure the database columns
+ */
+function time_tracker_timer_update_6102() {
+  $return = array();
+  db_drop_field($return, 'time_tracker_timer', 'pid');
+  db_change_field($return, 'time_tracker_timer', 'uid', 'uid', array(
+    'type' => 'int',
+    'not null' => TRUE,
+    'unsigned' => TRUE,
+    'default' => 0,
+  ));
+  db_change_field($return, 'time_tracker_timer', 'start', 'start', array(
+    'type' => 'int',
+    'unsigned' => FALSE,
+    'default' => 0,
+  ));
+  db_change_field($return, 'time_tracker_timer', 'stop', 'stop', array(
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'default' => 0,
+  ));
+  db_change_field($return, 'time_tracker_timer', 'total', 'total', array(
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'default' => 0,
+  ));
+  db_change_field($return, 'time_tracker_timer', 'deductions', 'deductions', array(
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'default' => 0,
+  ));
+  return $return;
+}

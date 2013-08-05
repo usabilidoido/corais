@@ -1,0 +1,506 @@
+@charset "UTF-8";
+/* CSS Document */
+
+html
+{
+	font-family:Arial, Helvetica, sans-serif;
+	font-size: 12px;
+	background: url('../images/bg_tile.jpg') top left;
+}
+
+#skip a, #skip a:hover, #skip a:visited {
+  position: absolute;
+  left:-10000px;
+  top:auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+#skip a:active, #skip a:focus {
+  position: static;
+  width: auto;
+  height: auto;
+}
+
+a:link, a:visited, a:active
+{
+	color: #000;
+text-decoration: none;	
+}
+
+a:hover
+{
+	font-weight:600;
+}
+
+body
+{
+	background: url('../images/bg.jpg') top left no-repeat;
+	margin: 0;
+}
+
+
+
+#top_bar
+{
+	width: 100%;
+	background: #000000;
+	height: 66px;
+	
+}
+
+#main_wrapper
+{	
+	width: 960px;
+	height: 100%;
+}
+
+#site_title
+{
+	margin-top: 10px;
+	margin-bottom: 5px;
+	margin-left:20px;
+	vertical-align:middle;
+	text-align:left;
+}
+
+
+
+#content_wrapper
+{
+	width: 960;
+	position: relative;	
+}
+
+#left_wrapper
+{
+	width: 280px;
+	float: left;
+}
+
+#right_wrapper
+{
+	width: 620px;
+	float: left;
+	padding-right: 40px;
+	padding-left: 20px;
+	text-align:justify;
+}
+
+#right_wrapper p
+{
+	margin-top: 10px;	
+}
+
+/* ---------------------------  GRUNGE ACCENTS ----------------------- */
+
+#grunge_top
+{
+	width: 947px;
+	height: 276px;
+	background: url('../images/grunge_top.png') top left no-repeat;
+	position:relative;
+	top: 8px;
+	right: 11px;
+}
+
+#grunge_bottom
+{
+	width: 332px;
+	height: 597px;
+	background: url('../images/grunge_bottom.png') bottom right no-repeat;
+	float: right;
+	margin-top: -576px;
+	margin-right: 22px;
+}
+
+
+
+/* ----------------------------- MAIN NAVIGATION -------------------- */
+
+#top_cover
+{
+	background: url('../images/cover_top.png') bottom left no-repeat;
+	width: 960px;
+	height: 48px;	
+}
+
+#top_paper
+{
+	height: 21px;
+	width: 939px;
+	position:relative;
+	top: 27px;
+	background: url('../images/paper_top.png') bottom left no-repeat;
+}
+
+#main_navigation
+{
+	height: 52px;
+	min-width: 300px;
+	float: right;
+	margin-right: 50px;
+	margin-top: -8px;
+}
+
+#main_navigation ul.links li
+{
+	display: inline;	
+}
+
+#main_navigation a:hover
+{
+	font-weight: normal;	
+}
+
+
+
+/*  ---------------------------  LEFT NAVIGATION --------------------------- */
+
+#leftnav_wrapper
+{
+	width: 241px;
+	margin-left: 15px;
+}
+
+#leftnav_top
+{
+	height: 70px;
+	width: 241px;	
+	background: url('../images/leftnav_top2.png') top left no-repeat;
+}
+
+#leftnav_top h2
+{
+	font-size: 140%;	
+}
+
+#leftnav_middle
+{
+	width: 241px;
+	min-height: 48px;
+	background: url('../images/leftnav_middle.png') top left repeat-y;
+	padding: 10px;
+}
+
+
+#leftnav_middle ul.links li
+{
+	display: block;
+}
+
+#leftnav_middle li.leaf {
+list-style-image:none;
+list-style-type:none;
+}
+
+
+#leftnav_bottom
+{
+	width: 241px;
+	height: 72px;
+	background: url('../images/leftnav_bottom.png') top left no-repeat;
+}
+
+
+
+
+
+/* ------------------------------------------- CONTENT AREA --------------------------------------- */
+
+
+#book_middle
+{
+	background: url('../images/book_middle.png') top left repeat-y;
+	width: 960px;
+	min-height: 800px;
+}
+
+#section_title
+{
+	text-align: center;
+	font-family:Georgia, "Times New Roman", Times, serif;	
+	margin: 0;
+	margin-top: 30px;
+	margin-bottom: 40px;
+}
+
+#section_title h1
+{
+	margin: 0;
+	font-size: 300%;	
+}
+
+#section_title h2
+{
+	margin: 0;	
+	font-weight:normal;
+	
+}
+
+
+#video 
+{
+	background:url("/courses/aa100/sites/all/themes/journal/images/video_frame.png") no-repeat scroll left top transparent;
+	height:454px;
+	margin:0 auto;
+	padding-left:30px;
+	padding-top:30px;
+	width:574px;
+	margin-top: 20px;
+}
+
+
+#book_bottom
+{
+	background: url('../images/book_bottom.png') top left no-repeat;
+	width: 960px;
+	height: 48px;
+	
+}
+
+
+fieldset.collapsible
+{
+	padding: 10px;
+	border: 1px solid;
+	margin-bottom: 5px;
+}
+
+fieldset.collapsed
+{
+	padding: 0px !important;
+	border: 0px !important;
+}
+
+.book-navigation
+{
+	margin-top: 20px;	
+}
+
+/* ------------------------------  COLLAPSIBLE VOCAB   ------------------------- */
+
+#vocab_wrapper
+{
+	width: 550px;
+	background: url('../images/vocab_click.png') 100% 20px no-repeat;
+	min-height: 100px;
+	margin-top: 20px;
+	
+}
+
+
+.msg_list 
+{
+	margin: 0px;
+	padding: 0px;
+	width: 352px;
+}
+
+.msg_head 
+{
+	padding: 0px 20px;
+	cursor: pointer;
+	padding-top: 30px;
+	position: relative;
+	margin:0px;
+	height: 45px;
+	background: url('../images/vocab_top.png') top left no-repeat;
+}
+
+.msg_bottom
+{
+	width: 352px;
+	background: url('../images/vocab_bottom.png') top left no-repeat;
+	height: 15px;
+	margin-left: 1px;
+
+}
+
+
+
+.msg_body
+{
+	margin-left: 1px;
+	padding: 5px 10px 15px;
+	background: url('../images/vocab_middle.png') top left repeat-y;
+}
+
+.msg_body ul
+{
+	margin: 0px;
+	list-style: none;
+}
+
+.msg_body li
+{
+	margin-bottom: 7px;
+	font-size: 16px;
+}
+
+#container .breadcrumb .breadcrumb-current 
+{
+  display: inline;
+  color: #7f7f7f; 
+}
+
+
+.item-list ul li
+{
+	list-style-image:url('../images/arrow_right.png');
+	
+}
+
+
+
+.hide
+{
+	visibility: hidden;
+	display:none;
+}
+
+.vocab_wrapper
+{
+}
+
+
+/* -----------------------------   CLEARFIX STUFF   ------------------------- */
+
+.clearfix:after 
+{
+	content: ".";
+	display: block;
+	clear: both;
+	visibility: hidden;
+	line-height: 0;
+	height: 0;
+}
+ 
+.clearfix 
+{
+	display: inline-block;
+}
+ 
+html[xmlns] .clearfix
+{
+	display: block;
+}
+ 
+* html .clearfix 
+{
+	height: 1%;
+}
+
+
+
+/* ------------------------------ SIDEBAR-LEFT   -->  OTHER LINKS SECTION   -------------------------------- */
+
+#sidebar-left
+{
+	background-position: 40px 65px;
+	min-height: 500px;
+	padding-left:0px;
+}
+
+
+#colleft   
+{ 
+	margin-top:10px; 
+	float:left;  
+	background:url("../images/otherlinks_top.png") top left no-repeat ,url("../images/otherlinks_bottom.png") no-repeat scroll right bottom, url("../images/otherlinks_bg.png") repeat scroll 0 0 transparent;
+	-moz-border-radius-bottomright: 10px; 
+	-webkit-border-bottom-right-radius: 10px;
+	padding-top: 30px;
+	padding-bottom: 30px;
+}
+
+
+#panel 
+{ 
+}
+
+#panel h2
+{
+	background: url('../images/pnr.png') top left no-repeat;
+	padding: 6px 3px 3px 10px;
+	text-transform:lowercase;
+	margin-left: -5px;
+	margin-bottom: 0px;
+	font-weight: bold;
+	font-size: 120%;
+}
+
+#panel .block
+{
+	margin-bottom: 30px;
+	margin-left:30px;
+}
+
+.sitename {
+	font-size:36px;
+}
+.siteslogan {
+	font-size:24px;
+}
+
+#panel .content
+{
+	padding-left: 10px;	
+}
+
+
+#colright 
+{ 
+	padding-top:10px; 
+	color:#1c1c1c; 
+	margin-left:200px; 
+}
+
+
+
+/* ---------------------------------------- FOOTER --------------------------------- */
+
+#footer-wrapper
+{
+	font-size: 10px;
+	text-align: right;
+	float: right;
+	margin-top: 50px;
+	background: #000;
+	color: #fff;
+	font-weight: 0;
+	width: 100%;
+	padding-top: 30px;
+	padding-right: 100px;
+}
+#footer_logo
+{
+	float:right;
+	margin-left: 10px;
+}
+
+#search
+{
+	padding-top: 20px;
+	float: right;
+	min-width: 100px;
+	height: 46px;
+	margin-right: 50px;
+}
+
+#search h2
+{
+	display: none;	
+}
+
+.node a {
+	text-decoration:underline !important;
+	font-weight:bold !important;
+	color:#039 !important;
+}
+
+.node ul li{
+	margin-left:10px;
+	list-style-type:disc;
+	list-style-position:outside;
+}

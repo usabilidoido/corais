@@ -1,0 +1,12 @@
+; $Id: purl.info,v 1.1.2.3 2009/11/20 16:02:43 jmiccolis Exp $
+name = Persistent URL
+description = "Provides tools for using persistant URL pieces"
+core = 6.x
+dependencies[] = ctools
+
+; Information added by drupal.org packaging script on 2010-08-10
+version = "6.x-1.0-beta13"
+core = "6.x"
+project = "purl"
+datestamp = "1281477392"
+

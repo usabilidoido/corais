@@ -1,0 +1,85 @@
+<?php
+
+include_once('og_location.features.inc');
+
+function og_location_menu() {
+  $items = array();
+  // groups/ Tabs
+  $items['groups/my-town'] = array(
+    'page callback' => 'og_location_page_groups_my_town',
+    /*
+     * @todo Make some actual permissions for these things.  Features does seem
+     * to have a way to port Permissions.
+     */
+    'access arguments' => array('anonymous'),
+    'title' => 'My Town',
+    'weight' => 1,
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['groups/my-state'] = array(
+    'page callback' => 'og_location_page_groups_my_province',
+    'access arguments' => array('anonymous'),
+    'title' => 'My State',
+    'weight' => 2,
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  /*
+   * This only works with Location's DRUPAL-6--3-x-dev and the patch I will post to
+   * http://drupal.org/node/565564
+  $items['zip/%'] = array(
+    'page callback' => 'og_location_page_groups_by_postal_code',
+    'access arguments' => array('anonymous'),
+    'type' => MENU_CALLBACK,
+  );
+   */
+  return $items;
+
+}
+
+/*
+ * These callbacks are mainly for adding extra context relevant content that we can't
+ * add to the View via Views settings.
+ */
+
+function og_location_page_groups_my_town() {
+  // @todo should make this recursive for users with multiple locations
+  return '<h2 class="block-title">' . og_location_user_location_property('city') . '</h2>';
+}
+
+function og_location_page_groups_my_province() {
+  // @todo should make this recursive for users with multiple locations
+  return '<h2 class="block-title">' . og_location_user_location_property('province') . '</h2>';
+}
+
+/*
+ * Not being used now because current Locations beta doesn't support postal code as
+ * a Views argument.  See patch mentioned above the menu entry item if you really
+ * want to use this.
+ */
+function og_location_page_groups_by_postal_code() {
+  return '<h2 class="block-title">Group content in the zipcode of ' . arg(1) . '</h2>';
+}
+
+/*
+ * Helper function for View's 'inability' to run subqueries to obtain arguments
+ * Also known as "dynamically determine a View's argument"
+ * @todo I could be wrong, anyone know?? Need to run a View in a View :-P
+ */
+function og_location_user_location_property($op = NULL) {
+  global $user;
+  /*
+   * Originally tried to save user locations in the user's account settings
+   * but features had no way to port the User Account settings over.  Saving user's 
+   * in Profile Nodes probably make more sense anyways.
+  $user = user_load(array('uid' => $user->uid));
+  return $user->locations[0][$op];
+  */
+  $query = "SELECT %s FROM {location} where lid = (
+             SELECT field_location_lid FROM {content_field_location} WHERE nid = (
+              SELECT nid FROM {node} WHERE type = 'profile' AND uid = %d));";
+  $result = db_query($query, $op, $user->uid);
+  $row = db_fetch_array($result);
+  return $row[$op];
+}
+   

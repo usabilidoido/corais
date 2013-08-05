@@ -1,0 +1,12 @@
+name = Page Title
+description = "Enhanced control over the page title (in the &lt;head> tag)."
+dependencies[] = token
+core = 6.x
+package = SEO
+
+; Information added by drupal.org packaging script on 2011-06-30
+version = "6.x-2.5"
+core = "6.x"
+project = "page_title"
+datestamp = "1309438921"
+

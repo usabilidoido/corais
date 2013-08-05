@@ -1,0 +1,12 @@
+; $Id: rubric.info
+name = Rubric
+description = This is a plugin for the Assignment Studio to add rubric functionality making assessment much faster.  Also has assessment creation tool sets.
+package = Education
+core = 6.x
+dependencies[] = ajax
+; Information added by drupal.org packaging script on 2009-09-08
+version = "6.x-1.2"
+core = "6.x"
+project = "rubric"
+datestamp = "1252437070"
+

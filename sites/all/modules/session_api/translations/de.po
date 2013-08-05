@@ -1,0 +1,53 @@
+# $Id: de.po,v 1.1.2.2 2010/03/18 20:33:05 jhedstrom Exp $
+#
+# German translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  session_api.admin.inc,v 1.1.2.5 2009/09/02 01:28:59 jhedstrom
+#  session_api.module,v 1.1.2.6 2009/09/02 01:28:59 jhedstrom
+#  session_api.install,v 1.1.2.1 2009/02/25 00:54:48 jhedstrom
+#  session_api.info,v 1.1 2008/07/01 18:21:30 jhedstrom
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Drupal Session API V6.x-1.2\n"
+"POT-Creation-Date: 2009-11-07 13:31+0100\n"
+"PO-Revision-Date: 2009-11-07 13:35+0100\n"
+"Last-Translator: Frank Tartler <frank.tartler@googlemail.com>\n"
+"Language-Team: Frank Tartler <frank.tartler@googlemail.com>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+"X-Poedit-Language: German\n"
+"X-Poedit-Country: GERMANY\n"
+"X-Poedit-SourceCharset: utf-8\n"
+
+#: session_api.admin.inc:20
+msgid "Cookie expire time"
+msgstr "Cookie-Ablaufzeit"
+
+#: session_api.admin.inc:21
+msgid "The <strong>Session API</strong> module sets an additional cookie in the end users' browsers in order to better track sessions across logins and logouts. This is the amount of time, in seconds, that the cookie will stay valid in a user's browser."
+msgstr "Die <strong>Session-API</strong>-Modul setzt ein zusätzliches Cookie im Browser des Endbenutzers um Sitzungen besser über Abmeldungen und Anmeldungen hinweg verfolgen zu können. Dies ist die Zeitdauer in Sekunnden, die das Cookie im Browser eines Benutzer gültig bleibt."
+
+#: session_api.module:74
+msgid "Session API Configuration"
+msgstr "Session-API-Konfiguration"
+
+#: session_api.module:75
+msgid "Configure Session API behavior"
+msgstr "Verhalten der Session-API konfigurieren"
+
+#: session_api.install:24
+msgid "Map Session API IDs to the {sessions} sid field."
+msgstr "Session-API-IDs auf das Feld {sessions} sid field abbilden."
+
+#: session_api.info:0
+msgid "Session API"
+msgstr "Session-API"
+
+#: session_api.info:0
+msgid "Provides an interface for storing session information."
+msgstr "Stellt eine Oberfläche zur Speicherung von Sitzungsinformationen bereit."
+

@@ -1,0 +1,8 @@
+#features-menu li a.icon-mindmaps span.icon {
+  background: url(bulb.png) no-repeat;
+}
+
+span.feature-mindmaps {
+  background-image: url(bulb_mini.png) !important;
+  background-position: top left !important;
+}

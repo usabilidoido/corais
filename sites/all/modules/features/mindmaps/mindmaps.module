@@ -1,0 +1,14 @@
+<?php
+// $Id$
+
+include_once('mindmaps.features.inc');
+
+
+/**
+ * Implementation of hook_init().
+ */
+function mindmaps_init() {
+  $path = drupal_get_path('module' ,'mindmaps');
+  drupal_add_css($path.'/style.css');
+}
+

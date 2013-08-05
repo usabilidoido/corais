@@ -1,0 +1,16 @@
+#items td.region {
+  font-weight: bold;
+}
+#items tr.region-message {
+  font-weight: normal;
+  color: #999;
+}
+#items tr.region-populated {
+  display: none;
+}
+.items-region {
+  background-color: #ff6;
+  margin-top: 4px;
+  margin-bottom: 4px;
+  padding: 3px;
+}

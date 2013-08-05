@@ -1,0 +1,13 @@
+name = Crossref
+description = "Provides smoother crossreferencing between content."
+dependencies[] = nodereference
+dependencies[] = prepopulate
+package = Other
+core = "6.x"
+
+; Information added by drupal.org packaging script on 2012-06-18
+version = "6.x-1.1"
+core = "6.x"
+project = "xref"
+datestamp = "1340034717"
+

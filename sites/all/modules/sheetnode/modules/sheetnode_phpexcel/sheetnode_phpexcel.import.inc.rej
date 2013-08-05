@@ -1,0 +1,18 @@
+***************
+*** 60,66 ****
+  }
+  
+  function _sheetnode_phpexcel_import_callback($node, $params, &$context) {
+-   $workbook = $context['sandbox']['workbook'];
+    if ($workbook->getSheetCount() > 1 && module_exists('book')) {
+      // Create book if none present.
+      if (empty($context['sandbox']['book'])) {
+--- 60,67 ----
+  }
+  
+  function _sheetnode_phpexcel_import_callback($node, $params, &$context) {
++ // adding a hack that avoid creating book nodes while adding multiple worksheets
++ //  $workbook = $context['sandbox']['workbook'];
+    if ($workbook->getSheetCount() > 1 && module_exists('book')) {
+      // Create book if none present.
+      if (empty($context['sandbox']['book'])) {

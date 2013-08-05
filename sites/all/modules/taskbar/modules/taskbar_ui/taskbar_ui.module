@@ -1,0 +1,708 @@
+<?php
+/**
+ * @file
+ *   Taskbar UI module main file.
+ */
+
+define('TASKBAR_REGION_DISABLED', '-1');
+
+/**
+ * Implements hook_help().
+ */
+function taskbar_ui_help($path, $arg) {
+  if ($path == 'admin/help#taskbar-ui') {
+    return '<p>'. t('The Taskbar UI module adds an administration UI for Taskbar.') .'</p>';
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function taskbar_ui_menu() {
+  $items['admin/build/taskbar'] = array(
+    'title' => 'Taskbar',
+    'page callback' => 'taskbar_ui_list_items',
+    'access arguments' => array('administer site configuration'),
+    'description' => 'List items in the taskbar.',
+  );
+  $items['admin/build/taskbar/item'] = array(
+    'title' => 'Items',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'access arguments' => array('administer site configuration'),
+    'weight' => -1,
+  );
+  $items['admin/build/taskbar/settings'] = array(
+    'title' => 'Settings',
+    'type' => MENU_LOCAL_TASK,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('taskbar_ui_admin'),
+    'access arguments' => array('administer site configuration'),
+    'description' => 'Allows administrators to adjust certain display settings for taskbar.',
+    'weight' => 0,
+  );
+  $items['admin/build/taskbar/settings/taskbar'] = array(
+    'title' => 'Taskbar',
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -1,
+  );
+  $items['admin/build/taskbar/item/list'] = array(
+    'title' => 'List',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'access arguments' => array('administer site configuration'),
+    'weight' => -1,
+  );
+  $items['admin/build/taskbar/item/configure'] = array(
+    'title' => 'Configure taskbar item',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('taskbar_ui_item_configure'),
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['admin/build/taskbar/item/delete'] = array(
+    'title' => 'Delete taskbar item',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('taskbar_ui_item_delete'),
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['admin/build/taskbar/item/add'] = array(
+    'title' => 'Add',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('taskbar_ui_item_add'),
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/build/taskbar/item/import'] = array(
+    'title' => 'Import',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('taskbar_ui_item_import'),
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/build/taskbar/item/export'] = array(
+    'title' => 'Export',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('taskbar_ui_item_export'),
+    'access arguments' => array('administer site configuration'),
+  );
+  return $items;
+}
+
+//=======================
+// CALLBACKS 
+//=======================
+
+/**
+ * Callback to list taskbar items.
+ */
+function taskbar_ui_list_items() {
+  $items = taskbar_get_items();
+  $providers = taskbar_get_providers();
+  usort($items, '_taskbar_ui_item_compare');
+
+  return drupal_get_form('taskbar_ui_list_form', $items);
+}
+
+/**
+ * Generate main items administration form.
+ */
+function taskbar_ui_list_form(&$form_state, $items) {
+  $regions = array();
+  foreach (taskbar_get_regions() as $region) {
+    $regions[$region->name] = $region->title;
+  }
+  $regions[TASKBAR_REGION_DISABLED] = t('<none>');
+
+  // Weights range from -delta to +delta, so delta should be at least half
+  // of the amount of items present. This makes sure all items in the same
+  // region get an unique weight.
+  $weight_delta = round(count($items) / 2);
+
+  // Build form tree
+  $form = array(
+    '#tree' => TRUE,
+  );
+
+  foreach ($items as $item) {
+    $key = $item->name;
+    $form[$key]['title'] = array(
+      '#value' => $item->title,
+    );
+    $form[$key]['weight'] = array(
+      '#type' => 'weight',
+      '#default_value' => $item->weight,
+      '#delta' => $weight_delta,
+    );
+    $form[$key]['region'] = array(
+      '#type' => 'select',
+      '#default_value' => $item->status ? $item->region : TASKBAR_REGION_DISABLED,
+      '#options' => $regions,
+    );
+
+    $form[$key]['configure'] = array('#value' => l(t('configure'), 'admin/build/taskbar/item/configure/'. $item->name));
+    $form[$key]['export'] = array('#value' => l(t('export'), 'admin/build/taskbar/item/export/'. $item->name));
+    if ($item->export_type & TASKBAR_EXPORT_IN_DATABASE) {
+      $title = $item->export_type  & TASKBAR_EXPORT_IN_CODE  ? t('revert') : t('delete');
+      $form[$key]['delete'] = array('#value' => l($title, 'admin/build/taskbar/item/delete/'. $item->name));
+    }
+    else {
+      // Item is not overriden, ie. is in code only.
+      $form[$key]['delete'] = '';
+    }
+  }
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save items'),
+  );
+
+  return $form;
+}
+
+/**
+ * Process main item administration form submission.
+ */
+function taskbar_ui_list_form_submit($form, &$form_state) {
+  $items = taskbar_get_items();
+  $regions = taskbar_get_regions();
+  foreach ($items as $item) {
+    $region = $form_state['values'][$item->name]['region'];
+    // If the item is moved to the disabled region, or it has an invalid region, disable it
+    if ($region == TASKBAR_REGION_DISABLED || !isset($regions[$region])) {
+      $item->region = '';
+      $item->status = 0;
+    }
+    else {
+      $item->region = $region;
+      $item->status = 1;
+      $item->weight = $form_state['values'][$item->name]['weight'];
+    }
+    taskbar_item_save($item);
+  }
+  drupal_set_message(t('The item settings have been updated.'));
+}
+
+/**
+ * Menu callback; displays the item configuration form.
+ */
+function taskbar_ui_item_configure(&$form_state, $name) {
+  $item = taskbar_get_item_info($name);
+
+  $form['name'] = array(
+    '#type' => 'value',
+    '#value' => $name,
+  );
+  $form['item_settings'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Item specific settings'),
+    '#description' => t('Item machine name: %name.', array('%name' => $name)),
+    '#collapsible' => TRUE,
+  );
+  $form['item_settings']['title'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Item title'),
+    '#maxlength' => 64,
+    '#description' => t('The title is used in administration UI'),
+    '#default_value' => $item->title,
+    '#weight' => -10,
+  );
+  $form['item_settings']['text'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Item text'),
+    '#maxlength' => 1024,
+    '#description' => t('Text is what being displayed in the taskbar. Note that modules can override this.'),
+    '#default_value' => $item->settings['text'],
+    '#weight' => -9,
+  );
+  $form['item_settings']['description'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Item description'),
+    '#maxlength' => 255,
+    '#description' => t('Item description is used for hover text over an item.'),
+    '#default_value' => $item->settings['description'],
+    '#weight' => -8,
+  );
+
+  if ($item->provider['realtime']) {
+    $form['item_settings']['update'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Status in the taskbar'),
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+    );
+    $form['item_settings']['update']['update'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Auto update status'),
+      '#description' => t('If enabled, the status text and counter is periodically updated.'),
+      '#default_value' => $item->settings['update'],
+      '#weight' => -4,
+    );
+  }
+
+  if ($item->provider['ajax']) {
+    $form['item_settings']['ajax'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Extra content by Ajax'),
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+    );
+    $form['item_settings']['ajax']['ajax'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Ajax support'),
+      '#description' => t('If enabled, extra data is only fetched when user clicks on the item.'),
+      '#default_value' => $item->settings['ajax'],
+      '#weight' => -3,
+    );
+
+    $form['item_settings']['refresh'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Extra content auto refresh'),
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+    );
+    $form['item_settings']['refresh']['refresh'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Auto refresh'),
+      '#description' => t('If enabled, extra data is periodically refresh when the item is expanded.'),
+      '#default_value' => $item->settings['refresh'],
+      '#weight' => -2,
+    );
+    $form['item_settings']['refresh']['ajax_refresh'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Item refresh rate'),
+      '#maxlength' => 255,
+      '#description' => t('When this item is open, you can refresh it periodically. Time is in milisecond. This parameter is only taken into account when Ajax refresh mode (not long polling) is used.'),
+      '#default_value' => $item->settings['ajax refresh'],
+      '#weight' => -1,
+    );
+  }
+  
+  if ($function = taskbar_provider_get_function($item->provider, 'settings form')) {
+    $function($form, $form_state, $item);
+  }
+
+  // Role-based visibility settings
+  $default_role_options = $item->settings['roles'];
+  $result = db_query('SELECT rid, name FROM {role} ORDER BY name');
+  $role_options = array();
+  while ($role = db_fetch_object($result)) {
+    $role_options[$role->rid] = $role->name;
+  }
+  $form['role_vis_settings'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Role specific visibility settings'),
+    '#collapsible' => TRUE,
+  );
+  $form['role_vis_settings']['roles'] = array(
+    '#type' => 'checkboxes',
+    '#title' => t('Show item for specific roles'),
+    '#default_value' => $default_role_options,
+    '#options' => $role_options,
+    '#description' => t('Show this item only for the selected role(s). If you select no roles, the block will be visible to all users.'),
+  );
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save item'),
+  );
+
+  return $form;
+}
+
+function taskbar_ui_item_configure_validate($form, &$form_state) {
+  // Ignore AHAH submission
+  if (!empty($form_state['ahah_submission'])) {
+    return;
+  }
+
+  if (isset($form_state['values']['ajax_refresh'])) {
+    $rate = $form_state['values']['ajax_refresh'];
+    if (!is_int($rate) && $rate < 0) {
+      form_set_error('ajax_refresh', t('The refresh rate must be a positive integer.'));
+    }
+  }
+
+  $item = taskbar_get_item_info($form_state['values']['name']);
+  if ($function = taskbar_provider_get_function($item->provider, 'settings form validate')) {
+    $function($form, $form_state, $item);
+  }
+}
+
+function taskbar_ui_item_configure_submit($form, &$form_state) {
+  // Ignore AHAH submission
+  if (!empty($form_state['ahah_submission'])) {
+    return;
+  }
+  $item = taskbar_get_item_info($form_state['values']['name']);
+  $item->title = $form_state['values']['title'];
+  $item->settings['text'] = $form_state['values']['text'];
+  $item->settings['description'] = $form_state['values']['description'];
+  $item->settings['ajax'] = !empty($form_state['values']['ajax']);
+  $item->settings['refresh'] = !empty($form_state['values']['refresh']);
+  $item->settings['update'] = !empty($form_state['values']['update']);
+  $item->settings['ajax refresh'] = isset($form_state['values']['ajax_refresh']) ? $form_state['values']['ajax_refresh'] : 0;
+  $item->settings['roles'] = array();
+  foreach ($form_state['values']['roles'] as $rid => $value) {
+    if ($value) {
+      $item->settings['roles'][$rid] = $rid;
+    }
+  }
+
+  if ($function = taskbar_provider_get_function($item->provider, 'settings form submit')) {
+    $function($form, $form_state, $item);
+  }
+
+  // Remove the extra provider information
+  $item->provider = $item->provider['name'];
+
+  taskbar_item_save($item);
+  drupal_set_message(t('The block configuration has been saved.'));
+  $form_state['redirect'] = 'admin/build/taskbar';
+}
+
+/**
+ * Menu callback: display the custom block addition form.
+ */
+function taskbar_ui_item_add(&$form_state) {
+  $form['name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Item machine name'),
+    '#maxlength' => 32,
+    '#required' => TRUE,
+    '#description' => t('This is the unique name of the item. It must contain only alphanumeric characters and underscores; it is used to identify the item internally and to generate unique theming template names for this item.'),
+  );
+  $providers = taskbar_get_providers();
+  foreach ($providers as $name => $provider) {
+    $providers[$name] = $provider['title'];
+  }
+  $form['provider'] = array(
+    '#type' => 'select',
+    '#title' => t('Provider'),
+    '#description' => t('Select the provider for this item.'),
+    '#required' => TRUE,
+    '#options' => $providers,
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Add item'),
+  );
+
+  return $form;
+}
+
+function taskbar_ui_item_add_validate($form, &$form_state) {
+  if (empty($form_state['values']['name'])) {
+    // Error is triggered elsewhere for required field.
+    return;
+  }
+  $name = $form_state['values']['name'];
+  if (preg_match('/[^a-zA-Z0-9_]/', $name) || is_numeric($name)) {
+    form_error($form['name'], t('Item name must be alphanumeric or underscores only, but cannot be numeric.'));
+  }
+  if (db_result(db_query("SELECT COUNT(*) FROM {taskbar_item} WHERE name = '%s'", $name))) {
+    form_error($form['name'], t('Please ensure that each item name is unique.'));
+  }
+
+  $providers = taskbar_get_providers();
+  if (!isset($providers[$form_state['values']['provider']])) {
+    form_error($form['provider'], t('Please choose a valid provider.'));
+  }
+}
+
+/**
+ * Save the new custom block.
+ */
+function taskbar_ui_item_add_submit($form, &$form_state) {
+  $item->name = $form_state['values']['name'];
+  $item->provider = $form_state['values']['provider'];
+  $item->status = 0;
+  taskbar_item_repair($item);
+  taskbar_item_save($item);
+
+  drupal_set_message(t('The item has been created.'));
+  $form_state['redirect'] = 'admin/build/taskbar/item/configure/' . $item->name;
+  return;
+}
+
+/**
+ * Menu callback; confirm deletion of item.
+ */
+function taskbar_ui_item_delete(&$form_state, $item_name = 0) {
+  $item = taskbar_get_item_info($item_name);
+  $form['name'] = array('#type' => 'hidden', '#value' => $item->name);
+  $form['title'] = array('#type' => 'hidden', '#value' => $item->title);
+  $action = $item->export_type  & TASKBAR_EXPORT_IN_CODE ? t('revert') : t('delete');
+  return confirm_form($form, t('Are you sure you want to !action the item %title (!name)?', array('%title' => $item->title, '!name' => $item->name, '!action' => $action)), 'admin/build/taskbar', '', t('Delete'), t('Cancel'));
+}
+
+/**
+ * Deletion of custom blocks.
+ */
+function taskbar_ui_item_delete_submit($form, &$form_state) {
+  $item_name = $form_state['values']['name'];
+  taskbar_item_delete($item_name);
+  drupal_set_message(t('The item %title (!name) has been removed.', array('%title' => $form_state['values']['title'], '!name' => $form_state['values']['name'])));
+  $form_state['redirect'] = 'admin/build/taskbar';
+  return;
+}
+
+/**
+ * Menu callback; item export.
+ *
+ * var_export() uses stdClass::__set_state() for object, which is useless for standard class.
+ * Thus we need to convert the $item into array, export it then convert it back to an object.
+ */
+function taskbar_ui_item_export(&$form_state, $item_name = NULL) {
+  $items = taskbar_get_items();
+  $item = $items[$item_name];
+  $form['export'] = array(
+    '#type' => 'textarea',
+    '#title' => $item->name,
+    '#default_value' => '$item = ' . var_export((array)$item, TRUE) . ';',
+    '#rows' => 20,
+  );
+
+  return $form;
+}
+
+/**
+ * Menu callback: item import.
+ */
+function taskbar_ui_item_import(&$form_state) {
+  $form['name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Item name'),
+    '#maxlength' => 32,
+    '#required' => TRUE,
+    '#description' => t('Enter the name to use for this item if it is different from the source item. Leave blank to use the name of the item.'),
+  );
+  $form['import'] = array(
+    '#type' => 'textarea',
+    '#title' => 'Copy the code of exported item here',
+    '#default_value' => '',
+    '#rows' => 20,
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Import'),
+  );
+
+  return $form;
+}
+
+function taskbar_ui_item_import_validate($form, &$form_state) {
+  $item = '';
+  ob_start();
+  eval($form_state['values']['import']);
+  ob_end_clean();
+  if (!is_object($item)) {
+    form_error($form['import'], t('Unable to interpret import code.'));
+  }
+
+  if (!empty($form_state['values']['name'])) {
+    $item->name = $form_state['values']['name'];
+  }
+  if (preg_match('/[^a-zA-Z0-9_]/', $item->name) || is_numeric($item->name)) {
+    form_error($form['import'], t('Item name must be alphanumeric or underscores only, but cannot be numeric.'));
+  }
+  if (db_result(db_query("SELECT COUNT(*) FROM {taskbar_item} WHERE name = '%s'", $item->name))) {
+    form_error($form['import'], t('An item by that name already exists; please choose a different name.'));
+  }
+
+  $providers = taskbar_get_providers();
+  if (!isset($providers[$item->provider])) {
+    form_error($form['import'], t('Please choose a valid provider.'));
+  }
+
+  $form_state['item'] = &$item;
+}
+
+/**
+ * Save the new custom block.
+ */
+function taskbar_ui_item_import_submit($form, &$form_state) {
+  $item = $form_state['item'];
+  taskbar_item_save($item);
+
+  drupal_set_message(t('The item has been imported.'));
+  $form_state['redirect'] = 'admin/build/taskbar/item/configure/' . $item->name;
+  return;
+}
+
+/**
+ * Settings form.
+ */
+function taskbar_ui_admin(&$form_state) {
+  $styles = array();
+  foreach (taskbar_get_styles() as $style) {
+    $styles[$style['name']] = $style['description'];
+  }
+  $form['taskbar_style'] = array(
+    '#type' => 'select',
+    '#title' => t('Style'),
+    '#description' => t('Select the style you would like to use for the taskbar.'),
+    '#required' => TRUE,
+    '#default_value' => variable_get('taskbar_style', 'default'),
+    '#options' => $styles,
+  );
+  $form['taskbar_titlebar'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Display a titlebar in extra content'),
+    '#description' => t('If enabled, display a titlebar in extra content. The titlebar has a close button so that user understand immediately that he/she can close it by clicking on the button.'),
+    '#default_value' => variable_get('taskbar_titlebar', FALSE),
+  );
+ $form['taskbar_autoclose'] = array(
+   '#type' => 'checkbox',
+   '#title' => t('Allow only one active taskbar item at a time'),
+   '#description' => t('If enabled, previously selected taskbar item will be inactive and have its extra content hidden, when another taskbar item is selected. If disabled, all drop-down items will be shown and stacked on top of each other.'),
+   '#default_value' => variable_get('taskbar_autoclose', FALSE),
+);
+  $form['taskbar_update_method'] = array(
+    '#type' => 'select',
+    '#title' => t('Update method'),
+    '#description' => t('Select an update method. AJAX use periodical pull to get data from server. Long polling push data instantly whenever it is available, but this method may need a proper backend.'),
+    '#required' => TRUE,
+    '#options' => array('ajax' => t('AJAX'), 'polling' => 'Long polling'),
+    '#default_value' => variable_get('taskbar_update_method', 'ajax'),
+  );
+  $form['taskbar_time'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Refresh rate'),
+    '#description' => t('The number of milliseconds taskbar will delay before checking to see if there are any new alerts. (There are 1000 milliseconds in a second.) Be very careful with this, as it can quickly eat your server resources.'),
+    '#required' => TRUE,
+    '#default_value' => variable_get('taskbar_time', 30000),
+  );
+
+  $form['taskbar_provide_sample_items'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Provide sample data'),
+    '#description' => t('When this settings is turned off, all non-overridden items provided by taskbar itself will be removed and any overridden items will become regular items.'),
+    '#default_value' => variable_get('taskbar_provide_sample_items', 1),
+  );
+
+  return system_settings_form($form);
+}
+
+/**
+ * Validate function for the admin settings form.
+ */
+function taskbar_ui_admin_validate($form, &$form_state) {
+  $n = $form_state['values']['taskbar_time'];
+  if (!is_int($n) && $n < 1000) {
+    form_set_error('taskbar_time', t('The refresh rate must be an integer and must not less than 1000 ms (= 1 second).'));
+  }
+}
+
+/**
+ * Submit function for the admin settings form.
+ */
+function taskbar_ui_admin_submit($form, &$form_state) {
+  if ($form_state['values']['taskbar_style'] != variable_get('taskbar_style', 'default')) {
+    drupal_clear_css_cache();
+  }
+}
+
+//==========================
+// THEMING FUNCTIONS
+//==========================
+
+/**
+ * Implements hook_theme().
+ */
+function taskbar_ui_theme() {
+  return array(
+    'taskbar_ui_list_form' => array(
+      'template' => 'taskbar_ui-list-form',
+      'arguments' => array('form' => NULL),
+    ),
+  );
+}
+
+/**
+ * Process variables for block-admin-display.tpl.php.
+ *
+ * The $vars array contains the following arguments:
+ * - $form
+ *
+ * @see block-admin-display.tpl.php
+ * @see theme_block_admin_display()
+ */
+function template_preprocess_taskbar_ui_list_form(&$vars) {
+  $regions = array();
+  foreach (taskbar_get_regions() as $region) {
+    $regions[$region->name] = $region->title;
+  }
+  $vars['item_regions'] = $regions + array(TASKBAR_REGION_DISABLED => t('Disabled'));
+
+  foreach ($regions as $name => $description) {
+    // Initialize an empty array for the region.
+    $vars['item_listing'][$name] = array();
+  }
+
+  // Initialize disabled blocks array.
+  $vars['item_listing'][TASKBAR_REGION_DISABLED] = array();
+
+  // Set up to track previous region in loop.
+  $last_region = '';
+  foreach (element_children($vars['form']) as $name) {
+    $item = &$vars['form'][$name];
+
+    // Only take form elements that are items.
+    if (isset($item['region'])) {
+      // Fetch region for current item.
+      $region = $item['region']['#default_value'];
+
+      // Set special classes needed for table drag and drop.
+      $item['region']['#attributes']['class'] = 'item-region-select item-region-'. $region;
+      $item['weight']['#attributes']['class'] = 'item-weight item-weight-'. $region;
+
+      $vars['item_listing'][$region][$name] = new stdClass();
+      $vars['item_listing'][$region][$name]->row_class = isset($item['#attributes']['class']) ? $item['#attributes']['class'] : '';
+      $vars['item_listing'][$region][$name]->item_modified = isset($item['#attributes']['class']) && strpos($item['#attributes']['class'], 'block-modified') !== FALSE ? TRUE : FALSE;
+      $vars['item_listing'][$region][$name]->item_title = drupal_render($item['title']);
+      $vars['item_listing'][$region][$name]->region_select = drupal_render($item['region']);
+      $vars['item_listing'][$region][$name]->weight_select = drupal_render($item['weight']);
+      $vars['item_listing'][$region][$name]->configure_link = drupal_render($item['configure']);
+      $vars['item_listing'][$region][$name]->export_link = drupal_render($item['export']);
+      $vars['item_listing'][$region][$name]->delete_link = drupal_render($item['delete']);
+      $vars['item_listing'][$region][$name]->printed = FALSE;
+
+      $last_region = $region;
+    }
+  }
+
+  $vars['form_submit'] = drupal_render($vars['form']);
+}
+
+/**
+ * Helper function for sorting items on admin/build/taskbar/list.
+ *
+ * Items are sorted by status, region, then by weight and by title.
+ */
+function _taskbar_ui_item_compare($a, $b) {
+  static $regions;
+  if (!$regions) {
+    $regions = taskbar_get_regions();
+  }
+
+  // Separate enabled from disabled.
+  $status = $b->status - $a->status;
+  if ($status) {
+    return $status;
+  }
+  // Sort by region (prerequisite: each region has a unique weight).
+  if ($a->region && $b->region) {
+    $status = $regions[$b->region]->weight - $regions[$a->region]->weight;
+    if ($status) {
+      return $status;
+    }
+  }
+  // Sort by weight.
+  $weight = $a->weight - $b->weight;
+  if ($weight) {
+    return $weight;
+  }
+  // Sort by title.
+  return strcmp($a->title, $b->title);
+}

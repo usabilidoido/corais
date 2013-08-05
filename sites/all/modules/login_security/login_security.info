@@ -1,0 +1,9 @@
+name = Login Security
+description = Enable security options in the login flow of the site.
+core = 6.x
+; Information added by drupal.org packaging script on 2013-06-19
+version = "6.x-1.3"
+core = "6.x"
+project = "login_security"
+datestamp = "1371661251"
+

@@ -1,0 +1,24 @@
+table#poll_panel th{ border: 1px solid #D6E7F7; }
+
+table#pollpanel td{
+	font-size: 11px;
+	border: 1px solid #D6E7F7;
+}
+
+table#pollpanel td.ct{ text-align: center; }
+
+table#pollpanel th{  
+	text-align: center;
+	font-size: 11px;
+}
+
+table#pollpanel td.voted_ok{ background: #8DFC92; }
+table#pollpanel td.voted_maybe{ background: #F1DE5F; }
+table#pollpanel td.voted_no{ background: #FF8B8B; }
+table#pollpanel td.green{ background: #8DFC92; }
+table#pollpanel td.yellow{ background: #F1DE5F; }
+table#pollpanel td.red{ background: #FF8B8B; }
+
+form#makemeeting-pollpanel-form div {
+  overflow: auto;
+}

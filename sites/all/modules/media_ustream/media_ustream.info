@@ -1,0 +1,15 @@
+
+name = Media: Ustream
+description = Provides Ustream support to the Embedded Media Field module.
+package = "Media"
+core = 6.x
+dependencies[] = emfield
+dependencies[] = emvideo
+
+
+; Information added by drupal.org packaging script on 2011-07-14
+version = "6.x-1.1"
+core = "6.x"
+project = "media_ustream"
+datestamp = "1310684520"
+

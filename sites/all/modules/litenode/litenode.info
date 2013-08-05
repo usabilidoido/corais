@@ -1,0 +1,13 @@
+; $Id$
+name = "Litenode"
+description = "Provides a lighter alternative to Drupal's standard node_load() / node_view() stack."
+package = Views bonus pack
+dependencies[] = views
+core = 6.x
+
+; Information added by fserver
+core = "6.x"
+datestamp = "1263332181"
+project = "litenode"
+project status url = "http://code.developmentseed.org/fserver"
+version = "6.x-1.0-alpha1"

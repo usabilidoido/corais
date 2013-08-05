@@ -1,0 +1,10 @@
+<?php
+/**
+ * @file
+ * Sets weight of ucreate_og module to be executed before og is getting called
+ */
+
+// $Id: ucreate_og.install,v 1.1.2.1 2008/10/29 15:51:06 xamanu Exp $
+function ucreate_og_install() {
+  db_query("UPDATE {system} SET weight = -10 WHERE name = 'ucreate_og'");
+}

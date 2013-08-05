@@ -1,0 +1,796 @@
+<?php
+
+/**
+ * @defgroup domain_conf Domain Conf: configuration extension
+ * Functions for the Domain Conf module.
+ */
+
+/**
+ * @file
+ * Domain manager configuration options.
+ *
+ * @ingroup domain_conf
+ */
+
+/**
+ * Implements hook_domain_bootstrap_full().
+ */
+function domain_conf_domain_bootstrap_full($domain) {
+  static $check;
+  // If running domain_set_domain(), we have issues with the variables
+  // from the primary domain, which need to be loaded from cache.
+  // @link http://drupal.org/node/412156
+  if ($check) {
+    global $_domain;
+    if ($domain['domain_id'] == 0 && $check != $_domain['domain_id']) {
+      _domain_conf_load_primary(TRUE);
+    }
+  }
+  // Flag that we have already loaded.
+  $check = $domain['domain_id'];
+  $data = array();
+  $data = db_fetch_array(db_query("SELECT settings FROM {domain_conf} WHERE domain_id = %d", $domain['domain_id']));
+  if (!empty($data)) {
+    global $conf;
+    $settings = domain_unserialize($data['settings']);
+    // Overwrite the $conf variables.
+    foreach ($settings as $key => $value) {
+      if ($value === 'domain-conf-ignore') {
+        continue;
+      }
+      // Language handling is a special case.
+      if ($key == 'language_default') {
+        $table = domain_get_primary_table('system');
+        $language = (bool) db_result(db_query("SELECT status FROM $table WHERE name = 'locale' AND type = 'module'"));
+        if ($language) {
+          $table = domain_get_primary_table('languages');
+          $temp = db_fetch_object(db_query("SELECT * FROM $table WHERE language = '%s'", $value));
+          if (!empty($temp)) {
+            $value = $temp;
+            $GLOBALS['language'] = $temp;
+            $conf[$key] = $value;
+          }
+        }
+      }
+      else {
+        $conf[$key] = $value;
+      }
+    }
+  }
+}
+
+/**
+ * Implement hook_init()
+ */
+function domain_conf_init() {
+  // Allow sites to add implementations of hook_domainconf() without hacking.
+  // See http://drupal.org/node/236877.
+  if (arg(0) == 'admin') {
+    $extra = drupal_get_path('module', 'domain_conf') .'/domain_conf.inc';
+    if (file_exists($extra)) {
+      include $extra;
+    }
+  }
+}
+
+/**
+ * Implement hook_menu()
+ */
+function domain_conf_menu() {
+  $items = array();
+  $items['admin/build/domain/conf/%domain'] = array(
+    'title' => 'Domain site settings',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('administer domains'),
+    'page callback' => 'domain_conf_page',
+    'page arguments' => array(4),
+    'file' => 'domain_conf.admin.inc',
+  );
+  $items['admin/build/domain/conf-reset/%domain'] = array(
+    'title' => 'Domain site settings',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('administer domains'),
+    'page callback' => 'domain_conf_reset',
+    'page arguments' => array(4),
+    'file' => 'domain_conf.admin.inc',
+  );
+  return $items;
+}
+
+/**
+ * Implement hook_theme()
+ */
+function domain_conf_theme() {
+  $themes = array(
+    'domain_conf_reset' => array(
+      'arguments' => array('domain' => array()),
+    ),
+  );
+  return $themes;
+}
+
+/**
+ * Implement hook_enable().
+ *
+ * Register domain_conf with the domain module so it's loaded during domain
+ * bootstrap and can implement domain_bootstrap hooks.
+ */
+function domain_conf_enable() {
+  domain_bootstrap_register();
+}
+
+/**
+ * Implement hook_disable().
+ */
+function domain_conf_disable() {
+  domain_bootstrap_unregister('domain_conf');
+}
+
+/**
+ * Implement hook_domainlinks()
+ */
+function domain_conf_domainlinks($domain) {
+  static $extra;
+  if (!isset($extra)) {
+    $extra = domain_conf_api();
+  }
+  if ($domain['domain_id'] > 0 || !empty($extra)) {
+    $links[] = array(
+      'title' => t('settings'),
+      'path' => 'admin/build/domain/conf/'. $domain['domain_id']
+    );
+    return $links;
+  }
+  return FALSE;
+}
+
+/**
+ * Implement hook_domainwarnings()
+ */
+function domain_conf_domainwarnings() {
+  // These are the forms for variables set by Domain Conf.
+  $forms = array(
+    'system_admin_theme_settings',
+    'system_date_time_settings',
+    'system_performance_settings',
+    'system_site_information_settings',
+    'system_site_maintenance_settings',
+    'locale_languages_overview_form',
+    'menu_configure',
+  );
+  $return = array();
+  foreach ($forms as $form) {
+    $return[$form] = 'admin/build/domain/conf/%domain_id';
+  }
+  return $return;
+}
+
+/**
+ * Implement hook_domainbatch()
+ */
+function domain_conf_domainbatch() {
+  $batch = array();
+  // Allows the deletion of all Domain Configuration rows.
+  $batch['domain_conf'] = array(
+    '#form' => array(
+      '#title' => t('Reset configurations'),
+      '#type' => 'checkbox',
+      '#options' => array(0 => 1, 1 => t('Reset')),
+      '#description' => t('Delete custom settings for this domain.'),
+    ),
+    '#domain_action' => 'domain_delete',
+    '#system_default' => 0,
+    '#variable' => 'domain_conf',
+    '#meta_description' => t('Delete custom settings for domains as supplied by Domain Configuration.'),
+    '#table' => 'domain_conf',
+    '#weight' => -10,
+  );
+  // Change the email address.
+  $batch['site_mail'] = array(
+    '#form' => array(
+      '#title' => t('Email address'),
+      '#type' => 'textfield',
+      '#size' => 40,
+      '#maxlength' => 255,
+      '#description' => t('Set the email address for this domain.'),
+    ),
+    '#permission' => 'administer site configuration',
+    '#domain_action' => 'domain_conf',
+    '#system_default' => variable_get('site_mail', ''),
+    '#variable' => 'site_mail',
+    '#meta_description' => t('Set the email address for all domains.'),
+    '#data_type' => 'string',
+    '#weight' => -8,
+    '#update_all' => TRUE,
+    '#group' => t('Site configuration'),
+  );
+  // Change the site slogan.
+  $batch['site_slogan'] = array(
+    '#form' => array(
+      '#title' => t('Site slogan'),
+      '#type' => 'textfield',
+      '#size' => 60,
+      '#maxlength' => 255,
+      '#description' => t('The slogan of this domain. Some themes display a slogan when available.'),
+    ),
+    '#permission' => 'administer site configuration',
+    '#domain_action' => 'domain_conf',
+    '#system_default' => variable_get('site_slogan', ''),
+    '#variable' => 'site_slogan',
+    '#meta_description' => t('Set the site slogan for all domains.'),
+    '#data_type' => 'string',
+    '#weight' => -8,
+    '#update_all' => TRUE,
+    '#group' => t('Site configuration'),
+  );
+  // Change the site slogan.
+  $batch['site_mission'] = array(
+    '#form' => array(
+      '#title' => t('Site mission'),
+      '#type' => 'textarea',
+      '#cols' => 30,
+      '#rows' => 5,
+      '#description' => t('The mission statement or focus for this domain.'),
+    ),
+    '#domain_action' => 'domain_conf',
+    '#system_default' => variable_get('site_mission', ''),
+    '#variable' => 'site_mission',
+    '#meta_description' => t('Set the site mission for all domains.'),
+    '#data_type' => 'string',
+    '#weight' => -8,
+    '#update_all' => TRUE,
+    '#group' => t('Site configuration'),
+  );
+  // Change the site footer.
+  $batch['site_footer'] = array(
+    '#form' => array(
+      '#title' => t('Site footer'),
+      '#type' => 'textarea',
+      '#cols' => 30,
+      '#rows' => 5,
+      '#description' => t('This text will be displayed at the bottom of each page for this domain.'),
+    ),
+    '#domain_action' => 'domain_conf',
+    '#system_default' => variable_get('site_footer', ''),
+    '#variable' => 'site_footer',
+    '#meta_description' => t('Set the site footer for all domains.'),
+    '#data_type' => 'string',
+    '#weight' => -8,
+    '#update_all' => TRUE,
+    '#group' => t('Site configuration'),
+  );
+  // Change the site frontpage.
+  $batch['site_frontpage'] = array(
+    '#form' => array(
+      '#title' => t('Site frontpage'),
+      '#type' => 'textfield',
+      '#size' => 30,
+      '#maxlength' => 255,
+      '#description' => t('The home page displays content from this relative URL. If unsure, specify "node".'),
+    ),
+    '#permission' => 'administer site configuration',
+    '#domain_action' => 'domain_conf',
+    '#system_default' => variable_get('site_frontpage', 'node'),
+    '#variable' => 'site_frontpage',
+    '#meta_description' => t('Set the site frontpage for all domains.'),
+    '#data_type' => 'string',
+    '#weight' => -8,
+    '#update_all' => TRUE,
+    '#group' => t('Site configuration'),
+  );
+  // Change the anonymous user name.
+  $batch['anonymous'] = array(
+    '#form' => array(
+      '#title' => t('Anonymous user'),
+      '#type' => 'textfield',
+      '#size' => 30,
+      '#maxlength' => 255,
+      '#description' => t('The name used to indicate anonymous users for this domain.'),
+    ),
+    '#permission' => 'administer site configuration',
+    '#domain_action' => 'domain_conf',
+    '#system_default' => variable_get('anonymous', 'Anonymous'),
+    '#variable' => 'anonymous',
+    '#meta_description' => t('Set the anonymous user label for all domains.'),
+    '#data_type' => 'string',
+    '#weight' => -8,
+    '#update_all' => TRUE,
+    '#group' => t('Site configuration'),
+  );
+  // Change the administrative theme.
+  $themes = list_themes();
+  ksort($themes);
+  $options[] = t('Use domain default theme');
+  foreach ($themes as $key => $value) {
+    $options[$key] = $key;
+  }
+  $batch['admin_theme'] = array(
+    '#form' => array(
+      '#title' => t('Administrative theme'),
+      '#type' => 'select',
+      '#options' => $options,
+      '#description' => t('Select the administrative theme for this domain.'),
+    ),
+    '#permission' => 'administer site configuration',
+    '#domain_action' => 'domain_conf',
+    '#system_default' => variable_get('admin_theme', 0),
+    '#variable' => 'admin_theme',
+    '#meta_description' => t('Set the administrative theme for all domains.'),
+    '#data_type' => 'string',
+    '#weight' => -8,
+    '#update_all' => TRUE,
+    '#group' => t('Administrative theme'),
+  );
+  // Change the timezone.
+  $zones = _system_zonelist();
+  $batch['date_default_timezone'] = array(
+    '#form' => array(
+      '#title' => t('Timezone default'),
+      '#type' => 'select',
+      '#options' => $zones,
+      '#description' => t('Select the default site time zone.'),
+    ),
+    '#permission' => 'administer site configuration',
+    '#domain_action' => 'domain_conf',
+    '#system_default' => variable_get('date_default_timezone', 0),
+    '#variable' => 'date_default_timezone',
+    '#meta_description' => t('Set the default timezone for all domains.'),
+    '#data_type' => 'string',
+    '#weight' => -6,
+    '#update_all' => TRUE,
+    '#group' => t('Timezone settings'),
+  );
+  // Change the caching mode.
+  $batch['cache'] = array(
+    '#form' => array(
+      '#type' => 'radios',
+      '#title' => t('Caching mode'),
+      '#options' => array(CACHE_DISABLED => t('Disabled'), CACHE_NORMAL => t('Normal (recommended for production sites, no side effects)')),
+      '#description' => t('Enabling the page cache will offer a significant performance boost. Drupal can store and send compressed cached pages requested by <em>anonymous</em> users. By caching a web page, Drupal does not have to construct the page each time it is viewed.') .'<em> '. t('Aggressive mode caching is not supported when using Domain Access.') .'</em>',
+    ),
+    '#permission' => 'administer site configuration',    
+    '#domain_action' => 'domain_conf',
+    '#system_default' => variable_get('cache', CACHE_DISABLED),
+    '#variable' => 'cache',
+    '#meta_description' => t('Set the page cache options for all domains.'),
+    '#data_type' => 'integer',
+    '#weight' => -5,
+    '#update_all' => TRUE,
+    '#group' => t('Performance'),
+  );
+  // Change the cache lifetime.
+  $period = drupal_map_assoc(array(0, 60, 180, 300, 600, 900, 1800, 2700, 3600, 10800, 21600, 32400, 43200, 86400), 'format_interval');
+  $period[0] = '<'. t('none') .'>';
+  $batch['cache_lifetime'] = array(
+    '#form' => array(
+      '#type' => 'select',
+      '#title' => t('Minimum cache lifetime'),
+      '#options' => $period,
+      '#description' => t('On high-traffic sites, it may be necessary to enforce a minimum cache lifetime. The minimum cache lifetime is the minimum amount of time that will elapse before the cache is emptied and recreated, and is applied to both page and block caches. A larger minimum cache lifetime offers better performance, but users will not see new content for a longer period of time.')
+    ),
+    '#permission' => 'administer site configuration',
+    '#domain_action' => 'domain_conf',
+    '#system_default' => variable_get('cache_lifetime', 0),
+    '#variable' => 'cache_lifetime',
+    '#meta_description' => t('Set the minimum cache lifetime for all domains.'),
+    '#data_type' => 'integer',
+    '#weight' => -5,
+    '#update_all' => TRUE,
+    '#group' => t('Performance'),
+  );
+  //Add support of Pressflow external cache if available
+  if (defined('CACHE_EXTERNAL')){
+    $batch['cache']['#form']['#options'][CACHE_EXTERNAL] = t('External (experts only, possible side effects)');
+    $batch['page_cache_max_age'] = array(
+      '#form' => array(
+        '#type' => 'select',
+        '#title' => t('Page cache maximum age'),
+        '#options' => $period,
+        '#description' => t('Internal and external page caches will not deliver cached paged older than this setting.')
+       ),
+     '#domain_action' => 'domain_conf',
+     '#system_default' => variable_get('page_cache_max_age', 0),
+     '#variable' => 'cache_lifetime',
+     '#meta_description' => t('Set the page cache maximum age for all domains.'),
+     '#data_type' => 'integer',
+     '#weight' => -4,
+     '#update_all' => TRUE,
+     '#group' => t('Performance'),
+   );
+  }
+  // Change the page compression settings.
+  $batch['page_compression'] = array(
+    '#form' => array(
+      '#type' => 'radios',
+      '#title' => t('Page compression'),
+      '#options' => array(t('Disabled'), t('Enabled')),
+      '#description' => t("By default, Drupal compresses the pages it caches in order to save bandwidth and improve download times. This option should be disabled when using a webserver that performs compression."),
+    ),
+    '#permission' => 'administer site configuration',
+    '#domain_action' => 'domain_conf',
+    '#system_default' => variable_get('page_compression', TRUE),
+    '#variable' => 'page_compression',
+    '#meta_description' => t('Set the page compression status for all domains.'),
+    '#data_type' => 'integer',
+    '#weight' => -5,
+    '#update_all' => TRUE,
+    '#group' => t('Performance'),
+  );
+  // Toggle the site offline status.
+  $batch['site_offline'] = array(
+    '#form' => array(
+      '#title' => t('Site status'),
+      '#type' => 'radios',
+      '#options' => array(t('Online'), t('Off-line')),
+      '#description' => t('Toggle online/offline status.'),
+    ),
+    '#domain_action' => 'domain_conf',
+    '#system_default' => variable_get('site_offline', 0),
+    '#variable' => 'site_offline',
+    '#meta_description' => t('Set the online / offline status for all domains.'),
+    '#data_type' => 'integer',
+    '#weight' => -4,
+    '#update_all' => TRUE,
+    '#group' => t('Site status'),
+  );
+  // Change the site offline message.
+  $batch['site_offline_message'] = array(
+    '#form' => array(
+      '#title' => t('Site offline message'),
+      '#type' => 'textarea',
+      '#cols' => 30,
+      '#rows' => 5,
+      '#description' => t('Message to show visitors when this domain is in off-line mode.'),
+    ),
+    '#permission' => 'administer site configuration',
+    '#domain_action' => 'domain_conf',
+    '#system_default' => t('@site is currently under maintenance. We should be back shortly. Thank you for your patience.', array('@site' => variable_get('site_name', 'Drupal'))),
+    '#variable' => 'site_offline_message',
+    '#meta_description' => t('Set the site offline message for all domains.'),
+    '#data_type' => 'string',
+    '#weight' => -2,
+    '#update_all' => TRUE,
+    '#group' => t('Site status'),
+  );
+  // Change the default language.
+  if (module_exists('locale')) {
+    $languages = domain_conf_language_options();
+    $default = language_default();
+    $batch['language_default'] = array(
+      '#form' => array(
+        '#title' => t('Default language'),
+        '#type' => 'select',
+        '#options' => $languages,
+        '#description' => t('The default language to use for this domain. <em>Note: This setting only works with path-based language switching.</em>'),
+      ),
+      '#permission' => 'administer languages',
+      '#domain_action' => 'domain_conf',
+      '#system_default' => $default->language,
+      '#override_default' => TRUE,
+      '#variable' => '', // deliberately empty, since this is an array and cannot be set.
+      '#meta_description' => t('Set the default language for all domains.'),
+      '#data_type' => 'string',
+      '#weight' => 6,
+      '#update_all' => TRUE,
+      '#group' => t('Language settings'),
+      '#module' => t('Language'),
+    );
+  }
+  // Change the menus
+  if (module_exists('menu')) {
+    $menus = menu_get_menus();
+    $batch['menu_default_node_menu'] = array(
+      '#form' => array(
+        '#title' => t('Default menu for content'),
+        '#type' => 'select',
+        '#options' => $menus,
+        '#description' => t('Choose the menu to be the default in the menu options in the content authoring form.'),
+      ),
+      '#permission' => 'administer menu',
+      '#domain_action' => 'domain_conf',
+      '#system_default' => variable_get('menu_default_node_menu', 0),
+      '#variable' => 'menu_default_node_menu',
+      '#meta_description' => t('Set the default menu options for the content authoring form in all domains.'),
+      '#data_type' => 'string',
+      '#weight' => 0,
+      '#update_all' => TRUE,
+      '#group' => t('Menu settings'),
+      '#module' => t('Menu'),
+    );
+    $menus[0] = t('Do not use for this site');
+    $batch['menu_primary_links_source'] = array(
+      '#form' => array(
+        '#title' => t('Primary links menu'),
+        '#type' => 'select',
+        '#options' => $menus,
+        '#description' => t('Select the primary links for this site.'),
+      ),
+      '#permission' => 'administer menu',
+      '#domain_action' => 'domain_conf',
+      '#system_default' => variable_get('menu_primary_links_source', 0),
+      '#variable' => 'menu_primary_links_source',
+      '#meta_description' => t('Set the primary links menu in all domains.'),
+      '#data_type' => 'string',
+      '#weight' => 2,
+      '#update_all' => TRUE,
+      '#group' => t('Menu settings'),
+      '#module' => t('Menu'),
+    );
+    $batch['menu_secondary_links_source'] = array(
+      '#form' => array(
+        '#title' => t('Secondary links menu'),
+        '#type' => 'select',
+        '#options' => $menus,
+        '#description' => t('Select the secondary links for this site.'),
+      ),
+      '#domain_action' => 'domain_conf',
+      '#system_default' => variable_get('menu_secondary_links_source', 0),
+      '#variable' => 'menu_secondary_links_source',
+      '#meta_description' => t('Set the secondary links menu in all domains.'),
+      '#data_type' => 'string',
+      '#weight' => 4,
+      '#update_all' => TRUE,
+      '#group' => t('Menu settings'),
+      '#module' => t('Menu'),
+    );
+  }
+  foreach ($batch as $key => $value) {
+    if (!isset($batch[$key]['#module'])) {
+      $batch[$key]['#module'] = t('Domain Configuration');
+    }
+  }
+
+  return $batch;
+}
+
+/**
+ * Implement hook_domainupdate().
+ */
+function domain_conf_domainupdate($op, $domain, $form_state = array()) {
+  if ($op == 'delete') {
+    db_query("DELETE FROM {domain_conf} WHERE domain_id = %d", $domain['domain_id']);
+    cache_clear_all('variables', 'cache');
+  }
+}
+
+/**
+ * Retrieves elements from hook_domainconf() and formats them
+ * as needed.
+ *
+ * @param $all
+ *   Should the function return all hook implementations or just those marked
+ *   with the domain_settings flag.  Defaults to FALSE.  Used to determine if
+ *   we are loading configuration options specific to the Domain Access module.
+ * @return
+ *   An array of form elements according to the FormsAPI or an empty array.
+ */
+function domain_conf_api($all = FALSE, $settings = array()) {
+  global $_domain;
+  $options = array();
+  $extra = module_invoke_all('domainconf', $_domain);
+  if (!empty($extra)) {
+    foreach ($extra as $key => $value) {
+      foreach (element_children($value) as $element) {
+        if (isset($value[$element]['#default_value']) && isset($settings[$element])) {
+          $value[$element]['#default_value'] = $settings[$element];
+        }
+      }
+      if ($value['#domain_setting'] == TRUE || $all == TRUE) {
+        // Discard the #domain_setting flag; it is not needed.
+        unset($value['#domain_setting']);
+        // Set the $options array.
+        $options[$key] = $value;
+      }
+    }
+  }
+  return $options;
+}
+
+/**
+ * Implement hook_block().
+ *
+ * The primary links and secondary links blocks do not respect our settings,
+ * so we replace it with the following blocks.
+ */
+function domain_conf_block($op = 'list', $delta = 0, $edit = array()) {
+  if ($op == 'list') {
+    $blocks = array();
+    $blocks['domain-primary-links']['info'] = t('Domain primary links');
+    $blocks['domain-secondary-links']['info'] = t('Domain secondary links');
+    // Menu blocks can't be cached because each menu item can have
+    // a custom access callback. menu.inc manages its own caching.
+    $blocks['domain-primary-links']['cache'] = BLOCK_NO_CACHE;
+    $blocks['domain-secondary-links']['cache'] = BLOCK_NO_CACHE;
+    return $blocks;
+  }
+  else if ($op == 'view') {
+    $menus = menu_get_menus();
+    $string = str_replace('domain-', '', $delta);
+    $source = 'menu_'. str_replace('-', '_', $string) .'_source';
+    $delta = variable_get($source, $string);
+    // Some domains can disable primary and secondary links.
+    if (empty($delta)) {
+      return;
+    }
+    $data['subject'] = check_plain($menus[$string]);
+    $data['content'] = menu_tree($delta);
+    return $data;
+  }
+}
+
+/**
+ * Change the variable setting for a domain.
+ * This function is called by external modules that wish
+ * to alter Domain Conf settings.
+ *
+ * Note that this function saves the value to the database
+ * and changes the active $conf array.
+ *
+ * @link http://drupal.org/node/367963
+ * @see domain_conf_variable_save()
+ *
+ * @param $domain_id
+ *   The unique domain ID that is being edited.
+ * @param $variable
+ *   The name of the variable you wish to set.
+ * @param $value
+ *   The value of the variable to set. You may leave this
+ *   value blank in order to unset the custom variable.
+ */
+function domain_conf_variable_set($domain_id, $variable, $value = NULL) {
+  global $conf, $_domain;
+  domain_conf_variable_save($domain_id, $variable, $value);
+  // Clear the cache.
+  cache_clear_all('variables', 'cache');
+  // If we are on the active domain, set the active variable.
+  if ($domain_id == $_domain['domain_id']) {
+    $conf[$variable] = $value;
+  }
+}
+
+/**
+ * Load a variable specific to a domain.
+ *
+ * @param $domain_id
+ *   The unique domain ID that is being edited.
+ * @param $variable
+ *   The name of the variable you wish to get.
+ * @param $all
+ *   A boolean flag indicating whether to return the entire variable array.
+ * @param $reset
+ *   A boolean flag to reset the static variable array for the domain. Useful
+ *   if you are changing variables during a page request.
+ * @return
+ *   The value of the variable for that domain, or NULL if not set,
+ *   or an array of variables, in the case of $all.
+ */
+function domain_conf_variable_get($domain_id, $variable = '', $all = FALSE, $reset = FALSE) {
+  global $_domain;
+  static $settings, $base;
+  if (empty($base)) {
+    $base = _domain_conf_load_primary(FALSE);
+  }
+  if (!isset($settings[$domain_id]) || $reset) {
+    // Get the current settings for this domain, if any.
+    $data = domain_unserialize(db_result(db_query("SELECT settings FROM {domain_conf} WHERE domain_id = %d", $domain_id)));
+    if (empty($data)) {
+      $data = array();
+    }
+    $settings[$domain_id] = array_merge($base, $data);
+  }
+  if ($all) {
+    return $settings[$domain_id];
+  }
+  if (isset($settings[$domain_id][$variable])) {
+    return $settings[$domain_id][$variable];
+  }
+  return NULL;
+}
+
+/**
+ * Get the language options for use in forms.
+ */
+function domain_conf_language_options() {
+  $languages = language_list('language', TRUE);
+  $options = array();
+  foreach ($languages as $key => $lang) {
+    $extra = '';
+    if ($lang->native != $lang->name) {
+      $extra = ' ('. $lang->name .')';
+    }
+    $options[$key] = check_plain($lang->native . $extra);
+  }
+  return $options;
+}
+
+/**
+ * Load the variables from the primary domain.
+ *
+ * We run this special handler when not able to trust variable_get()
+ * during domain switching.
+ *
+ * @see domain_set_domain()
+ *
+ * @param $unset
+ *   If TRUE, this will reset the global $conf array.
+ * @return
+ *   If set to TRUE, no return, just modify the global $conf array.
+ *   Otherwise, return the settings data for the primary domain.
+ */
+function _domain_conf_load_primary($unset = FALSE) {
+  static $settings;
+
+  if (!isset($settings)) {
+    // Account for table prefixing.
+    $cache_table = domain_get_primary_table('cache');
+    // Load the query.
+    $data = db_result(db_query("SELECT data FROM $cache_table WHERE cid = 'variables'"));
+    if (!empty($data)) {
+      $settings = domain_unserialize($data);
+    }
+    // If the cache has been cleared, this data will be empty.
+    // In this case, grab the data directly from the base {variable} table.
+    else {
+      $variable_table = domain_get_primary_table('variable');
+      $result = db_query("SELECT name, value FROM $variable_table");
+      while ($vars = db_fetch_array($result)) {
+        $data[$vars['name']] = domain_unserialize($vars['value']);
+      }
+      $settings = $data;
+    }
+  }
+  // Do we reset the global or just return data?
+  if ($unset) {
+    global $conf;
+    $conf = $settings;
+    return;
+  }
+  return $settings;
+}
+
+/**
+ * Delete a setting from {domain_conf}.
+ *
+ * @param $domain_id
+ *   The unique domain ID that is being edited.
+ * @param $variable
+ *   The name of the variable you wish to delete.
+ */
+function domain_conf_variable_delete($domain_id, $variable) {
+  // Get the current settings for this domain, if any.
+  $settings = domain_unserialize(db_result(db_query("SELECT settings FROM {domain_conf} WHERE domain_id = %d", $domain_id)));
+  // Settings found, remove them.
+  if (!empty($settings)) {
+    unset($settings[$variable]);
+    db_query("UPDATE {domain_conf} SET settings = %b WHERE domain_id = %d", serialize($settings), $domain_id);
+  }
+}
+
+/**
+ * Store a single variable in {domain_conf}.
+ *
+ * @link http://drupal.org/node/367963
+ * @see domain_conf_variable_set()
+ *
+ * @param $domain_id
+ *   The unique domain ID that is being edited.
+ * @param $variable
+ *   The name of the variable you wish to set.
+ * @param $value
+ *   The value of the variable to set. You may leave this
+ *   value blank in order to unset the custom variable.
+ */
+function domain_conf_variable_save($domain_id, $variable, $value = NULL) {
+  // Get the current settings for this domain, if any.
+  $serialized = db_result(db_query("SELECT settings FROM {domain_conf} WHERE domain_id = %d", $domain_id));
+  // Settings found, update them.
+  if ($serialized) {
+    $settings = domain_unserialize($serialized);
+    $settings[$variable] = $value;
+    db_query("UPDATE {domain_conf} SET settings = %b WHERE domain_id = %d", serialize($settings), $domain_id);
+  }
+  else if (domain_lookup($domain_id) != -1) {
+    $settings = array($variable => $value);
+    db_query("INSERT INTO {domain_conf} (domain_id, settings) VALUES (%d, %b)", $domain_id, serialize($settings));
+  }
+}

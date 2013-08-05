@@ -1,0 +1,6 @@
+/* START TRUE/FALSE QUIZ QUESTION TYPE CSS */
+
+.answers .answer { margin:20px; border-bottom: solid 1px #ccc; padding-bottom:20px; }
+.answers .answer .output .long-answer {display: none; }
+
+/* END TRUE/FALSE QUIZ QUESTION TYPE CSS */

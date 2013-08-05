@@ -1,0 +1,217 @@
+<?php
+
+/**
+ * @file
+ * Quiz_progress module file.
+ */
+/**
+ * Implementation of hook_menu()
+ */
+function quiz_progress_menu() {
+  $items['admin/quiz/settings/quiz_progress'] = array(
+    'title' => '@quiz progress configuration',
+    'title arguments' => array('@quiz' => QUIZ_NAME),
+    'description' => t('Configure @quiz settings.', array('@quiz' => QUIZ_NAME)),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('quiz_progress_config_form'),
+    'access arguments' => array('administer quiz configuration'),
+    'type' => MENU_NORMAL_ITEM, // optional
+    'file' => 'quiz_progress.admin.inc',
+  );
+  $items['node/%node/quiz_progress_set_filter'] = array(
+    'title' => '',
+    'page callback' => '_quiz_progress_set_filter',
+    'page arguments' => array(1),
+    'access callback' => 'quiz_take_access',
+    'access arguments' => array(1),
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+function _quiz_progress_set_filter($quiz) {
+  if (!isset($_SESSION['quiz_progress_show_kipped'])) {
+    $_SESSION['quiz_progress_show_kipped'] = TRUE;
+  }
+
+  $_SESSION['quiz_progress_show_kipped'] = !$_SESSION['quiz_progress_show_kipped'];
+  drupal_goto("node/{$quiz->nid}/take");
+}
+
+/**
+ * Implementation of hook_perm()
+ */
+function quiz_progress_perm() {
+  return array('access quiz progress');
+}
+
+/**
+ * Implementation of hook_block()
+ */
+function quiz_progress_block($op = 'list', $delta = 0) {
+  if ($op == 'list') {
+    $block[0]['info'] = t('@quiz progress block', array('@quiz' => QUIZ_NAME));
+    return $block;
+  }
+  else if ($op == 'view') {
+    if (user_access('access quiz progress')) {
+      $quiz_nid = arg(1);
+      $quiz = node_load($quiz_nid);
+      if (quiz_progress_block_access($quiz)) {
+        $block['content'] = quiz_progress_block_content($quiz);
+        $block['subject'] = check_plain($quiz->title);
+        return $block;
+      }
+    }
+  }
+}
+
+function quiz_progress_block_access($quiz) {
+  return arg(0) == 'node' &&
+    arg(2) == 'take' &&
+    is_object($quiz) &&
+    $quiz-> allow_jumping &&
+    $_SESSION['quiz_'. $quiz->nid]['result_id'] > 0;
+}
+
+function quiz_progress_block_content($quiz) {
+  _quiz_progress_block_load_styles();
+  $questions = array_merge($_SESSION['quiz_'. $quiz->nid]['previous_quiz_questions'] , $_SESSION['quiz_'. $quiz->nid]['quiz_questions']);  
+  $output = quiz_progress_block_skipped_filter($quiz);
+  $output .= quiz_progress_block_get_styled_output($quiz, $questions);
+  return $output;
+}
+
+function quiz_progress_block_skipped_filter($quiz) {
+  if (isset($_SESSION['quiz_progress_show_kipped']) &&  $_SESSION['quiz_progress_show_kipped']) {
+    $text = t('Show all');
+  }
+  else {
+    $text = t('Show only the skipped questions');
+  }
+  return l($text, "node/{$quiz->nid}/quiz_progress_set_filter");
+}
+
+function quiz_progress_get_link_options($status, $question, $question_title) {
+  $color = variable_get('quiz_progress_output_text_color_' . $status, '');
+  return array(
+    'fragment' => ' ',
+    'external' => TRUE,
+    'attributes' => array(
+      'class' => 'quiz-progress ' . $status,
+      'id' => 'quiz-progress-id-' . $question['number'],
+      'title' => $question_title,
+      'style' => "color: $color;"
+    ),
+  );
+}
+
+function quiz_progress_block_get_styled_output($quiz, $questions) {
+  if (isset($_SESSION['quiz_progress_show_kipped']) &&  $_SESSION['quiz_progress_show_kipped']) {
+    $items = array();
+    drupal_add_js(array('quiz_progress' => array('show_kipped' => 1)), 'setting');
+    $title_length = variable_get('quiz_progress_title_style_length', 32);
+    foreach ($questions as $question) {
+      if (empty($question)) {
+       continue;
+      }
+      $status = _quiz_progress_get_question_status($quiz, $question);
+      if ($status != 'skipped') {
+        continue;
+      }
+      $question_title = _quiz_progress_get_question_title($question);
+      $status = _quiz_progress_get_question_status($quiz, $question);
+      $options = quiz_progress_get_link_options($status, $question, $question_title);
+      $items[$question['nid']] = l(drupal_substr($question_title, 0, $title_length), '', $options);
+    }
+    if (empty($items)) {
+      return '<p>' . t('You have no skipped questions') . '</p>';
+    }
+    return '<div class="quiz-progress-block-wrapper">' .
+      theme('item_list', $items, t('Questions'), 'ol', array('class' => 'quiz-progress-item-list')) .
+      '</div>';
+  }
+  $output_style = variable_get('quiz_progress_output_style', 'number');
+  if ($output_style == 'number') {
+    $rows = array();
+    $row = 0;
+    $col_size = variable_get('quiz_progress_number_style_col_size', 4);
+    foreach ($questions as $question) {
+      if (empty($question)) {
+       continue;
+      }      
+      $question_title = _quiz_progress_get_question_title($question);
+      $status = _quiz_progress_get_question_status($quiz, $question);
+      $bg_color = variable_get('quiz_progress_output_bg_color_' . $status, '');
+      $options = quiz_progress_get_link_options($status, $question, $question_title);
+      $rows[$row][$question['number']] = array(
+        'data' => l($question['number'], '', $options),
+        'class' => $status,
+        'style' => "background-color: $bg_color;"
+      );
+      $row = $question['number'] % $col_size != 0 ? $row : $row + 1;
+    }
+    // TODO : Use hook_theme to allow other module to override the output.
+    return  '<div class="quiz-progress-block-wrapper">' .
+      theme('table', array(), $rows, array('class' => 'quiz-progress-item-table')) .
+      '</div>';
+  }
+  else if ($output_style == 'title') {
+    $items = array();
+    $title_length = variable_get('quiz_progress_title_style_length', 32);
+    foreach ($questions as $question) {
+      if (empty($question)) {
+       continue;
+      }
+      $question_title = _quiz_progress_get_question_title($question);
+      $status = _quiz_progress_get_question_status($quiz, $question);
+      $options = quiz_progress_get_link_options($status, $question, $question_title);
+      $bg_color = variable_get('quiz_progress_output_bg_color_' . $status, '');
+      $items[] = array(
+        'data' => l(drupal_substr($question_title, 0, $title_length), '', $options),
+        'class' => $status,
+        'style' => "background-color: $bg_color;"
+      );
+    }
+    return '<div class="quiz-progress-block-wrapper">' .
+      theme('item_list', $items, t('Questions'), 'ol', array('class' => 'quiz-progress-item-list')) .
+      '</div>';
+  }
+  return '';
+}
+
+function _quiz_progress_get_question_status($quiz, $question) {
+  $rid = $_SESSION['quiz_'. $quiz->nid]['result_id'];
+  $query = db_query('SELECT is_correct, is_skipped FROM {quiz_node_results_answers}
+    WHERE result_id = %d AND question_nid = %d AND question_vid = %d',
+    $rid, $question['nid'], $question['vid']
+  );
+  $answer = db_fetch_object($query);
+  if (empty($answer)) {
+    return 'queued';
+  }
+  else {
+    if ($answer->is_skipped) {
+      return 'skipped';
+    }
+    else {
+      return 'answered';
+    }
+  }
+}
+
+function _quiz_progress_get_question_title($question) {
+  $query = db_query('SELECT title FROM {node_revisions}
+    WHERE nid = %d AND vid = %d',
+    $question['nid'], $question['vid']);
+  $quiz_title = db_result($query);
+  return (bool) $quiz_title ? check_plain($quiz_title) : '';
+}
+
+function _quiz_progress_block_load_styles() {
+  $module_path = drupal_get_path('module', 'quiz_progress');
+  drupal_add_css($module_path . '/css/quiz_progress.css', 'module');
+  drupal_add_js($module_path . '/js/jquery.dimensions.js', 'module');
+  drupal_add_js($module_path . '/js/jquery.tooltip.js', 'module');
+  drupal_add_js($module_path . '/js/quiz_progress.js', 'module');
+}

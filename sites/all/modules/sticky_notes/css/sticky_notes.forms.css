@@ -1,0 +1,91 @@
+
+/* style the node form modalframes */
+
+body {
+  padding: 0px !important;
+  background-color: white !important;
+}
+
+.sticky-notes-enabled .ui-dialog-overlay {
+  opacity: 0.8;
+  background-color: black;
+}
+
+.sticky-notes-enabled .modalframe-page-content {
+  padding-bottom: 0px !important;
+}
+
+.sticky-notes-enabled .modalframe-page-content #sticky-notes-form .node-form {
+  height: 150px;
+}
+
+#sticky-notes-form textarea#edit-body {
+  background-color: #FDFB8C;
+  border:1px solid #DEDC65;
+  font-family: "Trebuchet MS", Tahoma, "Myriad Pro", Arial, Verdana,sans-serif;
+  font-size: 14px;
+  height: 150px;
+  margin: 0px 10px 0px 0px; /* LTR */
+  overflow: hidden;
+  padding: 0px;
+  width: 150px;
+  max-width: 150px;
+  max-height: 150px;
+  /* Adding a CSS3 shadow below the note, in the browsers which support it: */
+  -moz-box-shadow: 2px 2px 0 #DDDDDD;
+  -webkit-box-shadow: 2px 2px 0 #DDDDDD;
+  box-shadow: 2px 2px 0 #DDDDDD;
+}
+
+#modalframe-container iframe body,
+iframe#modalframe-element body {
+  padding: 0px;
+  margin: 0px;
+  background-color: white;
+}
+
+.modalframe-page-content #sticky-notes-form #edit-body-wrapper label {
+  display: none;
+}
+
+.modalframe-page-content #sticky-notes-form .form-item,
+.modalframe-page-content #sticky-notes-form .admin {
+  font-size: 12px;
+  margin: 0px;
+  padding: 0px;
+  text-align: left;
+}
+
+.modalframe-page-content #sticky-notes-form {
+  height: 200px;
+  margin-bottom: 5px;
+}
+
+.modalframe-page-content #sticky-notes-form .body-field-wrapper {
+  float: left; /* LTR */
+  width: 170px;
+}
+
+.modalframe-page-content #sticky-notes-form #edit-link_scope-wrapper {
+  margin-left: 170px;
+}
+
+.modalframe-page-content #sticky-notes-form #edit-priority-wrapper,
+.modalframe-page-content #sticky-notes-form #edit-public-wrapper {
+  display: inline;
+}
+
+.modalframe-page-content #sticky-notes-form #sticky-notes-visibility-summary-wrapper {
+  clear: left;
+  margin-top: 10px;
+  color: gray;
+}
+
+.modalframe-page-content #sticky-notes-form .sticky-notes-form-buttons {
+  text-align: right; /* LTR */
+  width: 100%;
+}
+
+.modalframe-page-content #sticky-notes-form .node-form .sticky-notes-form-buttons input {
+  margin: 0px;
+}

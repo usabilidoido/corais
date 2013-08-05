@@ -1,0 +1,13 @@
+; file apachesolr_cc.info
+name = Apache Solr Creative Commons
+description = Integrates Creative Commons and Apache Solr Search
+dependencies[] = creativecommons
+dependencies[] = apachesolr
+package = Apache Solr
+core = "6.x"
+; Information added by drupal.org packaging script on 2012-04-26
+version = "6.x-1.1+0-dev"
+core = "6.x"
+project = "creativecommons"
+datestamp = "1335399037"
+

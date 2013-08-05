@@ -1,0 +1,10 @@
+; $Id$
+name = "Hide submit button"
+description = "Hide submit button after clicked to avoid duplicate posting"
+
+; Information added by drupal.org packaging script on 2011-10-17
+version = "6.x-1.12"
+core = "6.x"
+project = "hide_submit"
+datestamp = "1318888598"
+

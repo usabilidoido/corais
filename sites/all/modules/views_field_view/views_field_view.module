@@ -1,0 +1,18 @@
+<?php
+// $Id: views_field_view.module,v 1.1.2.1 2010/08/03 05:25:11 dereine Exp $
+
+/**
+ * views_field_view.module
+ *
+ * @author
+ * Daniel Wehner <daniel.wehner@erdfisch.de>
+ */
+
+/**
+ * Implements hook_views_api().
+ */
+function views_field_view_views_api() {
+  return array(
+    'api' => 2.0,
+  );
+}

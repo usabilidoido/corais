@@ -1,0 +1,6 @@
+<?php
+
+include_once('atrium_courses.features.inc');
+function atrium_courses_init() {
+  drupal_add_css(drupal_get_path('module', 'atrium_courses') . '/atrium_courses.css');
+}

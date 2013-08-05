@@ -1,0 +1,13 @@
+; $Id: block_quiz.info,v 1.1.2.1 2009/09/29 21:56:13 xcf33 Exp $
+name = Quiz Block
+description = Blocks for quiz
+package = Misc.
+core = 6.x
+version = "6.x-1.0-beta"
+
+; Information added by drupal.org packaging script on 2009-09-29
+version = "6.x-1.1"
+core = "6.x"
+project = "block_quiz"
+datestamp = "1254263108"
+

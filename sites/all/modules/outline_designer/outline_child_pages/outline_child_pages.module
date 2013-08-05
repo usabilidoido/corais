@@ -1,0 +1,126 @@
+<?php
+// $Id: outline_child_pages.module
+
+/**
+ * Implementing hook_perm
+ */
+function outline_child_pages_perm() {
+  return array('outline own pages');
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function outline_child_pages_menu() {
+
+  $items['node/%node/outline_children'] = array(
+    'access callback' => 'outline_child_pages_access',
+    'access arguments' => array(1, 'tab'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('book_admin_edit', 1),
+    'title' => t('Outline child pages'),
+    'file' => 'book.admin.inc',
+    'file path' => drupal_get_path('module', 'book'),
+    'weight' => 5,
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['node/%node/outline_children_link'] = array(
+    'access callback' => 'outline_child_pages_access_link',
+    'access arguments' => array(1, 'link'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('book_admin_edit', 1),
+    'title' => t('Outline child pages'),
+    'file' => 'book.admin.inc',
+    'file path' => drupal_get_path('module', 'book'),
+    'weight' => 5,
+    'type' => MENU_NORMAL_ITEM,
+  );
+  $items['outline_designer/ocp_ajax'] = array(
+    'access callback' => '_outline_child_pages_ajax_access',
+    'page callback'  => '_outline_designer_ajax',
+    'page arguments' => array(2, 3, 4, 5, 6),
+    'type'  => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+/**
+ * check to make sure they can access the ajax path, doesn't mean it'll commit their operation, just that it'll load
+ * this also has optional integration with the book manager module
+ * so that people could use the advantages of both modules and not need 'outline own pages' permissions
+ */
+function _outline_child_pages_ajax_access() {
+	global $user;
+  	return $user->uid == 1 || user_access('administer book outlines') || (user_access('outline own pages') && user_access('add content to books')) || user_access('add content to personal books');
+}
+
+/**
+ * Check that node has child pages and that proper permission are there for the menu tab
+ */
+function outline_child_pages_access($node, $type) {
+  global $user;
+  $has_children = db_result(db_query('SELECT ml.has_children FROM {book} b INNER JOIN {menu_links} ml ON b.mlid = ml.mlid WHERE b.nid = %d', $node->nid)); 
+  if (module_exists('outline_designer_og')) {
+    return $has_children && variable_get('outline_child_pages_type', 'tab') == $type && ($user->uid == 1 ||og_is_group_admin($node, $user) || user_access('administer book outlines') || (user_access('outline own pages') && user_access('add content to books') && node_access('update', $node)));
+  }
+  else {
+    return $has_children && variable_get('outline_child_pages_type', 'tab') == $type && ($user->uid == 1 ||user_access('administer book outlines') || (user_access('outline own pages') && user_access('add content to books') && node_access('update', $node)));
+  }
+}
+
+/**
+ * Check that node has child pages and that proper permission are there for the menu tab
+ */
+function outline_child_pages_access_link($node, $type) {
+  global $user;
+  $has_children = db_result(db_query('SELECT ml.has_children FROM {book} b INNER JOIN {menu_links} ml ON b.mlid = ml.mlid WHERE b.nid = %d', $node->nid)); 
+  if (module_exists('outline_designer_og')) {
+    return $has_children && variable_get('outline_child_pages_type', 'link') == $type && ($user->uid == 1 || og_is_group_admin($node, $user) || user_access('administer book outlines') || (user_access('outline own pages') && user_access('add content to books') && node_access('update', $node)));
+  }
+  else {
+    return $has_children && variable_get('outline_child_pages_type', 'link') == $type && ($user->uid == 1 ||user_access('administer book outlines') || (user_access('outline own pages') && user_access('add content to books') && node_access('update', $node)));
+  }
+}
+
+/**
+ * Implementation of hook_link().
+ */
+function outline_child_pages_link($type, $node = NULL, $teaser = FALSE) {
+  $links = array();
+
+  if ($type == 'node' && isset($node->book)) {
+    if (!$teaser) {
+
+      if (outline_child_pages_access($node, 'link')) {
+        $links['book_outline_child'] = array(
+          'title' => t('Outline child pages'),
+      'href' => 'node/'. $node->nid .'/outline_children_link',
+        );
+      }
+    }
+  }
+  return $links;
+}
+
+/**
+ * Implementation of hook_form_alter(). 
+ * Adds a radio select to choose between a link or a tab.
+ */
+function outline_child_pages_form_alter(&$form, $form_state, $form_id) {
+  if ($form_id == '_outline_designer_settings') {
+    $form["ui"]['outline_child_pages_type'] = array(
+      '#type' => 'radios',
+      '#title' => t('Display "Outline child pages" as a'),
+      '#options' => array('tab' => 'Tab', 'link' => 'Link'),
+      '#default_value' => variable_get('outline_child_pages_type', 'tab'),
+      '#weight' => 5,
+    );
+  }
+  //add in the outline designer fun to our tab and link based outliners
+  if ($form_id == 'book_admin_edit' && arg(0) == "node" && (arg(2) == 'outline_children' || arg(2) == 'outline_children_link')) {
+    _outline_designer_book_admin_form_alter($form, $form_state, $form_id, 'outline_designer/ocp_ajax/');
+  }//add outline designer into the ajax callback or it'll break after first submission
+  elseif ($form_id == 'book_admin_edit' && arg(0) == 'outline_designer' && arg(1) == 'ocp_ajax') {
+    _outline_designer_book_admin_form_alter($form, $form_state, $form_id, 'outline_designer/ocp_ajax/');
+  }
+}

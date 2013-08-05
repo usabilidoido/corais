@@ -1,0 +1,251 @@
+<?php
+// $Id: xmlsitemap_taxonomy.module,v 1.1.2.23 2010/01/27 00:10:09 davereid Exp $
+
+/**
+ * @file
+ * Adds taxonomy terms to the sitemap.
+ */
+
+/**
+ * @addtogroup xmlsitemap
+ * @{
+ */
+
+/*****************************************************************************
+ * Drupal hooks.
+ ****************************************************************************/
+
+/**
+ * Implementation of hook_cron().
+ */
+function xmlsitemap_taxonomy_cron() {
+  if (($limit = variable_get('xmlsitemap_cron_limit', 100)) != -1) {
+    $sql = "SELECT t.tid, t.vid FROM {term_data} t
+      LEFT JOIN {xmlsitemap_taxonomy} xt ON xt.tid = t.tid
+      WHERE xt.tid IS NULL";
+    $result = db_query_range($sql, 0, $limit);
+    $sitemap_changed = FALSE;
+    while ($term = db_fetch_object($result)) {
+      $row = new stdClass();
+      $row->tid = $term->tid;
+      $row->vid = $term->vid;
+      $row->changed = REQUEST_TIME;
+      drupal_write_record('xmlsitemap_taxonomy', $row);
+      $sitemap_changed = TRUE;
+    }
+    if ($sitemap_changed) {
+      xmlsitemap_flag_sitemap();
+    }
+  }
+}
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ */
+function xmlsitemap_taxonomy_form_taxonomy_form_term_alter(&$form, &$from_state) {
+  if (!isset($form['identification'])) {
+    // This same form is used for the term delete confirm form, so skip
+    // adding our fieldset if that is the case.
+    return;
+  }
+
+  $priority = db_result(db_query("SELECT priority_override
+    FROM {xmlsitemap_taxonomy}
+    WHERE tid = %d", $form['tid']['#value'])
+  );
+  if ($priority === FALSE) {
+    $priority = -2.0;
+  }
+  $options = xmlsitemap_priority_options('both');
+  $default = variable_get('xmlsitemap_taxonomy_vocabulary_priority_'. $form['vid']['#value'], '0.5');
+  if (!isset($form['xmlsitemap'])) {
+    $form['xmlsitemap'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('XML sitemap'),
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+    );
+  }
+  $form['xmlsitemap']['xmlsitemap_taxonomy_priority'] = array(
+    '#type' => 'select',
+    '#title' => t('Priority'),
+    '#description' => t('The default priority is %priority.', array('%priority' => $options[$default])),
+    '#default_value' => $priority,
+    '#options' => $options,
+  );
+
+  // The submit and delete buttons need to be weighted down.
+  $form['submit'] += array('#weight' => 100);
+  if (isset($form['delete'])) {
+    $form['delete'] += array('#weight' => 110);
+  }
+}
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ */
+function xmlsitemap_taxonomy_form_taxonomy_form_vocabulary_alter(&$form, &$from_state) {
+  $form['xmlsitemap'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('XML sitemap'),
+    '#collapsible' => TRUE,
+  );
+  $form['xmlsitemap']['xmlsitemap_taxonomy_vocabulary_priority'] = array(
+    '#type' => 'select',
+    '#title' => t('Priority'),
+    '#description' => t('This will be the default priority of terms in this vocabulary.'),
+    '#default_value' => variable_get('xmlsitemap_taxonomy_vocabulary_priority_'. $form['vid']['#value'], 0.5),
+    '#options' => xmlsitemap_priority_options('exclude'),
+  );
+  $form['submit']['#weight'] = isset($form['submit']['#weight']) ? $form['submit']['#weight'] + 1 : 1;
+  $form['delete']['#weight'] = isset($form['delete']['#weight']) ? $form['delete']['#weight'] + 1 : 1;
+}
+
+/**
+ * Implementation of hook_nodeapi().
+ */
+function xmlsitemap_taxonomy_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+  switch ($op) {
+    case 'update':
+      $terms = taxonomy_node_get_terms($node);
+      foreach ($terms as $term) {
+        $result = db_fetch_object(db_query("SELECT tid, changed, previously_changed, priority_override
+          FROM {xmlsitemap_taxonomy}
+          WHERE tid = %d", $term->tid));
+        if ($result === FALSE) {
+          $row = new stdClass();
+          $row->tid = $term->tid;
+          $row->vid = $term->vid;
+          $row->changed = $node->changed;
+          $row->previously_changed = $node->created;
+        }
+        else {
+          $row = $result;
+          if ($row->changed < $node->changed) {
+            $row->previously_changed = $row->changed;
+            $row->changed = $node->changed;
+          }
+        }
+        drupal_write_record('xmlsitemap_taxonomy', $row, $result === FALSE ? NULL : 'tid');
+        xmlsitemap_flag_sitemap();
+      }
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_taxonomy().
+ */
+
+function xmlsitemap_taxonomy_taxonomy($op, $type, $array = NULL) {
+  if ($type == 'vocabulary') {
+    switch ($op) {
+      case 'delete':
+        db_query("DELETE FROM {xmlsitemap_taxonomy} WHERE vid = %d", $array['vid']);
+        variable_del('xmlsitemap_taxonomy_vocabulary_priority_'. $array['vid']);
+        xmlsitemap_flag_sitemap();
+        break;
+      case 'insert':
+      case 'update':
+        if (isset($array['vid'])) {
+          if (variable_get('xmlsitemap_taxonomy_vocabulary_priority_'. $array['vid'], 0.5) != $array['xmlsitemap_taxonomy_vocabulary_priority']) {
+            variable_set('xmlsitemap_taxonomy_vocabulary_priority_'. $array['vid'], $array['xmlsitemap_taxonomy_vocabulary_priority']);
+            xmlsitemap_flag_sitemap();
+          }
+        }
+        break;
+    }
+  }
+  else {
+    switch ($op) {
+      case 'delete':
+        db_query("DELETE FROM {xmlsitemap_taxonomy} WHERE tid = %d", $array['tid']);
+        db_query("DELETE FROM {xmlsitemap} WHERE type = 'taxonomy' AND id = %d", $array['tid']);
+        break;
+      case 'insert':
+        if (isset($array['tid']) && isset($array['vid'])) {
+          $row = new stdClass();
+          $row->tid = $array['tid'];
+          $row->vid = $array['vid'];
+          $row->changed = REQUEST_TIME;
+          $row->priority_override = isset($array['xmlsitemap_taxonomy_priority']) ? $array['xmlsitemap_taxonomy_priority'] : -2.0;
+          drupal_write_record('xmlsitemap_taxonomy', $row);
+        }
+        break;
+      case 'update':
+        $result = db_fetch_object(db_query("SELECT tid, vid, changed, previously_changed, priority_override
+          FROM {xmlsitemap_taxonomy}
+          WHERE tid = %d", $array['tid'])
+        );
+        if ($result === FALSE) {
+          $row = new stdClass();
+          $row->tid = $array['tid'];
+          $row->vid = $array['vid'];
+          $row->changed = REQUEST_TIME;
+          $row->priority_override = isset($array['xmlsitemap_taxonomy_priority']) ? $array['xmlsitemap_taxonomy_priority'] : -2.0;
+        }
+        else {
+          $row = $result;
+          if (isset($array['xmlsitemap_taxonomy_priority'])) {
+            $row->priority_override = $array['xmlsitemap_taxonomy_priority'];
+          }
+        }
+        drupal_write_record('xmlsitemap_taxonomy', $row, $result === FALSE ? NULL : 'tid');
+        break;
+    }
+    xmlsitemap_flag_sitemap();
+  }
+}
+
+/**
+ * Implementation of hook_xmlsitemap_description().
+ */
+function xmlsitemap_taxonomy_xmlsitemap_description() {
+  return '<dt>'. t('XML sitemap taxonomy') .'</dt>'.
+    '<dd>'. t('The module adds <a href="@terms">taxonomy terms</a> (categories) to the sitemap. The term default priority may be changed while adding or editing vocabularies and the term default priority can be overridden while adding or editing terms.', array('@terms' => url('admin/content/taxonomy'))) .'</dd>';
+}
+
+/**
+ * Implementation of hook_xmlsitemap_links().
+ */
+function xmlsitemap_taxonomy_xmlsitemap_links() {
+  $anon_account = drupal_anonymous_user();
+  $user_access = user_access('access content', $anon_account);
+
+  $result = db_query(
+    db_rewrite_sql(
+      "SELECT t.tid, t.vid, t.name, xt.changed, xt.previously_changed, xt.priority_override
+        FROM {term_data} t
+        LEFT JOIN {xmlsitemap_taxonomy} xt ON t.tid = xt.tid",
+      't', 'tid'
+    )
+  );
+  $row = new stdClass();
+  $row->module = 'xmlsitemap_taxonomy';
+  $row->type = 'taxonomy';
+  while ($term = db_fetch_object($result)) {
+    $row->loc = taxonomy_term_path($term);
+    $row->id = $term->tid;
+    $row->changed = $term->changed;
+    $row->changefreq = max(REQUEST_TIME - $term->changed, empty($term->previously_changed) ? 0 : $term->changed - $term->previously_changed);
+    if ($term->priority_override != -2.0) {
+      $priority = $term->priority_override;
+    }
+    else {
+      $priority = variable_get('xmlsitemap_taxonomy_vocabulary_priority_'. $term->vid, 0.5);
+    }
+    $row->priority = $user_access ? $priority == -1.0 ? $priority : min(max(round($priority, 1), 0.0), 1.0) : -1;
+    $old_row = db_fetch_object(db_query("SELECT lid, type, priority FROM {xmlsitemap} WHERE loc = '%s'", $row->loc));
+    if ($old_row === FALSE) {
+      drupal_write_record('xmlsitemap', $row);
+    }
+    elseif ($old_row->type = 'taxonomy' && $old_row->priority != $row->priority) {
+      $row->lid = $old_row->lid;
+      drupal_write_record('xmlsitemap', $row, 'lid');
+    }
+  }
+}
+
+/**
+ * @} End of "addtogroup xmlsitemap".
+ */

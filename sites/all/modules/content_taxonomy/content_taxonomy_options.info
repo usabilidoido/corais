@@ -1,0 +1,16 @@
+name = Content Taxonomy Options
+description = Defines a option widget type for content_taxonomy for selects, radios/checkboxes
+dependencies[] = content 
+dependencies[] = content_taxonomy 
+dependencies[] = taxonomy
+dependencies[] = optionwidgets
+package = CCK
+core = 6.x
+
+
+; Information added by drupal.org packaging script on 2011-05-11
+version = "6.x-2.x-dev"
+core = "6.x"
+project = "content_taxonomy"
+datestamp = "1305115487"
+

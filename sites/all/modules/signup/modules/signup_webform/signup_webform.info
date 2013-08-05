@@ -1,0 +1,13 @@
+name = Signup webform
+description = Provides a signup form panes for each webform.
+dependencies[] = signup
+dependencies[] = webform
+package = Signup
+core = 6.x
+
+; Information added by drupal.org packaging script on 2013-05-25
+version = "6.x-2.x-dev"
+core = "6.x"
+project = "signup"
+datestamp = "1369453503"
+

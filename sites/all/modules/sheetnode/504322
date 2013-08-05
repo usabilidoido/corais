@@ -1,0 +1,300 @@
+
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en" class="">
+    
+    
+    
+    
+
+    
+    <head>
+        <meta id="CompatabilityMode" http-equiv="X-UA-Compatible" content="IE=edge" />
+	    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <link href="http://i1.codeplex.com/css/v19958/i1970215/StyleSheet.ashx" id="MasterCss" rel="stylesheet" type="text/css" />
+        <link rel="SHORTCUT ICON" href="http://www.codeplex.com/favicon.ico" />
+        <title>PHPExcel - Download Release File</title>
+        
+        <!--
+        Third party scripts and code linked to or referenced from this website are licensed to you by the parties that own such code,
+        not by Microsoft.  See ASP.NET Ajax CDN Terms of Use – http://www.asp.net/ajaxlibrary/CDN.ashx.
+        -->
+        <script src="http://ajax.aspnetcdn.com/ajax/jquery/jquery-1.4.4.min.js" type="text/javascript"></script>
+        <script src="http://ajax.aspnetcdn.com/ajax/jquery.ui/1.8.6/jquery-ui.min.js" type="text/javascript"></script>
+        
+        
+    <style type="text/css">.SideBar, .SideBarPadding{display:none;}.MainContent{width:auto;}.SiteContentTable{width:100%;}</style>
+    <style id="ProjectStyles" type="text/css">
+        .SiteHeader, .SiteHeaderLeft {
+            height:45px !important;
+            overflow:hidden;
+        }
+        .SiteContent 
+        {
+            padding: 0 0 1em 0;
+            margin-top:0;
+            min-height:225px;
+            border-right: 1px solid lightgrey;
+            border-left: 1px solid lightgrey;
+            border-bottom: 1px solid lightgrey;
+        }
+        .IE table.MinWidthContent
+        {
+	        table-layout: auto !important;	
+        }
+    </style>
+    
+    
+    
+    
+    <meta id="WTProjectName" name="WT.pi" content="PHPExcel"/>
+    
+
+    <link rel="EditURI" type="application/rsd+xml" title="RSD" href='http://phpexcel.codeplex.com/rsd' />
+    <link rel="wlwmanifest" type="application/wlwmanifest+xml" title="WLWManifest" href='/wlwmanifest.xml' />
+    
+    
+        <link rel="alternate" type="application/rss+xml" title="PHPExcel" url="http://phpexcel.codeplex.com/project/feeds/rss"/>
+    
+        
+        <link rel="alternate" type="application/rss+xml" title="PHPExcel&#32;-&#32;Discussions" url="http://phpexcel.codeplex.com/project/feeds/rss?ProjectRSSFeed=codeplex%3a%2f%2fforum%2fphpexcel"/>
+        
+        <link rel="alternate" type="application/rss+xml" title="PHPExcel&#32;-&#32;Issue&#32;Tracker" url="http://phpexcel.codeplex.com/project/feeds/rss?ProjectRSSFeed=codeplex%3a%2f%2fworkitem%2fphpexcel"/>
+        
+        <link rel="alternate" type="application/rss+xml" title="PHPExcel&#32;-&#32;Downloads" url="http://phpexcel.codeplex.com/project/feeds/rss?ProjectRSSFeed=codeplex%3a%2f%2frelease%2fphpexcel"/>
+        <link rel="alternate" type="application/rss+xml" title="PHPExcel&#32;-&#32;Reviews" url="http://phpexcel.codeplex.com/project/feeds/rss?ProjectRSSFeed=codeplex%3a%2f%2freview%2fphpexcel"/>
+        
+    
+        <link rel="alternate" type="application/rss+xml" title="PHPExcel&#32;-&#32;Source&#32;code" url="http://phpexcel.codeplex.com/project/feeds/rss?ProjectRSSFeed=codeplex%3a%2f%2fsourcecontrol%2fphpexcel"/>
+        <link rel="alternate" type="application/rss+xml" title="PHPExcel&#32;-&#32;Wiki" url="http://phpexcel.codeplex.com/project/feeds/rss?ProjectRSSFeed=codeplex%3a%2f%2fwiki%2fphpexcel"/>
+    
+    </head>
+    
+    <body>
+        <script src="http://i1.codeplex.com/scripts/v19958/i7/ScriptLoader.ashx" type="text/javascript"></script>
+        <form id="aspnetForm" autocomplete="off" method="POST" enctype="multipart/form-data">
+            <input name="__RequestVerificationToken" type="hidden" value="Xb6EtZ7DpVHe_apFXQPVXIPKuLOoHtf6qVX6hrCKHWNqtYcO7GPIiOWTDySjf9D7V88qTafmRQTim3cvcAVjDPxLK9sjvpzTCrR1jZ8-b-iXgKVzcslorD8tJEROouusMEH-4g2" /><input name="__RequestVerificationToken2" type="hidden" value="__RequestVerificationToken2ada65b66-b518-4ed9-b5bb-19ed1f7a2096" />
+            
+            <div id="UpdateProgressPanel" class="loading_animation" style="display:none;">
+                <div class="row">
+                    <h2 class="anim_h2">
+                        <span id="UpdateProgressText">Updating...</span>
+                        <span id="animatedLoadingIconContainer">
+                            <img id="animatedLoadingIcon" src="http://i3.codeplex.com/Images/v19958/loading_animation.gif" class="anim_img"/>
+                        </span>
+                    </h2>
+                </div>
+            </div>
+            
+            <div style="display:none;">
+                
+                    <script type="text/javascript">
+                        $loadScript("https://siterecruit.comscore.com/sr/codeplex/broker.js");
+                    </script>
+
+                
+                
+                <img id="BlankImage" style="width:0;height:0;" src="http://i3.codeplex.com/Images/v19958/blank.png" onload="self.logoImageLoaded=true;"/>
+
+                <script language="javascript" type="text/javascript">
+                    var date = new Date();
+                    var timezoneOffset = date.getTimezoneOffset() / 60 * -1;
+                    var timezoneOffsetCookie = getCookie("TimezoneOffset");
+                    var firstTimeSetTimezoneCookie = false;
+
+                    if (timezoneOffsetCookie == null || timezoneOffsetCookie != timezoneOffset) {
+                        firstTimeSetTimezoneCookie = true;
+                        document.cookie = "TimezoneOffset=" + timezoneOffset + '; domain=.codeplex.com;expires=Sat, 18 Jan 2014 05:14:35 UTC';
+                    }
+                </script>
+                
+                
+                    <noscript>
+                        <a href="http://www.omniture.com" title="Web Analytics"><img src="http://msstonojstemp.112.2O7.net/b/ss/msstonojstemp/1/H.20.2--NS/0" height="1" width="1" border="0" alt="" /></a>
+                    </noscript>
+                
+            </div>
+            
+            <div id="header">
+                <div id="header_wrap" class="row">
+                    <p id="logo"><a href="http://www.codeplex.com">Code<span class="semi">Plex</span></a><span id="tagline">Project Hosting for Open Source Software</span></p>
+                    
+
+<ul id="nav">
+
+    <li><a href="/site/register/new" id="registerLink" class="ZoomFix">Register</a></li>
+    <li ><a class="SignInLink" href="https://www.codeplex.com/site/login?RedirectUrl=http%3a%2f%2fphpexcel.codeplex.com%2fdownloads%2fget%2f504322" id="signInLink">Sign In</a></li>
+  
+    <li class="last"><a class="rss_site_icon" href="http://www.codeplex.com/site/feeds/rss" type="application/rss+xml" rel="Alternate" title="CodePlex Site Activity"></a></li>
+</ul>
+                    <input id="searchsite" name="searchsite" maxlength="500" type="text" value="" /><span id="search_mag"><a id="submitSearch" name="submitSearch" class="magnify" title="Search" href="#"></a></span>
+                    <script>
+	$(document).ready(function() {
+    var searchButton = $('#submitSearch'),
+        searchBar = $('#searchsite');
+
+    // Register our own handler for the search event while we wait for the SearchBox script to load.
+    searchButton.bind('click.backupSearchBox', doProjectSearch);
+    searchBar.bind('keypress.backupSearchBox', function(e) { if ($keyCode(e) === 13) { doProjectSearch(); return false; } });
+
+    function cleanupSearchEvents() {
+        // If the SearchBox was loaded, unregister our handlers.
+        if (epx_loaded) {
+            searchButton.unbind('.backupSearchBox');
+            searchBar.unbind('.backupSearchBox');
+        }
+    }
+
+    $loadScript('http://i4.services.social.microsoft.com/search/Widgets/SearchBox.jss?appid=1000&scopeid=1&boxId=searchsite&btnId=submitSearch&watermark=Search%20all%20projects&overrideWatermark=true&searchLocation=%2fsite%2fsearch&allowEmptySearch=true&focusOnInit=False&minimumTermLength=3', cleanupSearchEvents);
+})
+function doProjectSearch() {
+    
+    var url = '/site/search';
+
+    //If search term is not same as watermark
+    if($('#searchsite').val() != 'Search all projects')    
+    {        
+        url = url + '?query=' + encodeURIComponent($('#searchsite').val());
+    }
+
+    
+    var callback = '';
+    if (callback.length > 0 && eval('typeof ' + callback) != 'undefined')
+        url += eval(callback + '()');
+
+    window.location.href = url;
+    return false;
+}
+</script>
+                </div>
+            </div>
+            
+            <div id="wrap">
+                
+    <div id="sub_heading" class="row">
+        
+        <div id="ProjectHeader">
+            <div id="project_title_row" class="row">
+                <div id="project_logo">
+                    
+    
+    <h1><a href="http://phpexcel.codeplex.com/"><img src="http://download-codeplex.sec.s-msft.com/Download?ProjectName=phpexcel&DownloadId=65397&Build=19958" alt="PHPExcel" /></a></h1>
+
+                </div>
+                <div id="project_title_links">
+                    
+                </div>
+            </div>
+        </div>
+        
+        <div id="ProjectDetailsDiv">
+            
+        </div>
+		<div class="clear"></div>
+        
+
+<ul id="page_box_links">
+	<li id="homeTabCell" style="width: 63px;"><a id="homeTab" href="http://phpexcel.codeplex.com/" class="box_home">home</a><div></div></li>
+    
+	<li id="sourceTabCell" style="width:117px;"><a id="sourceTab" href="http://phpexcel.codeplex.com/SourceControl/BrowseLatest" class="box_source">source code</a><div></div></li>
+    
+	<li id="releasesTabCell" style="width:112px;"><a id="releasesTab" href="http://phpexcel.codeplex.com/releases/view/96183" class="downloads_active">downloads</a><div></div></li>
+    
+    <li id="documentationTabCell" style="width:143px;"><a id="documentationTab" href="http://phpexcel.codeplex.com/documentation" class="box_documentation">documentation</a><div></div></li>
+    
+	<li id="discussionTabCell" style="width:112px;"><a id="discussionTab" href="http://phpexcel.codeplex.com/discussions" class="box_discussions">discussions</a><div></div></li>
+    
+	<li id="workItemsTabCell" style="width:124px;"><a id="workItemsTab" href="http://phpexcel.codeplex.com/workitem/list/basic" class="box_issue">issue tracker</a><div></div></li>
+    
+	<li id="peopleTabCell" style="width:71px;"><a id="peopleTab" href="http://phpexcel.codeplex.com/team/view" class="box_people">people</a><div></div></li>
+	<li id="licenseTabCell" style="width:96px; margin-right:15px;"><a id="licenseTab" href="http://phpexcel.codeplex.com/license" class="box_license">license</a><div></div></li>
+    <span class="stretch"></span>
+</ul>
+		    <div class="clear"></div>
+            
+        
+
+    </div>
+    
+    
+    <script type="text/javascript">
+        var interval, count = 3;
+        function startDownload() {
+            interval = setInterval(function() {
+                count -= 1;
+                if (count == 0) {
+                    clearInterval(interval);
+                    
+                    $('#CountdownMessage').html("Click <b>" +
+                        '<a id="downloadLink"' +
+                        'href="#"' + 
+                        'd:postUrl="http://phpexcel.codeplex.com/releases/captureDownload"' +
+                        'd:fileid="504322"' +
+                        'd:clickoncepath=""' +
+                        'd:redirectToAds="false"' +
+                        'onclick="return $.release.fn.downloadFile(this);">' +
+                        'here</a></b> if your browser does not start the download automatically.');
+                        $.release.fn.downloadFile($('a#downloadLink'));
+                    
+                } else {
+                  $('#Countdown').text(count + ' second' + (count != 1 ? 's' : ''));
+                }
+            }, 1000);
+        }
+    </script>
+    <div id="ReleaseDownload">
+        <h1 class="page_title">downloading...</h1>
+
+        
+            <p>
+                <a href="http://phpexcel.codeplex.com/releases/view/96183">View the release</a> this file is associated with.
+                <span id="CountdownMessage">Your download will start in <span id="Countdown">3 seconds</span>.</span>
+            </p>
+            <script type="text/javascript">
+                $(document).ready(function() {
+                    startDownload();
+                });
+            </script>
+        
+    </div>
+    
+    
+<div id="ClickOnceOperaPanel" class="modal" style="display: none;">
+    <div class="row">
+        <h2>Opera does not support ClickOnce <a href="javascript:return false;" class="close">X</a></h2>
+    </div>
+    <div class="modal_info">
+        <div class="Body">
+            To install this application, save it and then open it.  Opening it directly from Opera will not work correctly.
+        </div>
+        <div class="modal_buttons">
+            <input type="button" class="ok" onclick="operaContinue();" value="Ok" />
+        </div>    
+        <div class="ClearBoth"></div>
+    </div>
+</div>
+        
+        
+                
+                <div class="clear"></div>
+                
+                <div id="footer">
+                    <div class="row">
+                        <hr />
+                        <ul>
+                            <li>© 2006-2013 Microsoft</li>
+                            <li><a href="http://www.codeplex.com/site/help">Get Help</a></li>
+                            <li><a href="/site/legal/privacy">Privacy Statement</a></li>
+                            <li><a href="http://www.codeplex.com/site/legal/terms">Terms of Use</a></li>
+                            <li><a href="http://www.codeplex.com/site/legal/conduct">Code of Conduct</a></li>
+                            <li><a href="http://www.lakequincy.com" target="_blank">Advertise With Us</a></li>
+                            <li>Version 1.15.2013.19958</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </body>
+
+</html>

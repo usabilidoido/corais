@@ -1,0 +1,74 @@
+<?php
+// $Id: publication_date.module,v 1.1 2009/07/20 19:49:00 cleverage Exp $
+/**
+ * @file
+ * Add a field containing the publication date.
+ *
+ * @author Clever Age
+ * @author Emmanuelle Gouleau
+ * @author Tristan Marly
+ */
+
+
+/**
+ * Implementation of hook_nodeapi().
+ * After each modification / insert / delete, update the publication date
+ */
+function publication_date_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+  switch ($op) {
+    case 'load':
+      $node->published_at = _publication_date_get_date($node->nid);
+
+      // we have to manage the 'old nodes', i.e nodes that have been published BEFORE the activation
+      // of this module.
+      if (!$node->published_at) {
+        $row = db_fetch_array(db_query("SELECT created, status FROM {node} WHERE nid = %d", $node->nid));
+        if ($row && $row['status'] == 1) {
+          $node->published_at = $row['created'];
+        }
+      }
+      break;
+    case 'insert':
+    case 'update':
+      // save publication date
+      if ($node->status == 1) {
+        // already in database ?
+        $date = _publication_date_get_date($node->nid);
+        if (!$date) {
+          // no, we insert it
+          db_query("INSERT INTO {publication_date} (nid, published_at) VALUES (%d, %d)", $node->nid, time());
+        }
+      }
+      else {
+        // already in base ?
+        $date = _publication_date_get_date($node->nid);
+        if ($date) {
+          // yes, so we remove it
+          db_query("DELETE FROM {publication_date} WHERE nid = %d", $node->nid);
+        }
+      }
+      break;
+    case 'delete' :
+      $date = _publication_date_get_date($node->nid);
+      if ($date) {
+        db_query("DELETE FROM {publication_date} WHERE nid = %d", $node->nid);
+      }
+      break;
+  }
+}
+
+/**
+ * @return the publication date for the given node, or false if the node is not published
+ */
+function _publication_date_get_date($nid) {
+  $date = db_result(db_query("SELECT published_at FROM {publication_date} WHERE nid = %d", $nid));
+  return $date;
+}
+
+/**
+ * Implementation of "contrib module views" hook_views_tables()
+ */
+function publication_date_views_api() {
+  $info['api'] = 2;
+  return $info;
+}

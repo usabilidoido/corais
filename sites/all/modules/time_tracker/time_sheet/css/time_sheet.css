@@ -1,0 +1,21 @@
+/* $Id$ */
+
+.show-case { display:none; }
+.secret-submit {display:none;}
+
+#case-details-monday,
+#case-details-tuesday,
+#case-details-wednesday,
+#case-details-thursday,
+#case-details-friday { padding-bottom:10px; }
+
+.crayon-swatch { float:left; }
+.time-sheet-case { margin-left:5px; }
+.case-details { margin:10px 0 5px 0; padding:10px; border:1px solid #ccc; background-color:#eee; }
+.time-sheet-header { font-size:20px; color:#ccc; line-height:30px; }
+
+/*.hidden {
+  display:none;
+}*/
+
+

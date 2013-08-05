@@ -1,0 +1,75 @@
+<?php
+// $Id
+
+/**
+ * Implementation of hook_install().
+ */
+function block_quiz_install() {
+  // Create tables.
+  drupal_install_schema('block_quiz');
+}
+
+/**
+ * Implementation of hook_install().
+ */
+
+function block_quiz_uninstall() {
+  // Remove tables
+  drupal_uninstall_schema('block_quiz');
+  
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function block_quiz_schema() {
+
+	$schema['block_quiz'] = array(
+		'description' => t('stores the quiz information'),
+		'fields' => array(		
+			'qid' => array(
+				'type' => 'serial',
+				'not null' => TRUE,
+				'description' => t('quiz id, the primary key'),
+			),
+			
+			'question' => array(
+				'type' => 'varchar',
+				'length' => 255,
+				'not null' => TRUE,
+				'description' => t('The question text'),
+			),
+			
+			'status' => array(
+				'type' => 'int',
+				'size' => 'tiny',
+				'not null' => TRUE,
+				'description' => t('if the quiz is in cirulation or not'),
+				'default' => 1,
+			),
+			'date' => array(
+				'type' => 'int',
+				'not null' => TRUE,
+				'default' => 0,
+				'description' => t('an unix timestamp of the date the quiz is created'),
+			),
+			'options' => array(
+				'type' => 'text',
+				'size' => 'normal',
+				'not null' => TRUE,
+				'description' => t('a serialized array of the quiz options along with the feedbacks'),
+			),
+			'answer' => array(
+				'type' => 'int',
+				'size' => 'tiny',
+				'not null' => TRUE,
+				'description' => t('the correct answer of the quiz'),
+			),
+			
+		),
+		'primary key' => array('qid'),
+	);
+	
+	return $schema;
+
+}

@@ -1,0 +1,92 @@
+<?php
+/**
+ * @file
+ *   Migrate Appbar/Tray into Taskbar.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function taskbar_migrate_menu() {
+  $items['admin/build/taskbar/tools'] = array(
+    'title' => 'Tools',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('taskbar_migrate_form'),
+    'access arguments' => array('administer site configuration'),
+    'description' => 'Allows administrators to migrate from other Taskbar-like modules.',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 10,
+  );
+  return $items;
+}
+
+/**
+ * Tools form callback.
+ */
+function taskbar_migrate_form(&$form_state) {
+  if (!module_exists('taskbar_tacore')) {
+    drupal_set_message(t('Please enable Taskbar Activity tacore module'));
+    drupal_goto('admin/build/taskbar');
+  }
+
+  $sources = array();
+  if (module_exists('appbar')) {
+    $sources['appbar'] = t('Appbar');
+  }
+  $form['source'] = array(
+    '#type' => 'select',
+    '#title' => t('Select source module'),
+    '#description' => t('Select a module to migrate into Taskbar'),
+    '#required' => TRUE,
+    '#options' => $sources,
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Migrate'),
+  );
+  return $form;
+}
+
+/**
+ * Validate function for the admin settings form.
+ */
+function taskbar_migrate_form_submit($form, &$form_state) {
+  if ($form_state['values']['source'] == 'appbar') {
+    taskbar_migrate_migrate_appbar();
+  }
+}
+
+/**
+ * Import activity notification from Appbar.
+ */
+function taskbar_migrate_migrate_appbar() {
+  $schema_version = db_result(db_query("SELECT schema_version FROM {system} WHERE name='appbar'"));
+  if ($schema_version >= '6200') {
+    $field = array('unread' => 'is_new', 'created' => 'created', 'id' => 'aid');
+  }
+  else {
+    $field = array('unread' => 'status', 'created' => 'alert_time', 'id' => 'tid');
+  }
+
+  $activity = new stdClass();
+  $activity->data = array();
+  $activity->entity_id = 0;
+  $activity->uid = 0;
+  $recipient = new stdClass();
+
+  $result = db_query("SELECT * FROM {appbar} ORDER BY {$field['id']}");
+  $count = 0;
+  while ($row = db_fetch_object($result)) {
+    $activity->created = $row->$field['created'];
+    $activity->message = $row->message;
+    $activity->type = empty($row->identifier) ? 'appbar' : 'appbar-' . $row->identifier;
+    drupal_write_record('taskbar_tacore', $activity);
+    
+    $recipient->aid = $activity->aid;
+    $recipient->recipient = $row->uid;
+    $recipient->unread = $row->$field['unread'];
+    drupal_write_record('taskbar_tacore_recipient', $recipient);
+    $count++;
+  }
+  drupal_set_message(t('@count activity notifications imported.', array('@count' => $count)));
+}

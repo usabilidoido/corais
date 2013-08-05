@@ -1,0 +1,78 @@
+<?php
+// $Id: stylistics.module,v 1.2 2010/06/19 15:32:33 adaddinsane Exp $
+/**
+ * @file
+ * Stylistics - Utility module to ensure JS and CSS files are reloaded after a
+ * form error.
+ *
+ * Any module which loads JS and CSS files in hook_form_alter
+ */
+
+/**
+ * Implementation of hook_form_alter().
+ *
+ * We don't know where we are in the order of module list, so throw in the
+ * pre_render callback on every form and we'll check the form at that point.
+ */
+function stylistics_form_alter(&$form, $form_state, $form_id) {
+  $form['#pre_render'][] = '_stylistics_pre_render';
+}
+
+/**
+ * Implements hook_pre_render().
+ */
+function _stylistics_pre_render($form) {
+  if (!$form['#stylistics_processed']) {
+    _stylistics_scan($form);
+    $form['#stylistics_processed'] = TRUE;
+  }
+  return $form;
+}
+
+/**
+ * Recursively scan forms for '#stylistics' entries and process where found
+ */
+function _stylistics_scan($element) {
+  if (isset($element['#stylistics']) && is_array($element['#stylistics'])) {
+    foreach ($element['#stylistics'] as $module => $stylistics) {
+      // Don't confuse jquery_ui with the other modules
+      if ($module=='jquery_ui') {
+        continue;
+      }
+
+      // check for JS files to be loaded every time
+      if (isset($stylistics['js']) && is_array($stylistics['js'])) {
+        foreach ($stylistics['js'] as $args) {
+          call_user_func_array('drupal_add_js', $args);
+        }
+      }
+
+      // check for CSS files to be loaded every time
+      if (isset($stylistics['css']) && is_array($stylistics['css'])) {
+        foreach ($stylistics['css'] as $args) {
+          call_user_func_array('drupal_add_css', $args);
+        }
+      }
+
+      // check for JS files to be loaded after the first time
+      if (isset($element['#post']) && isset($stylistics['js_skip']) && is_array($stylistics['js_skip'])) {
+        foreach ($stylistics['js_skip'] as $args) {
+          call_user_func_array('drupal_add_js', $args);
+        }
+      }
+    }
+
+    // Load up any jquery_ui packages
+    if (module_exists('jquery_ui') && isset($element['#stylistics']['jquery_ui']) && is_array($element['#stylistics']['jquery_ui'])) {
+      foreach ($element['#stylistics']['jquery_ui'] as $ui) {
+        jquery_ui_add($ui);
+      }
+    }
+  }
+
+  // Check any children
+  foreach (element_children($element) as $key) {
+    _stylistics_scan($element[$key]);
+  }
+}
+

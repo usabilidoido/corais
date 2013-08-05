@@ -1,0 +1,16 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the comment_registration module.
+ */
+
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function comment_registration_uninstall() {
+  foreach (node_get_types() as $type) {
+    variable_del('comment_registration_enabled_' . $type->type);
+  }
+}

@@ -1,0 +1,252 @@
+<?php
+
+define('USER_INTRO_PATH',                 drupal_get_path('module', 'user_intro'));
+define('USER_INTRO_DEFAULT_DISABLE_TEXT', t("I don't want to see this anymore."));
+define('USER_INTRO_DEFAULT_HIDE_TEXT',    t('Hide Intro'));
+define('USER_INTRO_DEFAULT_SHOW_TEXT',    t('Show Intro'));
+
+/*************************************************************
+				DRUPAL HOOKS
+*************************************************************/
+
+/**
+ * Implementation of hook_init();
+ */
+function user_intro_init() {
+  if (!empty($_SESSION['user_intro_show']) && $_SESSION['user_intro_show']) {
+    drupal_add_css(USER_INTRO_PATH.'/css/user_intro.css');
+    drupal_add_js(USER_INTRO_PATH.'/js/user_intro.js');
+  }
+}
+
+/**
+ * Implementation of hook_menu();
+ */
+function user_intro_menu() {
+  $items = array();
+
+  $items['admin/settings/user_intro'] = array(
+    'title'             => 'User Intro Settings', 
+    'page callback'     => 'drupal_get_form', 
+    'page arguments'    => array('user_intro_settings'),
+    'access arguments'  => array('access administration pages'), 
+  );
+
+  $items['user_intro/disable'] = array(
+    'title'             => 'Disable User Intro',
+    'page callback'     => 'user_intro_disable',
+    'access callback'   => '_user_intro_access',
+  );
+
+  return $items;
+}
+
+/**
+ * Implementation of hook_theme();
+ */
+function user_intro_theme($existing, $type, $theme, $path) {
+  return array(
+    'user_intro'  => array(
+      'arguments' => array(
+        'site_name' => NULL,
+        'form'      => NULL,
+        'hide_text' => NULL,
+        'class'     => NULL,
+      ), 
+      'path'      => USER_INTRO_PATH.'/templates',
+      'template'  => 'user_intro',
+    ), 
+    'user_intro_show'  => array(
+      'arguments' => array(
+        'show_text' => NULL,
+        'class'     => NULL,
+      ), 
+      'path'      => USER_INTRO_PATH.'/templates',
+      'template'  => 'user_intro_show',
+    ), 
+  );
+}
+
+/**
+ * Implementation of hook_form_alter();
+ */
+function user_intro_form_alter(&$form, &$form_state, $form_id) {
+  if ($form_id == 'user_profile_form') {
+    global $user;
+
+    $form['user_intro'] = array(
+      '#collapsible'  => TRUE,
+      '#title'        => t('User Intro'),
+      '#tree'         => TRUE,
+      '#type'         => 'fieldset',
+    );
+
+      $form['user_intro']['disable'] = array(
+        '#default_value'  => (bool) db_result(db_query("SELECT uid FROM {user_intro} WHERE uid = %d", $user->uid)),
+        '#type'           => 'checkbox',
+        '#title'          => t('Disable user intro'),
+      );
+
+    $form['#submit'][] = 'user_info_user_profile_form_submit';
+  }
+  elseif (in_array($form_id, array('user_login', 'user_login_block'))) {
+    array_unshift($form['#validate'], 'user_intro_user_login_validate');
+  }
+}
+
+/**
+ * Implementation of hook_user()
+ */
+function user_intro_user($op, &$edit, &$account, $category = NULL) {
+  if ($op == 'login') {
+    if(! (bool) db_result(db_query("SELECT uid FROM {user_intro} WHERE uid = %d", $account->uid))) {
+      $_SESSION['user_intro_show'] = TRUE;
+    }    
+  }
+}
+
+/*************************************************************
+        CALLBACKS
+*************************************************************/
+
+/**
+ * Callback for /admin/settings/user_intro
+ */
+function user_intro_settings() {
+  $form = array();
+
+  $form['user_intro_disable_text'] = array(
+    '#default_value'  => variable_get('user_intro_disable_text', USER_INTRO_DEFAULT_DISABLE_TEXT),
+    '#description'    => t('The text displayed next to the checkbox for disabling the intro.'),
+    '#title'          => t('"Disable" checkfield title'),
+    '#type'           => 'textfield',
+  );
+
+  $form['user_intro_hide_text'] = array(
+    '#default_value'  => variable_get('user_intro_hide_text', USER_INTRO_DEFAULT_HIDE_TEXT),
+    '#description'    => t('The text used for the link which closes the intro.'),
+    '#title'          => t('"Hide" link title'),
+    '#type'           => 'textfield',
+  );
+
+  $form['user_intro_show_text'] = array(
+    '#default_value'  => variable_get('user_intro_show_text', USER_INTRO_DEFAULT_SHOW_TEXT),
+    '#description'    => t('The text used for the link which shows the intro.'),
+    '#title'          => t('"Show" link title'),
+    '#type'           => 'textfield',
+  );
+
+  return system_settings_form($form);
+}
+
+/**
+ * Callback for /user_intro/disable
+ */
+function user_intro_disable() {
+  if (_user_intro_access()) {
+    global $user;
+
+    db_query("INSERT INTO {user_intro} (uid) VALUES (%d)", $user->uid);
+
+    drupal_set_message("The introduction has been disabled. If you'd like to see it again, you can turn it back on at your account settings page.");
+  }
+}
+
+/*************************************************************
+        FORMS
+*************************************************************/
+
+/** 
+ * Form to disable the user intro.
+ */
+function user_intro_disable_form() {
+  $form = array();
+
+  $form['disabled'] = array(
+    '#type'   => 'checkbox',
+    '#title'  => variable_get('user_intro_disable_text', USER_INTRO_DEFAULT_DISABLE_TEXT),
+  );
+
+  return $form;
+}
+
+/**
+ * Submit handler for user_profile_form
+ */ 
+function user_info_user_profile_form_submit($form, &$form_state) {
+  global $user;
+
+  if (!empty($form_state['values']['user_intro']['disable'])) {
+    db_query("INSERT INTO {user_intro} (uid) VALUES (%d)", $user->uid);
+  }
+  else {
+    db_query("DELETE FROM {user_intro} WHERE uid = %d", $user->uid);
+    $_SESSION['user_intro_show'] = TRUE;
+  }
+}
+
+/**
+ * Validation handler for user_login and user_login_block
+ */
+function user_intro_user_login_validate($form, &$form_state) {
+  // identify first login
+  $field = valid_email_address($form_state['values']['name']) ? 'mail' : 'name';
+  $login = db_result(db_query("SELECT login FROM {users} WHERE %s = '%s'", $field, $form_state['values']['name']));
+
+  if (!$login) {
+    $_SESSION['user_intro_show']  = TRUE;
+    $_SESSION['user_intro_first'] = TRUE;
+  }
+}
+
+/*************************************************************
+        THEME HOOKS
+*************************************************************/
+
+function user_intro_preprocess_page(&$vars) {
+  if (!empty($_SESSION['user_intro_show']) && $_SESSION['user_intro_show']) {
+    $intro_class = '';
+    $show_class = '';
+
+    if (empty($_SESSION['user_intro_first']) || !$_SESSION['user_intro_first']) {
+      $intro_class = 'user-intro-hidden';
+    }
+    else {
+      $show_class = 'user-intro-hidden';
+
+      unset($_SESSION['user_intro_first']);
+    }
+
+    $name = variable_get('site_name', t('Our Drupal Site'));
+    $form = drupal_get_form('user_intro_disable_form');
+    $text = variable_get('user_intro_hide_text', USER_INTRO_DEFAULT_HIDE_TEXT);
+    $vars['user_intro'] = theme('user_intro', $name, $form, $text, $intro_class);
+
+    global $user;
+    if (! (bool) db_result(db_query("SELECT uid FROM {user_intro} WHERE uid = %d", $user->uid))) {
+      $text = variable_get('user_intro_show_text', USER_INTRO_DEFAULT_SHOW_TEXT);
+      $vars['user_intro_show']  = theme('user_intro_show', $text, $show_class);      
+    }
+    else {
+      $vars['user_intro_show'] = '';
+    }
+  }
+}
+
+/*************************************************************
+				HELPERS
+*************************************************************/
+
+/*************************************************************
+        INTERNAL
+*************************************************************/
+
+/**
+ * Callback access handler to check for logged-in state.
+ */
+function _user_intro_access() {
+  global $user;
+
+  return (bool) $user->uid;
+}
+

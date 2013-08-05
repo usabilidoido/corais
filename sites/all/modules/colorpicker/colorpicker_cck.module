@@ -1,0 +1,246 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Defines a colorpicker CCK field.
+ */
+
+/**
+ * Implementation of hook_theme().
+ */
+function colorpicker_cck_theme() {
+  return array(
+    'colorpicker_cck' => array('arguments' => array('element' => NULL)),
+    'colorpicker_cck_formatter_default' => array('arguments' => array('element' => NULL)),
+    'colorpicker_cck_formatter_markup' => array('arguments' => array('element' => NULL)),
+  );
+}
+
+/**
+ * Implementation of hook_field_info().
+ */
+function colorpicker_cck_field_info() {
+  return array(
+    'colorpicker_cck_textfield' => array(
+      'label' => t('Colorpicker'),
+      'description' => t('Store a colorpicker_cck in the database as an integer.'),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_field_settings().
+ */
+function colorpicker_cck_field_settings($op, $field) {
+  switch ($op) {
+    case 'database columns':
+      return array('value' => array('type' => 'varchar', 'length' => 64, 'not null' => FALSE, 'sortable' => TRUE));
+
+    case 'views data':
+      $allowed_values = content_allowed_values($field);
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_field().
+ */
+function colorpicker_cck_field($op, &$node, $field, &$items, $teaser, $page) {
+  switch ($op) {
+    case 'validate':
+      if (is_array($items)) {
+        foreach ($items as $delta => $item) {
+          $error_element = isset($item['_error_element']) ? $item['_error_element'] : '';
+
+          if ($item['value'] != '' && !preg_match('/^#(?:(?:[a-f\d]{3}){1,2})$/i', $item['value'])) {
+            form_set_error($error_element, "'". check_plain($item['value']) ."'". t(' is not a valid hex color'));
+          }
+        }
+      }
+      return $items;
+  }
+}
+
+/**
+ * Implementation of hook_content_is_empty().
+ */
+function colorpicker_cck_content_is_empty($item, $field) {
+  if (empty($item['value']) && (string)$item['value'] !== '0') {
+    return TRUE;
+  }
+  return FALSE;
+}
+
+/**
+ * Implementation of hook_widget_info().
+ *
+ * Here we indicate that the content module will handle
+ * the default value and multiple values for these widgets.
+ *
+ * Callbacks can be omitted if default handing is used.
+ * They're included here just so this module can be used
+ * as an example for custom modules that might do things
+ * differently.
+ */
+function colorpicker_cck_widget_info() {
+  return array(
+    'colorpicker_cck' => array(
+      'label' => t('Colorpicker'),
+      'field types' => array('colorpicker_cck_textfield'),
+      'multiple values' => CONTENT_HANDLE_CORE,
+      'callbacks' => array(
+        'default value' => CONTENT_CALLBACK_DEFAULT,
+      ),
+    ),
+  );
+}
+
+/**
+ * Implementation of FAPI hook_elements().
+ *
+ * Any FAPI callbacks needed for individual widgets can be declared here,
+ * and the element will be passed to those callbacks for processing.
+ *
+ * Drupal will automatically theme the element using a theme with
+ * the same name as the hook_elements key.
+ *
+ * Includes a regex to check for valid values as an additional parameter
+ * the validator can use. The regex can be overridden if necessary.
+ */
+function colorpicker_cck_elements() {
+  return array(
+    'colorpicker_cck' => array(
+      '#input' => TRUE,
+      '#columns' => array('value'),
+      '#delta' => 0,
+      '#process' => array('colorpicker_cck_process'),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_widget().
+ *
+ * Attach a single form element to the form. It will be built out and
+ * validated in the callback(s) listed in hook_elements. We build it
+ * out in the callbacks rather than here in hook_widget so it can be
+ * plugged into any module that can provide it with valid
+ * $field information.
+ *
+ * Content module will set the weight, field name and delta values
+ * for each form element. This is a change from earlier CCK versions
+ * where the widget managed its own multiple values.
+ *
+ * If there are multiple values for this field, the content module will
+ * call this function as many times as needed.
+ *
+ * @param $form
+ *   the entire form array, $form['#node'] holds node information
+ * @param $form_state
+ *   the form_state, $form_state['values'] holds the form values.
+ * @param $field
+ *   the field array
+ * @param $delta
+ *   the order of this item in the array of subelements (0, 1, 2, etc)
+ *
+ * @return
+ *   the form item for a single element for this field
+ */
+function colorpicker_cck_widget(&$form, &$form_state, $field, $items, $delta = 0) {
+  $element = array(
+    '#type' => $field['widget']['type'],
+    '#default_value' => isset($items[$delta]) ? $items[$delta] : '',
+  );
+  return $element;
+}
+
+/**
+ * Process an individual element.
+ *
+ * Build the form element. When creating a form using FAPI #process,
+ * note that $element['#value'] is already set.
+ *
+ * The $fields array is in $form['#field_info'][$element['#field_name']].
+ */
+function colorpicker_cck_process($element, $edit, $form_state, $form) {
+  $field_name = $element['#field_name'];
+  $field = $form['#field_info'][$field_name];
+  $field_key  = $element['#columns'][0];
+
+  $value = isset($element['#value'][$field_key]) ? $element['#value'][$field_key] : '';
+
+  $element[$field_key] = array(
+    '#type' => 'colorpicker_textfield',
+    '#default_value' => $value,
+    '#title' => $element['#title'],
+    '#description' => $element['#description'],
+    '#required' => $element['#required'],
+    '#field_name' => $element['#field_name'],
+    '#type_name' => $element['#type_name'],
+    '#delta' => $element['#delta'],
+    '#columns' => $element['#columns'],
+  );
+
+  $prefixes = array();
+  $suffixes = array();
+
+  // Make sure we don't wipe out element validation added elsewhere.
+  if (empty($element['#element_validate'])) {
+    $element['#element_validate'] = array();
+  }
+  if (!empty($field['prefix'])) {
+    $prefixes = explode('|', $field['prefix']);
+    $element[$field_key]['#field_prefix'] = array_pop($prefixes);
+  }
+  if (!empty($field['suffix'])) {
+    $suffixes = explode('|', $field['suffix']);
+    $element[$field_key]['#field_suffix'] = array_pop($suffixes);
+  }
+
+  // Used so that hook_field('validate') knows where to flag an error.
+  $element['_error_element'] = array(
+    '#type' => 'value',
+    '#value' => implode('][', array_merge($element['#parents'], array($field_key))),
+  );
+
+  return $element;
+}
+
+function colorpicker_cck_field_formatter_info() {
+  return array(
+    'default' => array(
+      'label' => t('Default'),
+      'field types' => array('colorpicker_cck_textfield'),
+      'multiple values' => CONTENT_HANDLE_CORE,
+    ),
+    'markup' => array(
+      'label' => t('Markup'),
+      'field types' => array('colorpicker_cck_textfield'),
+      'multiple values' => CONTENT_HANDLE_CORE,
+    ),
+  );
+}
+
+
+/**
+ * Theme function for 'default' text field formatter.
+ */
+function theme_colorpicker_cck_formatter_default($element) {
+  return '<div class="colorpicker '. $element['#item']['value'] .'">'. check_plain($element['#item']['value']) .'</div>';
+}
+
+/**
+ * Theme function for 'plain' text field formatter.
+ */
+function theme_colorpicker_cck_formatter_markup($element) {
+  return '<div class="colorpicker" style="background-color: '. $element['#item']['value'] .'">&nbsp;</div>';
+}
+
+
+/**
+ * FAPI theme for an individual colorpicker_cck element.
+ */
+function theme_colorpicker_cck($element) {
+  return $element['#children'];
+}

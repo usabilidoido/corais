@@ -1,0 +1,70 @@
+<?php
+// $Id: casetracker_admin.test,v 1.1.2.2 2009/03/10 12:53:45 jmiccolis Exp $
+
+class CasetrackerAdminTest extends DrupalWebTestCase {
+
+  /**
+   * Implementation of getInfo
+   */
+  function getInfo() {
+    return array(
+      'name' => t('Case state CRUD.'),
+      'description' => t('Create, edit, update and delete case states'),
+      'group' => t('Case Tracker')
+    );
+  }
+
+  /**
+   * Implementation of setUp
+   */
+  function setUp() {
+    parent::setUp('views', 'casetracker', 'casetracker_basic');
+  }
+
+  /**
+   * Main test routine.
+   */
+  function testCasetrackerAdminCreation() {
+    $auth_user = $this->drupalCreateUser(array(
+      'administer case tracker',
+    ));
+    $this->drupalLogin($auth_user);
+
+    // Create a case state
+    foreach (array('priority', 'status', 'type') as $realm) {
+      $edit = array(
+        'name' => $this->randomName(32),
+        'realm' => $realm,
+      );
+      $this->drupalPost('admin/settings/casetracker/states/add', $edit, t('Submit'));
+      $text = t('The case state !name has been created', array('!name' => $edit['name']));
+      $this->assertText($text);
+    }
+
+    // Update a case state.
+    foreach (array('priority', 'status', 'type') as $realm) {
+      $states = casetracker_realm_load($realm);
+      $csid = array_pop(array_keys($states));
+
+      $edit = array(
+        'name' => $this->randomName(32),
+      );
+      $this->drupalPost('admin/settings/casetracker/states/edit/' . $csid, $edit, t('Submit'));
+      $text = t('The case state !name has been updated', array('!name' => $edit['name']));
+      $this->assertText($text);
+    }
+
+    // Reset the state cache after the above updates.
+    casetracker_case_state_load(null, null, true);
+
+    // Delete a case state.
+    foreach (array('priority', 'status', 'type') as $realm) {
+      $states = casetracker_realm_load($realm);
+      $csid = array_pop(array_keys($states));
+
+      $this->drupalPost('admin/settings/casetracker/states/delete/' . $csid, array(), t('Delete'));
+      $text = t('Deleted case state !name', array('!name' => $states[$csid]));
+      $this->assertText($text);
+    }
+  }
+}

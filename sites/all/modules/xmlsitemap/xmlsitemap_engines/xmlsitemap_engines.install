@@ -1,0 +1,162 @@
+<?php
+// $Id: xmlsitemap_engines.install,v 1.3.2.30 2010/01/27 06:01:37 davereid Exp $
+
+
+/**
+ * @file
+ * Installation file for XML sitemap engines.
+ */
+
+/*****************************************************************************
+ * Drupal hooks.
+ ****************************************************************************/
+
+/**
+ * Implementation of hook_install().
+ */
+function xmlsitemap_engines_install() {
+  db_query("UPDATE {system} SET weight = 15 WHERE name = 'xmlsitemap_engines'");
+  variable_set('xmlsitemap_engines_cron_timestamp_submit', 0);
+}
+
+/**
+ * Implementation of hook_update_N().
+ */
+function xmlsitemap_engines_update_6100() {
+	variable_del('xmlsitemap_engines_cron_submit_delay');
+  $variables = array(
+    'ask_url' => 'http://submissions.ask.com/ping?sitemap=[sitemap]',
+    'google_url' => 'http://www.google.com/webmasters/tools/ping?sitemap=[sitemap]',
+    'moreover_url' => 'http://api.moreover.com/ping?u=[sitemap]',
+    'live_url' => 'http://webmaster.live.com/ping.aspx?siteMap=[sitemap]',
+    'yahoo_url' => 'http://search.yahooapis.com/SiteExplorerService/V1/ping?sitemap=[sitemap]',
+  );
+  foreach ($variables as $variable => $value) {
+    variable_set('xmlsitemap_engines_'. $variable, $value);
+  }
+  variable_set('xmlsitemap_engines_cron_submit_frequency', 3600);
+  $ret[] = array(
+    'success' => TRUE,
+    'query' => 'Updated the module settings successfully.',
+  );
+  return $ret;
+}
+
+/**
+ * Implementation of hook_update_N().
+ */
+function xmlsitemap_engines_update_6106() {
+  $variables = array(
+    'submit',
+    'log_access',
+    'cron_submit_frequency',
+    'cron_submit_delay',
+  );
+  foreach ($variables as $variable) {
+    $oldname = "xmlsitemap_${variable}";
+    $newname = "xmlsitemap_engines_{$variable}";
+    $value = variable_get($oldname, FALSE);
+    if ($value !== FALSE) {
+      variable_set($newname, $value);
+      variable_del($oldname);
+      $ret[] = array(
+        'success' => TRUE,
+        'query' => "Variable name changed from ${oldname} to ${newname}.",
+      );
+    }
+  }
+  $ret[] = update_sql("UPDATE {system} SET weight = 15 WHERE name = 'xmlsitemap_engines'");
+  return $ret;
+}
+
+/**
+ * Update variables from Live Search to Bing.
+ */
+function xmlsitemap_engines_update_6107() {
+  $variables = array(
+    'submit' => FALSE,
+    'url' => 'http://webmaster.live.com/ping.aspx?siteMap=[sitemap]',
+    'verify' => '',
+    'verify_string' => '',
+  );
+  foreach ($variables as $variable => $default) {
+    $value = variable_get('xmlsitemap_engines_live_' . $variable, $default);
+    if ($variable == 'url' && $value == $default) {
+      $value = 'http://www.bing.com/webmaster/ping.aspx?siteMap=[sitemap]';
+    }
+    variable_set('xmlsitemap_engines_bing_' . $variable, $value);
+    variable_del('xmlsitemap_engines_live_' . $variable);
+  }
+  return array();
+}
+
+/**
+ * Set last submitted timestamp variable if non existent.
+ */
+function xmlsitemap_engines_update_6108() {
+  $ret = array();
+  $submitted = variable_get('xmlsitemap_engines_cron_timestamp_submit', FALSE);
+  if (!$submitted) {
+    variable_set('xmlsitemap_engines_cron_timestamp_submit', 0);
+    $ret[] = array(
+      'success' => TRUE,
+      'query' => 'Variable "xmlsitemap_engines_cron_timestamp_submit" has been created.',
+    );
+  }
+  return $ret;
+}
+
+/**
+ * Delete wrongly named variable xmlsitemap_engines_morover_url.
+ */
+function xmlsitemap_engines_update_6109() {
+  $ret = array();
+  variable_del('xmlsitemap_engines_morover_url');
+  variable_set('xmlsitemap_engines_moreover_url', 'http://api.moreover.com/ping?u=[sitemap]');
+  return $ret;
+}
+
+function xmlsitemap_engines_update_6110() {
+  $variables = array(
+    'ask_url' => 'http://submissions.ask.com/ping?sitemap=[sitemap]',
+    'google_url' => 'http://www.google.com/webmasters/tools/ping?sitemap=[sitemap]',
+    'moreover_url' => 'http://api.moreover.com/ping?u=[sitemap]',
+    'bing_url' => 'http://www.bing.com/webmaster/ping.aspx?siteMap=[sitemap]',
+    'yahoo_url' => 'http://search.yahooapis.com/SiteExplorerService/V1/ping?sitemap=[sitemap]',
+  );
+  foreach ($variables as $variable => $value) {
+    variable_set('xmlsitemap_engines_'. $variable, $value);
+  }
+  $ret[] = array(
+    'success' => TRUE,
+    'query' => 'Updated the module settings successfully.',
+  );
+  return $ret;
+}
+
+/**
+ * Deprecate verification functionality in favor of the site_verify.module.
+ */
+function xmlsitemap_engines_update_6111() {
+  $ret = array();
+  if (module_exists('site_verify') && function_exists('site_verify_import_xmlsitemap')) {
+    site_verify_import_xmlsitemap($ret);
+    if ($ret) {
+      // Only show the success message if there were any settings migrated.
+      drupal_set_message('XML sitemap search engine verification settings were successfully migrated to the Site Verification module.');
+    }
+  }
+  else {
+    drupal_set_message('The search engine verification settings in XML sitemap have been deprecated in favor of the <a href="http://drupal.org/project/site_verify">Site verification module</a>. Your settings will be migrated when you install and enable the Site verification module.', 'warning');
+  }
+  // Set the menu rebuild flag to remove the XML sitemap engine paths.
+  variable_set('menu_rebuild_needed', TRUE);
+  return $ret;
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function xmlsitemap_engines_uninstall() {
+  db_query("DELETE FROM {variable} WHERE name LIKE 'xmlsitemap\_engines\_'");
+}

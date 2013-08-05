@@ -1,0 +1,190 @@
+<?php
+
+include_once('atrium_book.features.inc');
+
+/**
+ * Implementation of hook_help().
+ */
+function atrium_book_help($path, $arg) {
+  if (($path == 'help#atrium_book') || context_isset('context', 'book_listing')) {
+    switch ($path) {
+      case 'node/add/book':
+      case 'node/%/edit':
+        $help = '';
+        $help .= '<h3>'. t('Notebook') .'</h3>';
+        $help .= '<p>'. t('Tips for adding & editing book pages:') .'</p>';
+        $help .= '<ul>';
+        $help .= '<li>'. t('Create a new book or choose an existing one for your page.') .'</li>';
+        $help .= '<li>'. t('Select a position for your page in the book\'s hierarchy and <strong>weight</strong> your page higher or lower if you would like to move it before or after other pages around it.') .'</li>';
+        $help .= '<li>'. t('Consider adding a <strong>log message</strong> when editing existing pages so others can get a quick summary of changes you have made.') .'</li>';
+        $help .= '</ul>';
+        return $help;
+
+      case 'help#atrium_book':
+      default:
+        $help = '';
+        $help .= '<h3>'. t('Notebook') .'</h3>';
+        $help .= '<p>'. t('The notebook section provides a way for you to store and share information with your group members. With the book feature you can:') .'</p>';
+        $help .= '<ul>';
+        $help .= '<li>'. t('!add_book_pages and organize them hierarchically into different books.', array('!add_book_pages' => l(t('Add book pages'), 'node/add/book'))) .'</li>';
+        $help .= '<li>'. t('Attach files to pages to share them with others.') .'</li>';
+        $help .= '<li>'. t('Track changes that others have made and revert changes as necessary.') .'</li>';
+        $help .= '<li>'. t('!archive books that are no longer of interest to the group. Archived books can be reactivated later if needed.', array('!archive' => l(t('Archive'), 'notebook/archived'))) .'</li>';
+        $help .= '</ul>';
+        return $help;
+    }
+  }
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function atrium_book_menu() {
+  $items = array();
+  $items['notebook'] = array(
+    'title' => 'Notebook',
+    'page callback' => 'atrium_book_overview',
+    'page arguments' => array(),
+    'access callback' => module_exists('spaces') ? 'spaces_access_feature': 'user_access',
+    'access arguments' => module_exists('spaces') ? array('view', 'atrium_book') : array('access content'),
+    'type' => MENU_NORMAL_ITEM,
+    'menu_name' => 'features',
+    'file' => 'atrium_book.pages.inc',
+  );
+  $items['notebook/overview'] = array(
+    'title' => 'Overview',
+    'page callback' => 'atrium_book_overview',
+    'page arguments' => array(),
+    'access callback' => module_exists('spaces') ? 'spaces_access_feature': 'user_access',
+    'access arguments' => module_exists('spaces') ? array('view', 'atrium_book') : array('access content'),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
+    'file' => 'atrium_book.pages.inc',
+  );
+  $items['features/atrium_book'] = array(
+    'title' => 'Settings',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('atrium_book_settings'),
+    'access callback' => module_exists('spaces') ? 'spaces_access_admin' : 'user_access',
+    'access arguments' => module_exists('spaces') ? array() : array('administer site configuration'),
+    'type' => MENU_CALLBACK,
+    'file' => 'atrium_book.pages.inc',
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_block().
+ */
+function atrium_book_block($op = 'list', $delta = 0) {
+  switch ($op) {
+    case 'list':
+      if (module_exists('admin')) {
+        $info = array(
+          'book' => array('info' => t('Atrium Book: Book')),
+          'book_all' => array('info' => t('Atrium Book: Book (all)')),
+        );
+      }
+      return $info;
+    case 'view':
+      module_load_include('inc', 'atrium_book', 'atrium_book.block');
+      $function = "_atrium_book_block_{$delta}";
+      if (function_exists($function)) {
+        return call_user_func($function);
+      }
+      break;
+  }
+}
+
+/**
+ * Implemenation of hook_nodeapi().
+ */
+function atrium_book_nodeapi(&$node, $op, $teaser = NULL, $page = NULL) {
+  switch ($op) {
+    case 'view':
+      // Hide book navigation in node body.
+      if (module_exists('book') && isset($node->content['book_navigation'])) {
+        $node->content['book_navigation']['#access'] = FALSE;
+      }
+      break;
+    case 'insert':
+    case 'update':
+    case 'delete':
+      // Wipe the atrium book tree cache for a space when a book is modified.
+      if (!empty($node->book['bid'])) {
+        if (module_exists('spaces') && $space = spaces_get_space()) {
+          cache_clear_all("atrium_book:{$space->type}:{$space->id}", 'cache', TRUE);
+        }
+        else {
+          cache_clear_all("atrium_book", 'cache', TRUE);
+        }
+      }
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_form_alter()
+ */
+function atrium_book_form_alter(&$form, &$form_state, $form_id) {
+  if ($form['#id'] == 'node-form' && book_type_is_allowed($form['#node']->type)) {
+    $node = $form['#node'];
+
+    if (!empty($form['book'])) {
+      // Fieldset mods
+      $form['book']['#weight'] = !empty($form['body_field']['#weight']) ? $form['body_field']['#weight'] : 0;
+      $form['book']['#collapsible'] =
+      $form['book']['#collapsed'] = FALSE;
+
+      if (!empty($form['book']['bid']['#options'])) {
+        // Remove "none" option -- do not allow book pages to be orphaned
+        unset($form['book']['bid']['#options'][0]);
+        // Filter book options by current space
+        if ($view = views_get_view('book_current')) {
+          $view->set_display();
+          $view->set_items_per_page(0);
+          $view->execute();
+
+          // Collect books in this space into an array
+          $books = array();
+          $books[$node->nid] = 1;
+          if (is_array($view->result) && count($view->result)) {
+            foreach ($view->result as $row) {
+              $books[$row->nid] = 1;
+            }
+          }
+
+          // Use collected array to filter options
+          foreach ($form['book']['bid']['#options'] as $k => $v) {
+            if (is_numeric($k) && !isset($books[$k])) {
+              unset($form['book']['bid']['#options'][$k]);
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Implementation of hook_context_links_alter();
+ */
+function atrium_book_context_links_alter(&$links) {
+  if (context_get('context', 'book_listing') && isset($links['book']) && module_exists('spaces') && $space = spaces_get_space()) {
+    $item = menu_get_item('node/add/book');
+    $node = menu_get_object();
+    if ($item['access'] && !empty($node->book['mlid'])) {
+      $links['book']['query'] = "parent={$node->book['mlid']}";
+    }
+  }
+}
+
+/**
+ * Implementation of hook_menu_alter().
+ */
+function atrium_book_menu_alter(&$items) {
+  // Kill undesirable menu item
+  if (!empty($items['book'])) {
+    unset($items['book']);
+  }
+}

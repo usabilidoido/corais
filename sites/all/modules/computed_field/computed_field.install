@@ -1,0 +1,33 @@
+<?php
+
+/**
+* Implementation of hook_install().
+*/
+function computed_field_install() {
+  drupal_load('module', 'content');
+  content_notify('install', 'computed_field');
+}
+
+/**
+* Implementation of hook_uninstall().
+*/
+function computed_field_uninstall() {
+  drupal_load('module', 'content');
+  content_notify('uninstall', 'computed_field');
+}
+
+/**
+* Implementation of hook_enable().
+*/
+function computed_field_enable() {
+  drupal_load('module', 'content');
+  content_notify('enable', 'computed_field');
+}
+
+/**
+* Implementation of hook_disable().
+*/
+function computed_field_disable() {
+  drupal_load('module', 'content');
+  content_notify('disable', 'computed_field');
+}

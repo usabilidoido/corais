@@ -1,0 +1,24 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the date_picker_formatter module.
+ */
+
+/**
+ * Implementation of hook_install().
+ */
+function date_picker_formatter_install() {
+
+}
+/**
+ * Implementation of hook_uninstall().
+ * @todo: add removal of VotingAPI votes
+ */
+function date_picker_formatter_uninstall() {
+  variable_del('date_picker_formatter_date_format');
+  variable_del('date_picker_formatter_time_format');
+  variable_del('date_picker_formatter_display_user_picture');
+  variable_del('date_picker_formatter_vote_method');
+  variable_del('date_picker_formatter_vote_label');
+}

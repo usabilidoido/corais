@@ -1,0 +1,13 @@
+name = Nodejs Config
+description = Helps to configure the nodejs module.
+package = Nodejs
+version = VERSION
+core = 6.x
+dependencies[] = nodejs
+
+; Information added by drupal.org packaging script on 2012-01-05
+version = "6.x-1.x-dev"
+core = "6.x"
+project = "nodejs"
+datestamp = "1325724447"
+

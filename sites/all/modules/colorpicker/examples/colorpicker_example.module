@@ -1,0 +1,90 @@
+<?php
+
+// $Id$
+
+/**
+ * @file
+ * Example of a form that uses the colorpicker fields
+ */
+
+/*
+ * Implementation of hook_menu().
+ */
+function colorpicker_example_menu() {
+  $items['colorpicker/example'] = array(
+    'title' => 'Color Picker Example',
+    'description' => 'An example of the color picker in use.',
+    'page callback' => 'colorpicker_example_callback',
+    'access arguments' => array('access colorpicker example'),
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function colorpicker_example_perm() {
+  return array('access colorpicker example');
+}
+
+/*
+ * Callback for example color picker
+ */
+function colorpicker_example_callback() {
+  $output = '<p>'. t('This is an example of a color picker in use.  Notice how each colorpicker_textfield has its own popup colorpicker.') .'</p>';
+  $output .= drupal_get_form('colorpicker_example_callback_form');
+  return $output;
+}
+
+/*
+ * Form builder function for custom colorpicker example callback
+ */
+function colorpicker_example_callback_form() {
+
+  $form['colorpicker_example_textfield_1'] = array(
+    '#type' => 'colorpicker_textfield',
+    '#title' => t('Color picker textfield'),
+    '#description' => t('This is a textfield associated with a Farbtastic color picker'),
+    '#default_value' => variable_get('colorpicker_example_textfield_1', '#ff33dd'),
+  );
+
+  $form['colorpicker_example_textfield_2'] = array(
+    '#type' => 'colorpicker_textfield',
+    '#title' => t('Color picker textfield 2'),
+    '#description' => t('This is another textfield associated with a Farbtastic color picker'),
+    '#default_value' => variable_get('colorpicker_example_textfield_2', '#eedd55'),
+  );
+
+  $form['colorpicker_example_textfield_3'] = array(
+    '#type' => 'colorpicker_textfield',
+    '#title' => t('Color picker textfield 3'),
+    '#description' => t('This is another textfield associated with a Farbtastic color picker'),
+    '#default_value' => variable_get('colorpicker_example_textfield_3', '#cccccc'),
+  );
+
+  $form['colorpicker_example_textfield_4'] = array(
+    '#type' => 'colorpicker_textfield',
+    '#title' => t('Color picker textfield 4'),
+    '#description' => t('This is another textfield associated with a Farbtastic color picker'),
+    '#default_value' => variable_get('colorpicker_example_textfield_4', '#000000'),
+  );
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#title' => t('Save'),
+    '#description' => t('Save the default values of this form'),
+    '#value' => t('Save'),
+  );
+
+  return $form;
+}
+
+/*
+ * Form builder function for custom colorpicker example callback
+ */
+function colorpicker_example_callback_form_submit($form, &$form_state) {
+  variable_set('colorpicker_example_textfield_1', $form_state['values']['colorpicker_example_textfield_1']);
+  variable_set('colorpicker_example_textfield_2', $form_state['values']['colorpicker_example_textfield_2']);
+  variable_set('colorpicker_example_textfield_3', $form_state['values']['colorpicker_example_textfield_3']);
+  variable_set('colorpicker_example_textfield_4', $form_state['values']['colorpicker_example_textfield_4']);
+}

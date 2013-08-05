@@ -1,0 +1,158 @@
+# $Id: gmapfield.pot,v 1.1.2.1 2008/11/10 02:54:39 binarybill Exp $
+#
+# LANGUAGE translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  gmapfield.module,v 1.1.2.3 2008/11/10 01:32:24 binarybill
+#  gmapfield.info,v 1.1 2008/11/06 06:07:19 binarybill
+#  gmapfield.install,v 1.1.2.1 2008/11/10 01:32:24 binarybill
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2008-11-09 18:53-0800\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Last-Translator: NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: gmapfield.module:40 gmapfield.info:0
+msgid "Create CCK field for GMaps.  Input a GMap Macro and then it will be centered at the node's coordinates via Location or other CCK fields."
+msgstr ""
+
+#: gmapfield.module:52 gmapfield.info:0
+msgid "GMap Field"
+msgstr ""
+
+#: gmapfield.module:53
+msgid "Input a GMap Macro and then it will be centered at the node coordinates via Location or other CCK fields."
+msgstr ""
+
+#: gmapfield.module:111
+msgid "Marker settings"
+msgstr ""
+
+#: gmapfield.module:118
+msgid "Add Marker(s)"
+msgstr ""
+
+#: gmapfield.module:120
+msgid "If checked, this field will add the markers from the selected datasource and center the map accordingly."
+msgstr ""
+
+#: gmapfield.module:126
+msgid "Choose Marker Type"
+msgstr ""
+
+#: gmapfield.module:128
+msgid "If checked and Add Markers is checked, the user can choose which marker to use for the location data that is added to the GMap."
+msgstr ""
+
+#: gmapfield.module:135
+msgid "Default Marker Type"
+msgstr ""
+
+#: gmapfield.module:137
+msgid "If Add Markers is checked, this will be the marker used on the GMap."
+msgstr ""
+
+#: gmapfield.module:145
+msgid "Data Source settings"
+msgstr ""
+
+#: gmapfield.module:151
+msgid "Use Location(s)"
+msgstr ""
+
+#: gmapfield.module:152
+msgid "Choose CCK Fields for Lat and Long (*not currently supported*)"
+msgstr ""
+
+#: gmapfield.module:156
+msgid "Coordinate Data Source"
+msgstr ""
+
+#: gmapfield.module:159
+msgid "Choose the data source for map center and marker(s)."
+msgstr ""
+
+#: gmapfield.module:164;175
+msgid "None"
+msgstr ""
+
+#: gmapfield.module:168
+msgid "Latitude Field"
+msgstr ""
+
+#: gmapfield.module:171
+msgid "CCK Field to use for Latitiude date."
+msgstr ""
+
+#: gmapfield.module:179
+msgid "Longitude Field"
+msgstr ""
+
+#: gmapfield.module:182
+msgid "CCK Field to use for Longitude date."
+msgstr ""
+
+#: gmapfield.module:378
+msgid "Default GMap"
+msgstr ""
+
+#: gmapfield.module:466
+msgid "GMap Macro Text Area"
+msgstr ""
+
+#: gmapfield.module:577
+msgid "Enter a GMap Macro."
+msgstr ""
+
+#: gmapfield.module:580
+msgid "<a href=\"!macro_url\" title=\"Build a Macro\">Build a Macro</a>"
+msgstr ""
+
+#: gmapfield.module:586
+msgid "GMap Macro"
+msgstr ""
+
+#: gmapfield.module:601
+msgid "Choose Marker"
+msgstr ""
+
+#: gmapfield.module:602
+msgid "This will be the marker to be used for the locations of this node."
+msgstr ""
+
+#: gmapfield.module:605
+msgid "Marker"
+msgstr ""
+
+#: gmapfield.module:679
+msgid "Please enter a valid GMap macro."
+msgstr ""
+
+#: gmapfield.install:23
+msgid "@module enabled;"
+msgstr ""
+
+#: gmapfield.install:35
+msgid "@module disabled."
+msgstr ""
+
+#: gmapfield.install:47
+msgid "@module installed."
+msgstr ""
+
+#: gmapfield.install:65
+msgid "@module uninstalled; Variables removed."
+msgstr ""
+
+#: gmapfield.info:0
+msgid "CCK"
+msgstr ""
+

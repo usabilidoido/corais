@@ -1,0 +1,1075 @@
+<?php
+// $Id: casetracker.module,v 1.123.2.33 2011/01/03 18:49:42 jmiccolis Exp $
+
+/**
+ * @file
+ * Enables the handling of projects and their cases.
+ */
+
+/**
+ * Implementation of hook_views_api().
+ */
+function casetracker_views_api() {
+  return array('api' => 2);
+}
+
+/**
+ * Implementation of hook_help().
+ */
+function casetracker_help($path, $arg) {
+  switch ($path) {
+    case 'admin/settings/casetracker/states':
+      return '<p>'. t('Current Case Tracker case states are listed below.') .'</p>';
+    case 'admin/settings/casetracker/states/add':
+      return '<p>'. t('You may add a new case state below.') .'</p>';
+    case 'admin/settings/casetracker/states/edit/'. arg(4):
+      return '<p>'. t('You may edit an existing case state below.') .'</p>';
+    case 'admin/settings/casetracker':
+      return '<p>'. t('Configure the various Case Tracker options with these settings.') .'</p>';
+  }
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function casetracker_perm() {
+  return array(
+    'administer case tracker',
+    'assign cases',    
+  );
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function casetracker_menu() {
+  /* casetracker main settings */
+  $items['admin/settings/casetracker'] = array(
+    'file' => 'casetracker_admin.inc',
+    'access arguments' => array('administer case tracker'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('casetracker_settings'),
+    'description' => 'Configure the various Case Tracker options with these settings.',
+    'title' => 'Case Tracker',
+    'type' => MENU_NORMAL_ITEM,
+  );
+  $items['admin/settings/casetracker/settings'] = array(
+    'file' => 'casetracker_admin.inc',
+    'access arguments' => array('administer case tracker'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('casetracker_settings'),
+    'title' => 'Settings',
+    'weight' => -10,
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+  /* casetracker state handling */
+  $items['admin/settings/casetracker/states'] = array(
+    'file' => 'casetracker_admin.inc',
+    'access arguments' => array('administer case tracker'),
+    'page callback' => 'casetracker_case_state_overview',
+    'type' => MENU_LOCAL_TASK,
+    'title' => 'Case states',
+    'description' => 'Add, edit and delete Case States, Types and Priorities',
+  );
+  $items['admin/settings/casetracker/states/list'] = array(
+    'file' => 'casetracker_admin.inc',
+    'access arguments' => array('administer case tracker'),
+    'page callback' => 'casetracker_case_state_overview',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'title' => 'Overview',
+    'weight' => -10,
+    'description' => 'Add, edit and delete Case States, Types and Priorities',
+  );
+  $items['admin/settings/casetracker/states/add'] = array(
+    'file' => 'casetracker_admin.inc',
+    'access arguments' => array('administer case tracker'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('casetracker_case_state_edit'),
+    'title' => 'Add case state',
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/settings/casetracker/states/edit/%casetracker_case_state'] = array(
+    'file' => 'casetracker_admin.inc',
+    'access arguments' => array('administer case tracker'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('casetracker_case_state_edit', 5),
+    'title' => 'Edit case state',
+    'type' => MENU_CALLBACK,
+  );
+  $items['admin/settings/casetracker/states/delete/%casetracker_case_state'] = array(
+    'file' => 'casetracker_admin.inc',
+    'access arguments' => array('administer case tracker'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('casetracker_case_state_confirm_delete', 5),
+    'title' => 'Delete case state',
+    'type' => MENU_CALLBACK,
+  );
+  /* casetracker autocomplete */
+  $items['casetracker_autocomplete'] = array(
+    'title' => 'Case Tracker autocomplete',
+    'page callback' => 'casetracker_autocomplete',
+    'access callback' => 'user_access',
+    'access arguments' => array('assign cases'),
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_nodeapi().
+ */
+function casetracker_nodeapi(&$node, $op, $teaser = NULL, $page = NULL) {
+  // CASES
+  if (casetracker_is_case($node->type)) {
+    switch ($op) {
+
+      case 'delete':
+        // delete case and its comments.
+        $comment_results = db_query("SELECT cid FROM {comments} WHERE nid = %d", $node->nid);
+        while ($comment_result = db_fetch_object($comment_results)) {
+          db_query("DELETE FROM {casetracker_comment_status} WHERE cid = %d", $comment_result->cid);
+        }
+        db_query('DELETE FROM {casetracker_case} WHERE nid = %d', $node->nid);
+        break;
+
+      case 'presave':
+        // $node->casetracker is an Array and we wanna it to be an object.
+        $node->casetracker = (object) $node->casetracker;
+        break;
+
+      case 'insert':
+        // cases: generate a case ID and send it along.
+        $record = $node->casetracker;
+        $record->assign_to = is_numeric($record->assign_to) ? $record->assign_to : casetracker_get_uid($record->assign_to);
+        $record->nid = $node->nid;
+        $record->vid = $node->vid;
+
+        drupal_write_record('casetracker_case', $record);
+        break;
+
+      case 'load':
+        $casetracker = db_fetch_object(db_query('SELECT pid, case_priority_id, case_type_id, assign_to, case_status_id FROM {casetracker_case} WHERE nid = %d AND vid = %d', $node->nid, $node->vid));
+        if ($casetracker) {
+          return array('casetracker' => $casetracker);
+        }
+        break;
+
+      case 'update':
+        $record = (object) $node->casetracker;
+        $record->assign_to = is_numeric($record->assign_to) ? $record->assign_to : casetracker_get_uid($record->assign_to);
+        $record->nid = $node->nid;
+        $record->vid = $node->vid;
+
+        $primary = $node->revision ? array('nid') : array('nid', 'vid');
+        drupal_write_record('casetracker_case', $record, $primary);
+        break;
+
+      case 'view':
+        // On preview the case will be an array, we want an object.
+        if (isset($node->build_mode) && $node->build_mode == NODE_BUILD_PREVIEW) {
+          $node->casetracker = (object)$node->casetracker;
+        }
+
+        // used in the breadcrumb and our theme function, mostly for nid and project number display.
+        $project = node_load($node->casetracker->pid);
+
+        if ($page) {
+          $trail = array(
+            l(t('Home'), NULL),
+            l(t('Case Tracker'), 'casetracker/projects'),
+            l($project->title, "node/{$node->casetracker->pid}"),
+            l(t('All cases'), "casetracker/cases/{$node->casetracker->pid}/all"),
+          );
+          drupal_set_breadcrumb($trail);
+        }
+
+        $node->content['casetracker_case_summary'] = array(
+          '#value' => theme('casetracker_case_summary', $node, $project),
+          '#weight' => -10
+        );
+        break;
+
+    }
+  }
+  // PROJECTS
+  else if (casetracker_is_project($node->type)) {
+    switch ($op) {
+
+      case 'delete':
+        // projects: delete all the cases under the project and all the comments under each case.
+        $case_results = db_query("SELECT nid from {casetracker_case} WHERE pid = %d", $node->nid);
+        while ($case_result = db_fetch_object($case_results)) {
+          db_query("DELETE FROM {casetracker_case} WHERE nid = %d", $case_result->nid);
+          $comment_results = db_query("SELECT cid FROM {comments} WHERE nid = %d", $case_result->nid);
+          while ($comment_result = db_fetch_object($comment_results)) {
+            db_query("DELETE FROM {casetracker_comment_status} WHERE cid = %d", $comment_result->cid);
+          }
+          node_delete($case_result->nid); // this'll handle comment deletion too.
+        }
+        break;
+
+      case 'view':
+        if ($page) {
+          $trail = array(
+            l(t('Home'), NULL),
+            l(t('Case Tracker'), 'casetracker/projects'),
+          );
+          drupal_set_breadcrumb($trail);
+        }
+      
+        $node->content['casetracker_project_summary'] = array('#value' => theme('casetracker_project_summary', $node), '#weight' => -10);
+        break;
+    }
+  }
+}
+
+/**
+ * Implementation of hook_comment().
+ */
+function casetracker_comment(&$comment, $op) {
+  // Load the node here anyway -- it is almost certainly static cached already.
+  $node = is_array($comment) ? node_load($comment['nid']) : node_load($comment->nid);
+
+  // Bail if this is not a casetracker node.
+  if (!casetracker_is_case($node->type)) {
+    return;
+  }
+
+  if ($op == 'insert' || $op == 'update') {
+    $new = (object) $comment['casetracker'];
+    $new->cid = $comment['cid'];
+    $new->nid = $comment['nid'];
+    $new->vid = $comment['revision_id'];
+    $new->state = 1;
+    $new->assign_to = casetracker_get_uid($new->assign_to);
+
+    // Populate old state values from node
+    $old = $node->casetracker;
+    $old->cid = $comment['cid'];
+    $old->state = 0;
+
+    drupal_write_record('casetracker_case', $new, array('nid', 'vid'));
+  }
+
+  switch ($op) {
+    case 'insert':
+      drupal_write_record('casetracker_comment_status', $old);
+      drupal_write_record('casetracker_comment_status', $new);
+      break;
+    case 'update':
+      drupal_write_record('casetracker_comment_status', $old, array('cid', 'state'));
+      drupal_write_record('casetracker_comment_status', $new, array('cid', 'state'));
+      break;
+    case 'delete':
+      // @todo theoretically, if you delete a comment, we should reset all the values
+      // to what they were before the comment was submitted. this doesn't happen yet.
+      db_query("DELETE FROM {casetracker_comment_status} WHERE cid = %d", $comment->cid);
+      break;
+    case 'view':
+      // If this is a preview we won't have a cid yet.
+      if (empty($comment->cid)) {
+        $case_data['new'] = (object)$comment->casetracker;
+        $case_data['new']->assign_to = casetracker_get_uid($case_data['new']->assign_to);
+        $case = node_load($comment->nid);
+        $case_data['old'] = drupal_clone($case->casetracker);
+      }
+      else {
+        $results = db_query("SELECT * FROM {casetracker_comment_status} WHERE cid = %d", $comment->cid);
+        while ($result = db_fetch_object($results)) {
+          $state = $result->state ? 'new' : 'old';
+          $case_data[$state] = $result;
+        }
+      }
+      $comment->comment = theme('casetracker_comment_changes', $case_data['old'], $case_data['new']) . $comment->comment;        
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function casetracker_form_alter(&$form, &$form_state, $form_id) {
+  if (!empty($form['#node'])) {
+    $node = $form['#node'];
+
+    // Add case options to our basic case type.
+    if (casetracker_is_case($node->type)) {
+      $count = count(casetracker_project_options());
+      if ($count == 0) {
+        drupal_set_message(t('You must create a project before adding cases.'), 'error');
+        return;
+      }
+      else {
+        $default_project = null;
+        if (!isset($form['#node']->nid) && is_numeric(arg(3))) {
+          $default_project = arg(3);
+        }
+        casetracker_case_form_common($form, $default_project);
+      }
+    }
+  }
+}
+
+/**
+ * Implementation of hook_form_comment_form_alter().
+ */
+function casetracker_form_comment_form_alter(&$form, &$form_state) {
+  $node = isset($form['nid']['#value']) ? node_load($form['nid']['#value']) : NULL;
+  if (casetracker_is_case($node->type)) {
+    $form['#node'] = $node;
+
+    // add case options to the comment form.
+    casetracker_case_form_common($form);
+
+    // necessary for our casetracker_comment() callback.
+    $form['revision_id'] = array('#type' => 'hidden', '#value' => $node->vid);
+  }
+}
+
+/**
+ * Common form elements for cases, generic enough for use either in
+ * a full node display, or in comment displays and updating. Default
+ * values are calculated based on an existing $form['nid']['#value'].
+ *
+ * @param $form
+ *   A Forms API $form, as received from a hook_form_alter().
+ * @param $default_project
+ *   The project ID that should be pre-selected.
+ * @return $form
+ *   A modified Forms API $form.
+ */
+function casetracker_case_form_common(&$form, $default_project = NULL) {
+  global $user;
+
+  $node = $form['#node'];
+
+  // On preview the case will be an array, we want an object.
+  if (isset($node->build_mode) && $node->build_mode == NODE_BUILD_PREVIEW) {
+    $node->casetracker = (object)$node->casetracker;
+  }
+
+  // project to set as the default is based on how the user got here.
+ if (empty($default_project) && !empty($node->casetracker->pid)) {
+    $default_project = $node->casetracker->pid;
+  }
+
+  $project_options = casetracker_project_options();
+
+  $form['casetracker'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Case information'),
+    '#weight' => -10,
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+    '#tree' => TRUE,
+    '#theme' => 'casetracker_case_form_common',
+  );
+
+  // if there's no project ID from the URL, or more than one project,
+  // we'll create a select menu for the user; otherwise, we'll save
+  // the passed (or only) project ID into a hidden field.
+  if (count($project_options) > 1) {
+    $form['casetracker']['pid'] = array(
+      '#title' => t('Project'),
+      '#type' => 'select',
+      '#default_value' => $default_project,
+      '#options' => $project_options,
+    );
+  }
+  else {
+    $form['casetracker']['pid'] = array(
+      '#type' => 'value', // default value, or the only the project ID in the project_options array.
+      '#value' => !empty($default_project) ? $default_project : key($project_options),
+    );
+  }
+
+  // Retrieve the assign_to default value.
+  if (isset($node->casetracker->assign_to)) {
+    $default_assign_to = is_numeric($node->casetracker->assign_to) ? casetracker_get_name($node->casetracker->assign_to) : $node->casetracker->assign_to;
+  }
+  else {
+    $default_assign_to = casetracker_default_assign_to();
+  }
+
+  // Only show this element if the user has access.
+  $form['casetracker']['assign_to'] = array(
+    '#title' => t('Assign to'),
+    '#required' => TRUE,
+    '#access' => user_access('assign cases'),
+  );
+
+  // Use different widgets based on the potential assignees.
+  $options = drupal_map_assoc(casetracker_user_options());
+  $assign_to_widget = variable_get('casetracker_assign_to_widget', 'flexible');
+  if (($assign_to_widget == 'flexible' && count($options) < 25) || $assign_to_widget == 'radios') {
+    $form['casetracker']['assign_to']['#type'] = 'radios';
+    $form['casetracker']['assign_to']['#options'] = $options;
+  }
+  else if (($assign_to_widget == 'flexible' && count($options) < 50) || $assign_to_widget == 'select') {
+    $form['casetracker']['assign_to']['#type'] = 'select';
+    $form['casetracker']['assign_to']['#options'] = $options;
+  }
+  else {
+    $form['casetracker']['assign_to']['#type'] = 'textfield';
+    $form['casetracker']['assign_to']['#autocomplete_path'] = 'casetracker_autocomplete';
+    $form['casetracker']['assign_to']['#size'] = 12;
+  }
+
+  // Set the default value if it is valid.
+  $form['casetracker']['assign_to']['#default_value'] = in_array($default_assign_to, $options, TRUE) ? $default_assign_to : NULL;
+
+  $case_status_options = casetracker_realm_load('status');
+  $default_status = !empty($node->casetracker->case_status_id) ? $node->casetracker->case_status_id : variable_get('casetracker_default_case_status', key($case_status_options));
+  $form['casetracker']['case_status_id'] = array(
+    '#type' => 'select',
+    '#title' => t('Status'),
+    '#options' => $case_status_options,
+    '#default_value' => $default_status,
+  );
+
+  $case_priority_options = casetracker_realm_load('priority');
+  $default_priority = !empty($node->casetracker->case_priority_id) ? $node->casetracker->case_priority_id : variable_get('casetracker_default_case_priority', key($case_priority_options));
+    $form['casetracker']['case_priority_id'] = array(
+    '#type' => 'select',
+    '#title' => t('Priority'),
+    '#options' => $case_priority_options,
+    '#default_value' => $default_priority,
+  );
+
+  $case_type_options = casetracker_realm_load('type');
+  $default_type = !empty($node->casetracker->case_type_id) ? $node->casetracker->case_type_id : variable_get('casetracker_default_case_type', key($case_type_options));
+  $form['casetracker']['case_type_id'] = array(
+    '#type' => 'select',
+    '#title' => t('Type'),
+    '#options' => $case_type_options,
+    '#default_value' => $default_type,
+  );
+
+  return $form;
+}
+
+/**
+* Implementation of hook_block
+*/
+function casetracker_block($op = 'list', $delta = 0, $edit = array()) {
+  switch ($op) {
+    case 'list':
+      $blocks[0] = array(
+        'info' => t('Jump to case'),
+      );
+      return $blocks;
+    case 'configure':
+       return array();
+    case 'save':
+        return;
+    case 'view':
+      switch ($delta) {
+        case 0:
+          if (user_access('access content')) {
+            $block['subject'] = t('Jump to case');
+            $block['content'] = drupal_get_form('casetracker_block_jump_to_case_number');
+          }
+          break;
+      }
+      return $block;
+  }
+}
+
+/**
+ * Form for "Jump to case number" block.
+ */
+function casetracker_block_jump_to_case_number() {
+  $form = array();
+  $form['case_number'] = array(
+    '#maxlength' => 60, 
+    '#required' => TRUE,
+    '#size' => 15,
+    '#title' => t('Case number'),
+    '#type' => 'textfield',
+    '#prefix' => '<div class="container-inline">',
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Go'),
+    '#suffix' => '</div>',
+  );
+  return $form;
+} 
+
+/**
+ * Submit function for our "Jump to case number" block.
+ */
+function casetracker_block_jump_to_case_number_submit($form, $form_state) {
+  list($pid, $nid) = explode('-', $form_state['values']['case_number']);
+  $case_nid = db_result(db_query("SELECT nid FROM {casetracker_case} WHERE pid = %d AND nid = %d", $pid, $nid));
+  if (!$case_nid) {
+    drupal_set_message(t('Your case number was not found.'), 'error');
+    return;
+  }
+  drupal_goto('node/'. $case_nid);
+}
+
+/**
+ * CASE STATE CRUD ====================================================
+ */
+
+/**
+ * Returns information about the various case states and their options.
+ * The number of parameters passed will determine the return value.
+ *
+ * @param $csid
+ *   Optional; the state ID to return from the passed $realm.
+ * @param $realm
+ *   Optional; the name of the realm ('status', 'priority', or 'type').
+ * @param $reset
+ *   Optional; set to TRUE to reset the static cache.
+ *
+ * @return $values
+ *   If only $realm is passed, you'll receive an array with the keys
+ *   being the state ID and the values being their names. If a $csid
+ *   is also passed, you'll receive just a string of the state name.
+ *   If ONLY a $csid is passed, we'll return a list of 'name', 'realm'.
+ */
+function casetracker_case_state_load($csid = NULL, $realm = NULL, $reset = FALSE) {
+  static $states_lookup;
+
+  if (!$states_lookup || $reset) {
+    $results = db_query("SELECT csid, case_state_name AS name, case_state_realm AS realm, weight 
+                         FROM {casetracker_case_states} ORDER BY weight");
+    $states_lookup = array();
+    while ($row = db_fetch_object($results)) {
+      $row->display = casetracker_tt("case_states:$row->csid:name", $row->name);
+      $states_lookup[$row->realm][$row->csid] = $states_lookup['all'][$row->csid] = $row;
+    }
+  }
+
+  if ($csid && $realm) {
+    return $states_lookup['all'][$csid]->display;
+  }
+  elseif ($csid && !$realm) {
+    return $states_lookup['all'][$csid];
+  }
+  elseif (!$csid && $realm) {
+    $options = array(); // suitable for form api.
+    if (!empty($states_lookup[$realm])) {
+      foreach ($states_lookup[$realm] as $state) {
+        $options[$state->csid] = $state->display;
+      }
+    }
+    return $options;
+  }
+}
+
+/**
+ * Translate user defined string. Wrapper function for tt() if i18nstrings enabled.
+ * 
+ * The string id for case states will be: case:[realm]#[csid]:name
+ * 
+ * @param $name
+ *   String id without 'casetracker', which will be prepended automatically
+ */
+function casetracker_tt($name, $string, $langcode = NULL) {
+  return function_exists('i18nstrings') ? i18nstrings('casetracker:' . $name, $string, $langcode) : $string;
+}
+
+/**
+ * Implementation of hook_locale().
+ */
+function casetracker_locale($op = 'groups', $group = NULL) {
+  switch ($op) {
+    case 'groups':
+      return array('casetracker' => t('Case Tracker'));
+    case 'info':
+      $info['casetracker']['refresh callback'] = 'casetracker_locale_refresh';
+      $info['casetracker']['format'] = FALSE;
+      return $info;
+  }
+}
+
+/**
+ * Refresh locale strings.
+ */
+function casetracker_locale_refresh() {
+  $results = db_query("SELECT csid, case_state_name AS name, case_state_realm AS realm FROM {casetracker_case_states}");
+  while ($row = db_fetch_object($results)) {
+    i18nstrings_update("casetracker:case_states:$row->csid:name", $row->name);
+  }
+  // Meaning it completed with no issues. @see i18nmenu_locale_refresh().
+  return TRUE;
+}
+
+/**
+ * Load states for a particular realm. Wrapper around casetracker_case_state_load()
+ *
+ * @param $realm
+ *   Name of the realm ('status', 'priority', or 'type').
+ *
+ * @return
+ *   array with the keys being the state ID and the values being their names.
+ */
+function casetracker_realm_load($realm) {
+  return casetracker_case_state_load(null, $realm);
+}
+
+/**
+ * Saves a case state.
+ *
+ * @param $case_state
+ *   An array containing 'name' and 'realm' keys. If no 'csid'
+ *   is passed, a new state is created, otherwise, we'll update
+ *   the record that corresponds to that ID.
+ */
+function casetracker_case_state_save($case_state = NULL) {
+  if (!$case_state['name'] || !$case_state['realm']) { 
+    return NULL; 
+  }
+  // Need to collect information into another array since the db columns have different names : (
+  $record = array(
+    'case_state_name' => $case_state['name'],
+    'case_state_realm' => $case_state['realm'],
+    'weight' => $case_state['weight'],
+  );
+  if (isset($case_state['csid'])) {
+    $record['csid'] = $case_state['csid']; 
+    drupal_write_record('casetracker_case_states', $record, array('csid'));
+  }
+  else {
+    drupal_write_record('casetracker_case_states', $record);
+  }
+  // Update translations
+  if (function_exists('i18nstrings_update')) {
+    i18nstrings_update('casetracker:case_states:'. $record['csid'] .':name', $case_state['name']);
+  }
+  return $result;
+}
+
+/**
+ * Deletes a case state.
+ *
+ * @todo There is currently no attempt to do anything with cases which
+ * have been assigned the $csid that is about to be deleted. We should
+ * reset them to the default per our settings (and warn the user on our
+ * confirmation page), or something else entirely.
+ * 
+ * @param $csid
+ *   The case state ID to delete.
+ */
+function casetracker_case_state_delete($csid = NULL) {
+  if (!empty($csid)) {
+    db_query('DELETE FROM {casetracker_case_states} WHERE csid = %d', $csid);
+  }
+}
+
+/**
+ * COMMENT DISPLAY ====================================================
+ */
+
+/**
+ * Retrieve autocomplete suggestions for assign to user options.
+ *
+ * @TODO: In order to get this down to 1 query and respect any custom
+ * views selected for use as user option filters, we need to:
+ * - Submit a patch to the Views user name filter/argument handler to support LIKE filtering.
+ * - Ensure that the custom view uses this handler or add it if does not.
+ * - Generate the query & result set using this modified View.
+ */
+function casetracker_autocomplete($string) {
+  $matches = array();
+  $options = casetracker_user_options();
+  $result = db_query_range("SELECT name FROM {users} WHERE LOWER(name) LIKE LOWER('%s%%')", $string, 0, 10);
+  while ($user = db_fetch_object($result)) {
+    if (in_array($user->name, $options, TRUE)) {
+      $matches[$user->name] = check_plain($user->name);
+    }
+  }
+
+  // Special case for 'Unassigned'
+  $unassigned = t('Unassigned');
+  if (strpos(strtolower($unassigned), strtolower($string)) !== FALSE) {
+    $matches[$unassigned] = $unassigned;
+  }
+  drupal_json($matches);
+}
+
+/**
+ * Returns an query string needed in case of Organic Groups
+ * providing preselected audience checkboxes for projects as groups (og)
+ * 
+ * @param   object  CT project
+ * @return  string
+ */
+function _casetracker_get_og_query_string(&$project) {
+  $querystring = array();
+  // checking if project is group
+  if ($project->type == 'group') {
+    $querystring[] = 'gids[]='. $project->nid;
+    //checking if group-project is part of another group
+    if (isset($project->og_groups) 
+      && is_array($project->og_groups) 
+    ) {
+      foreach ($project->og_groups as $group) {
+        $querystring[] = 'gids[]='. $group;
+      }
+    }
+  }
+  //checking if project is part of a group
+  elseif (isset($project->og_groups) 
+    && is_array($project->og_groups) 
+    && $project->type !== 'group'
+  ) {
+    foreach ($project->og_groups as $group) {
+      $querystring[] = 'gids[]='. $group;
+    }
+  }
+ 
+  return (0 < count($querystring))
+      ? implode('&', $querystring)
+      : NULL;
+}
+
+/**
+ * THEME ==============================================================
+ */
+
+/**
+ * Implementation of hook_theme
+ */
+function casetracker_theme() {
+  return array(
+    'casetracker_comment_changes' => array(),
+    'casetracker_case_form_common' => array(),
+    'casetracker_case_summary' => array(),
+    'casetracker_project_summary' => array(),
+  );
+}
+
+/**
+ * Displays the changes a comment has made to the case fields.
+ *
+ * @param $case_data
+ *   An array of both 'old' and 'new' objects that contains
+ *   the before and after values this comment has changed.
+ */
+function theme_casetracker_comment_changes($old, $new) {
+  $rows = array();
+
+  $fields = array(
+    'pid' => t('Project'),
+    'title' => t('Title'),
+    'case_status_id' => t('Status'),
+    'assign_to' => t('Assigned'),
+    'case_priority_id' => t('Priority'),
+    'case_type_id' => t('Type'),
+  );
+  foreach ($fields as $field => $label) {
+    if ($new->{$field} != $old->{$field}) {
+      switch ($field) {
+        case 'pid':
+          $old_title = db_result(db_query("SELECT title FROM {node} WHERE nid = %d", $old->pid));
+          $new_title = db_result(db_query("SELECT title FROM {node} WHERE nid = %d", $new->pid));
+          $old->{$field} = l($old_title, "node/{$old->pid}");
+          $new->{$field} = l($new_title, "node/{$new->pid}");
+          break;
+        case 'case_status_id':
+          $old->{$field} = check_plain(casetracker_case_state_load($old->{$field}, 'status'));
+          $new->{$field} = check_plain(casetracker_case_state_load($new->{$field}, 'status'));
+          break;
+        case 'assign_to':
+          $old->{$field} = check_plain(casetracker_get_name($old->{$field}));
+          $new->{$field} = check_plain(casetracker_get_name($new->{$field}));
+          break;
+        case 'case_priority_id':
+          $old->{$field} = check_plain(casetracker_case_state_load($old->{$field}, 'priority'));
+          $new->{$field} = check_plain(casetracker_case_state_load($new->{$field}, 'priority'));
+          break;
+        case 'case_type_id':
+          $old->{$field} = check_plain(casetracker_case_state_load($old->{$field}, 'type'));
+          $new->{$field} = check_plain(casetracker_case_state_load($new->{$field}, 'type'));
+          break;
+      }
+      $rows[] = array(t('@label: !old &raquo; !new', array('@label' => $label, '!old' => $old->{$field}, '!new' => $new->{$field})));
+    }
+  }
+  
+  if (!empty($rows)) {
+    return theme('table', NULL, $rows, array('class' => 'case_changes'));
+  }
+}
+
+/**
+ * Theme function for cleaning up the casetracker common form.
+ */
+function theme_casetracker_case_form_common($form) {
+  drupal_add_css(drupal_get_path('module', 'casetracker') .'/casetracker.css');
+  $output = '';
+  $output .= drupal_render($form['pid']);
+  $output .= drupal_render($form['case_title']);
+
+  if ($form['assign_to']['#type'] == 'radios') {
+    if ($form['assign_to']['#access']) {
+      $header = array_fill(0, 5, array());
+      $header[0] = $form['assign_to']['#title'];
+      $radios = array();
+      foreach (element_children($form['assign_to']) as $id) {
+        $radios[] = drupal_render($form['assign_to'][$id]);
+      }
+      $radios = array_chunk($radios, 5);
+      $output .= theme('table', $header, $radios, array('class' => 'casetracker-assign-to'));
+    }
+    drupal_render($form['assign_to']);
+  }
+  else {
+    $output .= drupal_render($form['assign_to']);
+  }
+
+  $row = array();
+  foreach (element_children($form) as $id) {
+    if (!in_array($id, array('pid', 'case_title', 'assign_to'))) {
+      $row[] = drupal_render($form[$id]);
+    }
+  }
+  $rows = array($row);
+  $output .= theme('table', array(), $rows);
+  $output .= drupal_render($form);
+  return $output;
+}
+
+/**
+ * Theme the case summary shown at the beginning of a case's node.
+ *
+ * @param $case
+ *   The node object of the case being viewed.
+ * @param $project
+ *   The node object of the project this case belongs to.
+ */
+function theme_casetracker_case_summary($case, $project) {
+  $last_comment = db_result(db_query('SELECT last_comment_timestamp FROM {node_comment_statistics} WHERE nid = %d', $case->nid));
+  $rows = array();
+
+  // On node preview the form logic can't translate assign_to back to a uid for
+  // us so we need to be able handle it either way.
+  if (is_numeric($case->casetracker->assign_to)) {
+    $assign_to = user_load(array('uid' => $case->casetracker->assign_to));
+  }
+  else {
+    $assign_to = user_load(array('name' => $case->casetracker->assign_to));
+  }
+
+  if (empty($assign_to) || $assign_to->uid == 0) {
+    $rows[] = array(
+      t('Assigned to:'),
+      '<em>' . t('Unassigned')  . '</em>',
+    );
+  }
+  else {
+    $rows[] = array(
+      t('Assigned to:'),
+      theme('username', $assign_to),
+    );
+  }
+  $rows[] = array(
+    t('Created:'),
+    t('!username at !date', array('!username' => theme('username', $case), '!date' => format_date($case->created, 'medium'))),
+  );
+  $rows[] = array(
+    t('Status:'),
+    t('<strong>@status</strong> (@type / Priority @priority)', array(
+      '@status' => casetracker_case_state_load($case->casetracker->case_status_id, 'status'),
+      '@type' => casetracker_case_state_load($case->casetracker->case_type_id, 'type'),
+      '@priority' => casetracker_case_state_load($case->casetracker->case_priority_id, 'priority'),
+    )),
+  );
+
+  // On node preview a case may not have a nid, so we use some placeholder text.
+  $case_id = isset($case->nid) ? $case->nid : t("NEW");
+  $rows[] = array(
+    t('Case ID:'),
+    l($project->title, 'node/'. $case->casetracker->pid) .': '. $project->nid .'-'. $case_id,
+  );
+  if ($last_comment != $case->created) {
+    $rows[] = array(
+      t('Last modified:'),
+      format_date($last_comment, 'medium')
+    );
+  }
+
+  $output  = '<div class="case">';
+  $output .= theme('table', NULL, $rows, array('class' => 'summary'));
+  $output .= '</div>';
+  return $output;
+}
+
+/**
+ * Theme the project summary shown at the beginning of a project's node.
+ *
+ * @param $project
+ *   The node object of the project being viewed.
+ */
+function theme_casetracker_project_summary($project) {
+  $rows = array();
+  $rows[] = array(t('Project number:'), $project->nid);
+  $rows[] = array(t('Opened by:'), theme('username', $project));
+  $rows[] = array(t('Opened on:'), format_date($project->created, 'large'));
+  $rows[] = array(t('Last modified:'), format_date($project->changed, 'large'));
+
+  $querystring = _casetracker_get_og_query_string($project);
+  $operations = array(); $node_types = node_get_types('names');
+  foreach (array_filter(variable_get('casetracker_case_node_types', array('casetracker_basic_case'))) as $type) {
+    $operations[] = l(
+      t('add !name', array('!name' => $node_types[$type])), 
+      'node/add/'. str_replace('_', '-', $type) .'/'. $project->nid,
+      array('query' => $querystring)
+    );
+  } 
+  $operations = implode(' | ', $operations); // ready for printing in our Operations table cell - delimited by a pipe. nonstandard.
+  $rows[] = array(t('Operations:'), $operations .' | '. l(t('view all project cases'), 'casetracker', array('query' => 'keys=&pid='. $project->nid)));
+
+  $output  = '<div class="project">';
+  $output .= theme('table', NULL, $rows, array('class' => 'summary'));
+  $output .= '</div>';
+  return $output;
+}
+
+/**
+ * API FUNCTIONS ======================================================
+ */
+
+/**
+ * API function that returns valid project options.
+ */
+function casetracker_project_options() {
+  $projects = array();
+  // Fetch the views list of projects, which is space-aware.
+  if ($view = views_get_view(variable_get('casetracker_view_project_options', 'casetracker_project_options'))) {
+    $view->set_display();
+    $view->set_items_per_page(0);
+    $view->execute();
+    foreach ($view->result as $row) {
+      $projects[$row->nid] = $row->node_title;
+    }
+  }
+  return $projects;
+}
+
+/**
+ * API function that returns valid user options.
+ */
+function casetracker_user_options() {
+  $users = array();
+  $options = array();
+  if ($view = views_get_view(variable_get('casetracker_view_assignee_options', 'casetracker_assignee_options'))) {
+    $view->set_display();
+    $view->set_items_per_page(0);
+    $view->execute();
+    foreach ($view->result as $row) {
+      $options[$row->uid] = $row->users_name;
+    }
+  }
+
+  $anon_user = casetracker_default_assign_to();
+
+  // fill in "Unassigned" value because view is not rendered and the redundant option in views is irrelevant
+  // @TODO render the view before display so this isn't needed.
+  if (isset($options[0])) {
+    $options[0] = $anon_user;
+  }
+  // if "Unassigned" is the default assignee, we graft it onto the view results here as most views
+  // that do any substantive filtering will exclude the anonymous user.
+  elseif (in_array(variable_get('casetracker_default_assign_to', $anon_user),  array($anon_user, variable_get('anonymous', t('Anonymous'))))) {
+    $options = array($anon_user) + $options;
+  }
+  return $options;
+}
+
+/**
+ * API function for checking whether a node type is a casetracker case.
+ */
+function casetracker_is_case($node) {
+  if (is_object($node) && !empty($node->type)) {
+    $type = $node->type;
+  }
+  else if (is_string($node)) {
+    $type = $node;
+  }
+  if ($type) {
+    return in_array($type, variable_get('casetracker_case_node_types', array('casetracker_basic_case')), TRUE);
+  }
+  return FALSE;
+}
+
+/**
+ * API function for checking whether a node type is a casetracker project.
+ */
+function casetracker_is_project($node) {
+  if (is_object($node) && !empty($node->type)) {
+    $type = $node->type;
+  }
+  else if (is_string($node)) {
+    $type = $node;
+  }
+  if ($type) {
+    return in_array($type, variable_get('casetracker_project_node_types', array('casetracker_basic_project')), TRUE);
+  }
+  return FALSE;
+}
+
+/**
+ * Given a user name, returns the uid of that account.
+ * If the passed name is not found, returns 0.
+ * See also casetracker_get_name().
+ */
+function casetracker_get_uid($name = NULL, $reset = FALSE) {
+  static $users = array();
+  if (!isset($users[$name]) || $reset) {
+    $result = db_result(db_query("SELECT uid FROM {users} WHERE name = '%s'", $name));
+    $users[$name] = $result ? $result : 0;
+  }
+  return $users[$name];
+}
+
+/**
+ * Given a uid, returns the name of that account. If the passed uid is
+ * not found, returns the default "assign to" name as specified in the
+ * settings. @todo This may not always be desired, but is how we use it.
+ * See also casetracker_get_uid().
+ */
+function casetracker_get_name($uid = NULL, $reset = FALSE) {
+  static $users = array();
+  if (!isset($users[$uid]) || $reset) {
+    if ($uid == 0) {
+      $users[0] = t('Unassigned'); 
+    }
+    else {
+      $result = db_result(db_query("SELECT name FROM {users} WHERE uid = %d", $uid));
+      $users[$uid] = $result ? $result : '';
+    }
+  }
+  return !empty($users[$uid]) ? $users[$uid] : casetracker_default_assign_to();
+}
+
+/**
+ * Fetch the proper default assignee.
+ */
+function casetracker_default_assign_to() {
+  $assign_to = variable_get('casetracker_default_assign_to', t('Unassigned'));
+  if ($assign_to == variable_get('anonymous', t('Anonymous'))) {
+    return t('Unassigned');
+  }
+  return $assign_to;
+}
+
+/**
+ * Implementation of hook_token_values().
+ */
+function casetracker_token_values($type, $object = NULL) {
+  module_load_include('inc', 'casetracker', 'casetracker.token');
+  return _casetracker_token_values($type, $object);
+}
+
+/**
+ * Implementation of hook_token_list().
+ */
+function casetracker_token_list($type = 'all') {
+  module_load_include('inc', 'casetracker', 'casetracker.token');
+  return _casetracker_token_list($type);
+}

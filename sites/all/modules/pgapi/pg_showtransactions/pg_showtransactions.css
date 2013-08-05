@@ -1,0 +1,14 @@
+dl.multiselect dd.b, dl.multiselect dd.b .form-item, dl.multiselect dd.b select {
+  font-family: inherit;
+  font-size: inherit;
+  width: 18em;
+}
+dl.multiselect dd.a, dl.multiselect dd.a .form-item {
+  width: 18em;
+}
+dl.multiselect dt, dl.multiselect dd {
+  float: left;
+  line-height: 1.75em;
+  padding: 0;
+  margin: 0 1em 0 0;
+}

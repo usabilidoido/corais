@@ -1,0 +1,30 @@
+// $Id: CHANGELOG.txt,v 1.1.2.4 2010/09/10 19:30:50 alexb Exp $
+
+Views RSS 6.x 1.0 beta 5, 2010-09-10
+------------------------------------
+
+- #647176 alex_b: Add dc creator element support and refactor namespace
+  handling.
+
+Views RSS 6.x 1.0 beta 4, 2010-04-08
+------------------------------------
+
+- Removed leftover code from Views KML.
+- Added check_plain() on title.
+
+Views RSS 6.x 1.0 beta 3, 2010-03-04
+------------------------------------
+
+- small bug fixes
+
+Views RSS 6.x 1.0 beta 2, 2010-01-25
+------------------------------------
+
+- #607622 jpp, nightowl77, omega8cc, David Goode: Need to escape html entities
+  if view strips tags.
+- Improvements to georss form.
+
+Views RSS 6.x 1.0 beta 1, 2009-09-22
+------------------------------------
+
+- Initial release

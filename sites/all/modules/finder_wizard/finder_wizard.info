@@ -1,0 +1,11 @@
+name = Finder Wizard
+description = "Splits Finder elements onto seperate screens."
+core = 6.x
+package = "Finder"
+dependencies[] = finder
+; Information added by drupal.org packaging script on 2012-01-15
+version = "6.x-3.0"
+core = "6.x"
+project = "finder_wizard"
+datestamp = "1326623139"
+

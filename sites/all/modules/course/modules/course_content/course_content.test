@@ -1,0 +1,47 @@
+<?php
+
+require_once drupal_get_path('module', 'course') . '/tests/CourseTestCase.test';
+
+/**
+ * Tests for content Course objects.
+ */
+class CourseObjectContentTestCase extends CourseTestCase {
+
+  public static function getInfo() {
+    // Note that getInfo() strings are not translated with t().
+    return array(
+      'name' => 'Course object content',
+      'description' => 'Ensure that content Course object support functions properly.',
+      'group' => 'Course',
+    );
+  }
+
+  function getModules() {
+    $modules = parent::getModules();
+    $modules[] = 'content';
+    $modules[] = 'course_content';
+    return $modules;
+  }
+
+  /**
+   * Test course content object creation.
+   */
+  function testContentCourseObjectCreation() {
+    $ct1 = $this->drupalCreateContentType();
+    variable_set('course_content_use_' . $ct1->type, 1);
+    // Flush handlers (we just made a new course object type).
+    course_get_handlers(NULL, TRUE);
+
+    $courseNode = $this->createCourseNode();
+    $co1 = course_get_course_object('course_content', $ct1->type);
+    $co1->setCourse($courseNode->nid);
+    $co1->save();
+
+    // Reload course.
+    $course = course_get_course($courseNode, NULL, TRUE);
+    foreach ($course->getObjects() as $courseObject) {
+      $node = node_load($courseObject->getInstanceId());
+      $this->assertEqual($node->type, $ct1->type, "Node type saved is the same node type specified by the course object.");
+    }
+  }
+}

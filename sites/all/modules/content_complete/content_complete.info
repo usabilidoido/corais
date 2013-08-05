@@ -1,0 +1,12 @@
+; $Id: content_complete.info,v 1.1 2009/01/22 15:08:57 pvhee Exp $
+name = Content Complete
+description = Configure CCK fields to be tagged as required to be complete. Display the percent of completion to the user via a block.
+core = 6.x
+package = CCK
+dependencies[] = content
+; Information added by drupal.org packaging script on 2010-10-08
+version = "6.x-1.4"
+core = "6.x"
+project = "content_complete"
+datestamp = "1286548861"
+

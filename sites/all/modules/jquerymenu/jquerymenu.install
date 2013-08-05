@@ -1,0 +1,43 @@
+<?php
+// $Id: jquerymenu.install,v 1.4 2010/05/05 07:50:55 aaronhawkins Exp $
+function jquerymenu_install(){
+ drupal_install_schema('jquerymenu');
+}
+function jquerymenu_uninstall(){
+  drupal_uninstall_schema('jquerymenu');  
+}
+
+function jquerymenu_schema() {
+  $schema['jquerymenus'] = array(
+      'description' => t('Stores information about which menus are activated'),
+      'fields' => array(
+        'mid' => array(
+          'type' => 'serial',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ),
+        'menu_name' => array(
+          'type' => 'varchar',
+          'length' => 255,
+          'not null' => TRUE,
+        ),
+      ),
+      'primary key' => array('mid'),  
+  );
+  return $schema;
+}
+function jquerymenu_update_1() {
+  // This is a one time cleanup to remove blocks and menus that have gotten out of sync.
+  // This update will reset blocks that were created directly by jquery menu
+  // you will need to visit the blocks page after running this to re-enable those blocks.
+  $result = db_query("SELECT mid, menu_name FROM {jquerymenus}");
+  $enabledmenus = array();
+  while ($enabled = db_fetch_object($result)) {
+    $title ='';
+    $title = db_result(db_query("SELECT title FROM {menu_custom} WHERE menu_name = '%s'", $enabled->menu_name));
+    if (empty($title)) {
+      db_query("DELETE FROM {jquerymenus} WHERE menu_name = '%s'", $enabled->menu_name);
+      db_query("DELETE FROM {blocks} WHERE module = 'jquerymenu'");
+    }
+  }
+}

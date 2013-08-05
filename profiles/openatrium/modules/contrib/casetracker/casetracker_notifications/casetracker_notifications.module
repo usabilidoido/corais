@@ -1,0 +1,111 @@
+<?php
+
+// $Id: casetracker_notifications.module,v 1.1.2.1 2010/10/29 20:15:44 jmiccolis Exp $
+
+/**
+ * Implementation of hook_menu().
+ */
+function casetracker_notifications_menu() {
+  // User pages, will be disabled by default
+  $items['user/%user/notifications/casetracker'] = array(
+    'type' => MENU_LOCAL_TASK,
+    'access callback' => FALSE,
+    'title' => 'Case Tracker',
+    'page callback' => 'notifications_user_subscription_list_page',
+    'page arguments' => array('casetracker_project', 1),
+    'weight' => 10,
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function casetracker_notifications_perm() {
+  return array('subscribe to cases');
+}
+
+/**
+ * Implementation of hook_notifications()
+ */
+function casetracker_notifications_notifications($op) {
+  switch ($op) {
+    case 'subscription types':
+      $types['casetracker_assigned'] = array(
+        'event_type' => 'node',
+        'object_type' => 'node',
+        'title' => t('Cases assigned'),
+        'access' => 'subscribe to cases',
+        'fields' => array('casetracker_assign'),
+        'description' => t('Subscribe to all cases assigned to a user.'),
+      );
+      $types['casetracker_project'] = array(
+        'event_type' => 'node',
+        'object_type' => 'node',
+        'title' => t('Project cases'),
+        'access' => 'subscribe to cases',
+        'page callback' => 'casetracker_notifications_projects_page',
+        'user page' => 'user/%user/notifications/casetracker',
+        'fields' => array('casetracker_project'),
+        'description' => t('Subscribe to all cases for a project.'),
+      );
+      return $types;
+
+    case 'subscription fields':
+      $fields['casetracker_assign'] = array(
+        'name' => t('Assigned to'),
+        'field' => 'assign_to',
+        'type' => 'int',
+        'object_type' => 'user',
+      );
+      $fields['casetracker_project'] = array(
+        'name' => t('Project'),
+        'field' => 'casetracker_project',
+        'type' => 'int',
+        'object_type' => 'node',
+      );
+      return $fields;
+  }
+}
+
+/**
+ * Implementation of hook_notifications_object_node()
+ */
+function casetracker_notifications_notifications_object_node($op, $node, $account = NULL) {
+  switch ($op) {
+
+    case 'conditions':
+      if (casetracker_is_case($node) && user_access('subscribe to cases')) {
+        $conditions = array();
+        // The assignee can be no user or anonymous so we just make sure we return an integer
+        // @todo Other values may be possible, check with casetracker maintainers
+        if (isset($node->casetracker->assign_to)) {
+          $conditions['casetracker_assign'] = (int)$node->casetracker->assign_to;
+        }
+        if (!empty($node->casetracker->pid)) {
+          $conditions['casetracker_project'] = $node->casetracker->pid;
+        }
+        return $conditions;
+      }
+      break;
+
+    case 'subscriptions':
+      // Return available subscription options for this project and this user account
+      if (casetracker_is_project($node) && user_access('subscribe to cases')) {
+        $options[] = array(
+          'name' => t('Cases for this project'),
+          'type' => 'casetracker_project',
+          'fields' => array('casetracker_project' => $node->nid),
+        );
+      }
+      if (casetracker_is_case($node) && user_access('subscribe to cases')) {
+        $options[] = array(
+          'name' => t('Cases assigned to me'),
+          'type' => 'casetracker_assigned',
+          'fields' => array('casetracker_assign' => $GLOBALS['user']->uid),
+        );
+        return $options;
+      }
+  }
+}
+

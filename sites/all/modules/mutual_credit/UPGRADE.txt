@@ -1,0 +1,23 @@
+
+Note that cc_offers_wants has NOT been upgraded and you should continue to use the original module
+Take a note of all your block settings for transactions module
+You may also have to rebuild your views or replace your views fields concerning transactions and balances
+
+on admin/build/modules
+  disable the transactions module
+  enable mcapi
+Check that your transactions successfuly migrated to to a new node-type 'exchange'
+Enable other modules in the mutual credit package
+
+Views will need reworking.
+    Starter and Completer no longer exist, instead there is payer, payee, and signatories
+    Relationships no longer needed
+    Note that you can now filter by exchange_type
+
+If you are using the stats module you may need to jump-start it using the button on admin/mc/stats
+
+When you are sure the upgrade worked, uninstall transactions module. Move the 3 files extensions/offer_want to their own module folder and delete the transactions module, and extensions folder from the filesystem.
+
+
+check all your theme customisations
+

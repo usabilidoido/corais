@@ -1,0 +1,418 @@
+<?php
+// $Id: offers_wants.install,v 1.3 2010/05/01 15:52:49 matslats Exp $
+
+/*
+ * Implementation of hook_install().
+ */
+function offers_wants_install() {
+  drupal_install_schema('offers_wants');
+  //create a vocab which will be used for the directory
+  _ow_check_vocabs();
+  //can't remember what this must run after
+  db_query("UPDATE {system} SET weight = 5 WHERE name = 'offers_wants'");
+  variable_set('node_options_proposition', array('status'));
+  variable_set('comment_proposition', 2);
+  
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function offers_wants_uninstall() {
+  drupal_uninstall_schema('offers_wants');
+
+  taxonomy_del_vocabulary(variable_get('offers_wants_cat_vid', 0));
+  taxonomy_del_vocabulary(variable_get('offers_wants_type_vid', 0));
+
+  db_query("DELETE FROM {blocks} WHERE module = 'offers_wants'");
+  db_query("DELETE FROM {menu_links} WHERE link_path LIKE 'directory/%'");
+  variable_del('scheduler_unpublish_enable_offer');
+  variable_del('comment_proposition');
+}
+
+
+/**
+ * Implementation of hook_schema().
+ */
+function offers_wants_schema() {
+  $tables = array(
+    'offers_wants' => array(
+      'description' => 'The main table to hold the scheduler data.',
+      'fields' => array(
+        'nid' => array(
+          'description' => 'The foreign key to node.nid',
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ),
+        'end' => array(
+          'description' => 'Whether the user specified a time limit',
+          'type' => 'int',
+          'size' => 'small',
+          'not null' => TRUE,
+          'default' => 0
+        ),
+        'expires' => array(
+          'description' => 'The UNIX UTC timestamp when to unpublish',
+          'type' => 'int',
+          'default' => 0
+        ),
+        'want' => array(
+          'description' => 'Whether this proposition is a request, or an offer',
+          'type' => 'int',
+          'size' => 'small',
+          'not null' => TRUE,
+          'default' => 0
+        ),
+      ),
+      'primary key' => array('nid'),
+    ),
+  );
+  return $tables;
+}
+
+function offers_wants_update_6000() {
+  $ret = array();
+  if (is_function('offers_wants_uninstall')) {
+    $ret['#abort'] = array('success' => FALSE, 'query' => 'Delete the whole plaza directory and replace with version 1');
+  }
+  drupal_uninstall_module('offers_wants');
+  return $ret;
+}
+
+/*
+ * new data structure anticipating version 7 and cforge features.
+ */
+function offers_wants_update_6003() {
+  drupal_install_modules(array('hierarchical_select', 'jquerymenu'));
+  $ret = array();
+  //make a new db table
+  foreach (offers_wants_schema() as $tablename => $structure) {
+    db_create_table($ret, $tablename, $structure);
+  }
+  //populate it with existing nodes
+  $result = db_query("select nid, type, changed FROM {node} WHERE type in ('offer', 'want')");
+  $month = 3600*24*30;
+  //set the expiry date of each node to 6 months after the last mod, or three months from now, whichever is latest
+  while ($node = db_fetch_object($result)) {
+    $expires = max($node->changed + 6*$month, time() + $month * 3);
+    db_query("REPLACE into {offers_wants} (nid, expires, want, service) VALUES (%d, '%s', %d, 1)",
+      array(
+        $node->nid,
+        $expires,
+        $node->type == 'want',
+      )
+    );
+  }
+  //change the types in the node table
+  db_query("UPDATE {node} set type = 'proposition' WHERE type in ('offer', 'want')");
+  drupal_set_message("The offers and wants have been converted to a new content-type, 'proposition'. Any cck fields attached to offers or wants will need their table renaming and the entry in the content_types table adjusting as well.", 'warning');
+  db_query("DELETE FROM {node_type} WHERE type in ('offer', 'want')");
+  //update the permissions
+  db_query("UPDATE {permission} set perm = replace(perm, 'view directory', 'view plaza')");
+  db_query("UPDATE {permission} set perm = replace(perm, 'create offer', 'list propositions')");
+  db_query("UPDATE {permission} set perm = replace(perm, ', create want', '')");
+  db_query("UPDATE {permission} set perm = replace(perm, ', edit directory', '')");
+
+    //Delete the views declared in cforge_custom
+  $viewnames = array('mc_directory_recent', 'mc_directory_recent_offers', 'mc_directory_recent_wants', 'mc_directory_user');
+  foreach ($viewnames as $viewname) {
+    $view = views_get_view($viewname);
+    if ($view){
+      $view->delete();
+      views_object_cache_clear('view', $viewname);
+    }
+  }
+  //put the new blocks into the old blocks' rows, deleting the new blocks rows first
+  db_query("DELETE from {blocks} WHERE delta = 'cforge_offers-latest'");
+  db_query("UPDATE {blocks} set delta = 'cforge_offers-latest' WHERE delta = '0fd7b87c51fff410ede51862eaa2f92a'");
+  db_query("DELETE from {blocks} WHERE delta = 'cforge_wants-latest'");
+  db_query("UPDATE {blocks} set delta = 'cforge_wants-latest' WHERE delta = '3454e7dc74c6d6ffa4f3febe616b23fd'");
+
+  db_query("UPDATE vocabulary_node_types set type = 'proposition' where type = 'offer';");
+  db_query("DELETE FROM vocabulary_node_types  where type = 'want';");
+  return $ret;
+}
+
+/*
+ * forgot to install the new dependencies
+ */
+function offers_wants_update_6004() {
+  if (module_exists('rules'))  drupal_uninstall_module('rules');
+  if (module_exists('scheduler'))  drupal_uninstall_module('scheduler');
+  variable_del('scheduler_unpublish_enable_offer');
+  variable_del('scheduler_unpublish_enable_want');
+  variable_del('scheduler_field_type');
+
+  drupal_install_modules(array('hs_taxonomy', 'jquerymenu'));
+
+  $vid = db_result(db_query("SELECT vid FROM {vocabulary} WHERE module = 'offers_wants'"));
+  setup_taxonomy_hs($vid);
+  return array();
+}
+
+/*
+ * implements hook_update_n
+ * update the variable name
+ */
+function offers_wants_update_6005() {
+  if ($language->language == 'fr') {
+    $file = array(
+      'filepath' => drupal_get_path('module', 'offers_wants') .'/translations/offers_wants.fr.po'
+    );
+    _locale_import_po((object)$file, 'fr', LOCALE_IMPORT_OVERWRITE, 'default');
+  }
+  variable_set('cforge_plaza_proposition_types', array('service'));
+  variable_del('cforge_plaza_contracts');
+  return array();
+}
+
+function offers_wants_update_6007() {
+  db_query("UPDATE {permission} SET perm = REPLACE(perm, 'list propositions', 'post propositions') ");
+  db_query("UPDATE {permission} SET perm = REPLACE(perm, 'view plaza', 'view propositions') ");
+
+  $view_ids = db_query("SELECT vid from {views_view} WHERE name LIKE 'cc_directory%'");
+  while  ($vid = db_fetch_array($view_ids)) {
+    db_query("DELETE FROM {views_display} WHERE vid = %d", $vid);
+  }
+  db_query("DELETE FROM {views_view} WHERE tag = 'offers/wants'");
+
+  db_query("UPDATE {system} SET weight = 5 WHERE name = 'offers_wants'");
+  db_query("UPDATE {node_type} set module = 'offers_wants' where module = 'cc_offer_want'");
+  variable_set('node_options_proposition', array('status'));
+  variable_set('comment_proposition', 0);
+  db_query("UPDATE {node} SET comment = 0 WHERE type = 'proposition'");
+  variable_set('comment_form_location_proposition', 1);
+  variable_set('cforge_plaza_expiry', 0);
+  variable_set('cforge_plaza_proposition_wants', TRUE);
+  return array();
+}
+/*
+ * Change the format of the saved proposition types
+ */
+function offers_wants_update_6008() {
+  $field = array(
+    'description' => t('boolean undefined property'),
+    'type' => 'int',
+    'size' => 'small',
+    'not null' => TRUE,
+    'default' => 0
+  );
+  $ret = array();
+  db_change_field($ret, 'cforge_propositions', 'good', 'type1', $field);
+  db_change_field($ret, 'cforge_propositions', 'service', 'type2', $field);
+  db_change_field($ret, 'cforge_propositions', 'loan', 'type3', $field);
+  db_add_field($ret, 'cforge_propositions', 'type4', $field);
+  db_add_field($ret, 'cforge_propositions', 'type5', $field);
+
+  $old_types =  array_filter(variable_get('cforge_plaza_proposition_types', array()));
+  $new_types = array();
+  foreach ($old_types as $type) {
+    $new_types[] = ucfirst($type) .'s';//this works in English and French
+  }
+  variable_set('cforge_plaza_proposition_types', implode('|', $new_types));
+  
+  variable_del('comment_anonymous_offer');
+  variable_del('comment_anonymous_want');
+  variable_del('comment_controls_offer');
+  variable_del('comment_controls_want');
+  variable_del('comment_default_mode_offer');
+  variable_del('comment_default_mode_want');
+  variable_del('comment_default_order_offer');
+  variable_del('comment_default_order_want');
+  variable_del('comment_default_per_page_offer');
+  variable_del('comment_default_per_page_want');
+  variable_del('comment_form_location_offer');
+  variable_del('comment_form_location_want');
+  variable_del('comment_want');
+  variable_del('comment_offer');
+  variable_del('comment_preview_offer');
+  variable_del('comment_preview_want');
+  variable_del('comment_subject_field_offer');
+  variable_del('comment_subject_field_want');
+  return array();
+}
+
+
+//seems like some installations upgraded giving each proposition a default expiry date.
+function offers_wants_update_6011() {
+  if (!variable_get('cforge_plaza_expiry', 0)) {
+    db_query("UPDATE {offers_wants} SET expires = 0");
+    db_query("UPDATE {node} SET status = 1 WHERE type = 'proposition'" );
+  }
+}
+
+function offers_wants_update_6012() {
+  db_query("UPDATE {node_type} SET module = 'offers_wants' WHERE type = 'mc_offer_want'");
+  return array();
+}
+
+function offers_wants_update_6013() {
+  $result = db_query("SELECT * FROM {menu_links} WHERE link_path in ('offers', 'wants')");
+  while ($link = db_fetch_array($result)) {
+    _menu_delete_item($link, TRUE);
+  }
+  db_query("UPDATE {menu_links} set plid =0 , p1 = 0, p2 = 0 WHERE link_path = 'node/add/proposition'");
+  menu_rebuild();
+}
+
+
+function offers_wants_update_6014() {
+  db_query("UPDATE {node_type} SET module = 'offers_wants' WHERE module = 'mc_offer_want'");
+  return array();
+}
+
+function offers_wants_update_6015() {
+  db_query("UPDATE {blocks} SET cache = -1 where delta = 'propositions_taxonomy_block'");
+}
+
+function offers_wants_update_6017() {
+  $comment = variable_get('comment_proposition', 2);
+  if ($comment == 1)$comment = 2;
+  variable_set('comment_proposition', $comment);
+  db_query("UPDATE {node} SET comment = %d WHERE type = 'proposition'", $comment);
+  return array();
+}
+
+/*
+ * should never be needed again
+ * this was used to migrate from a previous incarnation of this module
+ */
+function mc_offer_want_migrate() {
+  db_query("UPDATE {vocabulary} SET module = 'offers_wants' WHERE module = 'mc_offer_want'");
+  variable_set('offers_wants_cat_vid', 1);
+  //rename all the variables
+  $vars = array(
+    'cforge_plaza_expiry' => 'offers_wants_expiry',
+    'cforge_plaza_publish_period' => 'offers_wants_publish_period',
+    'cforge_plaza_expire_notice_days' => 'offers_wants_expire_notice_days',
+    'cforge_plaza_expire_notice_subject' => 'offers_wants_expire_notice_subject',
+    'cforge_plaza_expire_notice_template' => 'offers_wants_expire_notice_template',
+    'cforge_plaza_proposition_types' => 'offers_wants_proposition_types',
+    'cforge_plaza_proposition_wants' => 'offers_wants_proposition_wants',
+    'cforge_proposition_has_body' => 'offers_wants_has_body',
+    'cforge_cron_previous' => 'ow_cron_previous'
+  );
+  //move variables only if they are set
+  foreach ($vars as $old => $new) {
+    $oldval = variable_get($old, '<<no value>>');
+    if ($oldval != '<<no value>>') {
+      variable_set($new, $oldval);
+      variable_del($old);
+    }
+  }
+  
+  _ow_check_vocabs();
+  $types= explode('|', variable_get('offers_wants_proposition_types', 'Goods|Services|Loans'));
+  $vid = variable_get('offers_wants_type_vid', 0);
+  foreach ($types as $key => $typename) {
+    $key++;
+    $term = _ow_new_term($vid, $typename, $key);
+    $terms['type'.$key] = $term['tid'];
+  }
+  $result = db_query("SELECT n.nid, n.vid, type1, type2, type3, type4, type5 FROM {node} n INNER JOIN {cforge_propositions} p ON n.nid = p.nid");
+  while ($props  = db_fetch_array($result)) {
+    $nid = array_shift($props);
+    $vid = array_shift($props);
+    $props = array_filter($props);
+    $values = array();
+    foreach (array_keys($props) as $key) {
+      if (!$key)$key = 'type1';
+      $values[] = "($nid, $vid, ". $terms[$key] .")";
+    }
+    $query = "INSERT INTO {term_node} (nid, vid, tid) VALUES " . implode(',', $values);
+    db_query($query);
+  }
+  //copy the data from the old table to the new
+  db_query("INSERT INTO {offers_wants} SELECT nid, end, expires, want FROM {cforge_propositions}");
+  drupal_set_message('Now remove the mc_offer_want module from your modules directory');
+}
+
+function _ow_new_term($vid, $name, $key) {
+  $term = array(
+    'vid' => $vid,
+    'name' => $name,
+    'weight' => $key,
+  );
+  taxonomy_save_term($term);
+  return $term;
+}
+
+function _ow_taxonomy_hs($vid) {
+  variable_set('taxonomy_hierarchical_select_'.$vid, 1);
+  variable_set('hs_config_taxonomy-'.$vid, array(
+    'config_id' => 'taxonomy-1',
+    'save_lineage' => 1,
+    'enforce_deepest' => 0,
+    'entity_count' => 0,
+    'require_entity' => 0,
+    'resizable' => 1,
+    'level_labels' => array(
+      'status' => 1,
+      'labels' => array(
+        0 => t('Category'),
+        1 => t('Subcategory'),
+      )
+    ),
+    'dropbox' => array(
+      'status' => 1,
+      'title' => t('All selections'),
+      'limit' => 0,
+      'reset_hs' => 1,
+    ),
+    'editability' => array(
+      'status' => 0,
+      'item_types' => array(),
+      'allowed_levels' => array(
+        0 => 1,
+        1 => 1
+      ),
+      'allow_new_levels' => 0,
+      'max_levels' => 1
+    )
+  ));
+}
+
+function _ow_check_vocabs() {
+  $vids = db_result(db_query("SELECT count(vid) FROM vocabulary WHERE module = 'offers_wants'"));
+  if ($vids < 1) {//nothing has been installed
+    $vocab = array(
+      'name' => t('Proposition categories'),
+      'description' => t("This vocabulary is for categorising activities people do in their community. It can be used like the 'yellow pages' to help locate goods and services, but can also be used later on, for monitoring purposes."),
+      'help' => t('Choose one or more categories'),
+      'nodes' => array(
+        'proposition' => 'proposition',
+      ),
+      'tags' => 0,
+      'multiple' => 1,
+      'required' => 1,
+      'auto' => 1,
+      'hierarchy' => 1,
+      'relations' => '',
+      'module' => 'offers_wants',
+    );
+    taxonomy_save_vocabulary($vocab);
+    variable_set('offers_wants_cat_vid', $vocab['vid']);
+    _ow_taxonomy_hs($vocab['vid']);
+  }
+  if ($vids < 2) {
+    $vocab = array(
+      'name' => t('Proposition types'),
+      'description' => t("This vocabulary provides an extra dimension to your offers and wants. When it has more than one term, it shows as tabs on the views pages"),
+      'help' => t('Choose one or more types'),
+      'nodes' => array(
+        'proposition' => 'proposition',
+      ),
+      'tags' => 0,
+      'multiple' => 1,
+      'required' => 1,
+      'auto' => 1,
+      'hierarchy' => 0,
+      'relations' => '',
+      'module' => 'offers_wants',
+    );
+    taxonomy_save_vocabulary($vocab);
+    variable_set('offers_wants_type_vid', $vocab['vid']);
+    _ow_taxonomy_hs($vocab['vid']);
+  }
+}

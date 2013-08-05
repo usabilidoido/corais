@@ -1,0 +1,5 @@
+/* $Id: update_advanced-rtl.css,v 1.1 2007/07/11 16:07:00 dww Exp $ */
+
+.update-advanced-settings tr.update-advanced-settings-label td.update-advanced-settings-label {
+  padding: 0 2em 0 0;
+}

@@ -1,0 +1,67 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Drupal Jquery V6.x-1.9\n"
+"POT-Creation-Date: 2009-01-06 10:40+0100\n"
+"PO-Revision-Date: \n"
+"Last-Translator: Frank Tartler <frank.tartler@googlemail.com>\n"
+"Language-Team: Frank Tartler <frank.tartler@googlemail.com>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+"X-Poedit-Language: German\n"
+"X-Poedit-Country: GERMANY\n"
+"X-Poedit-SourceCharset: utf-8\n"
+
+#: jquerymenu.module:27
+msgid "Choose which menus will have a Jquery menu version and a corresponding block"
+msgstr "Auswahl, welche Menüs eine Jquery-Menü-Version und einen korrespondierenden Block erhalten "
+
+#: jquerymenu.module:72
+msgid "Jquery menu blocks"
+msgstr "Jquery-Menüblöcke"
+
+#: jquerymenu.module:76
+msgid "Choose which menus you wish to create a jquery version for. <p> Please note that this only creates the block. You will still have to activate the block on the blocks page."
+msgstr "Auswahl, für welche Menüs eine Jquery-Version erstellt werden soll. <p>Zu beachten ist, dass dies den Block nur erstellt. Er muss noch auf der Blöcke-Seite aktiviert werden."
+
+#: jquerymenu.module:80
+msgid "Disable animation."
+msgstr "Animation deaktivieren."
+
+#: jquerymenu.module:81
+msgid "If checked your menus will open without any transition effects."
+msgstr "Wenn angekreuzt öffnen sich die Menüs ohne Übergangseffekte."
+
+#: jquerymenu.module:86
+msgid "Save"
+msgstr "Speichern"
+
+#: jquerymenu.module:112
+msgid "Your settings have been saved."
+msgstr "Die Einstellungen wurden gespeichert."
+
+#: jquerymenu.module:26
+msgid "Jquerymenu Configuration"
+msgstr "Jquerymenu-Konfiguration"
+
+#: jquerymenu.module:0
+msgid "jquerymenu"
+msgstr ""
+
+#: jquerymenu.install:12
+msgid "Stores information about which menus are activated"
+msgstr "Speichert Informationen darüber, welche Menüs aktiviert sind."
+
+#: jquerymenu.info:0
+msgid "Jquery Menu"
+msgstr ""
+
+#: jquerymenu.info:0
+msgid "Enables expandable jquery menus."
+msgstr ""
+
+#: jquerymenu.info:0
+msgid "Advanced Navigation Pack"
+msgstr ""
+

@@ -1,0 +1,11 @@
+How to upgrade from mc_offer_want, which this module is intended to replace:
+
+put offers_wants next door to mc_offer_want
+on admin/build/modules disable mc_offer_want
+on the uninstall tab, uninstall mc_offer_want
+enable offers_wants
+The proposition types should now be governed by a new vocabulary, and there should be a views tab on /offers for everything in that vocab. You may need to save admin/settings/offers_wants to rebuild it.
+
+When you're satisfied the upgrade is successful:
+Delete the mc_offers_wants directory from your filesystem
+remove the cforge_propositions table from your database.

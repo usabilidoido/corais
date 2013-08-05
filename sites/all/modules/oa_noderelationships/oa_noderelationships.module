@@ -1,0 +1,3 @@
+<?php
+
+include_once('oa_noderelationships.features.inc');

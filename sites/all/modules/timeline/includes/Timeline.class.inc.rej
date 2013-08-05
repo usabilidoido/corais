@@ -1,0 +1,67 @@
+***************
+*** 119,151 ****
+     * Last should also check if the event has an "end" date
+     */
+    function getDefinedDateField($option, $options_field = '') {
+-     $timezone = timeline_get_timezone();
+- 
+      // Make sure that if there is no result that a valid date (today) is getting served.
+      if ($option != 'today' && $option != 'custom' && count($this->data['events']['events']) == 0) {
+        $option = 'today';
+      }
+      switch ($option) {
+        case 'today':
+-         return timeline_convert_to_gregorian(REQUEST_TIME, 'timestamp', $timezone, $timezone);
+        case 'first':
+-         return timeline_convert_to_gregorian($this->data['events']['events'][0]['start'], 'iso8601', $timezone, $timezone);
+        case 'last':
+-         return timeline_convert_to_gregorian($this->data['events']['events'][count($this->data['events']['events']) - 1]['start'], 'iso8601', $timezone, $timezone);
+        case 'middle':
+-         $end = timeline_convert_to_timestamp($this->data['events']['events'][count($this->data['events']['events']) - 1]['start'], 'iso8601', $timezone, $timezone);
+-         $start = timeline_convert_to_timestamp($this->data['events']['events'][0]['start'], 'iso8601', $timezone, $timezone);
+-         $middle = round(($start + $end) / 2, 0);
+-         return timeline_convert_to_gregorian($middle, 'timestamp', $timezone, $timezone);
+        case 'median':
+          foreach ($this->data['events']['events'] as $date) {
+-           $t[] = timeline_convert_to_timestamp($date['start'], 'iso8601', $timezone, $timezone);
+          }
+          sort($t);
+-         return timeline_convert_to_gregorian($t[round(count($t)/2)], 'timestamp', $timezone, $timezone);
+        case 'custom':
+          if ($options_field != '') {
+-           return timeline_convert_to_gregorian(strtotime($options_field), 'timestamp', $timezone, $timezone);
+          }
+      }
+      return FALSE;
+--- 119,149 ----
+     * Last should also check if the event has an "end" date
+     */
+    function getDefinedDateField($option, $options_field = '') {
+      // Make sure that if there is no result that a valid date (today) is getting served.
+      if ($option != 'today' && $option != 'custom' && count($this->data['events']['events']) == 0) {
+        $option = 'today';
+      }
+      switch ($option) {
+        case 'today':
++         return timeline_convert_to_gregorian(REQUEST_TIME, 'timestamp');
+        case 'first':
++         return timeline_convert_to_gregorian($this->data['events']['events'][0]['start'], 'iso8601');
+        case 'last':
++         return timeline_convert_to_gregorian($this->data['events']['events'][count($this->data['events']['events']) - 1]['start'], 'iso8601');
+        case 'middle':
++         $end = timeline_convert_to_timestamp($this->data['events']['events'][count($this->data['events']['events']) - 1]['start'], 'iso8601');
++         $start = timeline_convert_to_timestamp($this->data['events']['events'][0]['start'], 'iso8601');
++         $middle = ($start + $end) / 2;
++         return timeline_convert_to_gregorian($middle, 'timestamp');
+        case 'median':
+          foreach ($this->data['events']['events'] as $date) {
++           $t[] = timeline_convert_to_timestamp($date['start'], 'iso8601');
+          }
+          sort($t);
++         return timeline_convert_to_gregorian($t[round(count($t)/2)], 'timestamp');
+        case 'custom':
+          if ($options_field != '') {
++           return timeline_convert_to_gregorian(strtotime($options_field), 'timestamp');
+          }
+      }
+      return FALSE;

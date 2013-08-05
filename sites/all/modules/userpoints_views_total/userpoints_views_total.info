@@ -1,0 +1,6 @@
+; $Id$
+name = Userpoints Views Total
+description = Expose the userpoints total values to Views.
+package = Userpoints
+core = 6.x
+version = 6.x-1.0

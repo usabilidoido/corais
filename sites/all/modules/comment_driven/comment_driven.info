@@ -1,0 +1,25 @@
+; $Id: comment_driven.info,v 1.9 2010/03/27 23:02:25 arhak Exp $
+
+name = Comment driven
+description = Allows comments to alter node's properties, and displays a difference summary of the changes introduced by each comment.
+
+package = Driven
+; @d6
+core = 6.x
+
+dependencies[] = comment
+dependencies[] = driven_diff
+dependencies[] = driven_props
+
+; @d7
+files[] = comment_driven.install
+files[] = comment_driven.module
+files[] = comment_driven.alter.inc
+files[] = comment_driven.admin.inc
+
+; Information added by drupal.org packaging script on 2010-05-01
+version = "6.x-1.0-alpha3"
+core = "6.x"
+project = "comment_driven"
+datestamp = "1272741906"
+

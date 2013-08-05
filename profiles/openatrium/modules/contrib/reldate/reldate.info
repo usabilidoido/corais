@@ -1,0 +1,16 @@
+core = "6.x"
+dependencies[] = "strongarm"
+description = "API for displaying dates in the most easily understood format given a date's proximity to the current time."
+features[ctools][] = "strongarm:strongarm:1"
+features[variable][] = "date_format_day"
+features[variable][] = "date_format_month_after"
+features[variable][] = "date_format_month_within"
+features[variable][] = "date_format_time"
+name = "Relative date"
+
+; Information added by drupal.org packaging script on 2010-08-12
+version = "6.x-1.0-beta2"
+core = "6.x"
+project = "reldate"
+datestamp = "1281646292"
+

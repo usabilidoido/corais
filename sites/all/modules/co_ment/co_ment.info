@@ -1,0 +1,10 @@
+name = co-ment
+description = Interface to co-ment® for submitting texts to comments and annotations
+core = 6.x
+
+; Information added by drupal.org packaging script on 2011-11-15
+version = "6.x-1.12"
+core = "6.x"
+project = "co_ment"
+datestamp = "1321401331"
+

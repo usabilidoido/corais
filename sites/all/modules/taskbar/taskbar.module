@@ -1,0 +1,669 @@
+<?php
+/**
+ * @file
+ *   Taskbar module main file.
+ */
+
+/**
+ * A bit flag used to let us know if an object is in the database.
+ */
+define('TASKBAR_EXPORT_IN_DATABASE', 0x01);
+
+/**
+ * A bit flag used to let us know if an object is a 'default' in code.
+ */
+define('TASKBAR_EXPORT_IN_CODE', 0x02);
+
+/**
+ * Implements hook_help().
+ */
+function taskbar_help($path, $arg) {
+  if ($path == 'admin/help#taskbar') {
+    return '<p>'. t('The taskbar module adds a toolbar to the bottom of the page for site users, with realtime notification.') .'</p>';
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function taskbar_menu() {
+  $items['taskbar/status'] = array(
+    'title' => 'Refresh taskbar',
+    'page callback' => 'taskbar_status_callback',
+    'access arguments' => array('use taskbar'),
+    'description' => 'Refresh the status of items',
+    'type' => MENU_CALLBACK,
+  );
+  $items['taskbar/display/%'] = array(
+    'title' => 'Display a taskbar item',
+    'page callback' => 'taskbar_display_callback',
+    'page arguments' => array(2),
+    'access arguments' => array('use taskbar'),
+    'description' => 'Display a taskbar item',
+    'type' => MENU_CALLBACK,
+  );
+  $items['taskbar/polling/status'] = array(
+    'title' => 'Refresh taskbar',
+    'page callback' => 'taskbar_status_polling',
+    'access arguments' => array('use taskbar'),
+    'description' => 'Refresh the status of items',
+    'type' => MENU_CALLBACK,
+  );
+  $items['taskbar/polling/display/%'] = array(
+    'title' => 'Display a taskbar item',
+    'page callback' => 'taskbar_display_polling',
+    'page arguments' => array(3),
+    'access arguments' => array('use taskbar'),
+    'description' => 'Display a taskbar item',
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_perm().
+ */
+function taskbar_perm() {
+  return array('use taskbar', 'use taskbar alert');
+}
+
+/**
+ * Implements hook_user().
+ */
+function taskbar_user($op, &$edit, &$account, $category = NULL) {
+  if ($op == 'delete') {
+    db_query("DELETE FROM {taskbar_update} WHERE uid = %d", $account->uid);
+  }
+}
+
+/**
+ * Implements hook_init().
+ */
+function taskbar_init() {
+  if (!empty($_GET['ctools_ajax'])) {
+    // We do not display taskbar in page fetched with Ctools Ajax.
+    taskbar_suppress(TRUE);
+  }
+  if (_taskbar_show()) {
+    // Prepare things that could be too late in hook_footer().
+    _taskbar_prepare();
+    taskbar_status_page();
+  }
+}
+
+/**
+ * Implements hook_footer().
+ */
+function taskbar_footer($main = 0) {
+  if (_taskbar_show()) {
+    return taskbar_status_page(TRUE);
+  }
+}
+
+/**
+ * Implements hook_theme().
+ */
+function taskbar_theme($existing, $type, $theme, $path) {
+  return array(
+    'taskbar_taskbar' => array(
+      'arguments' => array('taskbar' => NULL),
+      'file' => 'includes/taskbar.theme.inc',
+    ),
+    'taskbar_region' => array(
+      'arguments' => array('region' => NULL),
+      'file' => 'includes/taskbar.theme.inc',
+    ),
+    'taskbar_item' => array(
+      'arguments' => array('item' => NULL, 'content_only' => NULL),
+      'file' => 'includes/taskbar.theme.inc',
+    ),
+  );
+}
+
+/**
+ * Implements hook_features_api().
+ */
+function taskbar_features_api() {
+  return array(
+    'taskbar' => array(
+      'name' => t('Taskbar'),
+      'default_hook' => 'taskbar_default_items',
+      'features_source' => TRUE,
+      'file' => drupal_get_path('module', 'taskbar') .'/includes/taskbar.features.inc',
+    ),
+  );
+}
+
+//==============================
+// TASKBAR FUNCTIONS
+//==============================
+
+function taskbar_get_styles() {
+  return _taskbar_registry('style');
+}
+
+function taskbar_get_providers() {
+  return _taskbar_registry('provider');
+}
+
+function taskbar_get_regions() {
+  $regions = array();
+  $result = db_query("SELECT * FROM {taskbar_region} ORDER BY weight");
+  while ($row = db_fetch_object($result)) {
+    $regions[$row->name] = $row;
+  }
+  return $regions;
+}
+
+/**
+ * Fetch all the items to display in the taskbar.
+ * @TODO: Cache.
+ */
+function taskbar_get_items() {
+  static $items;
+
+  if (isset($items)) {
+    return $items;
+  }
+
+  $items = array();
+
+  // module_invoke_all('taskbar_default_items') cause duplicate items if two or
+  // more modules declare the same item.
+  foreach (module_implements('taskbar_default_items') as $module) {
+    $results = call_user_func($module . '_taskbar_default_items');
+    if (!empty($results)) {
+      foreach ($results as $name => $item) {
+        $item = (object) $item;
+        taskbar_item_repair($item);
+        $item->export_type = TASKBAR_EXPORT_IN_CODE;
+        $items[$name] = $item;
+      }
+    }
+  }
+  drupal_alter('taskbar_default_items', $items);
+
+  $result = db_query("SELECT * FROM {taskbar_item} ORDER BY region, weight");
+  while ($row = db_fetch_object($result)) {
+    $row->settings = unserialize($row->settings);
+    taskbar_item_repair($row);
+    $row->export_type = !isset($items[$row->name]) ? TASKBAR_EXPORT_IN_DATABASE : TASKBAR_EXPORT_IN_CODE | TASKBAR_EXPORT_IN_DATABASE;
+    $items[$row->name] = $row;
+  }
+
+  drupal_alter('taskbar_items', $items);
+  return $items;
+}
+
+/**
+ * Save an item to the database.
+ *
+ * @param $item
+ *  An array of save
+ */
+function taskbar_item_save($item) {
+  $item = (object) $item;
+
+  if (db_result(db_query('SELECT 1 FROM {taskbar_item} WHERE name = "%s"', $item->name))) {
+    return drupal_write_record('taskbar_item', $item, 'name');
+  }
+  return drupal_write_record('taskbar_item', $item);
+}
+
+/**
+ * Remove an item to the database.
+ *
+ * @param $item
+ *  An array of save
+ */
+function taskbar_item_delete($item_name) {
+  db_query('DELETE FROM {taskbar_item} WHERE name = "%s"', $item_name);
+  module_invoke_all('taskbar_item_delete', $item_name);
+}
+
+/**
+ * Repair item properties.
+ *
+ * Not all item properties are required, but we need to have default value
+ * so that different UI do not break in PHP with E_STRICT.
+ */
+function taskbar_item_repair(&$item) {
+  if (!isset($item->title)) {
+    $item->title = $item->name;
+  }
+  if (!isset($item->settings)) {
+    $item->settings = array();
+  }
+  if (!isset($item->settings['text'])) {
+    $item->settings['text'] = $item->name;
+  }
+  if (!isset($item->settings['description'])) {
+    $item->settings['description'] = $item->title;
+  }
+  if (!isset($item->settings['roles'])) {
+    $item->settings['roles'] = array();
+  }
+  if (!isset($item->settings['refresh'])) {
+    $item->settings['refresh'] = FALSE;
+  }
+  if (!isset($item->settings['ajax'])) {
+    $item->settings['ajax'] = FALSE;
+  }
+  if (!isset($item->settings['update'])) {
+    $item->settings['update'] = FALSE;
+  }
+  if (!isset($item->settings['ajax refresh'])) {
+    $item->settings['ajax refresh'] = 0;
+  }
+}
+
+function taskbar_get_item_info($item_name, $load_provider = FALSE) {
+  $items = taskbar_get_items();
+  $providers = taskbar_get_providers();
+  $item = $items[$item_name];
+
+  // $item->provider could already be an array (because there was
+  // a taskbar_get_item_info() before it), in this case we simply return the
+  // $item object.
+  if (is_array($item->provider)) {
+    return $item;
+  }
+
+  $provider = $providers[$item->provider];
+  $item->provider = $provider;
+
+  if ($load_provider && isset($item->provider['file'])) {
+    require_once($item->provider['path'] . '/' . $item->provider['file']);
+  }
+
+  return $item;
+}
+
+/**
+ * Get a provider callback.
+ * Load external file if necessary.
+ *
+ * @param $provider
+ *   If type string, it is provider name.
+ *   If type array, it is provider.
+ */
+function taskbar_provider_get_function($provider, $callback) {
+  if (!is_array($provider)) {
+    $providers = taskbar_get_providers();
+    $provider = $providers[$provider];
+  }
+  if (empty($provider[$callback])) {
+    return FALSE;
+  }
+  else {
+    if (is_array($provider[$callback]) && isset($provider[$callback]['function'])) {
+      $function = $provider[$callback]['function'];
+      if (isset($provider[$callback]['file'])) {
+        require_once($provider[$callback]['path'] . '/' . $provider[$callback]['file']);
+      }
+    }
+    else {
+      $function = $provider[$callback];
+      if (isset($provider['file'])) {
+        require_once($provider['path'] . '/' . $provider['file']);
+      }
+    }
+    return $function;
+  }
+}
+
+/**
+ * Shows the taskbar.
+ *
+ * This function is called first without rendering so that it can prepare JS.
+ * Then it is called again in footer with the rendering option.
+ */
+function taskbar_status_page($render = FALSE) {
+  static $items;
+  static $providers;
+
+  if (!$items) {
+    global $user;
+    $items = taskbar_get_items();
+    uasort($items, '_taskbar_sort_by_weight');
+    $providers = taskbar_get_providers();
+    // Remove non-display items
+    foreach ($items as $k => $item) {
+      if (!$item->status || !(empty($item->settings['roles']) || array_intersect_key($user->roles, $item->settings['roles']))) {
+        unset($items[$k]);
+      }
+    }
+  }
+
+  if (!$render) {
+    $update = FALSE;
+    $ajax_refresh = array();
+
+    foreach ($items as $item) {
+      if (!isset($providers[$item->provider])) {
+        drupal_set_message(t('Provider %provider is used in taskbar item %item but it is not found.', array('%provider' => $item->provider, '%item' => $item->name)), 'warning');
+        continue;
+      }
+
+      $provider = $providers[$item->provider];
+      $update = $update || $item->settings['update'];
+      if ($item->settings['refresh']) {
+        $ajax_refresh[$item->name] = $item->settings['ajax refresh'];
+      }
+      $callback = taskbar_provider_get_function($provider, 'early prepare');
+      if ($callback) {
+        $callback($item);
+      }
+    }
+
+    drupal_add_js(array('taskbar' => array(
+      'update' => $update,
+      'update_method' => variable_get('taskbar_update_method', 'ajax'),
+      'delay' => variable_get('taskbar_time', 30000),
+      'ajax_refresh' => $ajax_refresh,
+       'auto_close' => variable_get('taskbar_autoclose', FALSE),
+    )), 'setting');
+  }
+  else {
+    $taskbar = array('#type' => 'taskbar_taskbar', '#sorted' => TRUE);
+
+    foreach (array_keys(taskbar_get_regions()) as $region) {
+      $taskbar[$region] = array(
+        '#type' => 'taskbar_region',
+        '#sorted' => TRUE,
+        '#name' => $region,
+      );
+    }
+
+    foreach ($items as $item) {
+      if (!isset($providers[$item->provider])) {
+        continue;
+      }
+      $provider = $providers[$item->provider];
+      $callback = taskbar_provider_get_function($provider, 'callback');
+
+      if (function_exists($callback)) {
+        $content = $callback($item, 'status', TRUE);
+        if ($content === FALSE) {
+          continue;
+        }
+        drupal_alter('taskbar_item_content', $content, $item);
+
+        $taskbar[$item->region][$item->name] = array(
+          '#type' => 'taskbar_item',
+          '#provider' => $provider['name'],
+          '#item' => $item,
+          '#name' => $item->name,
+          '#options' => array('ajax' => $item->settings['ajax'], 'update' => $item->settings['update']),
+          '#value' => $content,
+        );
+      }
+    }
+
+    return theme('taskbar_taskbar', $taskbar);
+  }
+}
+
+/**
+ * Shows the right stuff on the relevant callback page.
+ *
+ * @param array $selected_items
+ *   If empty, update all items. If not, update only selected items.
+ */
+function taskbar_status_callback($selected_items = array()) {
+  global $user;
+  $items = taskbar_get_items();
+  $providers = taskbar_get_providers();
+  $taskbar = array('#type' => 'taskbar_taskbar');
+  $commands = array();
+
+  foreach ($items as $item) {
+    if (!empty($selected_item) && !in_array($item->name, $selected_items)) {
+      continue;
+    }
+    if ($item->status && (empty($item->settings['roles']) || array_intersect_key($user->roles, $item->settings['roles']))) {
+      $provider = $providers[$item->provider];
+      if (!$item->settings['update']) {
+        continue;
+      }
+
+      $callback = taskbar_provider_get_function($provider, 'callback');
+      $content = $callback($item);
+      if ($content === FALSE) {
+        continue;
+      }
+      drupal_alter('taskbar_item_content', $content, $item);
+
+      $taskbar_item = array(
+        '#type' => 'taskbar_item',
+        '#provider' => $provider['name'],
+        '#name' => $item->name,
+        '#item' => $item,
+        '#options' => array('ajax' => $item->settings['ajax'], 'update' => $item->settings['update']),
+        '#value' => $content,
+      );
+      $commands[] = array(
+        'command' => 'replace',
+        'selector' => '#taskbar-item-' . $item->name . ' .taskbar-item-content',
+        'data' => theme('taskbar_item', $taskbar_item, TRUE),
+      );
+      if (!empty($taskbar_item['#value']['#commands'])) {
+        $commands = array_merge($commands, $taskbar_item['#value']['#commands']);
+      }
+    }
+  }
+
+  drupal_json($commands);
+}
+
+/**
+ * Shows the right stuff on the relevant callback page.
+ */
+function taskbar_display_callback($item_name) {
+  module_load_include('inc', 'taskbar', 'includes/taskbar.theme');
+  $item = taskbar_get_item_info($item_name, TRUE);
+  $response = $item->provider['callback']($item, 'display');
+  $commands[] = array(
+    'command' => 'html',
+    'selector' => '#taskbar-item-' . $item->name . ' .taskbar-item-extra',
+    'data' => _taskbar_item_titlebar($item) . $response['extra'],
+  );
+
+  // If this is a realtime item, update the status, too
+  if (!empty($item->settings['update'])) {
+    $taskbar_item = array('#value' => $item->provider['callback']($item, 'status'), '#item' => $item);
+    $commands[] = array(
+      'command' => 'replace',
+      'selector' => '#taskbar-item-' . $item->name . ' .taskbar-item-content',
+      'data' => theme('taskbar_item', $taskbar_item, TRUE),
+    );
+    if (!empty($taskbar_item['#value']['#commands'])) {
+      $commands = array_merge($commands, $taskbar_item['#value']['#commands']);
+    }
+  }
+
+  drupal_json($commands);
+}
+
+/**
+ * Polling
+ */
+function taskbar_status_polling() {
+  global $user;
+  _taskbar_hold_connection();
+
+  $items = array();
+  $result = db_query("SELECT name FROM {taskbar_update} WHERE uid = %d", $user->uid);
+  while ($row = db_fetch_object($result)) {
+    if (!empty($row->name)) {
+      $items[] = $row->name;
+    }
+  }
+
+  taskbar_status_callback($items);
+}
+
+/**
+ * Polling
+ */
+function taskbar_display_polling($item_name) {
+  global $user;
+
+  if (! $item = taskbar_get_item_info($item_name)) {
+    return;
+  }
+
+  _taskbar_hold_connection($item_name);
+  taskbar_display_callback($item_name);
+}
+
+/**
+ * Send a polling update message to Taskbar.
+ */
+function taskbar_polling_update($uids, $item_name = '') {
+  $row = (object) array('name' => $item_name, 'created' => time());
+  if (!is_array($uids)) {
+    $uids = array($uids);
+  }
+
+  foreach ($uids as $uid) {
+    $row->uid = $uid;
+    drupal_write_record('taskbar_update', $row);
+  }
+}
+
+/**
+ * Suppress display of taskbar.
+ *
+ * This function should be called from within another module's page callback
+ * (preferably using module_invoke()) when the taskbar should not be displayed.
+ * This is useful for modules that implement popup pages or other special
+ * pages where the taskbar would be distracting or break the layout.
+ *
+ * @param $set
+ *   Defaults to TRUE. If called before hook_footer(), the menu will not be
+ *   displayed. If FALSE is passed, the suppression state is returned.
+ */
+function taskbar_suppress($set = TRUE) {
+  static $suppress = FALSE;
+  // drupal_add_js() must only be invoked once.
+  if (!empty($set) && $suppress === FALSE) {
+    $suppress = TRUE;
+    drupal_add_js(array('taskbar' => array('suppress' => 1)), 'setting');
+  }
+  return $suppress;
+}
+
+/**
+ * Checks user access, user authentication, and visibility settings to determine
+ * whether to show the taskbar.
+ */
+function _taskbar_show() {
+  if (!user_access('use taskbar') || arg(0) == 'taskbar' || taskbar_suppress(FALSE)) {
+    return FALSE;
+  }
+
+  return TRUE;
+}
+
+function _taskbar_load_style($style = NULL) {
+  if (empty($style)) {
+    $style = variable_get('taskbar_style', 'taskbar_default');
+  }
+  if ($style == 'default') {
+    // Quick fix for #1287942 for compatibility with pre-1.0.
+    // Will be removed in 1.0.
+    $style = 'taskbar_default';
+  }
+
+  $styles = taskbar_get_styles();
+  // Load base style first
+  if (isset($styles[$style]['base'])) {
+    _taskbar_load_style($styles[$style]['base']);
+  }
+
+  drupal_add_css($styles[$style]['path'] . '/' . $style . '.css');
+}
+/**
+ * Adds the CSS and JS to the page.
+ */
+function _taskbar_prepare() {
+  _taskbar_load_style();
+  drupal_add_js(drupal_get_path('module', 'taskbar') . '/taskbar.js');
+}
+
+/**
+ * Common function to process taskbar specific hooks.
+ */
+function _taskbar_registry($hook) {
+  static $data = array();
+
+  if (! isset($data[$hook])) {
+    _taskbar_load_includes();
+
+    $tmp = module_invoke_all('taskbar_' . $hook);
+    drupal_alter('taskbar_' . $hook, $tmp);
+
+    // Reindex for each lookup
+    $registry = array();
+    foreach ($tmp as $reg) {
+      $registry[$reg['name']] = $reg;
+    }
+
+    $data[$hook] = $registry;
+  }
+  return $data[$hook];
+}
+
+function _taskbar_load_includes() {
+  static $loaded = FALSE;
+
+  if (!$loaded) {
+    $loaded = TRUE;
+    foreach (module_list() as $module) {
+      $module_path = drupal_get_path('module', $module);
+      if (file_exists("{$module_path}/{$module}.taskbar.inc")) {
+        require_once "{$module_path}/{$module}.taskbar.inc";
+      }
+    }
+  }
+}
+
+/**
+ * Holds the connection until there is new data or timeout.
+ * @param $timeout timeout in milisecond
+ * @param $name (optional) item name
+ */
+function _taskbar_hold_connection($name = NULL) {
+  global $user;
+  $initial_time = time();
+  $expired_time = $initial_time + min(variable_get('taskbar_time', 30000)/1000, ini_get('max_execution_time') - 5);
+  $name_condition = $name ? " AND name='" . $name . "'" : "";
+  // Ignore this request in New Relic because it take very long time but it is
+  // by designed.
+  if (function_exists('newrelic_ignore_transaction')) {
+    newrelic_ignore_transaction();
+  }
+  sleep(2);
+  do {
+    sleep(1);
+    $item = db_result(db_query_range("SELECT uid FROM {taskbar_update} WHERE uid = %d" . $name_condition, $user->uid, 0, 1));
+  } while (time() < $expired_time && empty($item));
+
+  // We keep the update status for a while to make sure that if user opens
+  // multiple tabs, all are notified.
+  db_query("DELETE FROM {taskbar_update} WHERE uid = %d AND created < %d", $user->uid, time() - 2);
+}
+
+/**
+ * Sort taskbar items by weight. Used by uasort.
+ */
+function _taskbar_sort_by_weight($a, $b) {
+  $a_weight = (is_object($a) && isset($a->weight)) ? $a->weight : 0;
+  $b_weight = (is_object($b) && isset($b->weight)) ? $b->weight : 0;
+  if ($a_weight == $b_weight) {
+    return 0;
+  }
+  return ($a_weight < $b_weight) ? -1 : 1;
+}
+

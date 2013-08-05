@@ -1,0 +1,52 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ *  Allows groups the option to opt-in to the site's outgoing RSS feed provided by OA Feeds module.
+ */
+
+/**
+ * Implementation of hook_views_api().
+ */
+function grayside_oa_feeds_opt_views_api() {
+  return array(
+    'api' => '2',
+  );
+}
+
+/**
+ * Implementation of hook_views_default_views_alter().
+ */
+function grayside_oa_feeds_opt_views_default_views_alter(&$views) {
+  $views['oa_feeds_dashboard']->display['default']->display_options['filters']['field_oa_feeds_allowed_value_many_to_one'] = array(
+    'operator' => 'or',
+    'value' => array(
+      'Provide RSS Content' => 'Provide RSS Content',
+    ),
+    'group' => '0',
+    'exposed' => FALSE,
+    'expose' => array(
+      'operator' => FALSE,
+      'label' => '',
+    ),
+    'id' => 'field_oa_feeds_allowed_value_many_to_one',
+    'table' => 'node_data_field_oa_feeds_allowed',
+    'field' => 'field_oa_feeds_allowed_value_many_to_one',
+    'override' => array(
+      'button' => 'Override',
+    ),
+    'relationship' => 'group_nid',
+    'reduce_duplicates' => 0,
+  );
+}
+
+/**
+ * Preprocess node form.
+ */
+function grayside_oa_feeds_opt_preprocess_node_form(&$vars) {
+  if (!empty($vars['form']['nodeformcols_region_main']['field_oa_feeds_allowed'])) {
+    $vars['form']['nodeformcols_region_right']['field_oa_feeds_allowed'] = $vars['form']['nodeformcols_region_main']['field_oa_feeds_allowed'];
+    unset($vars['form']['nodeformcols_region_main']['field_oa_feeds_allowed']);
+  }
+}

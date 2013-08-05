@@ -1,0 +1,11 @@
+name = Date Picker Formatter
+description = Doodle like date choice feature.
+core = 6.x
+dependencies[] = date
+dependencies[] = votingapi
+; Information added by drupal.org packaging script on 2012-02-27
+version = "6.x-2.0-beta1+17-dev"
+core = "6.x"
+project = "date_picker_formatter"
+datestamp = "1330301412"
+

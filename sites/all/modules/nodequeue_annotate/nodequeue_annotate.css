@@ -1,0 +1,95 @@
+
+.nodequeue-annotate-javascript-data {
+ display: none;
+ speak: none;
+}
+
+#nodequeue-annotate-container {
+ z-index: 19999;
+}
+
+#nodequeue-annotate-container,
+#nodequeue-annotate-background {
+ position: fixed;
+ top: 0;
+ left: 0;
+ width: 100%;
+ height: 100%;
+}
+
+#nodequeue-annotate-background {
+ background-color: black;
+ opacity: 0;
+}
+
+#nodequeue-annotate-inner {
+ background-color: white;
+ border: 2px solid black;
+ border-radius: 10px; -moz-border-radius: 10px; -webkit-border-radius: 10px; -opera-border-radius: 10px;
+ padding: 16px;
+ position: fixed;
+}
+
+.nodequeue-annotate-buttons {
+ text-align: right;
+}
+
+#nodequeue-annotate-form-cancel {
+ margin: 5px 0 0 5px;
+}
+ 
+#nodequeue-annotate-form-submit {
+ font-weight: bold;
+ margin: 5px 0 0 5px;
+}
+
+#nodequeue-annotate-form-remove {
+ margin: 5px 50px 0 0;
+}
+
+#nodequeue-annotate-throbber {
+ background-image: url(/misc/throbber.gif);
+ background-position: 0 -20px;
+ background-repeat: no-repeat;
+ display: inline-block;
+ height: 13px;
+ width: 13px;
+ margin: 5px 0 0 5px;
+ position: relative;
+ top: 2px;
+ visibility: hidden;
+}
+
+#nodequeue-annotate-annotation-label {
+ vertical-align: top;
+}
+
+.nodequeue-annotate-header h4 {
+ margin-top: 0;
+}
+
+.nodequeue-annotate-header a {
+ background-color: white;
+ border: 2px solid gray;
+ border-radius: 3px; -moz-border-radius: 3px; -webkit-border-radius: 3px; -opera-border-radius: 3px;
+ color: red;
+ cursor: pointer;
+ float: right;
+ font-size: 10px;
+ font-weight: bold;
+ padding: 0 2px;
+}
+
+.nodequeue-annotate-header a:hover {
+ background-color: silver;
+ text-decoration: none;
+}
+
+#nodequeue-annotate-inner form {
+ clear: both;
+}
+
+.nodequeue-annotate-success {
+ font-size: 1.15em;
+ clear: both;
+}

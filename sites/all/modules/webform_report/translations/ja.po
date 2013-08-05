@@ -1,0 +1,307 @@
+# $Id: ja.po,v 1.1.2.2 2008/11/13 08:10:44 imagine Exp $
+#
+# Japanese translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  webform_report.inc,v 1.1.2.19 2008/10/28 13:26:51 klance
+#  webform_report.module,v 1.2.2.55.2.37 2008/10/28 13:45:38 klance
+#  webform_report.info: n/a
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2008-11-13 15:53+0900\n"
+"PO-Revision-Date: 2008-11-13 16:41+0900\n"
+"Last-Translator: PineRay <matsudaterutaka@gmail.com>\n"
+"Language-Team: Japanese <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+
+#: webform_report.inc:77;120;182
+#: webform_report.module:333
+msgid "User"
+msgstr "ユーザ"
+
+#: webform_report.inc:78;123;187
+#: webform_report.module:333
+msgid "Date"
+msgstr "日付"
+
+#: webform_report.inc:79;126;192
+#: webform_report.module:333
+msgid "Time"
+msgstr "時間"
+
+#: webform_report.inc:80;129;197
+#: webform_report.module:333
+msgid "IP Address"
+msgstr "IPアドレス"
+
+#: webform_report.inc:81;372
+msgid "Edit"
+msgstr "編集"
+
+#: webform_report.inc:95
+msgid "Anonymous"
+msgstr "匿名ユーザ"
+
+#: webform_report.inc:101;378
+msgid "edit"
+msgstr "編集"
+
+#: webform_report.inc:225
+msgid "results"
+msgstr "結果"
+
+#: webform_report.inc:229
+msgid "It appears that no criteria have been specified for this report. Please click on the Criteria tab to add webform data to your report."
+msgstr "このリポートには基準が指定されていないようです。基準タブをクリックしてWEBフォームのデータをリポートに追加してください。"
+
+#: webform_report.inc:234
+msgid ""
+"Note: There are no submissions for the selected webform.</b> Either the form\n"
+"       has not yet been completed by anyone, or the results have been cleared. This will not\n"
+"       prevent you from creating this report, but this message will be displayed on the report\n"
+"       page until someone submits the selected webform."
+msgstr ""
+"注意: 選択されたWEBフォームには受信内容がありません。</b>\n"
+"        フォームの入力を誰も完了していないか、または結果が消去されています。\n"
+"        リポートを作成するのに支障はありませんが、選択されたWEBフォームに誰かが送信するまでは\n"
+"        リポートページにこのメッセージが表示されます。"
+
+#: webform_report.inc:372
+msgid "View"
+msgstr "表示"
+
+#: webform_report.inc:372
+#: webform_report.module:252
+msgid "Delete"
+msgstr "削除"
+
+#: webform_report.inc:379
+msgid "delete"
+msgstr "削除"
+
+#: webform_report.inc:413
+msgid "Go to first page"
+msgstr "先頭ページへ"
+
+#: webform_report.inc:413
+msgid "« first"
+msgstr "« 先頭"
+
+#: webform_report.inc:414
+msgid "Go to previous page"
+msgstr "前のページへ"
+
+#: webform_report.inc:414
+msgid "‹ previous"
+msgstr "‹ 前"
+
+#: webform_report.inc:442
+msgid "Go to next page"
+msgstr "次のページへ"
+
+#: webform_report.inc:442
+msgid "next ›"
+msgstr "次 ›"
+
+#: webform_report.inc:443
+msgid "Go to last page"
+msgstr "最終ページへ"
+
+#: webform_report.inc:443
+msgid "last »"
+msgstr "最終 »"
+
+#: webform_report.module:21
+msgid "Allows users to create reports from Webform data."
+msgstr "ユーザはWEBフォームのデータからリポートを作成できるようになります。"
+
+#: webform_report.module:25
+msgid "A Webform report is a dynamic page that contains Webform data. The data can be sorted by a particular field, and fields can be included/excluded from the report as needed."
+msgstr "WEBフォームリポートはWEBフォームのデータを含む動的ページです。特定のフィールドでデータを並び替えることができ、必要に応じてフィールドを追加したり削除したりできます。"
+
+#: webform_report.module:95
+msgid "Webform Reports"
+msgstr "WEBフォームリポート"
+
+#: webform_report.module:96
+msgid "View and edit Webform reports."
+msgstr "WEBフォームリポートの表示と編集。"
+
+#: webform_report.module:104
+msgid "Configuration"
+msgstr "設定"
+
+#: webform_report.module:113;123
+msgid "Report Criteria"
+msgstr "リポートの基準"
+
+#: webform_report.module:153
+msgid "Webform report"
+msgstr "WEBフォームリポート"
+
+#: webform_report.module:155
+msgid ""
+"A webform report is a dynamic page that contains user-specified data\n"
+"      collected by the Webform module. The data can be sorted by a particular field, and fields can\n"
+"      be included/excluded as needed."
+msgstr ""
+"WEBフォームリポートは、Webformモジュールで集めたデータからユーザが選択したものを含む動的ページです。\n"
+"特定のフィールドでデータを並び替えしたり、必要に応じてフィールドを付け外すことができます。"
+
+#: webform_report.module:263
+msgid "Title"
+msgstr "タイトル"
+
+#: webform_report.module:267
+msgid "Enter a title for your Webform report page"
+msgstr "WEBフォームリポートページのタイトルを入力してください"
+
+#: webform_report.module:271
+msgid "Description"
+msgstr "説明"
+
+#: webform_report.module:272
+msgid "The description will be displayed at the top of the report page"
+msgstr "リポートページの最上部に表示する説明です。"
+
+#: webform_report.module:288
+msgid "You must select a form"
+msgstr "フォームを選択してください"
+
+#: webform_report.module:292
+msgid "You must select a field"
+msgstr "フィールドを選択してください"
+
+#: webform_report.module:295
+msgid "You must specify a filter value"
+msgstr "絞り込む値を指定してください"
+
+#: webform_report.module:298
+msgid "You must select at least one field  "
+msgstr "少なくとも1つのフィールドを選択してください"
+
+#: webform_report.module:334
+msgid "none"
+msgstr "なし"
+
+#: webform_report.module:334
+msgid "begins with"
+msgstr "以下から始まる"
+
+#: webform_report.module:334
+msgid "does not begin with"
+msgstr "以下から始まらない"
+
+#: webform_report.module:334
+msgid "contains"
+msgstr "以下を含む"
+
+#: webform_report.module:334
+msgid "does not contain"
+msgstr "以下を含まない"
+
+#: webform_report.module:334
+msgid "equals"
+msgstr "以下と等しい"
+
+#: webform_report.module:334
+msgid "does not equal"
+msgstr "以下と等しくない"
+
+#: webform_report.module:335
+msgid "Ascending"
+msgstr "昇順"
+
+#: webform_report.module:335
+msgid "Descending"
+msgstr "降順"
+
+#: webform_report.module:346
+msgid "Webform"
+msgstr "WEBフォーム"
+
+#: webform_report.module:348
+msgid "Select a Webform"
+msgstr "WEBフォームを選択"
+
+#: webform_report.module:365
+msgid "Key field"
+msgstr "キーフィールド"
+
+#: webform_report.module:367
+msgid "Select a field"
+msgstr "フィールドを選択"
+
+#: webform_report.module:378
+msgid "Filter Type"
+msgstr "フィルタのタイプ"
+
+#: webform_report.module:389
+msgid "Filter Value"
+msgstr "フィルタの値"
+
+#: webform_report.module:390
+msgid "Filter the key field using the specified value"
+msgstr "指定した値でキーフィールドを絞り込みます"
+
+#: webform_report.module:401
+msgid "Sort order"
+msgstr "並び順"
+
+#: webform_report.module:417
+msgid "Include components"
+msgstr "表示する項目"
+
+#: webform_report.module:418
+msgid "Select all of the components to include in this report and click Preview to display the results"
+msgstr "このリポートに表示する項目をすべて選択し、プレビューをクリックして結果を表示します。"
+
+#: webform_report.module:419
+msgid "Edit link"
+msgstr "編集リンク"
+
+#: webform_report.module:436
+msgid "Results per page"
+msgstr "ページあたりの結果数"
+
+#: webform_report.module:446
+msgid "Update"
+msgstr "更新"
+
+#: webform_report.module:452
+msgid "Publish"
+msgstr "掲載する"
+
+#: webform_report.module:34
+msgid "access webform reports"
+msgstr "WEBフォームリポートへのアクセス"
+
+#: webform_report.module:34
+msgid "create webform reports"
+msgstr "WEBフォームリポートの作成"
+
+#: webform_report.module:34
+msgid "edit webform reports"
+msgstr "WEBフォームリポートの編集"
+
+#: webform_report.module:34
+msgid "edit own webform reports"
+msgstr "自分のWEBフォームリポートの編集"
+
+#: webform_report.module:0
+msgid "webform_report"
+msgstr "webform_report"
+
+#: webform_report.info:0
+msgid "Webform Report"
+msgstr "WEBフォームリポート"
+
+#: webform_report.info:0
+msgid "Allows users to create reports from webform data."
+msgstr "ユーザはWEBフォームのデータからリポートを作成できるようになります。"
+

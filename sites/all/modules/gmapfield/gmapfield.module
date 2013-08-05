@@ -1,0 +1,627 @@
+<?php
+// $Id: gmapfield.module,v 1.1.2.6 2009/11/22 18:24:01 zzolo Exp $
+
+/**
+ * @file
+ * Main module file for the GMap Field Module
+ *
+ */
+
+/**
+ * Implementation of hook_simpletest().
+ */
+function gmapfield_simpletest() {
+  $dir = drupal_get_path('module', 'gmapfield') .'/tests';
+  $tests = file_scan_directory($dir, '\.test$');
+  return array_keys($tests);
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function gmapfield_theme() {
+  return array(
+    'gmapfield_formatter_default' => array(
+      'arguments' => array('element' => NULL),
+    ),
+    'gmapfield_text' => array(
+      'arguments' => array('element' => NULL),
+    ),
+    'gmapfield_marker' => array(
+      'arguments' => array('element' => NULL),
+    ),
+    'gmapfield_markerwindow' => array(
+      'arguments' => array('location' => NULL, 'node' => NULL),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_help().
+ */
+function gmapfield_help($page, $arg) {
+  switch ($page) {
+    case 'admin/help#gmapfield':
+      return t('Create CCK field for GMaps.  Input a GMap Macro and then it will be centered at the node\'s coordinates via Location or other CCK fields.');
+    break;
+  }
+}
+
+/**
+ * Implementation of hook_field_info().
+ */
+function gmapfield_field_info() {
+  return array(
+    'gmapfield' => array(
+      'label' => t('GMap Field'),
+      'description' => t('Input a GMap Macro and then it will be centered at the node coordinates via Location or other CCK fields.'),
+      'callbacks' => array(
+        'tables' => CONTENT_CALLBACK_DEFAULT,
+        'arguments' => CONTENT_CALLBACK_DEFAULT,
+        ),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_field_settings().
+ */
+function gmapfield_field_settings($op, $field) {
+  switch ($op) {
+    // Case Form
+    case 'form':
+      // Macro fieldset
+      $form['fieldset_macro'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Macro settings'),
+        '#collapsible' => TRUE,
+        '#collapsed' => FALSE,
+      );
+      // Disable Macro Input
+      $form['fieldset_macro']['disable_macro'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Disable Macro Input'),
+        '#default_value' => isset($field['disable_macro']) ? $field['disable_macro'] : FALSE,
+        '#description' => t('If checked, users of this field will not be able to input a macro.  This is helpful if you want a certain map to show up every time.  Make sure that there is a macro by default if you use this option.'),
+      );
+
+      // Datasource fieldset
+      $form['fieldset_datasource'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Data Source settings'),
+        '#collapsible' => TRUE,
+        '#collapsed' => FALSE,
+      );
+      // Chose Coordinate Data Source
+      $coordinate_datasource_options = array(
+        'none' => t('None'),
+        'location' => t('Use Location(s)'),
+        'cck_fields' => t('Choose CCK Fields for Lat and Long (*not currently supported*)'),
+      );
+      $form['fieldset_datasource']['coordinate_datasource'] = array(
+        '#type' => 'radios',
+        '#title' => t('Coordinate Data Source'),
+        '#default_value' => isset($field['coordinate_datasource']) ? $field['coordinate_datasource'] : 'none',
+        '#options' => $coordinate_datasource_options,
+        '#description' => t('Choose the data source for map center and marker(s).'),
+        '#required' => TRUE,
+      );
+      $form['fieldset_datasource']['datasource_dependent_map'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Data Depenedent Map'),
+        '#default_value' => isset($field['datasource_dependent_map']) ? $field['datasource_dependent_map'] : FALSE,
+        '#description' => t('If this option is checked, the map will not display if there is no data found form the data source..'),
+      );
+      // Choose Lat Coordinat Field
+      $lat_field = array(
+        'none' => t('None'),
+      );
+      $form['fieldset_datasource']['lat_field'] = array(
+        '#type' => 'select',
+        '#title' => t('Latitude Field'),
+        '#default_value' => isset($field['lat_field']) ? $field['lat_field'] : 'none',
+        '#options' => $lat_field,
+        '#description' => t('CCK Field to use for Latitiude date.'),
+      );
+      // Choose Long Coordinat Field
+      $lon_field = array(
+        'none' => t('None'),
+      );
+      $form['fieldset_datasource']['lon_field'] = array(
+        '#type' => 'select',
+        '#title' => t('Longitude Field'),
+        '#default_value' => isset($field['lon_field']) ? $field['lon_field'] : 'none',
+        '#options' => $lon_field,
+        '#description' => t('CCK Field to use for Longitude date.'),
+      );
+
+      // Marker fieldset
+      $form['fieldset_markers'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Marker settings'),
+        '#description' => t('If a data source is set below, then markers will be added to the map automaically.'),
+        '#collapsible' => TRUE,
+        '#collapsed' => FALSE,
+      );
+      // Choose Markers
+      $form['fieldset_markers']['choose_marker'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Choose Marker Type'),
+        '#default_value' => isset($field['choose_marker']) ? $field['choose_marker'] : TRUE,
+        '#description' => t('If checked , the user can choose which marker to use for the location data that is added to the GMap.'),
+      );
+      // Default Markers
+      $markers = gmap_get_marker_titles();
+      $form['fieldset_markers']['default_marker'] = array(
+        '#type' => 'select',
+        '#title' => t('Default Marker Type'),
+        '#default_value' => isset($field['default_marker']) ? $field['default_marker'] : 'drupal',
+        '#description' => t('If Add Markers is checked, this will be the marker used on the GMap.'),
+        '#options' => $markers,
+      );
+
+      return $form;
+
+    // Case Validate
+    case 'validate':
+      break;
+
+    // Case Save
+    case 'save':
+      return array('choose_marker', 'default_marker', 'coordinate_datasource', 'lat_field', 'lon_field', 'disable_macro', 'datasource_dependent_map');
+
+    // Case Database Columns
+    case 'database columns':
+      $columns = array(
+        'gmap_macro' => array(
+          'type' => 'text',
+          'size' => 'medium',
+          'not null' => FALSE,
+          'sortable' => TRUE,
+        ),
+        'marker_type' => array(
+          'type' => 'varchar',
+          'length' => 255,
+          'not null' => FALSE,
+          'sortable' => TRUE,
+        ),
+      );
+      return $columns;
+
+    // Case Views Data
+    case 'views data':
+      // Default CCK data
+      // TODO: allow view to get marker and points.
+      $data = content_views_field_views_data($field);
+      $db_info = content_database_info($field);
+      $table_alias = content_views_tablename($field);
+      // Return data
+      return $data;
+
+  }
+}
+
+/**
+ * Implementation of hook_content_is_empty().
+ */
+function gmapfield_content_is_empty($item, $field) {
+  if (empty($item['gmap_macro'])) {
+    return TRUE;
+  }
+  return FALSE;
+}
+
+/**
+ * Implementation of hook_field().
+ */
+function gmapfield_field($op, &$node, $field, &$items, $teaser, $page) {
+  switch ($op) {
+    case 'load':
+      foreach ($items as $delta => $item) {
+        _gmapfield_load($items[$delta], $field, $delta, $node);
+      }
+      break;
+
+    case 'validate':
+      foreach ($items as $delta => $value) {
+        _gmapfield_validate($items[$delta], $delta, $field, $node);
+      }
+      break;
+
+    case 'presave':
+      foreach ($items as $delta => $value) {
+        _gmapfield_presave($items[$delta], $delta, $field, $node);
+      }
+      break;
+
+    case 'sanitize':
+      foreach ($items as $delta => $value) {
+        _gmapfield_sanitize($items[$delta], $delta, $field, $node);
+      }
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_field_formatter_info().
+ */
+function gmapfield_field_formatter_info() {
+  return array(
+    'default' => array(
+      'label' => t('Default GMap'),
+      'field types' => array('gmapfield'),
+      'multiple values' => CONTENT_HANDLE_CORE,
+    ),
+  );
+}
+
+/**
+ * Theme function for 'default' gmap field.
+ */
+function theme_gmapfield_formatter_default($element) {
+  // Get field data
+  $field_name = $element['#field_name'];
+  $field = content_fields($field_name);
+  $marker_type = ($element['#item']['marker_type']) ? $element['#item']['marker_type'] : 'drupal';
+  // Check for macro
+  if ($macro = $element['#item']['gmap_macro']) {
+    // Get location data
+    $location_data = _gmapfield_get_markers($element['#node'], $marker_type, $field);
+    // Get macro array
+    $macro_array = gmap_parse_macro($macro);
+    // Check for location data
+    if ($location_data) {
+      // Put together defaults, macro, and locations
+      $defaults = gmap_defaults();
+      $macro_array = array_merge($defaults, $macro_array, $location_data);
+      $macro_array['id'] = gmap_get_auto_mapid();
+    }
+    // Set up array for theming
+    $gmap_array['#settings'] = $macro_array;
+
+    // Check if map is data dependent
+    if (!empty($field['datasource_dependent_map']) && !$location_data) {
+      return '';
+    }
+
+    // Return themed map array
+    return theme('gmap', $gmap_array);
+  }
+  else {
+    return '';
+  }
+}
+
+/**
+ * FAPI theme for an individual gmapfield_text element.
+ *
+ * The textfield is already rendered by the textfield
+ * theme and the HTML output lives in $element['#children'].
+ * Override this theme to make custom changes to the output.
+ *
+ * $element['#field_name'] contains the field name
+ * $element['#delta]  is the position of this element in the group
+ */
+function theme_gmapfield_text($element) {
+  // Field set
+  $fieldset = array(
+    '#type' => 'fieldset',
+    '#title' => $element['#title'],
+    '#description' => $element['#description'],
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+    '#children' => $element['#children'],
+  );
+  //return $element['#children'];
+  return theme('fieldset', $fieldset);
+}
+
+/**
+ * Impelemtation of theme hook
+ */
+function theme_gmapfield_markerwindow($location = NULL, $node = NULL) {
+  return theme('location', $location);
+}
+
+/**
+ * Implementation of hook_widget_info().
+ */
+function gmapfield_widget_info() {
+  return array(
+    'gmapfield_text' => array(
+      'label' => t('GMap Macro Text Area'),
+      'field types' => array('gmapfield'),
+      'multiple values' => CONTENT_HANDLE_CORE,
+      'callbacks' => array(
+        'default value' => CONTENT_CALLBACK_DEFAULT,
+      ),
+    ),
+  );
+}
+
+/**
+ * Implementation of FAPI hook_elements().
+ */
+function gmapfield_elements() {
+  return array(
+    'gmapfield_text' =>  array(
+      '#input' => TRUE,
+      '#columns' => array('gmap_macro', 'marker_type'),
+      '#delta' => 0,
+      '#process' => array('gmapfield_widget_process'),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_widget().
+ */
+function gmapfield_widget(&$form, &$form_state, $field, $items, $delta = 0) {
+  $element = array();
+
+  switch ($field['widget']['type']) {
+    case 'gmapfield_text':
+
+      // Get value for macro
+      $default_value = $field['widget']['default_value'][$delta]['gmap_macro'];
+      // Weird, sometimes array, sometimes not
+      $current_value = is_array($items[$delta]) ? $items[$delta]['gmap_macro'] : $items[$delta];
+      $macro_value = ($current_value != NULL) ? $current_value : $default_value;
+
+      // Get marker value
+      $default_cck_value = $field['widget']['default_value'][$delta]['marker_type'];
+      $default_widget_value = $field['default_marker'];
+      // Weird, sometimes array, sometimes not
+      $current_value = is_array($items[$delta]) ? $items[$delta]['marker_type'] : $items[$delta];
+      // Use Widget setting first, and if not found, use cck default
+      $marker_value = ($current_value != NULL) ? $current_value : $default_widget_value;
+      $marker_value = $marker_value ? $marker_value : $default_cck_value;
+      // Put together values
+      $default_values = array();
+      $default_values['gmap_macro'] = $macro_value;
+      $default_values['marker_type'] = $marker_value;
+
+      // Define element
+      $element = array(
+        '#type' => $field['widget']['type'],
+        '#default_value' => $default_values,
+        '#title' => $field['widget']['label'],
+        '#weight' => $field['widget']['weight'],
+        '#description' => $field['widget']['description'],
+        '#required' => $field['required'],
+        '#field' => $field,
+      );
+      break;
+  }
+  return $element;
+}
+
+/**
+ * Process an individual element.
+ *
+ * Build the form element. When creating a form using FAPI #process,
+ * note that $element['#value'] is already set.
+ *
+ * The $fields array is in $form['#field_info'][$element['#field_name']].
+ */
+function gmapfield_widget_process($element, $edit, $form_state, $form) {
+  // Get variables
+  $field_name = $element['#field_name'];
+  $field = $form['#field_info'][$field_name];
+  $delta = $element['#delta'];
+  $macro_key = $element['#columns'][0];
+  $marker_key = $element['#columns'][1];
+  // If we are on the field settings page, make sure things
+  // do not get hidden.  There should be a better way to do this
+  if (arg(0) == 'admin' && arg(2) == 'node-type' && arg(4) == 'fields') {
+    $field_page = TRUE;
+  }
+  else {
+    $field_page = FALSE;
+  }
+
+  // Macro
+  $macro_hidden = FALSE;
+  $description = t('Enter a GMap Macro.');
+  if (module_exists('gmap_macro_builder') && user_access('create gmap macro')) {
+    $macro_url = url('map/macro');
+    $description .= ' ' . t('<a href="!macro_url" title="Build a Macro">Build a Macro</a>', array('!macro_url' => $macro_url));
+  }
+
+  // Check for disabled
+  if ($field['disable_macro'] && !$field_page) {
+    $macro_hidden = TRUE;
+    $description = t('GMap Macro.  This field is disabled.');
+  }
+
+  // Weird behavoir where
+  $default_value = $element['#field']['widget']['default_value'][$delta]['gmap_macro'];
+  // Weird, sometimes array, sometimes not
+  $current_value = is_array($element['#value']) ? $element['#value']['gmap_macro'] : $element['#value'];
+  $default_macro = $current_value != NULL ? $current_value : $default_value;
+
+  // Define macro element
+  $element['gmap_macro'] = array(
+    '#type' => $macro_hidden ? 'hidden' : 'textarea',
+    '#default_value' => $default_macro,
+    '#title' => t('GMap Macro'),
+    '#description' => $description,
+    '#required' => $element['#required'],
+    '#field_name' => $element['#field_name'],
+    '#type_name' => $element['#type_name'],
+    '#delta' => $element['#delta'],
+    '#columns' => $element['#columns'],
+  );
+
+  // Check if can add markers
+  if ($field['coordinate_datasource'] != 'none') {
+    $markers = gmap_get_marker_titles();
+    // Check if can change marker
+    $marker_hidden = FALSE;
+    $title = t('Choose Marker');
+    $description = t('This will be the marker to be used for the locations of this node.');
+    if (empty($field['choose_marker']) && !$field_page) {
+      $marker_hidden = TRUE;
+      $title = t('Marker.  This field is disabled.');
+    }
+
+    // Set marker value
+    $marker_value = isset($element['#value']['marker_type']) ? $element['#value']['marker_type'] : $field['default_marker'];
+
+    // Define marker element
+    $element['marker_type'] = array(
+      '#type' => $marker_hidden ? 'hidden' : 'select',
+      '#default_value' => $marker_value,
+      '#options' => $markers,
+      '#title' => $title,
+      '#description' => $description,
+      '#required' => $element['#required'],
+      '#field_name' => $element['#field_name'],
+      '#type_name' => $element['#type_name'],
+      '#delta' => $element['#delta'],
+      '#columns' => $element['#columns'],
+    );
+  }
+
+  return $element;
+}
+
+/**
+ * Function to validate GMap macro strings
+ *
+ * @params $macro
+ *  String to validate
+ * @return
+ *  Boolean whether macro is valid
+ */
+function _gmapfield_validate_macro($macro = '') {
+  if (is_string($macro)) {
+    return TRUE;
+  }
+  else {
+    return FALSE;
+  }
+}
+
+/**
+ * Function to do field load operations
+ *
+ * @params $item
+ *  Item that is loading
+ * @params $field
+ *  Field data
+ * @params $delta
+ *  Which item is loading
+ * @params $node
+ *  Node object
+ */
+function _gmapfield_load(&$item, $field, $delta = 0, $node = NULL) {
+  // Do nothing
+  return TRUE;
+}
+
+/**
+ * Function to do field validate operations
+ *
+ * @params $item
+ *  Item that is loading
+ * @params $delta
+ *  Which item is loading
+ * @params $field
+ *  Field data
+ * @params $node
+ *  Node object
+ */
+function _gmapfield_validate(&$item, $delta, $field, $node) {
+  // Check for valid GMap Macro
+  if (!_gmapfield_validate_macro($item['gmap_macro'])) {
+    form_set_error($field['field_name'] . '][' . $delta . '][title', t('Please enter a valid GMap macro.'));
+  }
+  return TRUE;
+}
+
+/**
+ * Function to do field load operations
+ *
+ * @params $item
+ *  Item that is loading
+ * @params $delta
+ *  Which item is loading
+ * @params $field
+ *  Field data
+ * @params $node
+ *  Node object
+ */
+function _gmapfield_presave(&$item, $delta, $field, $node) {
+  //Do nothing
+  return TRUE;
+}
+
+/**
+ * Function to do field load operations
+ *
+ * @params $item
+ *  Item that is loading
+ * @params $delta
+ *  Which item is loading
+ * @params $field
+ *  Field data
+ * @params $node
+ *  Node object
+ */
+function _gmapfield_sanitize(&$item, $delta, $field, $node) {
+  // Check Plain Macro
+  $item['gmap_macro'] = check_plain($item['gmap_macro']);
+  return TRUE;
+}
+
+/**
+ * Function to get markers
+ *
+ * @params $node
+ *  Node object loaded so far
+ * @params $field
+ *  Field data
+ * @return
+ *  Associative array to merge into a gmap array
+ */
+function _gmapfield_get_markers($node, $marker, $field) {
+  $loc_data = array();
+
+  // Check for datasource
+  if ($field['coordinate_datasource'] == 'location') {
+    // Check Markers
+    $available_markers = gmap_get_marker_titles();
+    if (!array_key_exists($marker, $available_markers)) {
+      $marker = 'drupal';
+    }
+
+    // Check for locations
+    if ($locations = $node->locations) {
+      $count = 0;
+      foreach ($locations as $l) {
+        // Check for lat and long first
+        if ($l['longitude'] != 0 && $l['latitude'] != 0) {
+          // Add markers
+          $loc_data['markers'][] = array(
+            'text' => theme('gmapfield_markerwindow', $l, $node),
+            'longitude' => (float) $l['longitude'],
+            'latitude' => (float) $l['latitude'],
+            'markername' => $marker,
+            'offset' => $count,
+          );
+          // Set center if primary or first location
+          if ($l['is_primary'] || $count == 0) {
+            $loc_data['longitude'] = $l['longitude'];
+            $loc_data['latitude'] = $l['latitude'];
+          }
+          $count += 1;
+        }
+      }
+    }
+  }
+  elseif ($field['coordinate_datasource'] == 'cck_fields') {
+    $loc_data = array();
+  }
+  return $loc_data;
+}

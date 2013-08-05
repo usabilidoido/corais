@@ -1,0 +1,212 @@
+<?php
+// $Id: automodal.module,v 1.1.2.8 2010/09/07 21:30:00 mfer Exp $
+
+/**
+ * The main file for automodal.
+ * @file
+ */
+
+/**
+ * Add automodal conguration options to a page.
+ *
+ * Automodal options can be added to multiple selectors with different settings
+ * for each selector or group of selectors.
+ *
+ * Example Usage:
+ * @code
+ * automodal_add('.automodal', array('draggable' => FALSE));
+ * @endcode
+ *
+ * In the above examle the selector will have modalFrame setup on it with the
+ * default settings with the exception of draggable being set to false.
+ *
+ * @param string $selector
+ *   The jQuery selector to add modalFrame to.
+ * @param array $settings
+ *   The settings for this selector. Available options are:
+ *   - autoFit: Whether the window should automatically fit to the window.
+ *     Defautlts to TRUE.
+ *   - draggable: If the dialog is draggable. Defaults to True.
+ *   - width: The width of the dialog in px. Defaults to 600.
+ *   - height: The heigh of the dialog in px. Defaults to 400.
+ *   - automodalClose: On form submissions close the modal window. Default True.
+ *   - automodalReload: Reload the page on form submission. Depends on automodalClose
+ *     set to TRUE. Defaults to FALSE.
+ *   - automodalRedirect: Redirect to a new location. Depends on automodalClose
+ *     being set to TRUE. This should be a fully qualified url.
+ */
+function automodal_add($selector, array $settings = array()) {
+
+  // Strote the selectors that have already been processed. A selector can only
+  // have automodal added once.
+  static $processed = array();
+
+  // The the selector passed in has already been processed we do not need to add it.
+  if (isset($processed[$selector])) {
+    return;
+  }
+
+  // add js only once
+  if (empty($processed)) {
+    modalframe_parent_js();
+    $base = drupal_get_path('module', 'automodal');
+    drupal_add_js($base . '/automodal.js');
+  }
+
+  // Add the default values.
+  $settings += array(
+    'autoFit' => TRUE,
+    'draggable' => TRUE,
+    'width' => 600,
+    'height' => 400,
+    'automodalClose' => TRUE,
+    'automodalReload' => FALSE,
+  );
+
+  // Give other modules the opportunity to alter the settings.
+  drupal_alter('automodal', $settings, $selector);
+
+  $processed[$selector] = TRUE;
+  $js = array(
+    $selector => $settings,
+  );
+  drupal_add_js(array('automodal' => $js), 'setting');
+}
+
+/**
+ * Implementation of hook_help().
+ */
+function automodal_help($path, $args) {
+  if ($path == 'admin/help#automodal') {
+    return t('Configure links to automatically open in modals.');
+  }
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function automodal_menu() {
+  $items = array();
+
+  $items['admin/settings/automodal'] = array(
+    'title' => t('Automodal Settings'),
+    'description' => t('Configure the automodal behavior.'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('automodal_settings_form'),
+    'type' => MENU_NORMAL_ITEM,
+    'access arguments' => array('administer automodal'),
+  );
+
+  $items['admin/settings/automodal/test'] = array(
+    'title' => t('Test Frame'),
+    'description' => t('This is a testing frame.'),
+    'page callback' => 'automodal_test',
+    'page arguments' => array(''),
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('administer automodal'),
+  );
+
+  return $items;
+}
+
+/**
+ * Determine whether the current request is for a modalframe page.
+ *
+ * @return
+ *   TRUE if this is a request for a modal page, FALSE otherwise.
+ */
+function automodal_request_is_child() {
+  // Check to see if $_GET contains automodal=true.
+  return filter_input(INPUT_GET, 'automodal', FILTER_VALIDATE_BOOLEAN);
+}
+
+/**
+ * Implements hook_init();
+ */
+function automodal_init() {
+  // During the install process automodal may be installed before modalframe. If
+  // that happens we get a white screen when automodal_init is called. So, we
+  // test for the existance of the modalframe module before calling its functions.
+  if (module_exists('modalframe')) {
+    $is_client = automodal_request_is_child();
+
+    if ($is_client) {
+      modalframe_child_js();
+    }
+    elseif (variable_get('automodal_autoscan', 1)) {
+      automodal_add(variable_get('automodal_default_selector', '.automodal'));
+    }
+  }
+}
+
+/**
+ * Settings for automodal.
+ */
+function automodal_settings_form() {
+  $form = array();
+  $form['automodal_default_selector'] = array(
+    '#type' => 'textfield',
+    '#title' => t('CSS 3 Selector'),
+    '#description' => t('Selector used to identify links that should automatically be converted to modals.'),
+    '#default_value' => variable_get('automodal_default_selector', '.automodal'),
+    '#size' => 60,
+    '#maxlength' => 256,
+    '#required' => FALSE,
+  );
+
+  $form['automodal_autoscan'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Scan all pages adding automodal automatically.'),
+    '#default_value' => variable_get('automodal_autoscan', 1),
+  );
+
+  // If not already present add the automodal for the test.
+  automodal_add('.automodal');
+
+  $opts = array(
+    'attributes' => array('class' => 'automodal'),
+  );
+  $form['automodal_test'] = array(
+    '#type' => 'markup',
+    '#value' => l('This anchor has the class "automodal".', 'admin/settings/automodal/test', $opts) . '<br/>',
+  );
+
+  return system_settings_form($form);
+}
+
+function automodal_test() {
+  return t('It works!');
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function automodal_perm() {
+  return array('administer automodal');
+}
+
+/**
+ * Implementation of hook_form_alter()
+ */
+function automodal_form_alter(&$form, $form_state, $form_id) {
+  if (automodal_request_is_child() && filter_input(INPUT_GET, 'automodalClose', FILTER_VALIDATE_BOOLEAN)) {
+    // Name the form submit entry so it can easily be found and replaced
+    $form['#submit']['automodal'] = 'automodal_close_form_submit';
+  }
+}
+
+/**
+ * Implementation of hook_form_submit()
+ */
+function automodal_close_form_submit($form, &$form_state) {
+  $args = array();
+  if (filter_input(INPUT_GET, 'automodalReload', FILTER_VALIDATE_BOOLEAN)) {
+    $args['reload'] = TRUE;
+  }
+  if ($redirect = filter_input(INPUT_GET, 'automodalRedirect', FILTER_SANITIZE_STRING)) {
+    $args['redirect'] = $redirect;
+  }
+
+  drupal_alter('automodal_close_args', $args);
+  modalframe_close_dialog($args);
+}

@@ -1,0 +1,92 @@
+<?php
+
+/**
+ * Placeholder to ensure migrations from older versions do not fail.
+ */
+function atrium_calendar_install() {
+}
+
+/**
+ * Update 6200: Install Feeds.
+ */
+function atrium_calendar_update_6200() {
+  drupal_install_modules(array('ctools', 'feeds'));
+  $modules = module_list();
+  if (!isset($modules['feeds'])) {
+    return array('#abort' => array('success' => FALSE, 'query' => 'Could not enable Feeds.'));
+  }
+  return array(array('success' => TRUE, 'query' => 'Enabled Feeds successfully.'));
+}
+
+/**
+ * Update 6201: Migrate existing feed nodes.
+ */
+function atrium_calendar_update_6201() {
+  $ret = array();
+
+  if (drupal_get_path('module', 'feedapi2feeds')) {
+    module_load_include('php', 'feedapi2feeds', 'feedapi2feeds');
+    $migration = new FeedAPI2Feeds();
+    try {
+      $migration->migrateType('feed_ical');
+    }
+    catch (Exception $e) {
+      $ret[] = array('success' => TRUE, 'query' => $e->getMessage());
+    }
+    $msgs = $migration->getMessages();
+    foreach ($msgs as $msg) {
+      $ret[] = array('success' => TRUE, 'query' => $msg);
+    }
+  }
+  return $ret;
+}
+
+/**
+ * Update for Kit compliance
+ */
+function atrium_calendar_update_6202() {
+  
+  $components = array(
+    'views' => array(
+      'atrium_calendar' => array(
+        'calendar_listing' => array(
+          'block_1' => array(
+            'module' => 'views',
+            'delta' => 'block_1',
+          ),
+        ),
+      ),
+      'atrium_calendar_feed_items' => array(
+        'calendar_feed_items' => array(
+          'block_1' => array(
+            'module' => 'views',
+            'delta' => 'block_1',
+          ),
+        ),
+      ),
+      'atrium_calendar_feeds' => array(
+        'calendar_feeds' => array(
+        ),
+      ),
+      'atrium_calendar_upcoming' => array(
+        'calendar_upcoming' => array(
+          'block_1' => array(
+            'module' => 'views',
+            'delta' => 'block_1',
+          ),
+        ),
+      ),
+    ),
+    'contexts' => array(
+      'atrium-calendar-event' => 'calendar_event',
+      'spaces-feature-calendar' => 'calendar_calendar',
+    ),
+  );
+
+  module_load_include('inc', 'atrium', 'includes/atrium_update_kit');
+  atrium_kit_comply_presets($components); 
+  atrium_kit_comply_overrides($components);
+  atrium_kit_comply_contexts($components);
+
+  return array(array('success' => true, 'query' => 'Atrium Calendar updated for Kit compliance.'));
+}

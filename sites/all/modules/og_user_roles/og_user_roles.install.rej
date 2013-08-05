@@ -1,0 +1,30 @@
+***************
+*** 10,16 ****
+        'gid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+        'uid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+        'rid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+-       'status' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+      ),
+      'primary key' => array('gid', 'uid', 'rid'),
+    );
+--- 10,15 ----
+        'gid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+        'uid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+        'rid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+      ),
+      'primary key' => array('gid', 'uid', 'rid'),
+    );
+***************
+*** 130,137 ****
+    return $ret;
+  }
+  
+- function og_user_roles_update_6402() {
+-   $ret = array();
+-   db_add_field($ret, 'og_users_roles', 'status', array('type' => 'int', 'not null' => TRUE, 'default' => 1));
+-   return $ret;
+- }
+--- 129,131 ----
+    return $ret;
+  }
+  

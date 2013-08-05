@@ -1,0 +1,69 @@
+<?php
+
+require_once drupal_get_path('module', 'course') . '/tests/CourseTestCase.test';
+
+/**
+ * Tests for Course enrollment
+ */
+class CourseContextTestCase extends CourseTestCase {
+
+  public static function getInfo() {
+    // Note that getInfo() strings are not translated with t().
+    return array(
+      'name' => 'Course context',
+      'description' => 'Ensure that Course context functions normally.',
+      'group' => 'Course',
+    );
+  }
+
+  /**
+   * Testing finding course and objects via parameter search.
+   */
+  function testDetermineContext() {
+    $courseNode = $this->createCourseNode();
+
+    // Create an object and give it an instance.
+    $co1 = $this->createCourseObject($courseNode);
+    $co1->setInstanceId(1234)->save();
+
+    // Find course object via cgco.
+    $find_co1 = course_get_course_object('course_test', 'course_test_object', 1234);
+    $this->assertEqual($co1->getId(), $find_co1->getId(), 'Found the same course object.');
+
+    // Find the course via cdc.
+    $find_course1 = course_determine_context('course_test', 'course_test_object', 1234);
+    $this->assertEqual($find_course1->nid, $courseNode->nid, 'Context came back to the same course.');
+  }
+
+  /**
+   * Test objects that belong to multiple courses.
+   */
+  function testMultiContext() {
+    $courseNode1 = $this->createCourseNode();
+    $courseNode2 = $this->createCourseNode();
+
+    // Create an object and give it an instance.
+    $co1 = $this->createCourseObject($courseNode1);
+    $co1->setInstanceId(1234)->save();
+
+    $co2 = $this->createCourseObject($courseNode2);
+    $co2->setInstanceId(1234)->save();
+
+    // Now we have 2 course objects with the same instance but in different courses.
+    // Simulate us taking one of the objects, and switch back and forth between courses.
+    $co1->takeCourseObject();
+    $foundCourseNode1 = course_determine_context('course_test', 'course_test_object', 1234);
+    $this->assertEqual($courseNode1->nid, $foundCourseNode1->nid, 'Found the right course context, pass 1.');
+
+    // Taking with context set.
+    $co2->takeCourseObject();
+    $foundCourseNode2 = course_determine_context('course_test', 'course_test_object', 1234);
+    $this->assertEqual($courseNode2->nid, $foundCourseNode2->nid, 'Found the right course context, pass 2.');
+
+    // Back to original context.
+    $co1->takeCourseObject();
+    $foundCourseNode1 = course_determine_context('course_test', 'course_test_object', 1234);
+    $this->assertEqual($courseNode1->nid, $foundCourseNode1->nid, 'Found the right course context, pass 3.');
+  }
+
+}

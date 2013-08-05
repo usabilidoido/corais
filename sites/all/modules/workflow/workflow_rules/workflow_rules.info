@@ -1,0 +1,14 @@
+name = Workflow rules
+description = Provides rules integration for workflows.
+dependencies[] = workflow
+dependencies[] = rules
+package = Workflow
+core = 6.x
+
+
+; Information added by drupal.org packaging script on 2013-03-12
+version = "6.x-2.x-dev"
+core = "6.x"
+project = "workflow"
+datestamp = "1363054820"
+

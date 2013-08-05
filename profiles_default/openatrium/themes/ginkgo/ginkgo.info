@@ -1,0 +1,93 @@
+name = "Ginkgo"
+description = "Next gen ginkgo (aka 'coldbrew')."
+core = "6.x"
+atrium = "1.x"
+engine = "phptemplate"
+base theme = "rubik"
+
+stylesheets[screen][] = "style.css"
+stylesheets[screen][] = "ginkgo.css"
+stylesheets[screen][] = "layout.css"
+
+stylesheets[print][] = "print-custom.css"
+
+scripts[] = "js/ginkgo.js"
+
+regions[left] = "Left sidebar"
+regions[right] = "Right sidebar"
+regions[content] = "Content"
+regions[header] = "Header"
+regions[space_tools] = "Space tools"
+regions[page_tools] = "Page tools"
+regions[palette] = "Palette"
+
+features[] = ""
+
+; Layout: Default
+layouts[default][name] = "Default"
+layouts[default][description] = "Simple two column page."
+layouts[default][template] = "page"
+layouts[default][regions][] = "content"
+layouts[default][regions][] = "right"
+layouts[default][regions][] = "header"
+layouts[default][regions][] = "space_tools"
+layouts[default][regions][] = "page_tools"
+layouts[default][regions][] = "palette"
+
+; Layout: Columns
+layouts[columns][name] = "Columns"
+layouts[columns][description] = "Three column page."
+layouts[columns][template] = "layout-columns"
+layouts[columns][regions][] = "left"
+layouts[columns][regions][] = "content"
+layouts[columns][regions][] = "right"
+layouts[columns][regions][] = "header"
+layouts[columns][regions][] = "space_tools"
+layouts[columns][regions][] = "page_tools"
+layouts[columns][regions][] = "palette"
+
+; Layout: Split
+layouts[split][name] = "Split"
+layouts[split][description] = "Two columns split halfway."
+layouts[split][template] = "layout-split"
+layouts[split][regions][] = "content"
+layouts[split][regions][] = "right"
+layouts[split][regions][] = "header"
+layouts[split][regions][] = "space_tools"
+layouts[split][regions][] = "page_tools"
+layouts[split][regions][] = "palette"
+
+; Layout: Wide
+layouts[wide][name] = "Wide"
+layouts[wide][description] = "Single one column wide page."
+layouts[wide][template] = "layout-wide"
+layouts[wide][regions][] = "content"
+layouts[wide][regions][] = "header"
+layouts[wide][regions][] = "space_tools"
+layouts[wide][regions][] = "page_tools"
+layouts[wide][regions][] = "palette"
+
+; Layout: Login
+layouts[login][name] = "Login"
+layouts[login][description] = "Thin one column login page."
+layouts[login][template] = "layout-login"
+layouts[login][regions][] = "content"
+layouts[login][regions][] = "header"
+layouts[login][regions][] = "space_tools"
+layouts[login][regions][] = "page_tools"
+layouts[login][regions][] = "palette"
+
+; Designkit
+designkit[color][background][title] = "Background"
+designkit[color][background][description] = "Color for headers, other fills."
+designkit[color][background][default] = "#44aa55"
+designkit[image][logo][title] = "Logo"
+designkit[image][logo][description] = "Header logo."
+designkit[image][logo][imagecache] = "imagecache_scale:300x40"
+
+; Information added by drupal.org packaging script on 2012-04-10
+version = "6.x-1.1"
+core = "6.x"
+project = "ginkgo"
+datestamp = "1334079646"
+

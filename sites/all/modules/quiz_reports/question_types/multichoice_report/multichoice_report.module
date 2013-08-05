@@ -1,0 +1,169 @@
+<?php 
+
+/**
+ * @file multichoice_report.module
+ *
+ * Module must expose two functions: get_multichoice_reports and get_multichoice_themed_output
+ * These two functions are called from the quiz_stats module when generating statistics for this
+ * question type. 
+ * 
+ */
+
+/**
+ * Implementation of hook_help()
+ */
+function multichoice_report_help( $path, $arg ) {
+  $output = '';
+  
+  switch ( $path ) {
+    case 'admin/help#multichoice_report';
+      $output = '<p>' . t('Generates statistic for a multichoice question type') . '</p>';
+      break;
+  }
+  
+  return $output;
+}
+
+/**
+ * Implementation of hook_theme()
+ */
+function multichoice_report_theme() {
+  return array(
+    'multichoice_outputs' => array(
+      'arguments' => array( 'statistics' => NULL,  ),
+      'path' => drupal_get_path( 'module', 'multichoice_report' ) . '/theme',
+      'template' => 'multichoice_output',
+    ),
+  );
+}
+
+function multichoice_report_get_question_properties( $question ) {
+  $sql = "SELECT
+            choice_multi,
+            choice_random,
+            choice_boolean
+          FROM
+           {quiz_multichoice_properties}
+          WHERE
+            nid = %d
+            AND vid = %d";
+  
+  return db_fetch_array(db_query($sql, $question->question_nid, $question->question_vid));
+}
+
+/**
+ * Themes the statistics.
+ *
+ * @param array $statistics
+ *      The statistics calculated in get_multichoice_question
+ * @return string
+ *      The HTML output for this question.
+ */
+function multichoice_get_themed_output( $statistics = NULL ) {
+
+  // Just a check to see if we have stats
+  if ( $statistics == NULL )
+      return t("Statistics to populate theme is missing.");
+  
+  // Load question type specific CSS
+  drupal_add_css(drupal_get_path('module', 'multichoice_report') .'/multichoice_report.css', 'theme');
+  
+  // Return themed output
+  return theme( 'multichoice_outputs', $statistics );
+
+}
+
+/**
+ * Calculates and returns statistic for a given question in relation to a quiz
+ * node revision.
+ *
+ * @param object $quesetion
+ * @param int $vid
+ * @param array $generic
+ *    Stats that are generic for all question types.
+ * @return array
+ */
+#function get_multichoice_reports( $question, $vid ) {
+function multichoice_report_get_statistics( $question, $vid, $generic ) {
+  static $count = -1;
+  
+  $properties = multichoice_report_get_question_properties($question);
+  $taken = $generic['taken'];
+
+  $statistics = array();
+  $statistics['properties'] = $properties;
+  
+  // Count query is pretty expensive so we only do it once and store the count
+  // in the static variable $count.
+  // This query could probably be done in a more efficient way...
+  if ( $count == -1 ) {
+  
+    // Calculate the number of takes for this question in relation to a quiz node 
+    // revision
+    $sql = "SELECT 
+            	COUNT(*) 
+            FROM 
+            	{quiz_multichoice_user_answer_multi} am 
+            INNER JOIN 
+            	{quiz_multichoice_answers} a ON a.question_vid=%d AND a.id = am.answer_id
+            INNER JOIN
+            	{quiz_multichoice_user_answers} qmua ON qmua.id = am.user_answer_id
+            INNER JOIN
+            	{quiz_node_results} qnr ON qnr.result_id = qmua.result_id
+            WHERE
+            	qnr.vid = %d";
+    
+    $count = db_result(db_query($sql, $question->question_vid, $vid));
+  
+  }
+  
+  $statistics['count'] = $count;
+  
+  // We check here that we have results before continue, if we continue we
+  // will get a division by zero warning
+  if ( $count > 0 ) {
+    $sql = "SELECT
+              id,
+              answer AS title,
+              score_if_chosen as correct
+            FROM
+              {quiz_multichoice_answers}
+            WHERE
+              question_nid = %d
+            AND question_vid = %d";
+  
+    $result = db_query($sql, $question->question_nid, $question->question_vid);
+    
+    $statistics['options'] = array();
+  
+    $index=0;
+    
+    while ( $answer = db_fetch_object( $result ) ) {
+      $statistics['options'][$index] = array();
+      $statistics['options'][$index]['id'] = $answer->id;
+      $statistics['options'][$index]['title'] = $answer->title;
+      $statistics['options'][$index]['correct'] = (int) $answer->correct > 0 ? TRUE : FALSE;
+      
+      $sql = "SELECT 
+              	COUNT(*) AS count 
+              FROM 
+              	{quiz_multichoice_user_answer_multi} qmuam
+              INNER JOIN
+              	{quiz_multichoice_user_answers} qmua ON qmua.id = qmuam.user_answer_id
+              INNER JOIN 
+              	{quiz_node_results} qnr ON qnr.result_id = qmua.result_id
+              WHERE 
+              	answer_id = %d
+              	AND qnr.vid = %d";
+      
+      $result2 = db_query($sql, $answer->id, $vid);
+      $option_count = db_result($result2);
+      $statistics['options'][$index]['percentage'] = round($option_count/$taken*100);
+      $statistics['options'][$index]['count'] = $option_count;
+      
+      $index++;
+    }
+  }
+  
+  return $statistics;
+}

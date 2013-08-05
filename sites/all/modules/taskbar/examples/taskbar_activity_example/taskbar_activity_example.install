@@ -1,0 +1,24 @@
+<?php
+/**
+ * @file
+ *   Taskbar activity example installation.
+ */
+
+/**
+ * Implements hook_install().
+ */
+function taskbar_activity_example_install() {
+  $settings = array(
+    'text' => 'Notifications',
+    'source' => 'activity_example',
+    'max items' => 5,
+  );
+  db_query("INSERT INTO {taskbar_item} VALUES ('%s', '%s', '%s', '%s', %d, %d, '%s')", 'activity_example', 'Activity example', 'activity', 'right', 1, 10, serialize($settings));
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function taskbar_activity_example_uninstall() {
+  db_query("DELETE FROM {taskbar_item} WHERE name = 'activity_example'");
+}

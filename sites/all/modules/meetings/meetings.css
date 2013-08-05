@@ -1,0 +1,6 @@
+/* $Id */
+
+/* Allows the radio buttons to display inline instead of taking additional room */
+#meetings-attendance-form .form-radios div.form-item {
+  display: inline;
+}

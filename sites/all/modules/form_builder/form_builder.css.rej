@@ -1,0 +1,18 @@
+***************
+*** 316,321 ****
+  #form-builder-field-palette ul li.field-checkboxes {
+    background-image: url(images/fields/checkboxes.png);
+  }
+  #form-builder-field-palette ul li.field-email {
+    background-image: url(images/fields/email.png);
+  }
+--- 316,324 ----
+  #form-builder-field-palette ul li.field-checkboxes {
+    background-image: url(images/fields/checkboxes.png);
+  }
++ #form-builder-field-palette ul li.field-date {
++   background-image: url(images/fields/date.png);
++ }
+  #form-builder-field-palette ul li.field-email {
+    background-image: url(images/fields/email.png);
+  }

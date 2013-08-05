@@ -1,0 +1,860 @@
+<?php
+
+/**
+ * Base test class for Spaces OG tests.
+ */
+class SpacesOGTestCase extends DrupalWebTestCase {
+
+  // Users for testing.
+  protected $admin_user;
+  protected $simple_user;
+
+  /**
+   * Set up test.
+   */
+  public function setUp() {
+    // Not enabling views leads to notices if views is present in search path :P
+    parent::setUp(
+      'context',
+      'ctools',
+      'strongarm',
+      // Avoid a cache clear error when views is present in path but not
+      // enabled, also required by og_views.
+      'views',
+      'features',
+      'features_test',
+      'og',
+      'og_access',
+      // Merely required for confirming subscription requests : (
+      'og_views',
+      'purl',
+      'spaces',
+      'spaces_ui',
+      'spaces_og',
+      'spaces_test',
+      // Turned on only for the autocomplete tests.
+      'taxonomy'
+    );
+
+    // Log in admin user.
+    $this->loginAdminUser();
+
+    // Rebuild node access table otherwise ACL's won't work.
+    $this->drupalPost('admin/content/node-settings/rebuild', array(), 'Rebuild permissions');
+
+    // Pick a default for group spaces (part of the install process).
+    $edit = array(
+      'spaces_preset_og' => 'og_public',
+    );
+    $this->drupalPost('admin/build/spaces', $edit, 'Save configuration');
+
+    // Configure organic groups space and set up an organic group.
+    $edit = array(
+      'name' => 'Group',
+      'type' => 'group',
+      'og_content_type_usage' => 'group',
+    );
+    $this->drupalPost('admin/content/types/add', $edit, 'Save content type');
+    $this->assertText('The content type Group has been added.');
+
+    $edit = array(
+      'title' => 'Group A',
+      'og_description' => 'Group A.',
+      'purl[value]' => 'group-a',
+    );
+    $this->drupalPost('node/add/group', $edit, 'Save');
+    $this->assertText('Group Group A has been created.');
+    // Test whether first-time save actually works.
+    $this->assertEqual('og_public', unserialize(db_result(db_query('SELECT value from {spaces_overrides} WHERE id = 1'))));
+  }
+
+  /**
+   * Unset users.
+   */
+  public function tearDown() {
+    unset($this->admin_user);
+    unset($this->simple_user);
+    parent::tearDown();
+  }
+
+  /**
+   * Login a user with site building and spaces/features management permissions.
+   */
+  protected function loginAdminUser() {
+    if (empty($this->admin_user)) {
+      $this->admin_user = $this->drupalCreateUser(
+        array(
+          'access content',
+          'administer nodes',
+          'administer content types',
+          'administer site configuration',
+          // Necessary for rebuilding node_access permissions.
+          'access administration pages',
+          'administer spaces',
+          'administer organic groups',
+        )
+      );
+    }
+    $this->drupalLogin($this->admin_user);
+  }
+
+  /**
+   * Login a user with editing permissions.
+   */
+  protected function loginSimpleUser() {
+    if (empty($this->simple_user)) {
+      $this->simple_user = $this->drupalCreateUser(
+        array(
+          'access user profiles',
+          'access comments',
+          'post comments',
+          'post comments without approval',
+          'access content',
+          'create features_test content',
+          'edit own features_test content',
+          'delete own features_test content',
+        )
+      );
+    }
+    $this->drupalLogin($this->simple_user);
+  }
+
+  /**
+   * Get node_access entries.
+   */
+  protected function nodeAccess($nid) {
+    $rows = array();
+    $result = db_query('select * from {node_access} where nid = %d', $nid);
+    while ($row = db_fetch_array($result)) {
+      $rows[$row['realm']] = $row;
+    }
+    return $rows;
+  }
+}
+
+class SpacesOGTestCRUD extends SpacesOGTestCase {
+  /**
+   * Test info.
+   */
+  public function getInfo() {
+    return array(
+      'name' => t('Spaces OG: CRUD'),
+      'description' => t('Tests Spaces / Organic Groups integration. <strong>Requires Purl, Organic groups and Views</strong>.') ,
+      'group' => t('Spaces'),
+    );
+  }
+
+  /**
+   * OG CRUD and configure tests.
+   */
+  function testCRUD() {
+    // Test if presets save properly to DB.
+    $realms = array(
+      'og_admin' => array(
+        'gid' => 1,
+        'grant_view' => 1,
+        'grant_update' => 1,
+        'grant_delete' => 0,
+      ),
+      'og_public' => array(
+        'gid' => 0,
+        'grant_view' => 1,
+        'grant_update' => 0,
+        'grant_delete' => 0,
+      ),
+      'og_subscriber' => array(
+        'gid' => 1,
+        'grant_view' => 1,
+        'grant_update' => 0,
+        'grant_delete' => 0,
+      ),
+    );
+    $presets = array(
+      'og_controlled' => array(
+        'og' => array(
+          'og_selective' => 1,
+          'og_register' => 1,
+          'og_directory' => 1,
+          'og_private' => 0,
+        ),
+        'node_access' => array(
+          'og_public',
+          'og_admin',
+        ),
+      ),
+      'og_private' => array(
+        'og' => array(
+          'og_selective' => 3,
+          'og_register' => 0,
+          'og_directory' => 0,
+          'og_private' => 1,
+        ),
+        'node_access' => array(
+          'og_admin',
+          'og_subscriber',
+        ),
+      ),
+      'og_public' => array(
+        'og' => array(
+          'og_selective' => 0,
+          'og_register' => 1,
+          'og_directory' => 1,
+          'og_private' => 0,
+        ),
+        'node_access' => array(
+          'og_public',
+          'og_admin',
+        ),
+      ),
+    );
+    foreach ($presets as $preset => $config) {
+      $edit = array(
+        'spaces_preset_og' => $preset,
+      );
+      $this->drupalPost('node/1/edit', $edit, 'Save');
+      // Assert spaces override status.
+      $value = unserialize(db_result(db_query('SELECT value from {spaces_overrides} WHERE id = 1')));
+      $this->assertEqual($value, $preset);
+      // Assert OG configuration.
+      $og = db_fetch_array(db_query('SELECT og_selective, og_register, og_directory, og_private FROM {og} WHERE nid = 1'));
+      foreach ($config['og'] as $k => $v) {
+        $this->assertEqual($og[$k], $v);
+      }
+
+      // Review node_access table, this is essentially testing OG behavior, but
+      // a change in this behavior would break our assumptions.
+      foreach ($config['node_access'] as $realm) {
+        $this->assertEqual(2, db_result(db_query('SELECT COUNT(*) FROM {node_access} WHERE nid = 1')));
+        $access = db_fetch_array(db_query('SELECT * FROM {node_access} WHERE nid = 1 AND realm = "%s"', $realm));
+        foreach ($realms[$realm] as $k => $v) {
+          $this->assertEqual($access[$k], $v);
+        }
+      }
+    }
+
+    // Delete the node and verify that there are no remnants.
+    $this->drupalPost('node/1/delete', array(), 'Delete group');
+    $this->assertText('Group Group A has been deleted.');
+    $this->assertEqual(0, db_result(db_query('SELECT count(*) FROM {spaces_overrides} WHERE id = 1')));
+    $this->assertEqual(0, db_result(db_query('SELECT count(*) FROM {purl} WHERE id = 1')));
+  }
+}
+
+class SpacesOGTestOverrides extends SpacesOGTestCase {
+  /**
+   * Test info.
+   */
+  public function getInfo() {
+    return array(
+      'name' => t('Spaces OG: Overrides'),
+      'description' => t('Tests Spaces / Organic Groups integration. <strong>Requires Purl, Organic groups and Views</strong>.') ,
+      'group' => t('Spaces'),
+    );
+  }
+
+  /**
+   * Test override space configuration.
+   */
+  function testOverrides() {
+    // Go to override tab and verify settings.
+    $this->drupalGet('group-a/node/1/features/overrides');
+    $this->assertPattern('/spaces_preset_og(.*?)og_public/');
+    $this->assertPattern('/spaces_og_selective(.*?)0(.*?)inherited/');
+    $this->assertPattern('/spaces_og_register(.*?)1(.*?)inherited/');
+    $this->assertPattern('/spaces_og_directory(.*?)1(.*?)inherited/');
+    $this->assertPattern('/spaces_og_private(.*?)0(.*?)inherited/');
+    $this->assertNoText('features_test_setting');
+
+    // Save feature setting (amounts to an actual change) and verify the change
+    // on the overrides page.
+    $this->drupalPost('group-a/node/1/features/features_test', array(), 'Save for Group A');
+    $this->assertText('The configuration options have been saved for Group A.');
+    $this->drupalGet('group-a/node/1/features/overrides');
+    $this->assertRaw('features_test_setting');
+    $this->assertEqual('0', unserialize(db_result(db_query('SELECT value FROM {spaces_overrides} WHERE object_id = "features_test_setting" AND id = 1'))));
+
+    // Change feature setting, verify again.
+    $this->drupalPost('group-a/node/1/features/features_test', array('features_test_setting' => 1), 'Save for Group A');
+    $this->drupalGet('group-a/node/1/features/overrides');
+    $this->assertRaw('features_test_setting');
+    $this->assertEqual('1', unserialize(db_result(db_query('SELECT value FROM {spaces_overrides} WHERE object_id = "features_test_setting" AND id = 1'))));
+
+    // Go to admin/build/spaces page and verify that there are no overridden
+    // presets. Then save the modified features_test_setting setting to preset
+    // and check for this change on admin page.
+    $this->drupalGet('admin/build/spaces');
+    $this->assertNoText('Overridden');
+    $this->drupalGet('admin/build/spaces/og_public');
+    $this->assertNoText('features_test_setting');
+    $edit = array(
+      'variable[features_test_setting]' => 1,
+    );
+    $this->drupalPost('group-a/node/1/features/overrides', $edit, 'Save to preset');
+    $this->assertText('Saved preset Public group.');
+    $preset = unserialize(db_result(db_query('SELECT value FROM {spaces_presets} WHERE name = "og_public" AND space_type = "og"')));
+    $this->assertEqual('1', $preset['variable']['features_test_setting']);
+    $this->drupalGet('admin/build/spaces');
+    $this->assertText('Overridden');
+    $this->drupalGet('admin/build/spaces/list/og_public/edit');
+    $this->assertPattern('/features_test_setting(.*?)1/');
+  }
+}
+
+class SpacesOGTestFeatures extends SpacesOGTestCase {
+  /**
+   * Test info.
+   */
+  public function getInfo() {
+    return array(
+      'name' => t('Spaces OG: Features'),
+      'description' => t('Tests Spaces / Organic Groups integration. <strong>Requires Purl, Organic groups and Views</strong>.') ,
+      'group' => t('Spaces'),
+    );
+  }
+
+  /**
+   * Test Feature enable/disable.
+   */
+  function testFeatures() {
+
+    // Verify that feature is off site-wide and off for group. node/add/features-test
+    // should not be available.
+    $this->drupalGet('features');
+    $elems = $this->xpath('//select[@name="spaces_features[features_test]"]/option[@selected="selected"]');
+    $this->assert('Disabled' == (string)$elems[0]);
+
+    $this->drupalGet('node/add');
+    $this->assertNoText('Features test');
+
+    $this->drupalGet('node/add/features-test');
+    $this->assertResponse(403);
+
+    $this->drupalGet('group-a/node/1/features');
+    $elems = $this->xpath('//select[@name="spaces_features[features_test]"]/option[@selected="selected"]');
+    $this->assert('Disabled' == (string)$elems[0]);
+
+    $this->drupalGet('group-a/node/add');
+    $this->assertNoText('Features test');
+
+    $this->drupalGet('group-a/node/add/features-test');
+    $this->assertResponse(403);
+
+    // Enable features_test feature for site wide space, post a node.
+    // features_test feature should still not be available in group.
+    // @todo: this *should* not work as this post is an in-group content type.
+    // 'group-a/features' will redirect us to 'features'.
+    $this->drupalPost('group-a/features', array('spaces_features[features_test]' => '1'), 'Save configuration');
+    $this->assertText('The configuration options have been saved.');
+
+    $this->drupalGet('node/add');
+    $this->assertText('Testing: Features');
+
+    $this->drupalPost('node/add/features-test', array('title' => 'Post outside of Group'), 'Save');
+    $this->assertText('Testing: Features Post outside of Group has been created.');
+
+    // Turn off site wide features_test feature.
+    $this->drupalPost('features', array('spaces_features[features_test]' => '0'), 'Save configuration');
+    $this->drupalGet('group-a/node/1/features');
+    $elems = $this->xpath('//select[@name="spaces_features[features_test]"]/option[@selected="selected"]');
+    $this->assert('Disabled' == (string)$elems[0]);
+
+    $this->drupalGet('node/add/features-test');
+    $this->assertResponse(403);
+
+    // Turn on features_test feature for group and post a features_test post.
+    $this->drupalPost('group-a/node/1/features', array('spaces_features[features_test]' => '1'), 'Save for Group A');
+    $elems = $this->xpath('//select[@name="spaces_features[features_test]"]/option[@selected="selected"]');
+    $this->assert('Enabled' == (string)$elems[0]);
+
+    $this->drupalGet('group-a/node/add');
+    $this->assertText('Testing: Features');
+
+    $this->drupalPost('group-a/node/add/features-test', array('title' => 'Post in Group space'), 'Save');
+    $this->assertText('Testing: Features Post in Group space has been created.');
+
+    $this->drupalGet('node/add/features-test');
+    $this->assertResponse(403);
+  }
+}
+
+class SpacesOGTestAccess extends SpacesOGTestCase {
+  /**
+   * Test info.
+   */
+  public function getInfo() {
+    return array(
+      'name' => t('Spaces OG: Access'),
+      'description' => t('Tests Spaces / Organic Groups integration. <strong>Requires Purl, Organic groups and Views</strong>.') ,
+      'group' => t('Spaces'),
+    );
+  }
+
+  /**
+   * Test access control lists. The purpose of this test is to verify that
+   * spaces presets result in proper OG settings. Further, resulting access
+   * grants and denies are tested to catch changes in OG API that potentially
+   * break assumed access walls.
+   */
+  function testAccess() {
+
+    /**
+     * Create and verify public Group A ========================================
+     */
+
+    // Enable features_test as group feature.
+    $this->drupalPost('group-a/node/1/features', array('spaces_features[features_test]' => '1'), 'Save for Group A');
+    $this->pass($output);
+
+    // Post in group and review access settings and group associations.
+    $this->drupalGet('group-a/node/add/features-test');
+    $this->assertText('A post of this type is public. All visitors will be able to see it.');
+    $this->drupalPost('group-a/node/add/features-test', array('title' => 'Public post'), 'Save');
+    $this->assertText('Testing: Features Public post has been created.');
+    $this->assertEqual(1, db_result(db_query('SELECT count(*) FROM {og_ancestry} WHERE group_nid = 1 AND nid = 2;')));
+    $access = $this->nodeAccess(2);
+    $this->assertEqual($access['og_public']['gid'], 0);
+    $this->assertEqual($access['og_public']['grant_view'], 1);
+    $this->assertEqual($access['og_public']['grant_update'], 0);
+    $this->assertEqual($access['og_public']['grant_delete'], 0);
+    $this->assertEqual($access['og_admin']['gid'], 1);
+    $this->assertEqual($access['og_admin']['grant_view'], 1);
+    $this->assertEqual($access['og_admin']['grant_update'], 1);
+    $this->assertEqual($access['og_admin']['grant_delete'], 1);
+    $this->assertEqual($access['og_subscriber']['gid'], 1);
+    $this->assertEqual($access['og_subscriber']['grant_view'], 1);
+    $this->assertEqual($access['og_subscriber']['grant_update'], 0);
+    $this->assertEqual($access['og_subscriber']['grant_delete'], 0);
+
+    /**
+     * Create and verify protected Group B =====================================
+     */
+
+    // Create group.
+    $edit = array(
+      'title' => 'Group B',
+      'og_description' => 'Group B.',
+      'purl[value]' => 'group-b',
+      'spaces_preset_og' => 'og_controlled',
+    );
+    $this->drupalPost('node/add/group', $edit, 'Save');
+    $this->assertEqual('og_controlled', unserialize(db_result(db_query('SELECT value from {spaces_overrides} WHERE id = 3'))));
+
+    // Enable features_test as group feature.
+    $this->drupalPost('group-b/node/3/features', array('spaces_features[features_test]' => '1'), 'Save for Group B');
+
+    // Post in group and review access settings and group associations.
+    $this->drupalGet('group-b/node/add/features-test');
+    $this->assertText('A post of this type is public. All visitors will be able to see it.');
+    $this->drupalPost('group-b/node/add/features-test', array('title' => 'Protected post'), 'Save');
+    $this->assertText('Testing: Features Protected post has been created.');
+    $this->assertEqual(1, db_result(db_query('SELECT count(*) FROM {og_ancestry} WHERE group_nid = 3 AND nid = 4;')));
+    $access = $this->nodeAccess(4);
+    $this->assertEqual($access['og_public']['gid'], 0);
+    $this->assertEqual($access['og_public']['grant_view'], 1);
+    $this->assertEqual($access['og_public']['grant_update'], 0);
+    $this->assertEqual($access['og_public']['grant_delete'], 0);
+    $this->assertEqual($access['og_admin']['gid'], 3);
+    $this->assertEqual($access['og_admin']['grant_view'], 1);
+    $this->assertEqual($access['og_admin']['grant_update'], 1);
+    $this->assertEqual($access['og_admin']['grant_delete'], 1);
+    $this->assertEqual($access['og_subscriber']['gid'], 3);
+    $this->assertEqual($access['og_subscriber']['grant_view'], 1);
+    $this->assertEqual($access['og_subscriber']['grant_update'], 0);
+    $this->assertEqual($access['og_subscriber']['grant_delete'], 0);
+
+    /**
+     * Create and verify private Group C =======================================
+     */
+
+    // Create group.
+    $edit = array(
+      'title' => 'Group C',
+      'og_description' => 'Group C.',
+      'purl[value]' => 'group-c',
+      'spaces_preset_og' => 'og_private',
+    );
+    $this->drupalPost('node/add/group', $edit, 'Save');
+    $this->assertEqual('og_private', unserialize(db_result(db_query('SELECT value from {spaces_overrides} WHERE id = 5'))));
+
+    // Enable features_test as group feature.
+    $this->drupalPost('group-c/node/5/features', array('spaces_features[features_test]' => '1'), 'Save for Group C');
+
+    // Post in group and review access settings and group associations.
+    $this->drupalGet('group-c/node/add/features-test');
+    $this->assertText('A post of this type is private. Only members of this group will be able to see it.');
+    $this->drupalPost('group-c/node/add/features-test', array('title' => 'Private post'), 'Save');
+    $this->assertText('Testing: Features Private post has been created.');
+    $this->assertEqual(1, db_result(db_query('SELECT count(*) FROM {og_ancestry} WHERE group_nid = 5 AND nid = 6;')));
+    // Test ACL for group.
+    $access = $this->nodeAccess(5);
+    $this->assertEqual(isset($access['og_public']), FALSE);
+    $this->assertEqual($access['og_admin']['gid'], 5);
+    $this->assertEqual($access['og_admin']['grant_view'], 1);
+    $this->assertEqual($access['og_admin']['grant_update'], 1);
+    $this->assertEqual($access['og_admin']['grant_delete'], 0);
+    $this->assertEqual($access['og_subscriber']['gid'], 5);
+    $this->assertEqual($access['og_subscriber']['grant_view'], 1);
+    $this->assertEqual($access['og_subscriber']['grant_update'], 0);
+    $this->assertEqual($access['og_subscriber']['grant_delete'], 0);
+    // Test ACL for post in group.
+    $access = $this->nodeAccess(6);
+    $this->assertEqual(isset($access['og_public']), FALSE);
+    $this->assertEqual($access['og_admin']['gid'], 5);
+    $this->assertEqual($access['og_admin']['grant_view'], 1);
+    $this->assertEqual($access['og_admin']['grant_update'], 1);
+    $this->assertEqual($access['og_admin']['grant_delete'], 1);
+    $this->assertEqual($access['og_subscriber']['gid'], 5);
+    $this->assertEqual($access['og_subscriber']['grant_view'], 1);
+    $this->assertEqual($access['og_subscriber']['grant_update'], 0);
+    $this->assertEqual($access['og_subscriber']['grant_delete'], 0);
+    // Make sure there is no 'grant all'.
+    $this->assertEqual(0, db_result(db_query('SELECT COUNT(*) FROM {node_access} WHERE nid = 0 AND grant_view = 1')), 'Global grant_view is absent.');
+
+    /**
+     * Test Group A access =====================================================
+     */
+    $this->loginSimpleUser();
+    // Group node accessible.
+    $this->drupalGet('group-a/node/1');
+    $this->assertResponse(200);
+    // Post in group accessible.
+    $this->drupalGet('group-a/node/2');
+    $this->assertResponse(200);
+    $this->assertText('Public post');
+    // Can't add features_test .
+    $this->drupalGet('group-a/node/add/features-test');
+    $this->assertResponse(403);
+    // Join.
+    $this->drupalPost('group-a/og/subscribe/1', array(), 'Join');
+    $this->assertText('You are now a member of Group A.');
+    // Add features_test .
+    $this->drupalGet('group-a/node/add/features-test');
+    $this->assertResponse(200);
+    $this->drupalPost('group-a/node/add/features-test', array('title' => 'Another public post'), 'Save');
+    $this->assertText('Testing: Features Another public post has been created.');
+
+    /**
+     * Test Group B access =====================================================
+     */
+    // Group node accessible.
+    $this->drupalGet('group-b/node/3');
+    $this->assertResponse(200);
+    // Post in group accessible.
+    $this->drupalGet('group-b/node/4');
+    $this->assertResponse(200);
+    $this->assertText('Protected post');
+    // Can't add features_test .
+    $this->drupalGet('group-b/node/add/features-test');
+    $this->assertResponse(403);
+    // Request membership.
+    $this->drupalPost('group-b/og/subscribe/3', array(), 'Join');
+    $this->assertText('Membership request to the Group B group awaits approval by an administrator.');
+    // Grant membership.
+    $this->loginAdminUser();
+    $this->drupalGet('group-b/og/users/3');
+    $this->clickLink('approve');
+    $this->assertText('Membership request approved.');
+    // Log back in as simple user and post a features_test post.
+    $this->loginSimpleUser();
+    $this->drupalGet('group-b/node/add/features-test');
+    $this->assertResponse(200);
+    $this->drupalPost('group-b/node/add/features-test', array('title' => 'Another protected post'), 'Save');
+    $this->assertText('Testing: Features Another protected post has been created.');
+
+    /**
+     * Test Group C access =====================================================
+     */
+
+    $this->loginSimpleUser();
+    // Group node not accessible.
+    $this->drupalGet('group-c/node/5');
+    $this->assertResponse(403);
+    $this->assertNoText('Group C');
+    // Post in group not accessible.
+    $this->drupalGet('group-c/node/6');
+    $this->assertResponse(403);
+    $this->assertNoText('Private post');
+    // Can't add features_test .
+    $this->drupalGet('group-c/node/add/features-test');
+    $this->assertResponse(403);
+    // Can't request membership.
+    $this->drupalGet('group-c/og/subscribe/5');
+    $this->assertResponse(403);
+
+    // Add user.
+    $this->loginAdminUser();
+    $this->drupalPost('group-c/og/users/5/add_user', array('og_names' => $this->simple_user->name), 'Add users');
+    $this->assertText('1 user added to the group.');
+
+    // Log in again, now we should be able to access the group fully.
+    $this->loginSimpleUser();
+    // Group node accessible.
+    $this->drupalGet('group-c/node/5');
+    $this->assertResponse(200);
+    $this->assertText('Group C');
+    // Post in group accessible.
+    $this->drupalGet('group-c/node/6');
+    $this->assertResponse(200);
+    $this->assertText('Private post');
+    // Post features_test node.
+    $this->drupalGet('group-c/node/add/features-test');
+    $this->assertResponse(200);
+    $this->drupalPost('group-c/node/add/features-test', array('title' => 'Another private post'), 'Save');
+    $this->assertText('Testing: Features Another private post has been created.');
+
+    /**
+     * Privacy switch test =====================================================
+     */
+    $this->loginAdminUser();
+    $edit = array(
+      'spaces_preset_og' => 'og_public',
+    );
+    $this->drupalPost('group-c/node/5/edit', $edit, 'Save');
+    $this->assertText('The content access permissions need to be rebuilt.');
+    $this->drupalPost('admin/content/node-settings/rebuild', array(), 'Rebuild permissions');
+
+    $this->drupalPost("group-c/og/unsubscribe/5/{$this->simple_user->uid}", array(), 'Remove');
+    $this->loginSimpleUser();
+    $this->drupalGet('group-c/node/5');
+    $this->assertResponse(200);
+    $this->assertText('Group C');
+    $this->drupalGet('group-c/node/6');
+    $this->assertResponse(200);
+
+    $this->loginAdminUser();
+    $edit = array(
+      'spaces_preset_og' => 'og_private',
+    );
+    $this->drupalPost('group-c/node/5/edit', $edit, 'Save');
+    $this->assertText('The content access permissions need to be rebuilt.');
+    $this->drupalPost('admin/content/node-settings/rebuild', array(), 'Rebuild permissions');
+
+    $this->loginSimpleUser();
+    $this->drupalGet('group-c/node/5');
+    $this->assertResponse(403);
+    $this->drupalGet('group-c/node/6');
+    $this->assertResponse(403);
+  }
+}
+
+class SpacesOGTestRouter extends SpacesOGTestCase {
+  /**
+   * Test info.
+   */
+  public function getInfo() {
+    return array(
+      'name' => t('Spaces OG: Router'),
+      'description' => t('Tests Spaces / Organic Groups integration. <strong>Requires Purl, Organic groups and Views</strong>.') ,
+      'group' => t('Spaces'),
+    );
+  }
+
+  /**
+   * Test router.
+   */
+  function testRouter() {
+
+    // Enable features_test feature site wide.
+    $this->drupalPost('features', array('spaces_features[features_test]' => '1'), 'Save configuration');
+
+    // Create another test group.
+    $edit = array(
+      'title' => 'Group B',
+      'og_description' => 'Group B.',
+      'purl[value]' => 'group-b',
+    );
+    $this->drupalPost('node/add/group', $edit, 'Save');
+    $this->drupalPost('node/1/features', array('spaces_features[features_test]' => '1'), 'Save for Group A');
+
+    // Log in as simple user, join and post a features_test .
+    $this->loginSimpleUser();
+    $this->drupalPost('group-a/og/subscribe/1', array(), 'Join');
+    $this->drupalPost('group-a/node/add/features-test', array('title' => 'Test post'), 'Save');
+
+    // Router should redirect to group-a/*.
+    foreach (array('node/1', 'node/3', 'group-b/node/1', 'group-b/node/3') as $path) {
+      $this->drupalGet($path);
+      $this->assertTrue(FALSE !== strpos($this->getUrl(), 'group-a'));
+    }
+
+    // Submit a features_test outside of a group.
+    $this->drupalGet('node/add/features-test');
+    $this->drupalPost('node/add/features-test', array('title' => 'Not in group (accident)'), 'Save');
+    $this->assertText('Not in group');
+    $this->assertNoText('This content type is supposed to be posted within a group but it is not.');
+
+    // Log in as admin, make audience settings mandatory.
+    $this->loginAdminUser();
+    $this->drupalPost('admin/og/og', array('og_audience_required' => '1'), 'Save configuration');
+    $this->assertText('The configuration options have been saved.');
+
+    // Log in as simple user again, I should get an error message now.
+    $this->loginSimpleUser();
+    $this->drupalGet('node/4/edit');
+    $this->assertText('This content type is supposed to be posted within a group but it is not. You will not be able to save this node. Please contact a site administrator to fix the issue.');
+
+    // Log in as admin, fix error by assigning post to group A.
+    $this->loginAdminUser();
+    $this->drupalPost('node/4/edit', array('spaces_og_audience' => 1), 'Save');
+
+    // Log in as simple user again, verify that post is fixed.
+    $this->loginSimpleUser();
+    $this->drupalGet('node/4/edit');
+    $this->assertTrue(FALSE !== strpos($this->getUrl(), 'group-a'));
+    $this->assertNoText('This content type is supposed to be posted within a group but it is not.');
+  }
+}
+
+class SpacesOGTestAutocomplete extends SpacesOGTestCase {
+  /**
+   * Test info.
+   */
+  public function getInfo() {
+    return array(
+      'name' => t('Spaces OG: Autocomplete'),
+      'description' => t('Tests Spaces / Organic Groups integration. <strong>Requires Purl, Organic groups and Views</strong>.') ,
+      'group' => t('Spaces'),
+    );
+  }
+
+  public function setUp() {
+    parent::setUp();
+
+    $vocab = array(
+      'name' => 'Tags',
+      'description' => 'Test vocab.',
+      'multiple' => 1,
+      'tags' => 1,
+      'nodes' => array('features_test ' => TRUE),
+    );
+    taxonomy_save_vocabulary($vocab);
+
+    $this->simpleUserPerms = array(
+      'access user profiles',
+      'access comments',
+      'post comments',
+      'post comments without approval',
+      'access content',
+      'create features_test content',
+      'edit own features_test content',
+      'delete own features_test content',
+    );
+  }
+
+  protected function createNamedUser($permissions = NULL, $name = NULL) {
+    // Create a role with the given permission set.
+    if (!($rid = $this->drupalCreateRole($permissions))) {
+      return FALSE;
+    }
+
+    // Create a user assigned to that role.
+    $edit = array();
+    $edit['name']   = isset($name) ? $name : $this->randomName();
+    $edit['mail']   = $edit['name'] . '@example.com';
+    $edit['roles']  = array($rid => $rid);
+    $edit['pass']   = user_password();
+    $edit['status'] = 1;
+
+    $account = user_save('', $edit);
+
+    $this->assertTrue(!empty($account->uid), t('User created with name %name and pass %pass', array('%name' => $edit['name'], '%pass' => $edit['pass'])), t('User login'));
+    if (empty($account->uid)) {
+      return FALSE;
+    }
+
+    // Add the raw password so that we can log in as this user.
+    $account->pass_raw = $edit['pass'];
+    return $account;
+  }
+
+  /**
+   * Test autocomplete.
+   */
+  function testAutocomplete() {
+    $this->loginAdminUser();
+
+    // Create another test group.
+    $edit = array(
+      'title' => 'Group B',
+      'og_description' => 'Group B.',
+      'purl[value]' => 'group-b',
+    );
+    $this->drupalPost('node/add/group', $edit, 'Save');
+
+    // Enable features_test in both groups.
+    $this->drupalPost('group-a/node/1/features', array('spaces_features[features_test]' => '1'), 'Save for Group A');
+    $this->drupalPost('group-b/node/2/features', array('spaces_features[features_test]' => '1'), 'Save for Group B');
+
+    // Log in as admin user and post a features_test post in each group with very different tags.
+    $this->drupalPost('group-a/node/add/features-test', array('title' => 'Fruit post', 'taxonomy[tags][1]' => 'bananas, apples, oranges'), 'Save');
+    $this->drupalPost('group-b/node/add/features-test', array('title' => 'Veggie post', 'taxonomy[tags][1]' => 'broccoli, artichoke, oregano'), 'Save');
+
+    // Log in as simple user, join group-a and test taxonomy autocomplete.
+    $this->loginSimpleUser();
+
+    // When a member of just group A, we should only get fruits.
+    $this->drupalPost('group-a/og/subscribe/1', array(), 'Join');
+    $this->drupalGet('taxonomy/autocomplete/1/b');
+    $this->assertRaw('bananas');
+    $this->assertNoRaw('broccoli');
+    $this->drupalGet('taxonomy/autocomplete/1/bananas, a');
+    $this->assertRaw('apples');
+    $this->assertNoRaw('artichoke');
+    $this->drupalGet('taxonomy/autocomplete/1/bananas, apples, or');
+    $this->assertRaw('oranges');
+    $this->assertNoRaw('oregano');
+
+    // When a member of both groups, we should get all tags.
+    $this->drupalPost('group-b/og/subscribe/2', array(), 'Join');
+    $this->drupalGet('taxonomy/autocomplete/1/b');
+    $this->assertRaw('bananas');
+    $this->assertRaw('broccoli');
+    $this->drupalGet('taxonomy/autocomplete/1/bananas, a');
+    $this->assertRaw('apples');
+    $this->assertRaw('artichoke');
+    $this->drupalGet('taxonomy/autocomplete/1/bananas, apples, or');
+    $this->assertRaw('oranges');
+    $this->assertRaw('oregano');
+
+    // When a member of just group B, we should only get veggies.
+    $this->drupalPost("group-a/og/unsubscribe/1/{$this->simple_user->uid}", array(), 'Leave');
+    $this->drupalGet('taxonomy/autocomplete/1/b');
+    $this->assertNoRaw('bananas');
+    $this->assertRaw('broccoli');
+    $this->drupalGet('taxonomy/autocomplete/1/bananas, a');
+    $this->assertNoRaw('apples');
+    $this->assertRaw('artichoke');
+    $this->drupalGet('taxonomy/autocomplete/1/bananas, apples, or');
+    $this->assertNoRaw('oranges');
+    $this->assertRaw('oregano');
+
+    // User autocomplete
+    // Create joe (group B), joan (group B).
+    $joe = $this->createNamedUser($this->simpleUserPerms, 'testjoe');
+    $this->drupalLogin($joe);
+    $this->drupalPost('group-a/og/subscribe/1', array(), 'Join');
+
+    $joan = $this->createNamedUser($this->simpleUserPerms, 'testjoan');
+    $this->drupalLogin($joan);
+    $this->drupalPost('group-b/og/subscribe/2', array(), 'Join');
+
+    $this->loginSimpleUser();
+
+    // When a member of just group B, we should only get "testjoan".
+    $this->drupalGet('user/autocomplete/testjo');
+    $this->assertNoRaw('testjoe');
+    $this->assertRaw('testjoan');
+
+    // When a member of both groups, we should get both users.
+    $this->drupalPost('group-a/og/subscribe/1', array(), 'Join');
+    $this->drupalGet('user/autocomplete/testjo');
+    $this->assertRaw('testjoe');
+    $this->assertRaw('testjoan');
+
+    // When a member of just group A, we should only get "testjoe".
+    $this->drupalPost("group-b/og/unsubscribe/2/{$this->simple_user->uid}", array(), 'Leave');
+    $this->drupalGet('user/autocomplete/testjo');
+    $this->assertRaw('testjoe');
+    $this->assertNoRaw('testjoan');
+  }
+}

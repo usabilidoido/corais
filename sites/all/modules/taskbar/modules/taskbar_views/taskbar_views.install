@@ -1,0 +1,91 @@
+<?php
+/**
+ * @file
+ *   Taskbar views module installation.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function taskbar_views_schema() {
+  $schema = array();
+  $schema += taskbar_views_schema_6001();
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function taskbar_views_install() {
+  drupal_install_schema('taskbar_views');
+}
+
+function taskbar_views_schema_6000() {
+  $schema = array();
+  $schema['taskbar_views_update'] = array(
+    'description' => 'Update status for taskbar views items',
+    'fields' => array(
+      'name' => array(
+        'type' => 'varchar',
+        'description' => 'The machine name of the item',
+        'length' => 32, 
+        'not null' => TRUE,
+      ),
+      'uid' => array(
+        'type' => 'int',
+        'description' => 'The uid of the user.',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'last_id' => array(
+        'type' => 'int',
+        'description' => 'The last viewed id.',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'indexes' => array(
+      'name_uid' => array('name', 'uid'),
+      'last_id' => array('last_id'),
+    ),
+  );
+  return $schema;
+}
+
+/**
+ * Update 6000.
+ */
+function taskbar_views_update_6000() {
+  $ret = array();
+  $schema = taskbar_views_schema_6000();
+  db_create_table($ret, 'taskbar_views_update', $schema['taskbar_views_update']);
+  return $ret;
+}
+
+function taskbar_views_schema_6001() {
+  $schema = taskbar_views_schema_6000();
+  unset($schema['taskbar_views_update']['indexes']['name_uid']);
+  $schema['taskbar_views_update']['primary key'] = array('name', 'uid');
+  return $schema;
+}
+
+/**
+ * Update 6001.
+ */
+function taskbar_views_update_6001() {
+  $ret = array();
+  $schema = taskbar_views_schema_6001();
+  db_drop_table($ret, 'taskbar_views_update');
+  db_create_table($ret, 'taskbar_views_update', $schema['taskbar_views_update']);
+  return $ret;
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function taskbar_views_uninstall() {
+  drupal_uninstall_schema('taskbar_views');
+  db_query("DELETE FROM {taskbar_item} WHERE provider='views'");
+}

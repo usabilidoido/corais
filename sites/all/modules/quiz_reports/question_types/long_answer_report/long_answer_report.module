@@ -1,0 +1,176 @@
+<?php
+
+/**
+ * @file
+ * Makes a report on the long answer quiz question type
+ *
+ */
+
+/**
+ * Implementation of hook_help().
+ */
+function long_answer_report_help( $path, $arg ) {
+    $output = '';
+
+    switch ( $path ) {
+        case 'admin/help#truefalse_statistic';
+            $output = '<p>' . t('Generates statistic for a true/false question type') . '</p>';
+            break;
+    }
+    
+    return $output;
+}
+
+/**
+ * Implementation of hook_theme()
+ */
+function long_answer_report_theme() {
+    return array(
+        'long_answer_output' => array(
+            'arguments' => array( 'statistics' => NULL,  ),
+            'path' => drupal_get_path( 'module', 'long_answer_report' ) . '/theme',
+            'template' => 'long_answer_output',
+        ),
+    );
+}
+
+function long_answer_report_get_question_properties( $question ) {
+
+  $properties = array();
+  // Get question properties
+  $sql = "SELECT
+            rubric
+          FROM
+           {quiz_long_answer_node_properties}
+          WHERE
+            nid = %d
+            AND vid = %d";
+  
+  $properties = db_fetch_array(db_query($sql, $question->question_nid, $question->question_vid));
+  
+  // Get max score for question and merge into properties
+  $sql = "SELECT max_score FROM {quiz_question_properties} WHERE nid = %d AND vid = %d";
+  $properties = array_merge($properties, db_fetch_array(db_query($sql, $question->question_nid, $question->question_vid)));
+  
+  return $properties;
+}
+
+/**
+ * Themes the statistics.
+ *
+ * @param array $statistics
+ *      The statistics calculated in get_truefalse_statistics
+ * @return string
+ *      The HTML output for this question.
+ */
+function long_answer_get_themed_output( $statistics = NULL ) {
+    
+  // Just a check to see if we have stats
+  if ( $statistics == NULL )
+      return t("Statistics to populate question theme is missing.");
+  
+  drupal_add_css(drupal_get_path('module', 'long_answer_report') . '/long_answer_report.css', 'theme');
+  drupal_add_js(drupal_get_path('module', 'long_answer_report') . '/long_answer_report.js', 'theme');
+  
+  // Return themed output
+  return theme( 'long_answer_output', $statistics );
+}
+
+/**
+ * Calculates and returns statistic for a given question in relation to a 
+ * quiz node revision.
+ *
+ * @param object $quesetion
+ * @param int $vid
+ * @return array
+ */
+#function get_truefalse_statistics( $question, $vid ) {
+function long_answer_report_get_statistics( $question, $vid ) {
+    
+  $properties = long_answer_report_get_question_properties($question);
+  $statistics = array();
+  #dpm($properties);
+    
+  $piece = $properties['max_score'] / 4;
+
+  $scores = array();
+  for ($i=1;$i<=4;$i++) {
+    $scores[] = $piece*$i;
+  }
+  $sql = "SELECT
+            SUM(answers.score >= 0 && answers.score <= " . $scores[0] . ") AS '25',
+            SUM(answers.score > " . $scores[0] . " && answers.score <= " . $scores[1] . ") AS '50',
+            SUM(answers.score > " . $scores[1] . " && answers.score <= " . $scores[2] . ") AS '75',
+            SUM(answers.score > " . $scores[2] . " && answers.score <= " . $scores[3] . ") AS '100'
+          FROM
+            {quiz_long_answer_user_answers} answers
+          INNER JOIN
+            {quiz_node_results} results USING(result_id)
+          WHERE
+            answers.question_vid = %d
+            AND answers.is_evaluated = 1
+            AND results.vid = %d";
+
+  $result = db_fetch_array(db_query($sql, $question->question_vid, $vid));
+  
+  $sql = "SELECT
+            COUNT(*) AS takes,
+			      SUM(answers.is_evaluated=1) AS evaluated,
+            SUM(answers.is_evaluated=0) AS not_evaluated
+          FROM
+            {quiz_long_answer_user_answers} answers
+          INNER JOIN
+            {quiz_node_results} results USING(result_id)
+          WHERE
+            answers.question_vid = %d
+            AND results.vid = %d";
+  
+  $counts = db_fetch_array(db_query($sql, $question->question_vid, $vid));
+  
+  foreach ($counts as $key => $value) {
+    $result[$key] = $value;
+  }
+  
+  $result['percent_25'] = $result['25'] / $result['takes'] * 100;
+  $result['percent_50'] = $result['50'] / $result['takes'] * 100;
+  $result['percent_75'] = $result['75'] / $result['takes'] * 100;
+  $result['percent_100'] = $result['100'] / $result['takes'] * 100;
+  $result['percent_not_evaluated'] = $result['not_evaluated'] / $result['takes'] * 100;
+  
+  #dpm($result);
+  
+  $statistics['takes'] = $result;
+  
+  $sql = "SELECT 
+          	answers.score,
+          	answers.is_evaluated,
+          	answers.answer
+          FROM 
+          	{quiz_long_answer_user_answers} answers
+          INNER JOIN
+          	{quiz_node_results} results USING(result_id)
+          WHERE
+          	answers.question_vid = %d
+          	AND results.vid = %d";
+  #dpm(sprintf($sql, $question->question_vid, $vid));
+  $result = db_query($sql, $question->question_vid, $vid);
+  
+  $statistics['answers'] = array();
+  
+  while ( $row = db_fetch_array($result) ) {
+      $row['short_answer'] = FALSE;
+      if (strlen($row['answer']) >= 200) {
+          $row['short_answer'] = check_markup(truncate_utf8($row['answer'], 200, FALSE, TRUE)) . '<a href="#toggle-more" class="quiz-stats-toggle-more">' . t('Show full answer') . '</a>';
+          $row['answer'] = check_markup($row['answer']) . '<a href="#toggle-less" class="quiz-stats-toggle-less">' . t('Show less') . '</a>';
+      } 
+      else {
+          $row['answer'] = check_markup($row['answer']);
+      }
+      
+      $statistics['answers'][] = $row;
+  }
+  
+  #dpm($statistics);
+  
+  return $statistics;
+}

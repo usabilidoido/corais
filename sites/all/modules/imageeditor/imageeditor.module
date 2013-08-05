@@ -1,0 +1,1091 @@
+<?php
+
+/**
+ * @file
+ * Allows online editing of images using Pixlr service.
+ */
+
+/**
+ * Implementation of hook_perm().
+ */
+function imageeditor_perm() {
+  return array('use imageeditor', 'administer imageeditor');
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function imageeditor_menu() {
+  $items = array();
+  $items['admin/settings/imageeditor'] = array(
+    'title'            => 'Image editor',
+    'description'      => 'Configure Image Editor settings',
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('imageeditor_settings_form'),
+    'access callback'  => 'imageeditor_settings_access', //'user_access',
+    //'access arguments' => array('administer site configuration'),
+    'type'             => MENU_NORMAL_ITEM,
+  );
+  $items['imageeditor/save'] = array(
+    'title' => 'Image Editor Save',
+    'description' => 'Saving images from Image Editor',
+    'page callback' => 'imageeditor_save',
+    'access callback'  => 'user_access',
+    'access arguments' => array('use imageeditor'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['imageeditor/exit'] = array(
+    'title' => 'Image Editor Exit',
+    'description' => 'Exiting from Image Editor',
+    'page callback' => 'imageeditor_exit',
+    'access callback'  => 'user_access',
+    'access arguments' => array('use imageeditor'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['imageeditor/upload'] = array(
+    'page callback' => 'imageeditor_upload',
+    'access callback'  => 'user_access',
+    'access arguments' => array('use imageeditor'),
+    'type' => MENU_CALLBACK,
+  );
+  
+  return $items;
+}
+
+/**
+ * Imageeditor module API keys form.
+ */
+function imageeditor_settings_form() {
+  $form = array();
+  
+  $form['title'] = array(
+    '#type' => 'item',
+    '#title' => t('API keys'),
+    '#description' => t('Enter API keys for needed image editors and upload services. These keys are global for the whole site.'),
+  );
+  
+  foreach(imageeditor_api_keys() as $codename => $api_key) {
+    $form[$codename . '_display_name'] = array(
+      '#type' => 'markup',
+      '#value' => $api_key['display_name'],
+    );
+    $form[$codename] = array(
+      '#type'          => 'textfield',
+      '#default_value' => variable_get($codename, ''),
+      '#size'          => 50,
+      '#maxlength'     => 100,
+      '#required'      => FALSE,
+    );
+    $form[$codename . '_description'] = array(
+      '#type' => 'markup',
+      '#value' => $api_key['description'],
+    );
+    $form[$codename . '_link'] = array(
+      '#type' => 'markup',
+      '#value' => '<a href="' . $api_key['link'] . '" target="_blank">' . $api_key['link'] . '</a>',
+    );
+  }
+  
+  $form = system_settings_form($form);
+  
+  $form['#theme'] = 'imageeditor_settings_form';
+  return $form;
+}
+
+function theme_imageeditor_settings_form($form) {
+  $output = '';
+  $output .= drupal_render($form['title']);
+  
+  $header = array(t('Name'), t('API key'), t('Description'), t('Get API key'));
+  $rows = array();
+  
+  foreach(imageeditor_api_keys() as $codename => $api_key) {
+    $row = array();
+    $row[] = drupal_render($form[$codename . '_display_name']);
+    $row[] = drupal_render($form[$codename]);
+    $row[] = drupal_render($form[$codename . '_description']);
+    $row[] = drupal_render($form[$codename . '_link']);
+    $rows[] = array('data' => $row);
+  }
+  $output .= theme('table', $header, $rows);
+  
+  $output .= drupal_render($form);
+  
+  return $output;
+}
+
+/**
+ * Callback function for settings page access
+ */
+function imageeditor_settings_access() {
+  global $user;
+  if (user_access('administer site configuration') || user_access('administer imageeditor')) {
+    return TRUE;
+  }
+  else {
+    return FALSE;
+  }
+}
+
+function imageeditor_save($service= '', $field_name = '', $delta = '', $new = '', $replace = '', $first_run = '') {
+  if ($service == 'pixlr' || $service == 'aviary' || $service == 'picnik' || $service == 'fotoflexer' || $service == 'sumopaint' || $service == 'paintweb') {
+    if ($service == 'pixlr' || $service == 'aviary' || $service == 'fotoflexer' || $service == 'sumopaint' || $service == 'paintweb') {$image_param = 'image';}
+    elseif ($service == 'picnik') {$image_param = 'file';}
+    
+    if ($service == 'pixlr' || $service == 'picnik' || $service == 'fotoflexer') {
+      if (isset($_GET[$image_param])) {
+        $image = rawurldecode($_GET[$image_param]);
+      }
+    }
+    elseif ($service == 'aviary') {
+      if (isset($_POST['imageurl'])) {
+        $image = rawurldecode($_POST['imageurl']);
+      }
+      elseif (isset($_GET[$image_param])) {
+        $image = rawurldecode($_GET[$image_param]);
+      }
+    }
+    elseif ($service == 'sumopaint') {
+      if (isset($_POST['data'])) {
+        if ($_POST['url']) {
+          $filename = file_save_data(base64_decode($_POST["data"]), file_directory_path() . '/' . basename($_POST['url']));
+        }
+        else {
+          $filename = file_save_data(base64_decode($_POST["data"]), file_directory_path() . '/' . md5($_POST["data"]) . '.png');
+        }
+        $image = file_create_url($filename);
+        $sumo_first_run = 1;
+      }
+      elseif (isset($_GET[$image_param])) {
+        $image = rawurldecode($_GET[$image_param]);
+        $sumo_first_run = 0;
+      }
+    }
+    elseif ($service == 'paintweb') {
+      if (isset($_POST['data'])) {
+        if ($_POST['url'] && $_POST['url'] != 'undefined') {
+          $filename = file_save_data(base64_decode($_POST["data"]), file_directory_path() . '/' . basename($_POST['url']));
+        }
+        else {
+          $filename = file_save_data(base64_decode($_POST["data"]), file_directory_path() . '/' . md5($_POST["data"]) . '.png');
+        }
+        print file_create_url($filename);
+        $paintweb_first_run = 1;
+        exit;
+      }
+      elseif (isset($_GET[$image_param])) {
+        $image = rawurldecode($_GET[$image_param]);
+        $paintweb_first_run = 0;
+      }
+    }
+    
+    $js_code = '';
+    //Find Remote URL Filefield source input element, set the value and submit
+    if ($service == 'pixlr' || $service == 'picnik' || $service == 'paintweb') {$parent_type = 'parent';}
+    elseif ($service == 'aviary') {$parent_type = 'parent.parent';}
+    elseif ($service == 'fotoflexer' || $service == 'sumopaint') {$parent_type = 'opener';}
+    $js_code .= 'if(' . $parent_type . '){';
+    $id = 'edit-' . str_replace('_', '-', $field_name) . '-' . $delta;
+    if ($service == 'picnik' && isset($_GET['_imageid'])) {$replace = 1;}
+    elseif ($service == 'picnik' && !isset($_GET['_imageid'])) {$replace = 0;}
+    // remove
+    if (!$new && $replace && $first_run) {
+      $js_code .= $parent_type . '.$(\'input[name="' . $field_name . '_' . $delta . '_filefield_remove"]\').mousedown();';
+      if ($service == 'pixlr' || $service == 'aviary' || $service == 'picnik' || $service == 'fotoflexer') {
+        $js_code .= 'window.location = "' . url('imageeditor/save/' . $service . '/' . $field_name . '/' . $delta .  '/' . $new . '/' . $replace . '/0', array('absolute' => TRUE, 'query' => array($image_param => $image))) .'";';
+      }
+      elseif ($service == 'sumopaint') {
+        $js_code .= 'window.location = "' . url('imageeditor/save/' . $service . '/' . $field_name . '/' . $delta .  '/' . $new . '/' . $replace . '/' . $sumo_first_run, array('absolute' => TRUE, 'query' => array($image_param => $image))) .'";';
+      }
+      elseif ($service == 'paintweb') {
+        $js_code .= 'window.location = "' . url('imageeditor/save/' . $service . '/' . $field_name . '/' . $delta .  '/' . $new . '/' . $replace . '/' . $paintweb_first_run, array('absolute' => TRUE, 'query' => array($image_param => $image))) .'";';
+      }
+    }
+    // add-more
+    elseif (!$new && !$replace && $first_run) {
+      $js_code .= $parent_type . '.$(\'input[name="' . $field_name . '_add_more"]\').mousedown();';
+      $js_code .= 'window.location = "' . url('imageeditor/save/' . $service . '/' . $field_name . '/' . $delta .  '/' . $new . '/' . $replace . '/0', array('absolute' => TRUE, 'query' => array($image_param => $image))) .'";';
+    }
+    // upload exact
+    elseif ($new || (!$new && $replace && !$first_run)) {
+      $js_code .= $parent_type . '.$(\'a[id="' . $id . '-remote-source"]\').click();';
+      $js_code .= $parent_type . '.$(\'input[id="' . $id . '-filefield-remote-url"]\').val(\'' . $image . '\');';
+      $js_code .= $parent_type . '.$(\'input[id="' . $id . '-filefield-remote-transfer"]\').mousedown();';
+      if ($service == 'pixlr' || $service == 'aviary' || $service == 'picnik' || $service == 'paintweb') {$js_code .= $parent_type . '.Drupal.imageeditor.overlay.hide();';}
+      elseif ($service == 'fotoflexer' || $service == 'sumopaint') {$js_code .= 'self.close();';}
+    }
+    // upload nearest
+    elseif (!$new && !$replace && !$first_run) {
+      $pos = strrpos($id, '-');
+      $starts_with = substr($id, 0, $pos);
+      $js_code .= $parent_type . '.$(\'a[id^="' . $starts_with . '-"][id$="-remote-source"]:first\').click();';
+      $js_code .= $parent_type . '.$(\'input[id^="' . $starts_with . '-"][id$="-filefield-remote-url"]:first\').val(\'' . $image . '\');';
+      $js_code .= $parent_type . '.$(\'input[id^="' . $starts_with . '-"][id$="-filefield-remote-transfer"]:first\').mousedown();';
+      if ($service == 'pixlr' || $service == 'aviary' || $service == 'picnik' || $service == 'paintweb') {$js_code .= $parent_type . '.Drupal.imageeditor.overlay.hide();';}
+      elseif ($service == 'fotoflexer' || $service == 'sumopaint') {$js_code .= 'self.close();';}
+    }
+    $js_code .= '}';
+  }
+  
+  drupal_add_js($js_code, 'inline');
+  return '';
+}
+
+function imageeditor_exit($service = '') {
+  $js_code = '';
+  if ($service == 'pixlr' || $service == 'picnik' || $service == 'aviary') {
+    $js_code .= 'if(parent){';
+    $js_code .= 'parent.Drupal.imageeditor.overlay.hide();';
+    $js_code .= '}';
+  }
+  elseif ($service == 'fotoflexer') {
+    $js_code .= 'self.close();';
+  }
+  drupal_add_js($js_code, 'inline');
+  return '';
+}
+
+function imageeditor_upload($service = '', $request = '') {
+  if ($service == 'pixlr_upload' || $service == 'immio_upload') {
+    $filepath = '@' . $_SERVER['DOCUMENT_ROOT'] . '/' . $_GET['filepath'];
+  }
+  elseif ($service == 'imageshack_upload') {
+    //Imageshack needs mimetype to be added
+    $type = file_get_mimetype($_GET['filepath']);
+    $filepath = '@' . $_SERVER['DOCUMENT_ROOT'] . '/' . $_GET['filepath'] . ';type=' . $type;
+  }
+  
+  $ch = curl_init();
+  curl_setopt($ch, CURLOPT_HEADER, 0);
+  curl_setopt($ch, CURLOPT_VERBOSE, 0);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+  curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/4.0 (compatible;)");
+  curl_setopt($ch, CURLOPT_TIMEOUT, 120);
+  curl_setopt($ch, CURLOPT_POST, true);
+  if ($service == 'pixlr_upload') {
+    curl_setopt($ch, CURLOPT_URL, 'http://pixlr.com/store/');
+    $post = array(
+      'image' => $filepath,
+    );
+  }
+  elseif ($service == 'immio_upload') {
+    curl_setopt($ch, CURLOPT_URL, 'http://imm.io/store/');
+    $post = array(
+      'image' => $filepath,
+    );
+  }
+  elseif ($service == 'imageshack_upload') {
+    curl_setopt($ch, CURLOPT_URL, 'http://www.imageshack.us/upload_api.php');
+    $post = array(
+      'fileupload' => $filepath,
+      'key' => variable_get('imageeditor_imageshack_api_key', ''),
+      'xml' => 'yes',
+    );
+  }
+  curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
+  
+  $response = curl_exec($ch);
+  curl_close($ch);
+  
+  if ($service == 'pixlr_upload') {
+    print 'http://pixlr.com/_temp/' . $response;
+    exit;
+  }
+  elseif ($service == 'immio_upload') {
+    $result = json_decode($response, TRUE);
+    if ($result['success']) {
+      print $result['payload']['uri'];
+    }
+    else {
+      print $result['payload'];
+    }
+    exit;
+  }
+  elseif ($service == 'imageshack_upload') {
+    $xml = simplexml_load_string($response);
+    if ($xml) {
+      if (isset($xml->error)) {
+        print $xml->error;
+      }
+      else {
+        print $xml->links->image_link;
+      }
+    }
+    exit;
+  }
+}
+
+/**
+ * Process function for pixlr-enabled fields.
+ */
+function imageeditor_process_element($element) {
+  global $user;
+  // Bail out of imageeditor if user doesn't have permission to use it OR it is not enabled on this field.
+  if (!user_access('use imageeditor')) {
+    return $element;
+  }
+    
+  $field = content_fields($element['#field_name'], $element['#type_name']);
+  if (!imageeditor_enabled($field['widget'])) {
+    return $element;
+  }
+  
+  static $conf_added;
+  if (empty($conf_added)) {
+    $conf_added['imageeditor'] = FALSE;
+    foreach (imageeditor_editors() as $codename => $editor) {
+      $conf_added[$codename] = FALSE;
+    }
+    foreach (imageeditor_uploaders() as $codename => $uploader) {
+      $conf_added[$codename] = FALSE;
+    }
+  }
+  if (!array_key_exists($element['#field_name'], $conf_added)) {
+    $conf_added[$element['#field_name']] = FALSE;
+  }
+  $conf_array = array();
+  $conf_script = '';
+  
+  //base settings
+  if (!$conf_added['imageeditor']) {
+    $conf_added['imageeditor'] = TRUE;
+    $path = drupal_get_path('module', 'imageeditor');
+    drupal_add_js($path . '/js/imageeditor.js');
+    drupal_add_css($path . '/imageeditor.css');
+  }
+  
+  //aviary_feather settings
+  if (!$conf_added['aviary_feather'] && $field['widget']['aviary_feather_enabled']) {
+    $conf_added['aviary_feather'] = TRUE;
+    $conf_script .= 'Feather_APIKey = \'' . variable_get('imageeditor_aviary_api_key', '') . '\';';
+    $conf_script .= 'Feather_OpenType = \'lightbox\';';
+    $conf_script .= 'Feather_EditOptions = \'all\';';
+    $conf_script .= 'Feather_Theme = \'bluesky\';';
+    $conf_script .= 'Feather_MaxSize = 600;';
+    $conf_script .= 'document.write(unescape("%3Cscript src=\'http://feather.aviary.com/js/feather.js\' type=\'text/javascript\'%3E%3C/script%3E"));';
+  }
+  
+  //editors settings
+  foreach (imageeditor_editors() as $codename => $editor) {
+    if (!$conf_added[$codename] && $field['widget'][$codename . '_enabled']) {
+      $conf_added[$codename] = TRUE;
+    if (array_key_exists('launch_type', $editor)) {
+        $conf_array[$codename]['launch_type'] = $editor['launch_type'];
+      }
+      if (array_key_exists('image_url_param', $editor)) {
+        $conf_array[$codename]['image_url_param'] = $editor['image_url_param'];
+      }
+      if (array_key_exists('save_url_param', $editor)) {
+        $conf_array[$codename]['save_url_param'] = $editor['save_url_param'];
+      }
+      if (array_key_exists('save_url_default', $editor)) {
+        $conf_array[$codename]['save_url_default'] = $editor['save_url_default'];
+      }
+      if (array_key_exists('options', $editor)) {
+        $conf_array[$codename]['options'] = $editor['options'];
+      }
+      if (array_key_exists('lang_map', $editor)) {
+        $conf_array[$codename]['options'][$editor['lang_option']] = $user->language ? $editor['lang_map'][$user->language] : $editor['lang_default'];
+      }
+      if (array_key_exists('include_js', $editor)) {
+        drupal_add_js($editor['include_js']);
+      }
+    }
+  }
+  
+  //uploaders settings
+  foreach (imageeditor_uploaders() as $codename => $uploader) {
+    if (!$conf_added[$codename] && $field['widget'][$codename . '_enabled']) {
+      $conf_added[$codename] = TRUE;
+      $conf_array[$codename] = array(
+        'upload_url' => url('imageeditor/upload/' . $codename, array('absolute' => TRUE)),
+      );
+    }
+  }
+  
+  //field specific settings
+  if (!$conf_added[$element['#field_name']]) {
+    $conf_added[$element['#field_name']] = TRUE;
+    $conf_array[$element['#field_name']] = array(
+      'imageeditor_icons_position' => $field['widget']['imageeditor_icons_position'],
+      'imageeditor_replace' => $field['widget']['imageeditor_replace'],
+    );
+  }
+  
+  //field item specific settings
+  if ($element['fid']['#value']) {
+    $element['preview']['#value'] .= theme('imageeditor_widget', 'existing', $field['widget'], $element['#field_name'], $element['#delta'], $element['#value']['filepath']);
+  }
+  
+  drupal_add_js(array('imageeditor' => $conf_array), 'setting');
+  drupal_add_js($conf_script, 'inline');
+  
+  return $element;
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function imageeditor_theme($existing, $type, $theme, $path) {
+  return array(
+    'imageeditor_widget' => array(
+      'arguments' => array('status' => NULL, 'widget' => NULL, 'field_name' => NULL, 'delta' => NULL, 'filepath' => NULL),
+    ),
+    'imageeditor_widget_editors' => array(
+      'arguments' => array('status' => NULL, 'widget' => NULL),
+    ),
+    'imageeditor_widget_uploaders' => array(
+      'arguments' => array('widget' => NULL),
+    ),
+    'imageeditor_widget_item' => array(
+      'arguments' => array('name' => NULL, 'class' => NULL),
+      'template' => 'templates/imageeditor-widget-item',
+    ),
+    'imageeditor_widget_settings_form' => array(
+      'arguments' => array('form' => NULL),
+    ),
+    'imageeditor_settings_form' => array(
+      'arguments' => array('form' => NULL),
+    ),
+  );
+}
+
+function theme_imageeditor_widget($status, $widget, $field_name, $delta, $filepath = '') {
+  if ($status == 'existing') {
+    $html = '<div class="imageeditor imageeditor-existing">';
+    $html .= '<input type="hidden" class="field-name" value="' . $field_name . '">';
+    $html .= '<input type="hidden" class="delta" value="' . $delta . '">';
+    $html .= '<input type="hidden" class="filepath" value="' . $filepath . '">';
+    $html .= '<input type="hidden" class="url" value="' . url($filepath, array('absolute' => TRUE)) . '">';
+    $html .= theme('imageeditor_widget_editors', $status, $widget);
+    $html .= theme('imageeditor_widget_uploaders', $widget);
+    $html .= '</div>';
+  }
+  elseif ($status == 'new') {
+    $html = '<div class="imageeditor imageeditor-new">';
+    $html .= '<input type="hidden" class="field-name" value="' . $field_name . '">';
+    $html .= '<input type="hidden" class="delta" value="' . $delta . '">';
+    $html .= theme('imageeditor_widget_editors', $status, $widget);
+    $html .= '</div>';
+  }
+  return $html;
+}
+
+function theme_imageeditor_widget_editors($status, $widget) {
+  $imageeditors = imageeditor_editors();
+  $imageeditors_sort = array();
+  foreach ($imageeditors as $codename => $name) {
+    $imageeditors_sort[$codename] = $widget[$codename . '_position'];
+  }
+  asort($imageeditors_sort);
+  
+  $html = '<div class="editors">';
+  foreach ($imageeditors_sort as $codename => $position) {
+    if ($widget[$codename . '_enabled'] && ($codename != 'aviary_feather' || $status == 'existing')) {
+      $html .= theme('imageeditor_widget_item', $imageeditors[$codename]['name'], $imageeditors[$codename]['class']);
+    }
+  }
+  $html .= '</div>';
+  return $html;
+}
+
+function theme_imageeditor_widget_uploaders($widget) {
+  $imageuploaders = imageeditor_uploaders();
+  $imageuploaders_sort = array();
+  foreach ($imageuploaders as $codename => $uploader) {
+    $imageuploaders_sort[$codename] = $widget[$codename . '_position'];
+  }
+  asort($imageuploaders_sort);
+  
+  $html = '<div class="uploaders">';
+  foreach ($imageuploaders_sort as $codename => $position) {
+    if ($widget[$codename . '_enabled']) {
+      $html .= theme('imageeditor_widget_item', $imageuploaders[$codename]['name'], $imageuploaders[$codename]['class']);
+    }
+  }
+  $html .= '</div>';
+  return $html;
+}
+
+/**
+ * Implementation of hook_elements().
+ */
+function imageeditor_elements() {
+  $elements['imagefield_widget'] = array('#after_build' => array('imageeditor_process_element'));
+  return $elements;
+}
+
+/**
+ * Implementation of hook_widget_settings_alter().
+ */
+function imageeditor_widget_settings_alter(&$settings, $op, $widget) {
+  // Add Image Editor settings to imagefield_widget.
+  $widget_type = isset($widget['widget_type']) ? $widget['widget_type'] : $widget['type'];
+  if ($widget_type != 'imagefield_widget') {
+    return;
+  }
+  
+  // Add our new options to the list of settings to be saved.
+  if ($op == 'save') {
+    $settings = array_merge($settings, imageeditor_widget_settings());
+  }
+  
+  // Add the additional settings to the form.
+  if ($op == 'form') {
+    $settings = array_merge($settings, imageeditor_widget_settings_form($widget));
+  }
+}
+
+/**
+ * A list of settings needed by Pixlr module on widgets.
+ */
+function imageeditor_widget_settings() {
+  $items = array(
+    // imageeditor options
+    'imageeditor_icons_position',
+    'imageeditor_replace',
+  );
+  // enabled image editors
+  foreach (imageeditor_editors() as $codename => $editor) {
+    $items[] = $codename . '_enabled';
+    $items[] = $codename . '_position';
+  }
+  // enabled uploaders
+  foreach (imageeditor_uploaders() as $codename => $uploader) {
+    $items[] = $codename . '_enabled';
+    $items[] = $codename . '_position';
+  }
+  
+  return $items;
+}
+
+/**
+ * Configuration form for editing Pixlr settings for a field instance.
+ */
+function imageeditor_widget_settings_form($widget) {
+  drupal_add_css(drupal_get_path('module', 'imageeditor') . '/imageeditor.css');
+  
+  $form['imageeditor'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Image editor'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    '#weight' => 20,
+    '#theme' => 'imageeditor_widget_settings_form',
+  );
+  
+  $form['imageeditor']['editors'] = array(
+    '#type' => 'item',
+    '#title' => t('Enabled Image Editors'),
+    '#description' => t('Choose enabled image editors for this field and their order.'),
+  );
+  
+  $position = 0;
+  foreach (imageeditor_editors() as $codename => $editor) {
+    $position++;
+    $form['imageeditor'][$codename . '_enabled'] = array(
+      '#type' => 'checkbox',
+      '#title' =>  '<div class="imageeditor-editor ' . $editor['class'] . '"></div>' . $editor['name'] . ' (<a href="' . $editor['site'] . '" target="_blank">' . t('site') . '</a>)',
+      '#default_value' => isset($widget[$codename . '_enabled']) ? $widget[$codename . '_enabled'] : 0,
+    );
+    $form['imageeditor'][$codename . '_description'] = array(
+      '#type' => 'markup',
+      '#value' => $editor['description'],
+    );
+    $form['imageeditor'][$codename . '_api_key'] = array(
+      '#type' => 'markup',
+      '#value' => $editor['api_key'] ? (variable_get($editor['api_key_codename'], '') ? '<a href="/admin/settings/imageeditor">' . t('Already set') . '</a>' : '<a href="/admin/settings/imageeditor">' . t('Required') . '</a>') : t('Not needed'),
+    );
+    $form['imageeditor'][$codename . '_position'] = array(
+      '#type' => 'textfield',
+      '#default_value' => isset($widget[$codename . '_position']) ? $widget[$codename . '_position'] : $position,
+      '#size' => 3,
+      '#maxlenth' => 4,
+      '#attributes' => array('class' => 'imageeditor-position'),
+    );
+  }
+  
+  $form['imageeditor']['uploaders'] = array(
+    '#type' => 'item',
+    '#title' => t('Enabled Upload services'),
+    '#description' => t('Choose enabled upload services to upload images to if your images are not available from external network.'),
+  );
+  
+  $position = 0;
+  foreach (imageeditor_uploaders() as $codename => $uploader) {
+    $position++;
+    $form['imageeditor'][$codename . '_enabled'] = array(
+      '#type' => 'checkbox',
+      '#title' =>  '<div class="imageeditor-uploader ' . $uploader['class'] . '"></div>' . $uploader['name'] . ' (<a href="' . $uploader['site'] . '" target="_blank">' . t('site') . '</a>)',
+      '#default_value' => isset($widget[$codename . '_enabled']) ? $widget[$codename . '_enabled'] : 0,
+    );
+    $form['imageeditor'][$codename . '_description'] = array(
+      '#type' => 'markup',
+      '#value' => $uploader['description'],
+    );
+    $form['imageeditor'][$codename . '_api_key'] = array(
+      '#type' => 'markup',
+      '#value' => $uploader['api_key'] ? (variable_get($uploader['api_key_codename'], '') ? '<a href="/admin/settings/imageeditor">' . t('Already set') . '</a>' : '<a href="/admin/settings/imageeditor">' . t('Required') . '</a>') : t('Not needed'),
+    );
+    $form['imageeditor'][$codename . '_position'] = array(
+      '#type' => 'textfield',
+      '#default_value' => isset($widget[$codename . '_position']) ? $widget[$codename . '_position'] : $position,
+      '#size' => 3,
+      '#maxlenth' => 4,
+      '#attributes' => array('class' => 'imageuploader-position'),
+    );
+  }
+  
+  $form['imageeditor']['imageeditor_icons_position'] = array(
+    '#type' => 'radios',
+    '#title' => t('Icons position'),
+    '#description' => t('Whether to show editing icons under the image preview or as a popup when you hover your mouse over the image preview.'),
+    '#options' => array(t('Under the image preview'), t('Popup on the image preview when you hover over it')),
+    '#default_value' => $widget['imageeditor_icons_position'] ? $widget['imageeditor_icons_position'] : 0,
+    '#weight' => 20,
+  );  
+  $form['imageeditor']['imageeditor_replace'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Replace original images'),
+    '#description' => t('When editing images replace the original image with the edited one. You will be able to override this setting when using Picnik editor.'),
+    '#default_value' => (bool) $widget['imageeditor_replace'],
+    '#weight' => 30,
+  );
+  
+  return $form;
+}
+
+function theme_imageeditor_widget_settings_form($form) {
+  $output = drupal_render($form['editors']);
+  $header = array(t('Name'), t('Description'), t('API key'), t('Position'));
+  $rows = array();
+  $imageeditors = imageeditor_editors();
+  $imageeditors_sort = array();
+  foreach ($imageeditors as $codename => $editor) {
+    $imageeditors_sort[$codename] = $form[$codename . '_position'];
+  }
+  asort($imageeditors_sort);
+  
+  foreach ($imageeditors_sort as $codename => $position) {
+    $row = array();
+    $row[] = drupal_render($form[$codename . '_enabled']);
+    $row[] = drupal_render($form[$codename . '_description']);
+    $row[] = drupal_render($form[$codename . '_api_key']);
+    $row[] = drupal_render($form[$codename . '_position']);
+    $rows[] = array('data' => $row, 'class' => 'draggable');
+  }
+  drupal_add_tabledrag('imageeditors-table', 'order', 'sibling', 'imageeditor-position');
+  $output .= theme('table', $header, $rows, array('id' => 'imageeditors-table'));
+  
+  $output .= drupal_render($form['uploaders']);
+  $rows = array();
+  $imageuploaders = imageeditor_uploaders();
+  $imageuploaders_sort = array();
+  foreach ($imageuploaders as $codename => $uploader) {
+    $imageuploaders_sort[$codename] = $form[$codename . '_position'];
+  }
+  asort($imageuploaders_sort);
+  
+  foreach ($imageuploaders_sort as $codename => $position) {
+    $row = array();
+    $row[] = drupal_render($form[$codename . '_enabled']);
+    $row[] = drupal_render($form[$codename . '_description']);
+    $row[] = drupal_render($form[$codename . '_api_key']);
+    $row[] = drupal_render($form[$codename . '_position']);
+    $rows[] = array('data' => $row, 'class' => 'draggable');
+  }
+  drupal_add_tabledrag('imageuploaders-table', 'order', 'sibling', 'imageuploader-position');
+  $output .= theme('table', $header, $rows, array('id' => 'imageuploaders-table'));
+  
+  $output .= drupal_render($form);
+  
+  return $output;
+}
+
+function imageeditor_editors() {
+  static $editors;
+  if (empty($editors)) {
+  global $user;
+  $editors = array(
+    'paintweb' => array(
+      'name' => t('PaintWeb'),
+      'description' => 'EXPERIMENTAL: ' . t('Open-source HTML 5 image editor'),
+      'class' => 'paintweb',
+      'site' => 'http://code.google.com/p/paintweb/',
+      'api_key' => FALSE,
+      'launch_type' => 'overlay',
+      'save_url_param' => 'data',
+      'save_url_default' => url('imageeditor/save/paintweb', array('absolute' => TRUE)),
+      'options' => array(
+        'configFile' => 'config-example.json'
+      ),
+    ),
+    'pixlr_editor' => array(
+      'name' => t('Pixlr Editor'),
+      'description' => t('Advanced Photoshop like editor'),
+      'class' => 'pixlr-editor',
+      'site' => 'http://pixlr.com',
+      'api_key' => FALSE,
+      'launch_type' => 'overlay', //either 'overlay' or 'popup'
+      'image_url_param' => 'image',
+      'save_url_param' => 'target',
+      'save_url_default' => url('imageeditor/save/pixlr', array('absolute' => TRUE)),
+      'options' => array(
+        'launch_url' => 'http://pixlr.com/editor/',
+        'exit' => url('imageeditor/exit/pixlr', array('absolute' => TRUE)),
+        'loc' => $user->language,
+        //'referrer' => 'Drupal: ' . variable_get('site_name', '') . ' (' . url('', array('absolute' => TRUE)) . ')',
+        'referrer' => 'Drupal: ' . url('', array('absolute' => TRUE)),
+        'credentials' => 'false')
+    ),
+    'pixlr_express' => array(
+      'name' => t('Pixlr Express'),
+      'description' => t('Photo editor'),
+      'class' => 'pixlr-express',
+      'site' => 'http://pixlr.com',
+      'api_key' => FALSE,
+      'launch_type' => 'overlay',
+      'image_url_param' => 'image',
+      'save_url_param' => 'target',
+      'save_url_default' => url('imageeditor/save/pixlr', array('absolute' => TRUE)),
+      'options' => array(
+        'launch_url' => 'http://pixlr.com/express/',
+        'exit' => url('imageeditor/exit/pixlr', array('absolute' => TRUE)),
+        'loc' => $user->language,
+        //'referrer' => 'Drupal: ' . variable_get('site_name', '') . ' (' . url('', array('absolute' => TRUE)) . ')',
+        'referrer' => 'Drupal: ' . url('', array('absolute' => TRUE)),
+        'credentials' => 'false')
+    ),
+    'picnik' => array(
+      'name' => t('Picnik'),
+      'description' => t('Photo editor'),
+      'class' => 'picnik',
+      'site' => 'http://www.picnik.com',
+      'api_key' => TRUE,
+      'api_key_codename' => 'imageeditor_picnik_api_key',
+      'launch_type' => 'overlay',
+      'image_url_param' => '_import',
+      'save_url_param' => '_export',
+      'save_url_default' => url('imageeditor/save/picnik', array('absolute' => TRUE)),
+      'options' => array(
+        '_apikey' => variable_get('imageeditor_picnik_api_key', ''),
+        'launch_url' => 'http://www.picnik.com/service/',
+        '_close_target' => url('imageeditor/exit/picnik', array('absolute' => TRUE)),
+        '_export_agent' => 'browser',
+        '_export_method' => 'GET',
+        '_export_title' => 'Save to ' . variable_get('site_name', ''),
+        '_host_name' => variable_get('site_name', ''),
+        '_replace' => 'ask', //Picnik will ask: replace an image or create a new one
+        //'_expand_button' => 'true' //adds Expand button and calls onPicknikExpand function
+        //'_original_thumb' => '' //url to thumbnail
+      ),
+      'lang_option' => '_locale',
+      'lang_default' => 'en_US',
+      'lang_map' => array(
+      	'en'=> 'en_US', //English
+        'de'=> 'de_DE', //German
+        'es'=> 'es_ES', //Spanish
+        'fr'=> 'fr_FR', //French
+        'it'=> 'it_IT', //Italian
+        'ja'=> 'jp_JP', //Japanese
+        'ru'=> 'ru_RU', //Russian
+        'zh-hans'=> 'zh_CN', //Chinese simplified
+        'zh-hant'=> 'zh_HK', //Chinese traditional
+        'id' => 'id_ID', //Indonesian
+        'ko' => 'ko_KR', //Korean
+        'nn' => 'no_NO', //Norwegian Nynorsk
+        'nb' => 'no_NO', //Norwegian Bokmal
+        'pt-br' => 'pt_BR', //Portuguese Brazil
+        'pt-pt' => 'pt_BR', //Portuguese Portugal
+        'sv' => 'sv_SV', //Swedish
+        'vi' => 'vi_VN', //Vietnamese
+      )
+    ),
+    'aviary_feather' => array(
+      'name' => t('Aviary Feather'),
+      'description' => t('Simple photo editor - only edit images, no create new image option'),
+      'class' => 'aviary-feather',
+      'site' => 'http://www.aviary.com/',
+      'api_key' => TRUE,
+      'api_key_codename' => 'imageeditor_aviary_api_key',
+      'options' => array()
+    ),
+    'aviary_phoenix' => array(
+      'name' => t('Aviary Phoenix'),
+      'description' => t('Advanced image editor'),
+      'class' => 'aviary-phoenix',
+      'site' => 'http://www.aviary.com/tools/image-editor',
+      'api_key' => TRUE,
+      'api_key_codename' => 'imageeditor_aviary_adv_api_key',
+      'launch_type' => 'overlay',
+      'image_url_param' => 'loadurl',
+      'save_url_param' => 'posturl',
+      'save_url_default' => url('imageeditor/save/aviary', array('absolute' => TRUE)),
+      'options' => array(
+      	'apil' => variable_get('imageeditor_aviary_adv_api_key', ''),
+        'launch_url' => 'http://www.aviary.com/online/image-editor',
+        'postagent' => 'client',
+        'exiturl' => url('imageeditor/exit/aviary', array('absolute' => TRUE)),
+        'exiturltarget' => 'replace',
+        'sitename' => variable_get('site_name', ''),
+        ///'saveandclose' => 1
+        )
+    ),
+    'aviary_raven' => array(
+      'name' => t('Aviary Raven'),
+      'description' => 'NOT WORKING: ' . t('Vector editor'),
+      'class' => 'aviary-raven',
+      'site' => 'http://www.aviary.com/tools/vector-editor',
+      'api_key' => TRUE,
+      'api_key_codename' => 'imageeditor_aviary_adv_api_key',
+      'launch_type' => 'overlay',
+      'image_url_param' => 'loadurl',
+      'save_url_param' => 'posturl',
+      'save_url_default' => url('imageeditor/save/aviary', array('absolute' => TRUE)),
+      'options' => array(
+        'apil' => variable_get('imageeditor_aviary_adv_api_key', ''),
+        'launch_url' => 'http://www.aviary.com/online/vector-editor',
+        'postagent' => 'client',
+        'exiturl' => url('imageeditor/exit/aviary', array('absolute' => TRUE)),
+        'exiturltarget' => 'replace',
+        'sitename' => variable_get('site_name', ''),
+        //'saveandclose' => 1
+        )
+    ),
+    'aviary_peacock' => array(
+      'name' => t('Aviary Peacock'),
+      'description' => t('Effects editor'),
+      'class' => 'aviary-peacock',
+      'site' => 'http://www.aviary.com/tools/filter-editor',
+      'api_key' => TRUE,
+      'api_key_codename' => 'imageeditor_aviary_adv_api_key',
+      'launch_type' => 'overlay',
+      'image_url_param' => 'loadurl',
+      'save_url_param' => 'posturl',
+      'save_url_default' => url('imageeditor/save/aviary', array('absolute' => TRUE)),
+      'options' => array(
+        'apil' => variable_get('imageeditor_aviary_adv_api_key', ''),
+        'launch_url' => 'http://www.aviary.com/online/filter-editor',
+        'postagent' => 'client',
+        'exiturl' => url('imageeditor/exit/aviary', array('absolute' => TRUE)),
+        'exiturltarget' => 'replace',
+        'sitename' => variable_get('site_name', ''),
+        //'saveandclose' => 1
+        )
+    ),
+    'aviary_falcon' => array(
+      'name' => t('Aviary Falcon'),
+      'description' => 'NOT SAVING BACK: ' . t('Image markup editor'),
+      'class' => 'aviary-falcon',
+      'site' => 'http://www.aviary.com/tools/falcon',
+      'api_key' => TRUE,
+      'api_key_codename' => 'imageeditor_aviary_adv_api_key',
+      'launch_type' => 'overlay',
+      'image_url_param' => 'loadurl',
+      'save_url_param' => 'posturl',
+      'save_url_default' => url('imageeditor/save/aviary', array('absolute' => TRUE)),
+      'options' => array(
+        'apil' => variable_get('imageeditor_aviary_adv_api_key', ''),
+        'launch_url' => 'http://www.aviary.com/launch/falcon',
+        'postagent' => 'client',
+        'exiturl' => url('imageeditor/exit/aviary', array('absolute' => TRUE)),
+        'exiturltarget' => 'replace',
+        'sitename' => variable_get('site_name', ''),
+        //'saveandclose' => 1
+        )
+    ),
+    'sumopaint' => array(
+      'name' => t('Sumo Paint'),
+      'description' => t('Advanced image editor'),
+      'class' => 'sumopaint',
+      'site' => 'http://www.sumopaint.com/home/',
+      'api_key' => TRUE,
+      'api_key_codename' => 'imageeditor_sumopaint_api_key',
+      'launch_type' => 'popup',
+      'image_url_param' => 'url',
+      'save_url_param' => 'target',
+      'save_url_default' => url('imageeditor/save/sumopaint', array('absolute' => TRUE)),
+      'options' => array(
+        'key' => variable_get('imageeditor_sumopaint_api_key', ''),
+      	'launch_url' => 'http://www.sumopaint.com/app/',
+        'service' => 'Save to ' . variable_get('site_name', ''),
+        //'opt' => 'test'
+      )
+    ),
+    'fotoflexer' => array(
+      'name' => t('FotoFlexer'),
+      'description' => t('Simple photo editor'),
+      'class' => 'fotoflexer',
+      'site' => 'http://fotoflexer.com/',
+      'api_key' => FALSE,
+      'launch_type' => 'popup',
+      'image_url_param' => 'ff_image_url',
+      'save_url_param' => 'ff_callback_url',
+      'save_url_default' => url('imageeditor/save/fotoflexer', array('absolute' => TRUE)),
+      'options' => array(
+        'launch_url' => 'http://fotoflexer.com/API/API_Loader_v1_01.php',
+        'ff_cancel_url' => url('imageeditor/exit/fotoflexer', array('absolute' => TRUE)),
+      ),
+      'lang_option' => 'ff_lang',
+      'lang_default' => 'en-US',
+      'lang_map' => array(
+        'en'=> 'en-US', //English
+        'de'=> 'de-DE', //German
+        'es'=> 'es-ES', //Spanish
+        'fr'=> 'fr-FR', //French
+        'it'=> 'it-IT', //Italian
+        'ja'=> 'ja-JP', //Japanese
+        'ru'=> 'ru-RU', //Russian
+        'zh-hans'=> 'zh-CN', //Chinese simplified 
+        'zh-hant'=> 'zh-TW', //Chinese traditional
+        'ko' => 'ko-KR', //Korean
+        'nb' => 'nb-NO', //Norwegian Bokmal
+        'pl' => 'pl-PL', //Polish
+        'pt-br' => 'pt-BR', //Portuguese Brazil
+        'pt-pt' => 'pt-PT', //Portuguese Portugal
+        'sv' => 'sv_SE', //Swedish
+        'vi' => 'vi-VN', //Vietnamese
+        'da' => 'da-DK', //Danish
+        'nl' => 'nl-NL', //Dutch
+        'fi' => 'fi-FI', //Finnish
+        'tr' => 'tu-TR', //Turkish
+      )
+    ),
+    'flauntr_styler' => array(
+      'name' => t('flauntR stylR'),
+      'description' => 'NOT SAVING BACK: ' . t('Advanced image editor'),
+      'class' => 'flauntr-styler',
+      'site' => 'http://www.flauntr.com/',
+      'api_key' => FALSE,
+      'launch_type' => 'overlay',
+      'image_url_param' => 'url',
+      'save_url_param' => 'none',
+      'save_url_default' => 'none',
+      'options' => array(
+        'launch_url' => 'http://www.flauntr.com/flauntr/applauncher.do',
+        'app' => 'styler')
+    ),
+  );
+  if (module_exists('libraries')) {
+    $editors['paintweb']['include_js'] = libraries_get_path('paintweb') . '/build/paintweb.src.js';
+    //$editors['paintweb']['include_js'] = libraries_get_path('paintweb') . '/build/paintweb.js';
+  }
+  else {
+    $editors['paintweb']['include_js'] = 'sites/all/libraries/paintweb' . '/build/paintweb.src.js';
+    //$editors['paintweb']['include_js'] = 'sites/all/libraries/paintweb' . '/build/paintweb.js';
+  }
+  
+  // Invoke hook_imageeditor_editors_alter().
+  drupal_alter('imageeditor_editors', $editors);
+  }
+  
+  return $editors;
+}
+
+function imageeditor_uploaders() {
+  static $uploaders;
+  if (empty($uploaders)) {
+  $uploaders = array(
+    'pixlr_upload' => array(
+      'name' => t('Pixlr Upload'),
+      'description' => t('Upload to http://pixlr.com service'),
+      'class' => 'pixlr-upload',
+      'site' => 'http://pixlr.com/',
+      'api_key' => FALSE,
+    ),
+    'immio_upload' => array(
+      'name' => t('imm.io Upload'),
+      'description' => t('Upload to http://imm.io service'),
+      'class' => 'immio-upload',
+      'site' => 'http://imm.io/api/',
+      'api_key' => FALSE,
+    ),
+    'imageshack_upload' => array(
+      'name' => t('ImageShack Upload'),
+      'description' => t('Upload to http://imageshack.us service'),
+      'class' => 'imageshack-upload',
+      'site' => 'http://imageshack.us/',
+      'api_key' => TRUE,
+      'api_key_codename' => 'imageeditor_imageshack_api_key',
+    ),
+  );
+  
+  // Invoke hook_imageeditor_uploaders_alter().
+  drupal_alter('imageeditor_uploaders', $uploaders);
+  }
+  
+  return $uploaders;
+}
+
+function imageeditor_api_keys() {
+  static $api_keys;
+  if (empty($api_keys)) {
+  $api_keys = array(
+    'imageeditor_picnik_api_key' => array(
+      'display_name' => t('Picnik API key'),
+      'link' => 'http://www.picnik.com/keys/login',
+      'description' => t('API key for Picnik image editor')),
+    'imageeditor_aviary_api_key' => array(
+      'display_name' => t('Aviary Feather API key'),
+      'link' => 'http://developers.aviary.com/getfeatherkey',
+      'description' => t('API key for Aviary Feather')),
+    'imageeditor_aviary_adv_api_key' => array(
+      'display_name' => t('Aviary Advanced API key'),
+      'link' => 'http://developers.aviary.com/getadvancedkey',
+      'description' => t('API key for advanced Aviary editors: Aviary Phoenix, Raven, Peacock and Falcon')),
+    'imageeditor_sumopaint_api_key' => array(
+      'display_name' => t('Sumo Paint API key'),
+      'link' => 'http://www.sumopaint.com/getpartner/',
+      'description' => t('API key for Sumo Paint image editor')),
+    'imageeditor_imageshack_api_key' => array(
+      'display_name' => t('ImageShack API key'),
+      'link' => 'http://stream.imageshack.us/xmlapi/',
+      'description' => t('API key for ImageShack Upload service'))
+  );
+  }
+  
+  return $api_keys;
+}
+
+function imageeditor_enabled($settings) {
+  $enabled = FALSE;
+  foreach (imageeditor_editors() as $codename => $editor) {
+    if ($settings[$codename . '_enabled']) {
+      $enabled = TRUE;
+    }
+  }
+  foreach (imageeditor_uploaders() as $codename => $uploader) {
+    if ($settings[$codename . '_enabled']) {
+      $enabled = TRUE;
+    }
+  }
+  return $enabled;
+}
+
+function imageeditor_filefield_sources_info() {
+  $sources = array();
+
+  $sources['imageeditor'] = array(
+    'name' => t('Image editor: Create new image'),
+    'label' => t('Create image'),
+    'description' => t('Create new image in image editors.'),
+    'process' => 'imageeditor_filefield_source_imageeditor_process',
+    'weight' => 5,
+  );
+  return $sources;
+}
+
+function imageeditor_filefield_source_imageeditor_process($element, &$form_state, $form) {
+  $field = content_fields($element['#field_name'], $element['#type_name']);
+  if ($field['widget']['type'] != 'imagefield_widget') {
+    return $element;
+  }
+  
+  $element['imageeditor'] = array(
+    '#type' => 'markup',
+    '#value' => theme('imageeditor_widget', 'new', $field['widget'], $element['#field_name'], $element['#delta']),
+    '#prefix' => '<div class="filefield-source filefield-source-imageeditor">',
+    '#suffix' => '</div>',
+  );
+  return $element;
+}

@@ -1,0 +1,17 @@
+; $Id:
+name = Offers & wants
+description = Small ads with 2 dimensions of categories, views and blocks
+core = "6.x"
+
+package = Local communities
+dependencies[] = views
+dependencies[] = date_popup
+dependencies[] = hs_taxonomy
+dependencies[] = jquerymenu
+
+; Information added by drupal.org packaging script on 2012-02-23
+version = "6.x-1.0"
+core = "6.x"
+project = "offers_wants"
+datestamp = "1330014947"
+

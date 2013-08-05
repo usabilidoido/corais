@@ -1,0 +1,13 @@
+; $Id: media_teachertube.info,v 1.1 2010/05/08 01:41:43 dragonwize Exp $
+name = Media: TeacherTube
+description = Embedded Video Field provider for TeacherTube.com.
+core = 6.x
+dependencies[] = emvideo
+package = Media
+
+; Information added by drupal.org packaging script on 2010-06-30
+version = "6.x-1.0"
+core = "6.x"
+project = "media_teachertube"
+datestamp = "1277866811"
+

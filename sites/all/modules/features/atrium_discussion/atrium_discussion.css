@@ -1,0 +1,7 @@
+#features-menu li a.icon-discussion span.icon { background-position: 0px -40px;  
+  background: url(icon.png);
+}
+
+span.spaces-feature.feature-atrium_discussion {
+  background: url(icon-small.png);
+}

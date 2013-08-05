@@ -1,0 +1,77 @@
+<?php
+// $Id: myhookadmin.module,v 1.2.2.1 2010/09/24 22:28:07 ufku Exp $
+
+/**
+ * Implementation of hook_menu().
+ */
+function myhookadmin_menu() {
+  $items = array();
+
+  $items['admin/settings/myhook'] = array(
+    'title' => 'MyHook Administration',
+    'page callback' => 'myhookadmin_admin',
+    'access arguments' => array('define custom hooks(execute PHP)'),
+    'file' => 'myhookadmin.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function myhookadmin_perm() {
+  return array('define custom hooks(execute PHP)');
+}
+
+/**
+ * Gets a myhook variable
+ */
+function myhookadmin_var_get($name, $default = NULL, $reset = FALSE) {
+  static $vars = array();
+  if ($reset || !array_key_exists($name, $vars)) {
+    $vars[$name] = db_result(db_query("SELECT value FROM {myhookadmin} WHERE name = '%s'", $name));
+  }
+  return isset($vars[$name]) ? $vars[$name] : $default;
+}
+
+/**
+ * Sets a myhook variable
+ */
+function myhookadmin_var_set($name, $value = NULL) {
+  db_query("DELETE FROM {myhookadmin} WHERE name = '%s'", $name);
+  isset($value) && db_query("INSERT INTO {myhookadmin} (name, value) VALUES('%s', '%s')", $name, $value);
+  myhookadmin_var_get($name, NULL, TRUE);
+}
+
+/**
+ * Includes/evaluates custom code/hooks.
+ */
+function myhookadmin_myhook() {
+  if (isset($_GET['myhook']) && !$_GET['myhook']) {
+    module_load_include('module', 'user');
+    if (user_access('define custom hooks(execute PHP)')) {
+      return;
+    }
+  }
+
+  // Include file
+  if (variable_get('myhookadmin_is_inc', 0)) {
+    $inc_path = variable_get('myhookadmin_inc_path', '');
+    if ($inc_path && @is_readable($inc_path)) {
+      $included = include_once $inc_path;
+      if ($included) {
+        return;
+      }
+    }
+  }
+
+  // Include failed. Eval code.
+  $code = myhookadmin_var_get('myhook_code');
+  if (!empty($code)) {
+    eval($code);
+  }
+}
+
+// Include/execute custom code/myhooks.
+module_exists('myhook') && myhookadmin_myhook();

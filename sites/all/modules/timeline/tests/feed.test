@@ -1,0 +1,84 @@
+<?php
+// $Id: feed.test,v 1.2 2008/07/06 01:29:46 jmiccolis Exp $
+
+/**
+ * @file
+ * Unit tests for verifying the well-formedness of the data feeds provided by the timeline module.
+ */
+
+class feed_test extends DrupalTestCase {
+
+  function get_info() {
+    return array(
+      'name'  => t('Data feeds'),
+      'desc'  => t('Verifies that the JSON and XML timeline data feeds provided by the module work as intended and output well-formed data.'),
+      'group' => 'Timeline',
+    );
+  }
+
+  function setup()    { return parent::setup(); }
+
+  function teardown() { return parent::teardown(); }
+
+  function test_get_timezone() {
+    $timezone = timeline_get_timezone();
+    $this->assertIsA($timezone, 'integer');
+  }
+
+  function test_format_date() {
+    $date = timeline_format_iso8601_date(time());
+    $this->assertIsA($date, 'string');
+    $this->assertWantedPattern('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/', $date);
+  }
+
+  function test_data() {
+    $view_name = 'timeline_nodes';
+    $view = views_get_view($view_name);
+    $this->assertIsA($view, 'stdclass');
+
+    $events = timeline_data($view);
+    $this->assertIsA($events, 'array');
+
+    foreach ($events as $event) {
+      $this->assertIsA($event, 'array');
+      $this->assertTrue(!empty($event['title']), 'event->title is not empty');
+      $this->assertTrue(!empty($event['start']), 'event->start is not empty');
+      $this->assertTrue(!empty($event['link']), 'event->link is not empty');
+      $this->assertTrue(isset($event['description']), 'event->description is set');
+    }
+  }
+
+  function test_json_feed() {
+    $this->setMaximumRedirects(0);
+    $data = $this->get(url('timeline/json', 'view=timeline_nodes', NULL, TRUE));
+
+    $this->assertResponse(200);
+    $this->assertMime('application/json; charset=utf-8');
+    $this->assertTrue(!empty($data));
+
+    // TODO: parse JSON to ensure it is well-formed.
+  }
+
+  function test_xml_feed() {
+    $this->setMaximumRedirects(0);
+    $data = $this->get(url('timeline/xml', 'view=timeline_nodes', NULL, TRUE));
+
+    $this->assertResponse(200);
+    $this->assertMime('text/xml; charset=utf-8');
+    $this->assertTrue(!empty($data));
+
+    $xml_parser = drupal_xml_parser_create($data);
+    $this->assertIsA($xml_parser, 'resource');
+
+    // Simply test that it is possible to parse the XML; this could be improved.
+    $blackhole = create_function('', 'return;');
+    xml_set_element_handler($xml_parser, $blackhole, $blackhole);
+    xml_parser_set_option($xml_parser, XML_OPTION_SKIP_WHITE, 1);
+
+    $result = xml_parse($xml_parser, $data, TRUE);
+    $this->assertTrue($result, 'parsing XML failed (' . xml_error_string(xml_get_error_code($xml_parser)) . ')');
+
+    xml_parser_free($xml_parser);
+  }
+
+}

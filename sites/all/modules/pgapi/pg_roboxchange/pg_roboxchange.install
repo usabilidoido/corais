@@ -1,0 +1,37 @@
+<?php
+// $Id: pg_roboxchange.install,v 1.2 2009/11/25 19:59:05 gor Exp $
+
+/**
+ * Implementation of hook_install().
+ */
+
+function pg_roboxchange_install() {
+  drupal_install_schema('pg_roboxchange');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+
+function pg_roboxchange_uninstall() {
+  drupal_uninstall_schema('pg_roboxchange');
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+
+function pg_roboxchange_schema() {
+  $schema['pg_roboxchange_rates'] = array(
+    'description' => 'Stores roboxchange rates information.',
+    'fields' => array(
+      'type'       => array('type' => 'varchar', 'length' =>  64, 'not null' => TRUE, 'default' => ''),
+      'name'       => array('type' => 'varchar', 'length' =>  64, 'not null' => TRUE, 'default' => ''),
+      'rate'       => array('type' => 'numeric', 'size' => 'normal', 'precision' => 12, 'scale' => 6, 'default' => 0),
+    ),
+    'primary key' => array('type'),
+  );
+
+  return $schema;
+}
+

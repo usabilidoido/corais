@@ -1,0 +1,206 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Drupal OG Vocabulary 6.x-1.x\n"
+"POT-Creation-Date: 2008-12-31 13:23+0100\n"
+"PO-Revision-Date: \n"
+"Last-Translator: Frank Tartler <frank.tartler@googlemail.com>\n"
+"Language-Team: Frank Tartler <frank.tartler@googlemail.com>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+"X-Poedit-Language: German\n"
+"X-Poedit-Country: GERMANY\n"
+"X-Poedit-SourceCharset: utf-8\n"
+
+#: og_vocab.admin.inc:19
+msgid "add vocabulary"
+msgstr "Vokabular hinzufÃ¼gen"
+
+#: og_vocab.admin.inc:34
+msgid "edit vocabulary"
+msgstr "Vokabular bearbeiten"
+
+#: og_vocab.admin.inc:36
+msgid "list terms"
+msgstr "Begriffe auflisten"
+
+#: og_vocab.admin.inc:38
+msgid "add terms"
+msgstr "Begriffe hinzufÃ¼gen"
+
+#: og_vocab.admin.inc:43
+msgid "No categories"
+msgstr "Keine Kategorien"
+
+#: og_vocab.admin.inc:45
+msgid "Name"
+msgstr "Name"
+
+#: og_vocab.admin.inc:45
+msgid "Type"
+msgstr "Typ"
+
+#: og_vocab.pathauto.inc:13;17;24
+msgid "[ogname]"
+msgstr "[ogname]"
+
+#: og_vocab.pathauto.inc:13
+msgid "The name of the organic group this category belongs to."
+msgstr "Der Name der organischen Gruppe, zu der diese Kategorie gehÃ¶rt."
+
+#: og_vocab.rules.inc:14
+msgid "Assign vocabulary to group"
+msgstr "Vokabular einer Gruppe zuweisen"
+
+#: og_vocab.rules.inc:18;42
+#: og_vocab.module:276
+msgid "Group"
+msgstr "Gruppe"
+
+#: og_vocab.rules.inc:22
+msgid "Taxonomy vocabulary that will be assigned to group"
+msgstr "Taxonomie-Vokabular, das einer Gruppe zugewiesen wird"
+
+#: og_vocab.rules.inc:28
+msgid "Remove vocabulary from group"
+msgstr "Vokabular von der Gruppe entfernen"
+
+#: og_vocab.rules.inc:32
+msgid "Taxonomy vocabulary that will removed from group"
+msgstr "Taxonomie-Vokabular, das von der Gruppe entfernt wird"
+
+#: og_vocab.rules.inc:38
+msgid "Remove all vocabulary from group"
+msgstr "Alle Vokabulare von der Gruppe entfernen"
+
+#: og_vocab.services.inc:24
+msgid "A node ID of a group node."
+msgstr ""
+
+#: og_vocab.services.inc:28
+msgid "Returns the vocabularies associated with a group."
+msgstr "Gibt die mit einer Gruppe verknÃ¼pften Vokabulare zurÃ¼ck."
+
+#: og_vocab.services.inc:40
+msgid "Vocabulary ID."
+msgstr "Vokabular-ID."
+
+#: og_vocab.services.inc:44
+msgid "Returns the group ID associated with a vocabulary ID."
+msgstr "Gibt die mit einer Vokabular ID verkÃ¼pfte Gruppen-ID zurÃ¼ck."
+
+#: og_vocab.module:16
+msgid "Add or edit vocabularies that pertain only to this group. Each vocabulary will be shown on the post authoring form. Use categories to organize content within your group."
+msgstr "Vokabulare hinzufÃ¼gen oder bearbeiten, die nur fÃ¼r diese Gruppe gelten. Jedes Vokabular wird im Formular fÃ¼r das Erstellen von BeitrÃ¤gen gezeigt. Kategorien kÃ¶nnen verwendet werden, um den Inhalt eigener Gruppen zu organisieren."
+
+#: og_vocab.module:26
+msgid "Taxonomy"
+msgstr "Taxonomie"
+
+#: og_vocab.module:38
+msgid "Create vocabulary"
+msgstr "Vokabular hinzufÃ¼gen"
+
+#: og_vocab.module:50
+msgid "Edit vocabulary"
+msgstr "Vokabular bearbeiten"
+
+#: og_vocab.module:62
+msgid "List Terms"
+msgstr "Begriffe auflisten"
+
+#: og_vocab.module:76
+msgid "List"
+msgstr "Liste"
+
+#: og_vocab.module:83
+msgid "Add term"
+msgstr "Begriff hinzufÃ¼gen"
+
+#: og_vocab.module:95
+msgid "Edit term"
+msgstr "Begriff bearbeiten"
+
+#: og_vocab.module:266
+msgid "Organic groups vocabulary"
+msgstr "Vokabular fÃ¼r organische Gruppen"
+
+#: og_vocab.module:267
+msgid "A vocabulary can be associated with a certain group."
+msgstr "Ein Vokabular kann mit einer bestimmten Gruppe verknÃ¼pft werden."
+
+#: og_vocab.module:277
+msgid "Select the group this vocabulary should be associated with. No association means this vocabulary can be used for <em>all</em> groups."
+msgstr "Es muss die Gruppe ausgewÃ¤hlt werden, mit der dieses Vokabular verknÃ¼pft werden soll. Keine VerknÃ¼pfung bedeutet, dass dieses Vokabular fÃ¼r <em>alle</em> Gruppen verwendet werden kann."
+
+#: og_vocab.module:278
+msgid "- None -"
+msgstr "- Keine -"
+
+#: og_vocab.module:344
+msgid "<a href=\"!edit\">edit</a>"
+msgstr "<a href=\"!edit\">bearbeiten</a>"
+
+#: og_vocab.module:514
+msgid "<a href=\"!cancel\">Cancel</a>"
+msgstr "<a href=\"!cancel\">Abbrechen</a>"
+
+#: og_vocab.module:528;556
+msgid "Group categories"
+msgstr "Gruppen-Kategorien"
+
+#: og_vocab.module:112
+msgid "administer own group vocabulary"
+msgstr "Eigenes Gruppen-Vokabular verwalten"
+
+#: og_vocab.module:113
+msgid "add own group vocabulary"
+msgstr "Eigenes Gruppen-Vokabular hinzufÃ¼gen"
+
+#: og_vocab.module:114
+msgid "edit own group vocabulary"
+msgstr "Eigenes Gruppen-Vokabular bearbeiten"
+
+#: og_vocab.module:115
+msgid "edit own group term"
+msgstr "Eigenen Gruppen-Begriff bearbeiten"
+
+#: og_vocab.module:117
+msgid "services"
+msgstr ""
+
+#: og_vocab.module:118
+msgid "access og_vocab service"
+msgstr ""
+
+#: og_vocab.module:0
+msgid "og_vocab"
+msgstr "og_vocab"
+
+#: og_vocab.install:32
+msgid "relate group nodes to vocabularies"
+msgstr "Gruppen zu Vokabularen zuordnen"
+
+#: og_vocab.install:35
+msgid "Node ID we are associated with"
+msgstr "Node-ID, mit der wir verbunden sind"
+
+#: og_vocab.install:41
+msgid "Vocabulary ID"
+msgstr "Vokabular-ID"
+
+#: og_vocab.info:0
+msgid "Organic groups vocabularies"
+msgstr "Vokabulare fÃ¼r organische Gruppen"
+
+#: og_vocab.info:0
+msgid "Enable groups to maintain their own vocabularies."
+msgstr "Gruppen ermÃ¶glichen, ihre eigenen Vokabulare zu pflegen."
+
+#: og_vocab.info:0
+msgid "Organic groups"
+msgstr "Organische Gruppen"
+
+#~ msgid "Categories"
+#~ msgstr "Kategorien"

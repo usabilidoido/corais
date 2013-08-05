@@ -1,0 +1,642 @@
+<?php
+// $Id: block_quiz.module,v 1.1.2.1 2009/09/29 21:56:13 xcf33 Exp $
+
+/*
+ * @file
+ * This module build a quiz block that selects a random quiz from a poll
+ * 
+ */
+ 
+  
+ /**
+ * Implementation of hook_menu().
+ */
+function block_quiz_menu() {
+
+  $items['admin/settings/block_quiz'] = array(  
+    'title' => 'Quiz Block Management',
+    'description' => 'Add/Remove Quiz, import/export function',
+    'page callback' => 'block_quiz_admin',
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+ 
+  $items['admin/settings/block_quiz/view'] = array(
+	'title' => 'View/Edit Quiz Questions',
+	'description' => 'View/Add/Edit/Remove Quiz Questions',
+	'access callback' => TRUE,
+	'page callback' => 'drupal_get_form',
+	'page arguments' => array('block_quiz_mgmt_form'),
+   'access arguments' => array('administer site configuration'),
+	'type' => MENU_LOCAL_TASK,
+  );
+ 
+  $items['admin/settings/block_quiz/add'] = array(
+	'title' => 'Add a quiz item',
+	'description' => 'Add a new question into the quiz bank',
+	'access callback' => TRUE,
+	'page callback' => 'block_quiz_add',
+   'access arguments' => array('administer site configuration'),
+	'type' => MENU_LOCAL_TASK,
+  );
+
+	// handles all the operations: add/edit/enable/disable/delete
+	$items['admin/settings/block_quiz/%/%'] = array(
+		'title' => t('Quiz Question Operation'),
+		'page callback' => 'block_quiz_ops',
+		'page arguments' => array(3, 4),
+		'access arguments' => array('administer site configuration'),
+		'type' => MENU_CALLBACK,
+	);
+	
+	$items['block_quiz/answer_js'] = array(
+		'page callback' => 'block_quiz_js',
+		'type' => MENU_CALLBACK,
+		'access arguments' => array('access content'),
+	);
+	
+  return $items;
+}
+
+function block_quiz_admin() {
+	$output = '<p>' . l('Add a new quiz item', 'admin/settings/block_quiz/add') . '<br />Add a new quiz question to the list</p>';
+	
+	$output .= '<p>' . l('Quiz Management', 'admin/settings/block_quiz/view') . '<br />View the quiz list, edit quiz items, enable/disable quiz items and delete quiz items</p>';
+	
+	return t($output);
+}
+
+
+/*
+ * Display wrapper for all the operations, build the appropriate forms
+ */
+function block_quiz_ops($op, $qid) {
+	switch($op)
+	{	
+		// in the case of add, the $qid variable contains the number of answers in the question
+		// that will be added
+		case 'add':
+			return drupal_get_form('block_quiz_add_edit_quiz_form', 'add', $qid);
+		break;
+		
+		case 'edit':
+			return drupal_get_form('block_quiz_add_edit_quiz_form', 'edit', $qid);
+		break;
+		
+		case 'enable':
+			return drupal_get_form('block_quiz_process_form', 'enable', $qid);
+		break;
+		
+		case 'disable':
+			return drupal_get_form('block_quiz_process_form', 'disable', $qid);
+		break;
+		
+		case 'delete':
+			return drupal_get_form('block_quiz_process_form', 'delete', $qid);
+		break;
+	}
+}
+
+/**
+ * Implementation of hook_theme
+ */
+function block_quiz_theme() {
+
+	return array(
+	
+		'block_quiz_block_view_form' => array(
+			'arguments' => array('form' => NULL),
+		),
+			
+		'block_quiz_mgmt_form' => array(
+			'arguments' => array('form' => NULL),
+		),
+		
+	);
+}
+
+/*
+ * Theme function for the quiz output
+ */
+ function theme_block_quiz_block_view_form($form) {
+ 
+	$output = '<div id="quiz-content">';
+	
+	$output .= drupal_render($form['block_quiz_selection']);
+	$output .= drupal_render($form['block_quiz_content']);
+	$output .= drupal_render($form['block_quiz_answer']);
+	$output .= drupal_render($form['submit']);
+	
+	$output .= drupal_render($form['block_quiz_result']);
+	
+	$output .= '<br />';
+	
+	$output .= drupal_render($form['block_quiz_result_toggle']);
+	
+	$output .= drupal_render($form);
+	
+	$output .='</div>';
+	
+	return $output;
+	
+ }
+
+ /*
+  * Form Builder for the quiz block
+  */
+function block_quiz_block_view_form() {
+
+// get a random question from the database
+			// this we query to get the question object here to prevent random query
+			// result outside of the conditional statements will mismatch question/feedback
+			$qobj = db_fetch_object(db_query("SELECT * FROM {block_quiz} WHERE status = 1 ORDER BY rand()")); 
+		
+			$options = array();
+			
+			// get the array of answer option value and feedback
+			$_temp =  unserialize($qobj->options);
+			for($i = 1; $i <= count($_temp); $i++)
+			{
+				$options[$i] = $_temp[$i]['value'];
+			}
+		
+			$form['block_quiz_selection'] = array(
+			  '#type' => 'radios',
+			  '#title' => t($qobj->question),
+			  '#default_value' => 1,
+			  '#options' => $options,
+			);
+			
+			$form['block_quiz_content'] = array(
+				'#type' => 'hidden',
+				'#value' => $qobj->options,
+			);
+			
+			$form['block_quiz_answer'] = array(
+				'#type' => 'hidden',
+				'#value' => $qobj->answer,
+			);
+		
+			$form['block_quiz_submit'] = array(
+				'#type' => 'submit',
+				'#value' => t('Submit'),
+				'#ahah' => array(
+					'event' => 'click',
+					'path' => 'block_quiz/answer_js',
+					'wrapper' => 'quiz-content',
+					'effect' => 'fade',
+					),
+			);
+		
+		return $form;
+}
+
+/*
+ * AHAH Form Submission Handler
+ */
+function block_quiz_js() {
+
+	// correct way of doing ahah, rebuilding the form_state 
+  $form_state = array('storage' => NULL, 'submitted' => FALSE);
+  $form_build_id = $_POST['form_build_id'];
+  $form = form_get_cache($form_build_id, $form_state);
+  $args = $form['#parameters'];
+  $form_id = array_shift($args);
+  $form_state['post'] = $form['#post'] = $_POST;
+  $form['#programmed'] = $form['#redirect'] = FALSE;
+  drupal_process_form($form_id, $form, $form_state);
+  $form = drupal_rebuild_form($form_id, $form_state, $args, $form_build_id);
+
+	$quiz_content = unserialize($form_state['post']['block_quiz_content']);
+
+	$output = $quiz_content[(int)$form_state['post']['block_quiz_selection']]['feedback'];
+
+	$output .= '<br />';
+	
+	if($form_state['post']['block_quiz_selection'] == $form_state['post']['block_quiz_answer'])
+	{
+		$output .= block_quiz_image('correct.png', 'You are correct');
+	}
+	else
+	{
+		$output .= block_quiz_image('wrong.png', 'Sorry, you are incorrect');
+	}
+
+	drupal_json(array('status' => TRUE, 'data' => $output));
+
+}
+
+// table header sorter for quiz management table
+function block_quiz_mgmt_sort() {
+		$header = array(
+		array(),
+		array('data' => t('ID'), 'field' => 'qid'),
+		array('data' => t('Question'), 'field' => 'question'),
+		array('data' => t('Status'), 'field' => 'status'),
+		array('data' => t('Date'), 'field' => 'date', 'sort' => 'desc'),
+		t('Action'),
+	);
+	
+	$sort = tablesort_sql($header);
+
+	return db_query("SELECT qid, question, status, date FROM {block_quiz} $sort");
+}
+
+// form builder for quiz management table
+function block_quiz_mgmt_form() {
+	$result = block_quiz_mgmt_sort();
+	
+	while($row = db_fetch_object($result))
+	{
+		$form['toggle'][$row->qid] = array('#type' => 'checkbox',);
+		$form['quiz_id'][$row->qid] = array('#value' => $row->qid,);
+		$form['quiz_question'][$row->qid] = array('#value' => $row->question);
+		$form['status'][$row->qid] = array('#value' => ($row->status == 1) ? 'Enabled' : 'Disabled',);
+		$form['date'][$row->qid] = array('#value' => date('m-d-Y', $row->date));
+		$form['action'][$row->qid] = array('#value' => '<a href="' . base_path() . 'admin/settings/block_quiz/edit/' . $row->qid . '">' . block_quiz_image('edit_icon.gif', 'Edit this question') . '</a>' . (($row->status == 1) ? '<a href="' . base_path() . 'admin/settings/block_quiz/disable/' . $row->qid . '">' . block_quiz_image('disable_icon.gif', 'Disable this question') . '</a>' : '<a href="' . base_path() . 'admin/settings/block_quiz/enable/' . $row->qid . '">' . block_quiz_image('enable_icon.gif', 'Enable this question') . '</a>') . '<a href="' . base_path() . 'admin/settings/block_quiz/delete/' . $row->qid . '">' . block_quiz_image('delete_icon.gif', 'Delete this question') . '</a>');
+	}
+	
+	$form['block_quiz_mgmt_selection'] = array(
+		'#type' => 'select',
+		'#title'=> t('<strong>Select bulk update options</strong>'),
+		'#description' => t('warning: there\'s no confirmation for bulk update options, use at your own risk!'),
+		'#options' => array(
+			'enable' => t('Enable question(s)'),
+			'disable' => t('Disable question(s)'),
+			'delete' => t('Delete question(s)'),
+		),
+	);
+	
+	$form['block_quiz_mgmt_submit'] = array(
+		'#type' => 'submit',
+		'#value' => t('update'),
+		'#suffix' => '<br />',
+	);
+
+	return $form;
+	
+}
+
+function block_quiz_mgmt_form_submit($form, &$form_state) {
+	if(!in_array(1, $form_state['values']))
+	{
+		drupal_set_message('Error: No question selected', 'error');
+	}
+	else
+	{
+		// build an array that contains all the checkbox values
+		$working_array = array();
+		foreach($form_state['values'] as $key => $value)
+		{
+			if($key != 'block_quiz_mgmt_selection' && $key != 'op' && $key != 'block_quiz_mgmt_submit' && $key != 'form_build_id' && $key != 'form_token' && $key != 'form_id')
+			{
+				$working_array[$key] = $value;
+			}
+		}
+	
+		switch($form_state['values']['block_quiz_mgmt_selection'])
+		{
+			case 'enable':
+				foreach($working_array as $qid => $value)
+				{
+					if($value == 1)
+					{	
+						if(block_quiz_process_operation('enable', $qid))
+						{
+							drupal_set_message(t('Question ID: ' . $qid . ' has been enabled')); 
+						}
+					}
+				}
+			break;
+			
+			case 'disable':
+				foreach($working_array as $qid => $value)
+				{
+					if($value == 1)
+					{
+						if(block_quiz_process_operation('disable', $qid))
+						{
+							drupal_set_message(t('Question ID: ' . $qid . ' has been disabled')); 
+						}
+					}
+				}
+			break;
+			
+			case 'delete':
+				foreach($working_array as $qid => $value)
+				{
+					if($value == 1)
+					{
+						if(block_quiz_process_operation('delete', $qid))
+						{
+							drupal_set_message(t('Question ID: ' . $qid . ' has been deleted')); 
+						}
+					}
+				}
+			break;
+			
+		}
+	}
+	
+	// var_dump($working_array);
+}
+
+// theme function for quiz management table 
+function theme_block_quiz_mgmt_form($form) {
+	$output = '<div class="messages">You can manage each quiz questions, add new quiz questions and select bulk editing options here</div>';
+	
+	$output .= drupal_render($form['block_quiz_mgmt_selection']);
+	$output .= drupal_render($form['block_quiz_mgmt_submit']);
+	
+	$header = array(
+	theme('table_select_header_cell'),
+	array('data' => t('ID'), 'field' => 'qid'),
+	array('data' => t('Question'), 'field' => 'question'),
+	array('data' => t('Status'), 'field' => 'status'),
+	array('data' => t('Last Modified'), 'field' => 'date', 'sort' => 'desc'),
+	t('Action'),
+	);
+	
+	$result = block_quiz_mgmt_sort();
+
+	while($row = db_fetch_object($result))
+	{	
+		$rows[] = array(
+			drupal_render($form['toggle'][$row->qid]),
+			drupal_render($form['quiz_id'][$row->qid]),
+			drupal_render($form['quiz_question'][$row->qid]),
+			drupal_render($form['status'][$row->qid]),
+			drupal_render($form['date'][$row->qid]),
+			drupal_render($form['action'][$row->qid]),
+			);
+	}
+
+	$output .= theme('table', $header, $rows);
+	
+	// render the rest of the form
+	$output .= drupal_render($form);
+	
+	// $output .= theme('pager', NULL, 50);
+	
+	return $output;
+}
+
+/*
+ * Enable/Disable/Delete Quiz Operation Forms and Submission Handlers
+ */
+function block_quiz_process_form(&$form_state, $operation, $qid) {
+	$form['block_quiz_process_qid'] = array(
+		'#type'=> 'value',
+		'#value' => $qid,
+	);
+	
+	$form['block_quiz_process_op'] = array(
+		'#type' => 'value',
+		'#value' => $operation,
+	); 
+	
+	$form['block_quiz_process_note'] = array(
+		'#type' => 'markup',
+		'#prefix' => '<h3>',
+		'#suffix' => '</h3>',
+		'#value' => t("<br /> Are you sure you want to <strong>$operation</strong> this question?<br /><br />You can always hit the back button to cancel this action"),
+	);
+	
+	$form['block_quiz_process_submit'] = array(
+		'#type' => 'submit',
+		'#value' => t('Submit')
+	);
+	
+	return $form;
+}
+
+
+function block_quiz_process_form_submit($form, &$form_state) {
+	if(is_numeric($form_state['values']['block_quiz_process_qid']))
+	{
+	
+		if(block_quiz_process_operation($form_state['values']['block_quiz_process_op'], $form_state['values']['block_quiz_process_qid']))
+		{
+			$form_state['redirect'] = 'admin/settings/block_quiz/view';
+			drupal_set_message('Operation successful');
+		}
+		else
+		{
+			drupal_set_message('Error: operation failed', 'error');
+		}
+	}
+	else
+	{
+		drupal_set_message('Error: invalid question id', 'error');
+	}
+}
+
+function block_quiz_process_operation($op, $qid) {
+	$params = array();
+	
+	switch($op)
+	{
+		case 'enable':
+		$params['action'] = "UPDATE {block_quiz} SET status = 1 WHERE qid = %d";
+		break;
+		
+		case 'disable':
+		$params['action'] = "UPDATE {block_quiz} SET status = 0 WHERE qid = %d";
+		break;
+		
+		case 'delete':
+		$params['action'] = "DELETE FROM {block_quiz} WHERE qid = %d";
+		break;
+	}
+	
+	if(db_query($params['action'], $qid))
+	{
+		return TRUE;
+	}
+	else
+	{
+		return FALSE;
+	}
+}
+
+function block_quiz_num_answers_form() {
+	$options = array();
+	for($i = 1; $i <= 10; $i++)
+	{
+		$options[base_path() . 'admin/settings/block_quiz/add/' . $i] = t($i);
+	}
+
+	$form['block_quiz_num_answers_select'] = array(
+		'#type' => 'select',
+		'#title' => t('<strong>Select the number of answers</strong>'),
+		'#options' => $options,
+		'#attributes' => array('id' => 'block_quiz_num_answers', 'onchange' => "location.href=this.options[selectedIndex].value" ),
+	);
+
+	return $form;
+}
+
+
+// wrapper for the javascript form to add question
+function block_quiz_add() {
+	return drupal_render_form('block_quiz_num_answers_form', block_quiz_num_answers_form());
+}
+
+/*
+ * Form builder that handles both adding question and editing question
+ * Since they are both single item action ...
+ */
+ function block_quiz_add_edit_quiz_form(&$form_state, $ops, $noa_or_qid) {
+ 
+	$qobj = new stdclass();
+	$answer_options = array();
+	$number_of_answers = 0;
+	
+	switch($ops)
+	{
+		case 'add':
+		$number_of_answers = $noa_or_qid;
+		break;
+	
+		case 'edit':
+		$qobj = db_fetch_object(db_query("SELECT * FROM {block_quiz} WHERE qid = %d", $noa_or_qid)); 
+		$number_of_answers = count(unserialize($qobj->options));
+		$answer_options = unserialize($qobj->options);
+		break;
+	}
+
+		$form['block_quiz_add_edit_qid'] = array(
+			'#type' => 'value',
+			'#value' => $noa_or_qid,
+		);
+	
+		$form['block_quiz_add_edit_op'] = array(
+			'#type' => 'value',
+			'#value' => $ops,
+		);
+		
+		$form['block_quiz_add_edit_options'] = array(
+			'#type' => 'value',
+			'#value' => $number_of_answers,
+		);
+	
+		$form['block_quiz_add_edit_title'] = array(
+		'#type' => 'textfield',
+		'#title' => 'Question',
+		'#required' => TRUE,
+		'#default_value' => ($ops == 'edit') ? $qobj->question : '',
+		);
+	
+		$form['block_quiz_add_edit'] = array(
+			'#type' => 'fieldset',
+			'#title' => t('Answer Options'),
+			'#collapsible' => TRUE,
+			'#collapsed' => FALSE,
+		);
+		
+			$block_quiz_answer_options = array();
+			for($i = 1; $i <= $number_of_answers; $i++)
+			{
+				$form['block_quiz_add_edit']['block_quiz_add_edit_option_' . $i] = array(
+					'#type' => 'textfield',
+					'#title' => t('Option' . $i),
+					'#required' => TRUE,
+					'#default_value' => ($ops == 'edit') ? $answer_options[$i]['value'] : '',
+				);
+				
+				$form['block_quiz_add_edit']['block_quiz_add_edit_option_feedback_' . $i] = array(
+				  '#type' => 'textarea',
+				  '#title' => t('Feedback'),
+				  '#default_value' => ($ops == 'edit') ? $answer_options[$i]['feedback'] : '',
+				  '#required' => TRUE,
+				);
+				
+				$block_quiz_answer_options[$i] = $i;
+			
+			}
+			
+			$form['block_quiz_add_edit']['block_quiz_correct_option'] = array(
+			'#type' => 'select',
+			'#title' => t('Correct Answer Option'),
+			'#default_value' => ($ops == 'edit') ? $qobj->answer : 1,
+			'#options' => $block_quiz_answer_options,
+			);
+			
+			$form['block_quiz_add_edit_submit'] = array(
+				'#type' => 'submit',
+				'#value' => ($ops == 'edit') ? t('Save') : t('Add'),
+				'#weight' => 99,
+			);
+
+	return $form;
+ }
+ 
+function block_quiz_add_edit_quiz_form_submit($form, &$form_state) {
+
+	$options = array();
+	for($i = 1; $i<= $form_state['values']['block_quiz_add_edit_options']; $i++)
+	{
+		$options[$i]['value'] = $form_state['values']['block_quiz_add_edit_option_' . $i];
+		$options[$i]['feedback'] = $form_state['values']['block_quiz_add_edit_option_feedback_' . $i];
+	}
+
+	$_options = serialize($options);
+	
+	switch($form_state['values']['block_quiz_add_edit_op'])
+	{
+		case 'add':
+			if(db_query("INSERT INTO {block_quiz} (question, date, options, answer) VALUES ('%s', %d, '%s', %d)", $form_state['values']['block_quiz_add_edit_title'], time(), $_options, $form_state['values']['block_quiz_correct_option']))
+			{
+				drupal_set_message(t('Operation Successful'));
+			}
+		break;
+		
+		case 'edit':
+			if(db_query("UPDATE {block_quiz} SET question = '%s', date = %d, options = '%s', answer = %d WHERE qid = %d", $form_state['values']['block_quiz_add_edit_title'], time(), $_options, $form_state['values']['block_quiz_correct_option'], $form_state['values']['block_quiz_add_edit_qid']))
+			{
+				drupal_set_message(t('Operation Successful'));
+			}
+		break;
+	}
+	
+	$form_state['redirect'] = 'admin/settings/block_quiz/view';
+
+}
+ 
+ /**
+  * Implementation of hook_block()
+  */
+  function block_quiz_block($op = 'list', $delta = 0, $edit = array()) {
+  
+		switch ($op) {
+			
+			case 'list':
+				$blocks[0]['info'] = t('Quiz');
+				$blocks[0]['cache'] = BLOCK_NO_CACHE;
+				return $blocks;
+				
+			case 'view':
+			
+					$destination = drupal_get_destination();
+
+					$block['subject'] = t('Quiz!');
+					
+					// We theme our array of links as an unordered list
+					$block['content'] = drupal_get_form('block_quiz_block_view_form');
+					
+				return $block;
+		}
+  
+  }
+  
+/*
+ * Quick themeing function for images and links
+ */
+function block_quiz_image($img_name, $alt_text)
+{
+	return '<img src="' . base_path() . drupal_get_path('module', 'block_quiz') . '/images/' . $img_name . '"' . 'alt="' . $alt_text . '" title="' . $alt_text . '" hspace="2" />';
+}
+
+
+
+?>

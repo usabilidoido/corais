@@ -1,0 +1,16 @@
+<?php
+// $Id$
+
+/*
+ * @file
+ */
+
+/*
+ * Implementation of hook_uninstall().
+ */
+function colorpicker_example_uninstall() {
+  variable_del('colorpicker_example_textfield_1');
+  variable_del('colorpicker_example_textfield_2');
+  variable_del('colorpicker_example_textfield_3');
+  variable_del('colorpicker_example_textfield_4');
+}

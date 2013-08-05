@@ -1,0 +1,10 @@
+<?php
+/**
+ * @file
+ * Database initialization.
+ */
+
+function notifications_co_ment_install() {
+  // Set the weight of this module to 1 so it is loaded after the og_notifications module.
+  db_query("UPDATE {system} SET weight = 1 WHERE name = 'notifications_co_ment'");
+}

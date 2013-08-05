@@ -1,0 +1,14 @@
+; $Id: pageroute_test.info,v 1.1.2.1 2009/12/05 11:45:44 sgilits Exp $
+name = Pageroute Simpletest
+description = Tests the functionality of the pageroute engine
+package = Pageroute
+dependencies[] = simpletest
+dependencies[] = pageroute
+core = 6.x
+files[] = pageroute_test.module
+; Information added by drupal.org packaging script on 2009-12-12
+version = "6.x-1.0-beta5"
+core = "6.x"
+project = "pageroute"
+datestamp = "1260636650"
+

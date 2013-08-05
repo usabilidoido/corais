@@ -1,0 +1,15 @@
+name = Nodejs Actions
+description = Provides actions that dispatch realtime user notifications via node.js
+package = Nodejs
+version = VERSION
+core = 6.x
+dependencies[] = nodejs
+dependencies[] = trigger
+
+
+; Information added by drupal.org packaging script on 2012-01-05
+version = "6.x-1.x-dev"
+core = "6.x"
+project = "nodejs"
+datestamp = "1325724447"
+

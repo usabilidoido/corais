@@ -1,0 +1,11 @@
+#features-menu li a.icon-imageboard span.icon {
+  background:url(icon.png) no-repeat;
+}
+
+.feature .feature-imageboard {
+  background:transparent url(icon_small.png) no-repeat;
+}
+
+.feature-imageboard {
+  background:url(icon_small.png) no-repeat !important;
+}

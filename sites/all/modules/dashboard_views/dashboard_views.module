@@ -1,0 +1,19 @@
+<?php
+
+include_once('dashboard_views.features.inc');
+
+function dashboard_views_init() {
+  drupal_add_css(drupal_get_path('module', 'dashboard_views') . '/dashboard_views.css');
+}
+
+function dashboard_views_strongarm_alter(&$items) {
+  if(is_array($items['spaces_dashboard_blocks']->value)) {
+    $items['spaces_dashboard_blocks']->value = array_merge($items['spaces_dashboard_blocks']->value, array(
+      'views-dashboard_views_book-block_1' => true,
+      'views-dashboard_views_member-block_1' => true,
+      'views-dashboard_views_project-block_1' => true,
+      'views-dashboard_views_shoutbox-block_1' => true,
+      'views-86348b7c65313b9f27287f9efe867053' => true, // hash of dashboard_views_shoutbox-block_1
+    ));
+  }
+}

@@ -1,0 +1,72 @@
+<?php
+
+require_once drupal_get_path('module', 'course') . '/tests/CourseTestCase.test';
+
+/**
+ * Tests for conditional event-based access to course objects.
+ */
+class CourseAccessTestCase extends CourseTestCase {
+
+  public static function getInfo() {
+    // Note that getInfo() strings are not translated with t().
+    return array(
+      'name' => 'Course access',
+      'description' => 'Ensure that Course access control functions properly.',
+      'group' => 'Course',
+    );
+  }
+
+  /**
+   * Test the enrollment duration. This does not test the enrollment end date
+   * being set correctly.
+   *
+   * @see CourseEnrollmentTestCase::testCourseDuration()
+   */
+  function testDurationExpiration() {
+    global $user;
+    $courseNode = $this->createCourseNode();
+    // Set expiration to 30 days.
+    $courseNode->course['duration'] = 30;
+    node_save($courseNode);
+    course_enrol($courseNode, $user);
+
+    // Expire the duration.
+    $enroll = course_enrolment_load($courseNode, $user);
+    $enroll->enrol_end = 1;
+    course_enrolment_save($enroll);
+    $result = course_take_course_access($courseNode, $user, TRUE);
+    $this->assertFalse($result['success'], 'User cannot access course with expired enrollment.');
+  }
+
+  /**
+   * Test the open/close date functionality.
+   */
+  function testReleaseExpiration() {
+    global $user;
+    $courseNode = $this->createCourseNode();
+
+    // Make sure user can get in with no open/close set.
+    $result = course_enrol_access($courseNode, $user, TRUE);
+    $this->assertTrue($result['success'], 'User can enroll in course past start date.');
+
+    // Test a course that is not yet open.
+    $courseNode->course['open'] = time() + 30;
+    node_save($courseNode);
+    $result = course_enrol_access($courseNode, $user, TRUE);
+    $this->assertFalse($result['success'], 'User cannot enroll in not yet open course.');
+
+    // Test an opened course that is closed.
+    $courseNode->course['open'] = time() - 60;
+    $courseNode->course['close'] = time() - 30;
+    node_save($courseNode);
+    $result = course_enrol_access($courseNode, $user, TRUE);
+    $this->assertFalse($result['success'], 'User cannot enroll in expired course.');
+
+    // Enroll the user. User should still not be able to take course if it is
+    // expired.
+    course_enrol($courseNode, $user);
+    $result = course_take_course_access($courseNode, $user, TRUE);
+    $this->assertFalse($result['success'], 'User cannot take expired course.');
+  }
+
+}

@@ -1,0 +1,11 @@
+; $Id: urlfill.info,v 1.2 2010/06/14 23:02:50 phayes Exp $
+name = URL Fill
+description = Auto-fill node forms using data from the URL.
+core = 6.x
+
+; Information added by drupal.org packaging script on 2010-11-25
+version = "6.x-1.1"
+core = "6.x"
+project = "urlfill"
+datestamp = "1290647467"
+

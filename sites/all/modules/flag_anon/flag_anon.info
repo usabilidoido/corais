@@ -1,0 +1,13 @@
+name = Flag anonymous
+description = Provide a flag display for anonymous users. It is compatible with Flag 6.x-2.x, or better.
+core = 6.x
+dependencies[] = flag
+
+package = Flags
+
+; Information added by drupal.org packaging script on 2011-12-24
+version = "6.x-1.x-dev"
+core = "6.x"
+project = "flag_anon"
+datestamp = "1324728489"
+

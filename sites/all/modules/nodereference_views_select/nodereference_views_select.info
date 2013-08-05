@@ -1,0 +1,17 @@
+; $Id: nodereference_views_select.info,v 1.2.2.1 2009/08/12 08:33:38 electricmonk Exp $
+name = Node Reference Views Select
+description = Widget for nodereference field which renders a teaser list and a modal panel containing a view defined by the field configuration to display the candidate nodes.
+dependencies[] = content
+dependencies[] = optionwidgets
+dependencies[] = nodereference
+dependencies[] = ctools
+package = CCK
+
+
+core = 6.x
+; Information added by drupal.org packaging script on 2009-08-12
+version = "6.x-1.0-rc1"
+core = "6.x"
+project = "nodereference_views_select"
+datestamp = "1250066765"
+

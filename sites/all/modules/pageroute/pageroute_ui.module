@@ -1,0 +1,338 @@
+<?php
+// $Id: pageroute_ui.module,v 1.36.2.8 2009/10/29 12:07:50 sgilits Exp $
+
+/**
+ * @file
+ * Adminstration pages allowing you to create and edit pageroutes.
+ */
+
+/**
+ * Implementation of hook_help().
+ */
+function pageroute_ui_help($path, $arg) {
+
+  switch ($path) {
+    case 'admin/help#pageroute_ui':
+      return _pageroute_ui_get_help();
+    case 'admin/build/pageroute/'. arg(4) .'/add':
+      if (module_exists('help')) {
+        return t('Have a look at the pageroute !link for some explanation of the pageroute page types.',
+          array('!link' => l(t('Documentation'), 'admin/help/pageroute_ui')));
+      }
+      else {
+        return t('Activate the help module if you need some explanation of the pageroute page types.');
+      }
+  }
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function pageroute_ui_menu() {
+
+  $items = array();
+
+  $access = array('administer pageroutes');
+
+  $items['admin/build/pageroute'] = array(
+    'title' => 'Pageroute',
+    'description' => 'Manage your pageroutes',
+    'page callback' => 'pageroute_ui_admin',
+    'access callback' => 'user_access',
+    'access arguments' => $access,
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  $items['admin/build/pageroute/list'] = array(
+    'title' => 'List routes',
+    'description' => 'List your routes',
+    'access callback' => 'user_access',
+    'access arguments' => $access,
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => 0
+  );
+
+  $items['admin/build/pageroute/add'] = array(
+    'title' => 'Add route',
+    'description' => 'Add a route.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('pageroute_ui_route_edit', 'add'),
+    'access callback' => 'user_access',
+    'access arguments' => $access,
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 1,
+    'file' => 'pageroute_ui.forms.inc',
+  );
+
+  $items['admin/build/pageroute/import'] = array(
+    'title' => 'Import',
+    'description' => 'Import the pageroute',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('pageroute_ui_import'),
+    'access callback' => 'user_access',
+    'access arguments' => $access,
+    'file' => 'pageroute_ui.forms.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 2,
+  );
+
+  $items['admin/build/pageroute/%'] = array(
+    'title' => 'Route',
+    'description' => 'Route',
+    'page callback' => 'pageroute_ui_page_edit',
+    'page arguments' => array('view', 3),
+    'access callback' => 'user_access',
+    'access arguments' => $access,
+    'file' => 'pageroute_ui.forms.inc',
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['admin/build/pageroute/%/list'] = array(
+    'title' => 'List Pages',
+    'description' => 'List the pages of a route.',
+    'access callback' => 'user_access',
+    'access arguments' => $access,
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => 0,
+  );
+
+  $items['admin/build/pageroute/%/edit'] = array(
+    'title' => 'Edit route',
+    'description' => 'Edit the route.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('pageroute_ui_route_edit', 'edit', 3),
+    'access callback' => 'user_access',
+    'access arguments' => $access,
+    'file' => 'pageroute_ui.forms.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 1,
+  );
+
+  $items['admin/build/pageroute/%/delete'] = array(
+    'title' => 'Delete route',
+    'description' => 'Delete the route',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('pageroute_ui_route_delete_confirm', 3),
+    'access callback' => 'user_access',
+    'access arguments' => $access,
+    'file' => 'pageroute_ui.forms.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 2,
+  );
+
+  $items['admin/build/pageroute/%/add'] = array(
+    'title' => 'Add page',
+    'description' => 'Add a page to the pageroute',
+    'page callback' => 'pageroute_ui_page_edit',
+    'page arguments' => array('add', 3),
+    'access callback' => 'user_access',
+    'access arguments' => $access,
+    'file' => 'pageroute_ui.forms.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 3,
+  );
+
+  $items['admin/build/pageroute/%/export'] = array(
+    'title' => 'Export',
+    'description' => 'Export the pageroute',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('pageroute_ui_export', 3),
+    'access callback' => 'user_access',
+    'access arguments' => $access,
+    'file' => 'pageroute_ui.forms.inc',
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['admin/build/pageroute/%/page-add/%'] = array(
+    'title' => 'Add page',
+    'description' => 'Add a page to the pageroute',
+    'page callback' => 'pageroute_ui_page_edit',
+    'page arguments' => array('add', 3, 5),
+    'access callback' => 'user_access',
+    'access arguments' => $access,
+    'file' => 'pageroute_ui.forms.inc',
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['admin/build/pageroute/%/page-edit/%'] = array(
+    'title' => 'Page',
+    'description' => 'Page',
+    'page callback' => 'pageroute_ui_page_edit',
+    'page arguments' => array('edit', 3, 5),
+    'access callback' => 'user_access',
+    'access arguments' => $access,
+    'file' => 'pageroute_ui.forms.inc',
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['admin/build/pageroute/%/page-delete/%'] = array(
+    'title' => 'Delete page',
+    'description' => 'Delete the page',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('pageroute_ui_page_delete_confirm', 3, 5),
+    'access callback' => 'user_access',
+    'access arguments' => $access,
+    'file' => 'pageroute_ui.forms.inc',
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function pageroute_ui_perm() {
+  return array('administer pageroutes');
+}
+
+function pageroute_ui_admin() {
+
+  $result = db_query("SELECT * FROM {pageroute_routes} ORDER BY path");
+
+  $header = array(t('Path'), array('data' => t('Operations'), 'colspan' => '5'));
+
+  while ($route = db_fetch_object($result)) {
+    $row = array();
+    $row[] = l($route->path, $route->path);
+    $row[] = l(t('Edit route'), "admin/build/pageroute/$route->prid/edit");
+    $row[] = l(t('Delete route'), "admin/build/pageroute/$route->prid/delete");
+    $row[] = l(t('Export route'), "admin/build/pageroute/$route->prid/export");
+    $row[] = l(t('List pages'), "admin/build/pageroute/$route->prid");
+    $row[] = l(t('Add page'), "admin/build/pageroute/$route->prid/add");
+    $rows[] = $row;
+  }
+
+  if (empty($rows)) {
+    $rows[] = array(array('data' => t('No routes available.'), 'colspan' => '4', 'class' => 'message'));
+  }
+
+  return theme('table', $header, $rows, array('id' => 'pageroute'));
+}
+
+
+function pageroute_ui_route_overview(&$route) {
+  drupal_set_title(check_plain($route->path));
+  $result = db_query("SELECT * FROM {pageroute_pages} WHERE prid = %d ORDER BY weight, name", $route->prid);
+
+  $header = array(t('Name'), t('Title'), t('Type'), t('Weight'), array('data' => t('Operations'), 'colspan' => '2'));
+
+  $module_types = pageroute_get_types();
+
+  $rows = array();
+  while ($page_data = db_fetch_object($result)) {
+    $page_data->options = unserialize($page_data->options);
+    $name = $page_data->name;
+    $module = $page_data->module;
+    $type = $page_data->type;
+
+    $row = array();
+    $row[] = l($name, $route->path .'/'. $name);
+    $row[] = check_plain($page_data->title);
+    $row[] = ($module == 'pageroute' && $type == 'view' && $page_data->options['nid'] != 0)
+      ? l($module_types[$module][$type]['name'], 'node/'. $page_data->options['nid'])
+      : $module_types[$module][$type]['name'];
+    $row[] = $page_data->weight;
+    $row[] = l(t('Edit'), "admin/build/pageroute/$route->prid/page-edit/$name");
+    $row[] = l(t('Delete'), "admin/build/pageroute/$route->prid/page-delete/$name");
+    $rows[] = $row;
+  }
+
+  $rows[] = array(array('data' => l(t('Add page'), "admin/build/pageroute/$route->prid/add"), 'colspan' => '6', 'class' => 'message'));
+
+  return theme('table', $header, $rows, array('id' => 'pageroute_ui_pages'));
+}
+
+/*
+ * Determines the neighbours for all pages and writes their names
+ * into $page->options['neighbours'] with the keys 'back' and 'forward'
+ * so that they can be accessed easily on runtime.
+ *
+ * All changfes are stored in the database.
+ *
+ * @param $route The route, for which the page neighbours should be updated
+ */
+function pageroute_ui_update_neighbours(&$route) {
+  $result = db_query("SELECT * FROM {pageroute_pages} WHERE prid = %d ORDER BY weight, name", $route->prid);
+
+  $pages = array();
+  $updated = array();
+  $back = (object)array('name' => '');
+
+  while ($the_page = db_fetch_object($result)) {
+    $the_page->options = unserialize($the_page->options);
+
+    if (!isset($the_page->options['neighbours'])) {
+      $the_page->options['neighbours']['forward'] = '';
+      $the_page->options['neighbours']['back'] = '';
+    }
+
+    if (isset($the_page->options['activated']) && !$the_page->options['activated']) {
+      continue;
+    }
+
+    if ($back->name != $the_page->options['neighbours']['back']) {
+      $the_page->options['neighbours']['back'] = $back->name;
+      $updated[$the_page->name] = $the_page;
+    }
+    if ($back->name && $back->options['neighbours']['forward'] != $the_page->name) {
+      $back->options['neighbours']['forward'] = $the_page->name;
+      $updated[$back->name] = $back;
+    }
+    $back = $the_page;
+  }
+  if ($back->options['neighbours']['forward'] != '') {
+    $back->options['neighbours']['forward'] = '';
+    $updated[$back->name] = $back;
+  }
+
+  //now store all updates in the db
+  foreach ($updated as $the_page) {
+    pageroute_ui_update_page($route, $the_page, $the_page->name);
+  }
+}
+
+/*
+ * Stores the updated $page in the database
+ */
+function pageroute_ui_update_page(&$route, &$page, $old_name) {
+  db_query("UPDATE {pageroute_pages} SET name = '%s', title='%s', ".
+    "weight = %d, options = '%s' WHERE prid = %d AND name = '%s'",
+    $page->name, $page->title, $page->weight,
+    serialize($page->options), $route->prid, $old_name);
+}
+
+/**
+ * Get the help for all page types and show it
+ *
+ * Modules that contribute a page type should implement hook_pageroute_help().
+ */
+function _pageroute_ui_get_help() {
+  $output = '<p>'. t('The module can be used to provide an userfriendly wizard for creating and editing several nodes. It will provide new URLs for all pages and optionally create customizable back/forward buttons at the bottom of a page, so that users are being lead through the route.') .'</p>';
+
+  $output .= '<h2>Pageroute Arguments</h2>';
+  $output .= '<p>'. t('Each pageroute takes further arguments to its path. Each page type can make use of these arguments, but they need not. Have a look at the page type description to see how it handles the arguments.<br/> Page types will interprete the first additional argument as node id, which is used by most node page types, e.g. by the node editing page. The second argument will be interpreted as id of the user for which the route will be gone through. E.g. this will affect the author of new nodes. Furthermore if you pass an id of 0 pageroute will ignore that argument. E.g. you can link to your pageroute by using the path "%path" to go through the route as the currently logged in user (id 0) and with the node id 4 as first argument.',
+    array('%path' => 'pageroutepath/4/0')) .'</p>';
+
+  $output .= '<h2>Page types</h2>';
+  $output .= '<p>'. t('Each page has a page type which sets the behaviour of the page. All modules can contribute further page types.') .'</p>';
+
+  $module_types = pageroute_get_types();
+
+  foreach ($module_types as $module => $types) {
+    foreach ($types as $type => $typeinfo) {
+      $output .= '<h3>'. $typeinfo['name'] .'</h3>';
+      $class = pageroute_get_page_class($module, $type);
+      $output .= '<p>'. call_user_func(array($class, 'help')) .'</p>';
+    }
+  }
+
+  return $output;
+}
+
+/**
+ * Clear the pageroute cache
+ */
+function _pageroute_clear_cache() {
+  cache_clear_all('pageroute', 'cache', FALSE);
+}

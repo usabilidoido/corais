@@ -1,0 +1,21 @@
+<?php
+// $Id: mailcomment.install,v 1.1.2.2 2010/02/11 16:22:46 developmentseed Exp $
+
+function mailcomment_install() {
+  // Rename old variables. These updates are necessary as a result of the name change 
+  // of this module from mail2web to mailcomment
+  db_query("UPDATE {variable} SET name = REPLACE(name, 'mail2web_', 'mailcomment_')");
+  // Set new mailcomment_mailboxes variable based on the mailcomment_mailbox variable.
+  // If new variable cannot be found, get the cached variable.
+  if (!$mailbox = variable_get('mailcomment_mailbox', '')) {
+    $mailbox = variable_get('mail2web_mailbox', '');
+  }
+  variable_set('mailcomment_mailboxes', array($mailbox));
+}
+
+function mailcomment_update_6001() {
+  // Set the new mailcomment_mailboxes variable with the mailcomment_mailbox variable by default.
+  $mailbox = variable_get('mailcomment_mailbox', '');
+  variable_set('mailcomment_mailboxes', array($mailbox));
+  return array(array('success' => true, 'query' => 'Set the mailcomment_mailboxes variable.'));
+}

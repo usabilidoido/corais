@@ -1,0 +1,10 @@
+<?php
+// $Id: meetings.install,v 1.4.2.3 2010/08/05 02:52:26 auzigog Exp $
+
+/**
+ * Implementation of hook_install().
+ */
+function meetings_install() {
+  // Must be higher than notifications_content (100) to be able to alter the form properly
+  db_query("UPDATE {system} SET weight = 110 WHERE name = 'meetings'");
+}

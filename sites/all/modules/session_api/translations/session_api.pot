@@ -1,0 +1,59 @@
+# $Id: session_api.pot,v 1.1.2.2 2010/03/18 20:33:05 jhedstrom Exp $
+#
+# LANGUAGE translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  session_api.admin.inc,v 1.1.2.3 2008/07/09 15:32:31 jhedstrom
+#  session_api.module,v 1.1.2.3 2008/09/19 17:06:14 jhedstrom
+#  session_api.install,v 1.1 2008/07/01 18:21:30 jhedstrom
+#  session_api.info,v 1.1 2008/07/01 18:21:30 jhedstrom
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2010-03-18 13:30-0700\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Last-Translator: NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: session_api.admin.inc:19
+msgid "Maintenance Tasks"
+msgstr ""
+
+#: session_api.admin.inc:20
+msgid "The following modules have jobs that are run on cron to cleanup expired session information."
+msgstr ""
+
+#: session_api.module:52
+msgid "Session API Configuration"
+msgstr ""
+
+#: session_api.module:53
+msgid "Configure Session API behavior"
+msgstr ""
+
+#: session_api.module:106
+msgid "Clear expired <strong>Session API</strong> sessions"
+msgstr ""
+
+#: session_api.module:107
+msgid "Clear out old <strong>Session API</strong> IDs for which the corresponding <a href=\"!php\">PHP session</a> no longer exists. <br /><strong>Important</strong>: This option must be checked for any of the subsequent cleanup processes to work. Unchecking this will disable any removal of expired session data."
+msgstr ""
+
+#: session_api.install:24
+msgid "Map Session API IDs to the {sessions} sid field."
+msgstr ""
+
+#: session_api.info:0
+msgid "Session API"
+msgstr ""
+
+#: session_api.info:0
+msgid "Provides an interface for storing session information."
+msgstr ""
+

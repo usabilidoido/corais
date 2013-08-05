@@ -1,0 +1,160 @@
+<?php
+
+include_once('atrium_groups.features.inc');
+
+/**
+ * Implementation of hook_enable().
+ */
+function atrium_groups_enable() {
+  // set Atrium Groups to load after OG is finished
+  db_query("UPDATE {system} SET weight = 2 WHERE name = 'atrium_groups' AND type = 'module'");
+
+  ctools_include('export');
+  ctools_export_set_status('spaces_presets', 'og_private', TRUE);
+  ctools_export_set_status('spaces_presets', 'og_controlled', TRUE);
+  ctools_export_set_status('spaces_presets', 'og_public', TRUE);
+}
+
+/**
+ * Implementation of hook_menu_alter().
+ */
+function atrium_groups_menu_alter(&$items) {
+  // Views: disable views that we are 'overriding'
+  $views_defaults = variable_get('views_defaults', array());
+  $disabled = array(
+    'og',
+    'og_my',
+    'og_files',
+    'og_ghp_ron',
+    'og_mytracker',
+    'og_search',
+    'og_tracker',
+    'og_recent_type_term',
+    'og_unread',
+  );
+  $set = FALSE;
+  foreach ($disabled as $view_name) {
+    if (empty($views_defaults[$view_name])) {
+      $set = TRUE;
+      $views_defaults[$view_name] = TRUE;
+    }
+  }
+  if ($set) {
+    variable_set('views_defaults', $views_defaults);
+  }
+
+  // Kill undesirable menu items
+  $yank = array(
+    'og/activity',
+  );
+  foreach ($yank as $path) {
+    if (!empty($items[$path])) {
+      unset($items[$path]);
+    }
+  }
+}
+
+/**
+ * Implementation of spaces_og_breadcrumb_alter().
+ * Point link to group at group homepage rather than the node.
+ */
+function atrium_groups_spaces_og_breadcrumb_alter(&$bc) {
+  if (isset($bc[2])) {
+    $space = spaces_get_space();
+    $bc[2] = l($space->title(), '<front>');
+  }
+}
+
+/**
+ * Implementation of hook_context_page_reaction().
+ * Good occasion to set the breadcrumb.
+ */
+function atrium_groups_context_page_reaction() {
+  if (!spaces_get_space() && context_get('context', 'groups_listing')) {
+    $breadcrumb = array(
+      l(t('Home'), '<front>', array('purl' => array('disabled' => TRUE))),
+      l(t('Groups'), 'og', array('purl' => array('disabled' => TRUE))),
+    );
+    drupal_set_breadcrumb($breadcrumb);
+  }
+}
+
+/**
+ * Implementation of hook_context_links_alter().
+ */
+function atrium_groups_context_links_alter(&$links) {
+  if (context_get('context', 'groups_listing')) {
+    $item = menu_get_item('node/add/group');
+    if ($item['access']) {
+      $links['atrium_groups'] = array('title' => t('Add @type', array('@type' => $item['title'])), 'href' => $item['href']);
+    }
+  }
+}
+
+/**
+ * Implementation of hook_views_pre_view().
+ * Add group management fields to members listing view.
+ */
+function atrium_groups_views_pre_build(&$view) {
+  if ($view->name == 'members_listing') {
+    $fields = $view->display_handler->get_option('fields');
+    $fields['is_admin'] = array(
+      'label' => '',
+      'alter' => array(
+        'alter_text' => 1,
+        'text' => '<div class=\'description\'>[is_admin]</div>',
+      ),
+      'id' => 'is_admin',
+      'table' => 'og_uid',
+      'field' => 'is_admin',
+      'relationship' => 'none',
+    );
+    $fields['managelink'] = array(
+      'label' => '',
+      'alter' => array(
+        'alter_text' => 1,
+        'text' => '<div class=\'description\'>[managelink]</div>',
+      ),
+      'id' => 'managelink',
+      'table' => 'og_uid',
+      'field' => 'managelink',
+      'relationship' => 'none',
+    );
+    // Add in link to make/revoke as group admin.
+    $fields['managelinkadmin'] = array(
+      'label' => '',
+      'alter' => array(
+        'alter_text' => 1,
+        'text' => '<small class=\'label\'>[managelinkadmin]</small>',
+      ),
+      'hide_empty' => 1,
+      'id' => 'managelinkadmin',
+      'table' => 'og_uid',
+      'field' => 'managelinkadmin',
+      'relationship' => 'none',
+    );
+        
+    $fields = $view->display_handler->set_option('fields', $fields);
+  }
+}
+
+/**
+ * Implementation of hook_context_default_contexts_alter().
+ */
+function atrium_groups_context_default_contexts_alter(&$contexts) {
+  // Conditionally add the "My Groups" block to the spaces_dashboard-custom-1 context.
+  if (module_exists('atrium') && !empty($contexts['spaces_dashboard-custom-1'])) {
+    $contexts['spaces_dashboard-custom-1']->reactions['block']['blocks']['views-groups_listing-block_2'] = array(
+      'module' => 'views', 
+      'delta' => 'groups_listing-block_2',
+      'region' => 'right', 
+      'weight' => 0,
+    );
+  }
+}
+
+function atrium_groups_form_alter(&$form, &$form_state, $form_id) {
+  if($form_id == 'group_node_form' && !empty($form['og_private'])) {
+    unset($form['og_private']);
+  }
+}

@@ -1,0 +1,12 @@
+; $Id: taxonomy_other.info,v 1.1.2.1 2008/06/19 23:09:53 rellis Exp $
+name = Taxonomy Other
+description = Add optional '- Other -' to taxonomy select lists.
+dependencies[] = taxonomy
+core = 6.x
+
+; Information added by drupal.org packaging script on 2008-08-06
+version = "6.x-1.1"
+core = "6.x"
+project = "taxonomy_other"
+datestamp = "1218066022"
+

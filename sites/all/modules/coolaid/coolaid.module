@@ -1,0 +1,439 @@
+<?php
+
+/**
+ * @file
+ * Cool Aid module.
+ *
+ * Provides a user-submitted per-page custom help message.
+ */
+
+/**
+ * Implementation of hook_theme().
+ */
+function coolaid_theme(&$existing) {
+  variable_set('coolaid_existing_help_theme_function', $existing['help']['function']);
+  $existing['help']['function'] = 'theme_coolaid_help';
+  return array(
+    'coolaid' => array(
+      'arguments' => array(
+        'messages' => NULL,
+        'links' => NULL,
+      ),
+    ),
+  );
+}
+
+/**
+ * Theme function for coolaid help output.
+ */
+function theme_coolaid($messages, $links) {
+  $output = '';
+  foreach ($messages as $message) {
+    $output .= '<div class="coolaid-message">';
+    $output .= $message['help'];
+    $output .= '</div>';
+  }
+  foreach ($links as $link) {
+    $output .= '<span>';
+    $output .= $link;
+    $output .= '</span>';
+  }
+  return $output;
+}
+
+/**
+ * Override of theme_help().
+ */
+function theme_coolaid_help() {
+  $theme_help_func = variable_get('coolaid_existing_help_theme_function', 'theme_help');
+  $help_contents = $theme_help_func();
+  if (!empty($help_contents)) {
+    $help = '';
+    $use_thickbox = variable_get('coolaid_thickbox', 1);
+    if ($use_thickbox) {
+      $path = drupal_get_path('module', 'coolaid');
+      drupal_add_js($path .'/coolaid.js');
+      drupal_add_css($path .'/coolaid.css');
+    }
+    $help .= '<div class="coolaid"><div class="coolaid-inner"><div class="coolaid-content">';
+    $help .= $help_contents;
+    $help .= '</div></div></div>';
+    return $help;
+  }
+}
+
+/**
+ * Implementation of hook_help().
+ * This does not provide assistance for this module as normal hook_help() implementations do.
+ * Rather, this is where output for the core functionality of this module appears.
+ */
+function coolaid_help($path, $arg) {
+  $arg = implode("/", array_diff($arg, array('')));
+  $roles = user_is_logged_in() ? array_keys(user_roles(TRUE)) : array_keys(user_roles());
+  $query = db_query("
+    SELECT *
+    FROM {coolaid_help} h
+    INNER JOIN {coolaid_roles} r ON h.hid = r.hid
+    WHERE (h.path = '%s' OR h.path ='%s')
+    AND r.role IN (". implode(',', $roles) .")
+    GROUP BY h.hid
+    ORDER BY h.weight ASC
+    ", $path, $arg);
+  $messages = array();
+  while ($message = db_fetch_array($query)) {
+    $message['help'] = check_markup($message['help'], $message['format'], FALSE);
+    $messages[] = $message;
+  }
+  $links = coolaid_edit_links();
+  return theme('coolaid', $messages, $links);
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function coolaid_menu() {
+  $items = array();
+  $items['coolaid_admin'] = array(
+    'title' => 'Administer '. coolaid_name(),
+    'page callback' => 'coolaid_admin',
+    'access arguments' => array('administer cool aid'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['coolaid_admin/new'] = array(
+    'title' => 'Create New '. coolaid_name(),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('coolaid_new_form'),
+    'access arguments' => array('administer cool aid'),
+    'type' => MENU_CALLBACK,
+    'weight' => 10,
+  );
+  $items['coolaid_admin/delete/%'] = array(
+    'title' => 'Delete '. coolaid_name(),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('coolaid_delete_form', 2),
+    'access arguments' => array('administer cool aid'),
+    'type' => MENU_CALLBACK,
+    'weight' => 10,
+  );
+  $items['coolaid_admin/edit/%'] = array(
+    'title' => 'Edit '. coolaid_name(),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('coolaid_new_form', 2),
+    'access arguments' => array('administer cool aid'),
+    'type' => MENU_CALLBACK,
+    'weight' => 10,
+  );
+  $items['admin/settings/coolaid'] = array(
+    'title' => 'Cool Aid',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('coolaid_config'),
+    'access arguments' => array('administer cool aid'),
+    'type' => MENU_NORMAL_ITEM,
+    'description' => 'Settings for Cool Aid module',
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function coolaid_perm() {
+  return array('administer cool aid');
+}
+
+/**
+ * Provides system settings form at admin/settings/coolaid
+ */
+function coolaid_config() {
+  $form = array();
+  $form['coolaid_name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('"Help message" name'),
+    '#default_value' => variable_get('coolaid_name', 'Custom Help Message'),
+    '#size' => 60,
+    '#maxlength' => 128,
+    '#required' => TRUE,
+    '#description' => t("The name that refers to a help message supplied by a user."),
+  );
+  $form['coolaid_thickbox'] = array(
+    '#type' => 'radios',
+    '#title' => t('"Help message" display method'),
+    '#default_value' => variable_get('coolaid_thickbox', 1),
+    '#options' => array(
+      0 => t('Display messages <b>inline</b>'),
+      1 => t('Display link to launch messages in a <b>modal</b> overlay'),
+    ),
+    '#description' => t("Note: The <b>modal</b> option will only activate if JavaScript is turned on by the client, and defaults to the <b>inline</b> option."),
+  );
+  return system_settings_form($form);
+}
+
+/**
+ * Provides help message administration page for specific paths and path patterns as given by URL arguments
+ */
+function coolaid_admin() {
+
+  $origin = $_REQUEST['destination'];
+  unset($_REQUEST['destination']);
+
+  $output = '';
+
+  $query = db_query("SELECT * FROM {coolaid_help} h WHERE path = '%s' OR path = '%s' ORDER BY h.weight ASC", $_REQUEST['path'], $_REQUEST['arg']);
+
+  $header = array(t("!ca (preview)", array('!ca' => coolaid_name())), t('Path'), t('Roles'), array('data' => t('Operations'), 'colspan' => 2));
+
+  $has_results = FALSE;
+
+  while ($result = db_fetch_array($query)) {
+
+    $has_results = TRUE;
+
+    $roles_query = db_query("SELECT r.role FROM {coolaid_roles} r WHERE hid = %d ORDER BY r.role", $result['hid']);
+
+    $user_roles = array();
+
+    $all_roles = user_roles();
+
+    while ($roles_result = db_result($roles_query)) {
+      $user_roles[] = $all_roles[$roles_result];
+    }
+
+    $user_roles = implode('<br />', $user_roles);
+
+    $edit = l(t('Edit'),
+      'coolaid_admin/edit/'. $result['hid'],
+      array('query' => drupal_get_destination() .'&origin='. $origin .'&path='. $_REQUEST['path'] .'&arg='. $_REQUEST['arg']));
+
+    $del = l(t('Delete'),
+      'coolaid_admin/delete/'. $result['hid'],
+      array('query' => drupal_get_destination() .'&origin='. $origin .'&path='. $_REQUEST['path'] .'&arg='. $_REQUEST['arg']));
+
+    $row = array(check_markup($result['help'], $result['format'], FALSE), ($result['path'] ? $result['path'] : $result['arg']), $user_roles, $edit, $del);
+    $rows[] = array(
+      'data' => $row,
+      'class' => 'draggable',
+    );
+
+  }
+
+  if ($has_results) {
+    $output .= theme('table', $header, $rows, array('id' => 'coolaid-list-table'));
+  }
+  else {
+    $output .= t('There is currently no !ca.', array('!ca' => coolaid_name()));
+  }
+
+  $links = array();
+  $links['coolaid-links-new'] = array(
+      'title' => t('New !ca', array('!ca' => coolaid_name())),
+      'href' => 'coolaid_admin/new',
+      'query' => drupal_get_destination() .'&origin='. urlencode($origin) .'&path='. urlencode($_REQUEST['path']) .'&arg='. urlencode($_REQUEST['arg']),
+    );
+  $links['coolaid-links-back'] = array(
+      'title' => t('Back to !path', array('!path' => $origin)),
+      'href' => $origin,
+    );
+  $output .= theme('links', $links);
+
+
+  return $output;
+}
+
+/**
+ * Form function to add/edit help message
+ */
+function coolaid_new_form($form_state, $hid = NULL) {
+
+  $form = array();
+
+  if (!is_null($hid)) {
+    $help = db_fetch_array(db_query("SELECT * FROM {coolaid_help} WHERE hid = %d", $hid));
+    $roles_query = db_query("SELECT r.role FROM {coolaid_roles} r WHERE hid = %d ORDER BY r.role", $hid);
+    $help['roles'] = array();
+    while ($role = db_result($roles_query)) {
+      $help['roles'][] = $role;
+    }
+    $form['coolaid_hid'] = array(
+      '#type' => 'value',
+      '#value' => $hid,
+    );
+  }
+
+  $form['coolaid_help_body'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Help message'),
+    '#default_value' => isset($help['help']) ? $help['help'] : '',
+    '#required' => TRUE,
+    '#rows' => 20,
+  );
+
+  $form['coolaid_format'] = filter_form($help['format']);
+
+  $path_choice_options = array();
+  $path_choice_options['path_arg'] = t('The exact path %path', array('%path' => urldecode($_REQUEST['arg'])));
+  if ($_REQUEST['arg'] != $_REQUEST['path']) {
+    $path_choice_options['path'] = t('Any path like %path', array('%path' => urldecode($_REQUEST['path'])));
+    $description = t('Choose between a URL path pattern containing % wildcards, or choose the specific URL path.');
+  }
+
+  $form['coolaid_path_choice'] = array(
+    '#type' => 'radios',
+    '#title' => t('Apply this help to'),
+    '#options' => $path_choice_options,
+    '#required' => TRUE,
+    '#description' => $description,
+    '#default_value' => (isset($path_choice_options['path']) && $path_choice_options['path'] == $help['path']) ? 'path' : 'path_arg',
+  );
+
+  $form['coolaid_destination'] = array(
+    '#type' => 'value',
+    '#value' => urldecode($_REQUEST['destination']),
+  );
+
+  $form['coolaid_path'] = array(
+    '#type' => 'value',
+    '#value' => urldecode($_REQUEST['path']),
+  );
+
+  $form['coolaid_arg'] = array(
+    '#type' => 'value',
+    '#value' => urldecode($_REQUEST['arg']),
+  );
+
+  $form['coolaid_role_choice'] = array(
+    '#type' => 'checkboxes',
+    '#title' => t('Show this help to'),
+    '#default_value' => isset($help['roles']) ? $help['roles'] : array_keys(user_roles()),
+    '#options' => user_roles(),
+    '#description' => t('Users in roles that are ticked here will be shown this help message.'),
+  );
+
+  $form['coolaid_weight'] = array(
+    '#type' => 'weight',
+    '#title' => t('Weight'),
+    '#default_value' => isset($help['weight']) ? array($help['weight']) :array('0'),
+    '#delta' => 10,
+    '#description' => t('Optional. Heavier items will sink and the lighter items will be positioned nearer the top.'),
+  );
+
+  $form['buttons']['submit'] = array('#type' => 'submit', '#value' => t('Save configuration') );
+
+  return $form;
+}
+
+/**
+ * Submit function to add/edit help message
+ */
+function coolaid_new_form_submit($form, &$form_state) {
+  $help = &$form_state['values']['coolaid_help_body'];
+  $destination = &$form_state['values']['coolaid_destination'];
+  $path = &$form_state['values']['coolaid_path'];
+  $arg = &$form_state['values']['coolaid_arg'];
+  $path_choice = &$form_state['values']['coolaid_path_choice'];
+  $role_choice = &$form_state['values']['coolaid_role_choice'];
+  $weight = &$form_state['values']['coolaid_weight'];
+  $format = &$form_state['values']['format'];
+
+  if (isset($form_state['values']['coolaid_hid'])) {
+    $hid = $form_state['values']['coolaid_hid'];
+    db_query("UPDATE {coolaid_help} SET help = '%s', path = '%s', weight = %d, format = %d WHERE hid = %d", array($help, ($path_choice == 'path' ? $path : $arg), $weight, $format, $hid));
+    db_query("DELETE FROM {coolaid_roles} WHERE hid = %d", $hid);
+  }
+  else {
+    db_query("INSERT INTO {coolaid_help} (help,path,weight,format) VALUES ('%s', '%s', %d, %d)", array($help, ($path_choice == 'path' ? $path : $arg), $weight, $format));
+    $hid = db_last_insert_id('coolaid_help', 'hid');
+  }
+
+  foreach ($role_choice as $rolekey => $role) {
+    if ($rolekey == $role) {
+      db_query("INSERT INTO {coolaid_roles} (hid,role) VALUES (%d, %d)", array($hid, $rolekey));
+    }
+  }
+
+  drupal_set_message(t('The !ca has been saved', array('!ca' => coolaid_name())));
+
+  drupal_goto('coolaid_admin?destination='. urlencode($destination) .'&path='. urlencode($path) .'&arg='. urlencode($arg));
+
+}
+
+/**
+ * Form function to delete help message
+ */
+function coolaid_delete_form($form_state, $hid) {
+  $form = array();
+
+  $form['hid'] = array('#type' => 'value', '#value' => $hid);
+
+  $form['coolaid_destination'] = array(
+    '#type' => 'value',
+    '#value' => urldecode($_REQUEST['destination']),
+  );
+
+  $form['coolaid_path'] = array(
+    '#type' => 'value',
+    '#value' => urldecode($_REQUEST['path']),
+  );
+
+  $form['coolaid_arg'] = array(
+    '#type' => 'value',
+    '#value' => urldecode($_REQUEST['arg']),
+  );
+
+  $message = db_fetch_array(db_query("SELECT * FROM {coolaid_help} h WHERE hid = %d", $hid));
+
+  drupal_set_message(check_markup($message['help'], $message['format'], FALSE));
+
+  return confirm_form($form,
+    t('Are you sure you want to delete the !ca?', array('!ca' => coolaid_name())),
+    array(
+      'path' => 'coolaid_admin',
+      'query' => 'destination='. $_REQUEST['destination'] .'&path='. $_REQUEST['path'] .'&arg='. $_REQUEST['arg'],
+    ),
+    t('This action cannot be undone.'),
+    t('Delete'), t('Cancel')
+  );
+
+}
+
+/**
+ * Submit function to delete help message
+ */
+function coolaid_delete_form_submit($form, &$form_state) {
+  $destination = &$form_state['values']['coolaid_destination'];
+  $path = &$form_state['values']['coolaid_path'];
+  $arg = &$form_state['values']['coolaid_arg'];
+  $id = &$form_state['values']['hid'];
+  db_query('DELETE FROM {coolaid_help} where hid = %d', $id);
+  db_query('DELETE FROM {coolaid_roles} where hid = %d', $id);
+  drupal_set_message(t('Deleted !ca', array('!ca' => coolaid_name())));
+  drupal_goto('coolaid_admin', 'destination='. urlencode($destination) .'&path='. urlencode($path) .'&arg='. urlencode($arg));
+}
+
+/**
+ * Getter function for coolaid_name variable
+ */
+function coolaid_name() {
+  return check_plain(variable_get('coolaid_name', 'Custom Help Message'));
+}
+
+/**
+ * Retrieve the admin link to append to help messages
+ */
+function coolaid_edit_links() {
+  $links = array();
+  if (user_access('administer cool aid')) {
+    $path = menu_tab_root_path();
+    $arg = implode('/', array_diff(drupal_help_arg(arg(NULL)), array('')));
+    $links[] = l(t('Administer !ca', array('!ca' => coolaid_name())), 'coolaid_admin',
+      array(
+        'attributes' => array(
+          'title' => t('Administer the help content of this page'),
+          'class' => 'coolaid-admin',
+        ),
+        'query' => drupal_get_destination() .'&path='. urlencode($path) .'&arg='. urlencode($arg),
+        'html' => TRUE,
+      )
+    );
+  }
+  return $links;
+}

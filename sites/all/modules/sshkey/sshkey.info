@@ -1,0 +1,12 @@
+name = "SSH public keys"
+description = "Allows users to associated public keys with their user accounts."
+core = 6.x
+php = 5.x
+files[] = sshkey.test
+
+; Information added by drupal.org packaging script on 2012-09-13
+version = "6.x-2.0"
+core = "6.x"
+project = "sshkey"
+datestamp = "1347551754"
+

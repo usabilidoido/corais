@@ -1,0 +1,83 @@
+<?php
+
+define('SHEETNODE_ETHERCALC_EDIT_ONLY', 1);
+define('SHEETNODE_ETHERCALC_EDIT_FIDDLE', 2);
+
+/**
+ * Implementation of hook_sheetnode_plugins().
+ */
+function sheetnode_ethercalc_sheetnode_plugins($value, $save_element, $context) {
+  // Only turn on Ethercalc if we're editing the node.
+  if (!empty($save_element) || 
+      (variable_get('sheetnode_ethercalc_mode', SHEETNODE_ETHERCALC_EDIT_ONLY) == SHEETNODE_ETHERCALC_EDIT_FIDDLE && variable_get('sheetnode_view_mode', SHEETNODE_VIEW_FIDDLE) == SHEETNODE_VIEW_FIDDLE)
+  ) {
+    $ethercalc_host = variable_get('sheetnode_ethercalc_host', '');
+    $ethercalc_port = variable_get('sheetnode_ethercalc_port', '8000');
+
+    $ethercalc_path = $GLOBALS['base_url'];
+    $ethercalc_path = preg_replace('/(:\\/\\/[^\\/]+).*/', '$1', $ethercalc_path, 1);
+    if ($ethercalc_port) {
+        $ethercalc_path = preg_replace('/(?:\:\d+)?$/', (':' . $ethercalc_port), $ethercalc_path, 1);
+    }
+    if ($ethercalc_host) {
+        $ethercalc_path = preg_replace('/^([^:]*)/', $ethercalc_host, $ethercalc_path, 1);
+    }
+    foreach (array(
+      'socket.io/socket.io.js#',
+      'zappa/zappa.js#',
+      'static/md5.js#',
+      'player/broadcast.js#',
+      'player/main.js#',
+    ) as $js) {
+      // http://www.zites.net/en/load-external-javascript-files-drupal-6
+      $external_js = $ethercalc_path . '/' . $js;
+      drupal_add_js('document.write(unescape("%3Cscript src=\''. $external_js .'\' type=\'text/javascript\'%3E%3C/script%3E"));', 'inline');
+    }
+  }
+}
+/**
+ * Implementation of hook_menu().
+ */
+function sheetnode_ethercalc_menu() {
+  $items = array();
+
+  $items['admin/settings/sheetnode/ethercalc'] = array(
+    'title' => 'EtherCalc',
+    'access arguments' => array('administer site configuration'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('_sheetnode_ethercalc_settings'),
+    'description' => 'Administer settings for Sheetnode EtherCalc.',
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+/**
+ * Form function for admin/settings/sheetnode/ethercalc.
+ */
+function _sheetnode_ethercalc_settings(&$form_state) {
+  $form['sheetnode_ethercalc_host'] = array(
+    '#type' => 'textfield',
+    '#title' => t('EtherCalc host'),
+    '#description' => t('Enter the domain name of the EtherCalc server. Leave blank to use same domain as your Drupal installation.'),
+    '#default_value' => variable_get('sheetnode_ethercalc_host', ''),
+  );
+  $form['sheetnode_ethercalc_port'] = array(
+    '#type' => 'textfield',
+    '#title' => t('EtherCalc port'),
+    '#description' => t('Enter the port of the EtherCalc server.'),
+    '#default_value' => variable_get('sheetnode_ethercalc_port', '8000'),
+  );
+  $form['sheetnode_ethercalc_mode'] = array(
+    '#type' => 'radios',
+    '#title' => t('Activate EtherCalc on'),
+    '#options' => array(
+      SHEETNODE_ETHERCALC_EDIT_ONLY => t('Edit mode only'),
+      SHEETNODE_ETHERCALC_EDIT_FIDDLE => t('Edit and fiddle modes'),
+    ),
+    '#default_value' => variable_get('sheetnode_ethercalc_mode', SHEETNODE_ETHERCALC_EDIT_ONLY),
+  );
+  return system_settings_form($form);
+}
+

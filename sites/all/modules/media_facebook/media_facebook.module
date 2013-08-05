@@ -1,0 +1,25 @@
+<?php
+// $Id: media_facebook.module,v 1.1 2010/12/06 13:45:46 njt1982 Exp $
+
+/**
+ * Implementation og hook_fbconnect_button_attr_alter().
+ */
+function media_facebook_fbconnect_button_attr_alter(&$attr) {
+  if (isset($attr['perms'])) {
+    $attr['perms'] .= ',user_photos';
+  }
+  else {
+    $attr['perms'] = 'user_photos';
+  }
+}
+
+/**
+ * Implementation of hook_emfield_providers().
+ */
+function media_facebook_emfield_providers($module, $provider = NULL) {
+  // This will return a listing of all provider files supported by the module. 
+  if ($module == 'emimage') {
+    return drupal_system_listing("$provider\.inc$", drupal_get_path('module', 'media_facebook') ."/providers/$module", 'name', 0);
+  }
+}
+

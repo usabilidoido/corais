@@ -1,0 +1,53 @@
+# $Id: xmlsitemap_taxonomy.nl.po,v 1.1.2.2 2009/07/11 10:28:05 hass Exp $
+#
+# LANGUAGE translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  xmlsitemap.module,v 1.1.2.5 2007/11/15 01:10:25 darrenoh
+#  xmlsitemap.info,v 1.1 2007/11/09 17:56:04 darrenoh
+#  xmlsitemap_engines.info,v 1.1 2007/11/09 17:56:05 darrenoh
+#  xmlsitemap_node.info,v 1.1 2007/11/09 17:56:05 darrenoh
+#  xmlsitemap_term.info,v 1.1 2007/11/09 17:56:05 darrenoh
+#  xmlsitemap_user.info,v 1.1 2007/11/09 17:56:05 darrenoh
+#  xmlsitemap_node.module,v 1.1.2.9 2007/11/19 22:13:24 darrenoh
+#  xmlsitemap_user.module,v 1.1.2.5 2007/11/19 19:20:43 darrenoh
+#  xmlsitemap.php,v 1.2 2007/11/09 18:44:49 darrenoh
+#  xmlsitemap_engines.module,v 1.1.2.1 2007/11/20 14:19:04 darrenoh
+#  xmlsitemap_term.module,v 1.1.2.4 2007/11/19 22:13:25 darrenoh
+msgid ""
+msgstr ""
+"Project-Id-Version: Dutch translation of xmlsitemap\n"
+"POT-Creation-Date: 2009-07-02 19:50+0200\n"
+"PO-Revision-Date: 2009-07-11 12:26+0100\n"
+"Last-Translator: Alexander Haß\n"
+"Language-Team: Hans Lodder\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Poedit-Language: Dutch\n"
+"X-Poedit-Country: NETHERLANDS\n"
+"X-Poedit-SourceCharset: utf-8\n"
+"X-Poedit-Basepath: D:\\15. Download\\Drupal\\05. Translations\n"
+
+#: xmlsitemap_taxonomy/xmlsitemap_taxonomy.module:83
+msgid "This will be the default priority of terms in this vocabulary."
+msgstr "Dit zal de standaard prioriteit zijn van termen in deze woordenschat."
+
+#: xmlsitemap_taxonomy/xmlsitemap_taxonomy.module:190
+#: xmlsitemap_taxonomy/xmlsitemap_taxonomy.info:0
+msgid "XML sitemap taxonomy"
+msgstr "XML sitemap taxonomy"
+
+#: xmlsitemap_taxonomy/xmlsitemap_taxonomy.module:191
+msgid "The module adds <a href=\"@terms\">taxonomy terms</a> (categories) to the sitemap. The term default priority may be changed while adding or editing vocabularies and the term default priority can be overridden while adding or editing terms."
+msgstr "De module voegt <a href=\"@terms\">taxonomy terms</a> (categories) toe aan het site overzicht. De term standaard prioriteit kan worden veranderd tijdens het toevoegen of wijzigen van de woordenschat, en ook tijdens het toevoegen of wijzigen van een term."
+
+#: xmlsitemap_taxonomy/xmlsitemap_taxonomy.module:0
+msgid "xmlsitemap_taxonomy"
+msgstr "xmlsitemap_taxonomy"
+
+#: xmlsitemap_taxonomy/xmlsitemap_taxonomy.info:0
+msgid "Add taxonomy term links to the sitemap."
+msgstr "Voeg woordenschat term links toe aan het site overzicht."
+

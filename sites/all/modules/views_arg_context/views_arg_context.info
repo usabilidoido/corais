@@ -1,0 +1,13 @@
+; $Id: views_arg_context.info,v 1.1.2.1 2010/02/18 15:33:21 brynbellomy Exp $
+name = Views Default Argument from Context
+description = Allows the default value for a Views argument to be specified through Context module data set using context_set.
+core = 6.x
+project = "Views"
+dependencies[] = views
+dependencies[] = context
+; Information added by drupal.org packaging script on 2010-10-25
+version = "6.x-1.3"
+core = "6.x"
+project = "views_arg_context"
+datestamp = "1288038647"
+

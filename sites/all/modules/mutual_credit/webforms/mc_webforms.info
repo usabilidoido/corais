@@ -1,0 +1,13 @@
+; $Id: mc_webforms.info,v 1.1.2.2 2010/12/06 13:19:46 hutch Exp $
+name = 3rd party exchange form
+description = Form to enter exchanges on behalf of other users (permission required). With ajax, multiple currencies and special theming.
+package = Mutual Credit
+core = "6.x"
+dependencies[] = mcapi
+
+; Information added by drupal.org packaging script on 2012-03-24
+version = "6.x-2.5"
+core = "6.x"
+project = "mutual_credit"
+datestamp = "1332592555"
+

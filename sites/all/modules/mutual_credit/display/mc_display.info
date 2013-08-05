@@ -1,0 +1,14 @@
+; $Id: mc_display.info,v 1.1.2.2 2010/12/15 22:04:04 matslats Exp $
+name = User displays
+description = Display balances and exchanges in tables, views and blocks
+package = Mutual Credit
+core = "6.x"
+dependencies[] = mcapi
+dependencies[] = views
+
+; Information added by drupal.org packaging script on 2012-03-24
+version = "6.x-2.5"
+core = "6.x"
+project = "mutual_credit"
+datestamp = "1332592555"
+

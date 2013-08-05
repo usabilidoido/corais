@@ -1,0 +1,142 @@
+/* $Id: imagepicker.css,v 1.8.2.8 2010/06/09 11:01:59 hutch Exp $ */
+/* $Name: DRUPAL-6--2-10 $ */
+
+#imgp {
+  clear: both;
+  padding-top: 10px;
+}
+.imgp_holder {
+  float: left;
+  margin: 10px;
+  border: 1px solid #cbd3d8;
+  width: 100px;
+  height: 100px;
+  text-align: center;
+  padding: 2px;
+}
+.imgp_holder a {
+  display: block;
+  height: 100px;
+  width: 100px;
+}
+.imgp_img_options {
+  width: 120px;
+  float: left;
+}
+.imgp_img_options .form-item {
+  margin-top: 0;
+}
+#imgp_img_holder {
+  float: left;
+  margin-right: 40px;
+  margin-left: 20px;
+}
+
+#imgp_desc_control {
+  clear: both;
+}
+
+#imgp_controls {
+  padding-top: 10px;
+  clear: both;
+}
+
+/* imagepicker page */
+#imgp_page {
+}
+#imgp_page_img {
+  text-align: center;
+  margin: 15px;
+}
+#imgp_page_description {
+}
+
+#imgp_page_returnlink {
+}
+
+#imgp_edit_form {
+  float: left;
+}
+#imgp_edit_form .form-item {
+  margin-top: 0;
+}
+#imgp_img_holder_title {
+  padding: 10px;
+  font-weight: bold;
+}
+#imgp_img_holder_description {
+  font-style: italic
+}
+#imgp_img_view {
+  margin: 15px 15px 15px 15px;
+}
+#imgp_img_view_title {
+  font-weight: bold;
+}
+#imgp_img_view_img {
+
+}
+#imgp_img_view_desc {
+  font-style: italic;
+}
+.imgp_help {
+  padding: 2px 0px 4px 4px;
+  margin-left: 20px;
+}
+
+.imgp_groups_list {
+  margin: 10px 0 10px 0;
+}
+.imgp_groups_info {
+  margin: 10px 0 20px 0;
+}
+
+#imgp_order_form {
+  margin: 8px 0px 8px 0px;
+}
+#imgp_groups_form {
+  margin: 8px 0px 8px 0px;
+}
+#imgp_search_form {
+  margin: 8px 0px 8px 0px;
+}
+#imgp_users_form {
+  margin: 8px 0px 8px 0px;
+}
+#imgp_browse_form {
+  margin: 8px 0px 8px 0px;
+}
+#imgp_quota_form {
+  margin: 8px 0px 8px 0px;
+}
+#imgp_copy_form {
+  margin: 8px 0px 8px 0px;
+}
+.imgp_imgs_list {
+  margin: 10px 0 10px 0;
+}
+
+.imgp_title {
+  font-weight: bold;
+
+}
+.imgp_desc {
+  font-style: italic;
+}
+
+#imgp_trig {
+  cursor: pointer;
+  color: #39c;
+}
+#imgp_targ {
+  display: none;
+}
+/* add this to your style.css to control the body of the imagepicker iframe */
+#imagepicker {
+
+}
+
+/* class for the inserted image container */
+.imgp_img {
+
+}

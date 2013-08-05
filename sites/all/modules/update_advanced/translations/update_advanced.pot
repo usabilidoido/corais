@@ -1,0 +1,90 @@
+# $Id: update_advanced.pot,v 1.1 2009/10/04 02:23:05 davereid Exp $
+#
+# LANGUAGE translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  update_advanced.settings.inc,v 1.6 2009/09/29 18:13:25 davereid
+#  update_advanced.module,v 1.6 2009/10/04 02:15:48 davereid
+#  update_advanced.info,v 1.1 2007/07/11 16:07:00 dww
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2009-10-03 21:21-0500\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Last-Translator: NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: update_advanced.settings.inc:15
+msgid "Check for updates of disabled modules and themes"
+msgstr ""
+
+#: update_advanced.settings.inc:38
+msgid "These settings allow you to control if a certain project, or even a specific release of that project, should be ignored by the available updates report.  For each project, you can select if it should always warn you about a newer release, never warn you (ignore the project completely), or ignore a specific available release you do not want to upgrade to. You can also specify a note explaining why you are ignoring a specific project or version, and that will be displayed on the available updates report."
+msgstr ""
+
+#: update_advanced.settings.inc:51
+msgid "Always"
+msgstr ""
+
+#: update_advanced.settings.inc:53
+msgid "Ignore @version"
+msgstr ""
+
+#: update_advanced.settings.inc:55
+msgid "Never"
+msgstr ""
+
+#: update_advanced.settings.inc:86
+msgid "Project"
+msgstr ""
+
+#: update_advanced.settings.inc:88
+msgid "Warn if out of date"
+msgstr ""
+
+#: update_advanced.settings.inc:91
+msgid "Notes"
+msgstr ""
+
+#: update_advanced.settings.inc:122
+msgid "Drupal core"
+msgstr ""
+
+#: update_advanced.settings.inc:123
+msgid "Modules"
+msgstr ""
+
+#: update_advanced.settings.inc:124
+msgid "Themes"
+msgstr ""
+
+#: update_advanced.settings.inc:125
+msgid "Disabled modules"
+msgstr ""
+
+#: update_advanced.settings.inc:126
+msgid "Disabled themes"
+msgstr ""
+
+#: update_advanced.module:66
+msgid "Ignored from settings"
+msgstr ""
+
+#: update_advanced.module:70
+msgid "Administrator note"
+msgstr ""
+
+#: update_advanced.info:0
+msgid "Update status advanced settings"
+msgstr ""
+
+#: update_advanced.info:0
+msgid "Adds advanced settings and extra functionality to the Update status module in core."
+msgstr ""
+

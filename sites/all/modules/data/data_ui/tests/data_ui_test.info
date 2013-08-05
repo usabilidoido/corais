@@ -1,0 +1,12 @@
+name = "Data UI module tests"
+description = "Test module for Data UI testing."
+package = Testing
+version = VERSION
+core = 6.x
+hidden = TRUE
+; Information added by drupal.org packaging script on 2012-03-06
+version = "6.x-1.1"
+core = "6.x"
+project = "data"
+datestamp = "1331073948"
+

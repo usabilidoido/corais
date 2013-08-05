@@ -1,0 +1,1091 @@
+<?php
+
+/**
+ * @file
+ *
+ * Make Meeting module
+ */
+
+/**
+ * Implements hook_theme().
+ */
+function makemeeting_theme() {
+  return array(
+    'makemeeting_calendarselector' => array(
+      'arguments' => array('element' => NULL),
+      'template' => 'makemeeting-calendarselector'
+    ),
+    'makemeeting_pollpanel' => array(
+      'arguments' => array('element' => NULL),
+      'template' => 'makemeeting-pollpanel'
+    ),
+    'makemeeting_showpoll_theme' => array(
+      'arguments' => array('node' => NULL, 'showpoll_form' => NULL),
+      'template' => 'makemeeting-showpoll'
+    ),
+    'makemeeting_poll_admin' => array(
+      'arguments' => array('node' => NULL, 'admin_form' => NULL),
+      'template' => 'makemeeting-poll-admin'
+    ),
+    'makemeeting_logpage' => array(
+      'arguments' => array('rows' => NULL),
+      'template' => 'makemeeting-logpage'
+    ),
+    'makemeeting_mypage' => array(
+      'arguments' => array('data' => NULL),
+      'template' => 'makemeeting-mypage'
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function makemeeting_menu() {
+  $items['admin/settings/makemeeting'] = array(
+    'title' => 'MakeMeeting',
+    'description' => 'Main admin panel for Make Meeting modul',
+    'page callback' => 'makemeeting_admin_frontpage',
+    'page arguments' => array(),
+    'access arguments' => array('administer site configuration'),
+    'file' => 'makemeeting.admin.inc',
+  );
+
+  $items['makemeeting'] = array(
+    'title' => 'Info page',
+    'description' => 'The module information page',
+    'page callback' => 'makemeeting_infopage',
+    'access arguments' => array('show poll'),
+    'file' => 'makemeeting.pages.inc',
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['makemeeting/%'] = array(
+    'title' => 'Question page',
+    'description' => 'Make a vote on the question',
+    'page callback' => 'makemeeting_show_pollpage',
+    'page arguments' => array(1),
+    'access arguments' => array('show poll'),
+    'file' => 'makemeeting.pages.inc',
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['makemeeting/%/log'] = array(
+    'title' => 'Log page',
+    'description' => 'Show logs',
+    'page callback' => 'makemeeting_logpage',
+    'page arguments' => array(1),
+    'access arguments' => array('show poll'),
+    'file' => 'makemeeting.pages.inc',
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['makemeeting/%/sendfw'] = array(
+    'title' => 'Send forward',
+    'description' => 'Send the url to your friends',
+    'page callback' => 'makemeeting_sendfw',
+    'page arguments' => array(1),
+    'access arguments' => array('show poll'),
+    'file' => 'makemeeting.pages.inc',
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['makemeeting/mypage'] = array(
+    'title' => 'My polls',
+    'description' => 'List of my polls',
+    'page callback' => 'makemeeting_mypage',
+    'access arguments' => array('show own polls'),
+    'file' => 'makemeeting.pages.inc',
+    'type' => MENU_SUGGESTED_ITEM,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_perm().
+ */
+function makemeeting_perm() {
+  return array(
+    'show poll',
+    'show own polls',
+    'create poll',
+    'delete poll'
+  );
+}
+
+/**
+ * Implements hook_elements().
+ *
+ * Custom form elements: calendarselector and pollpanel
+ */
+function makemeeting_elements() {
+  $type = array();
+  $type['makemeeting_calendarselector'] = array(
+    '#input' => TRUE,
+    '#process' => array('makemeeting_calendarselector_process'),
+    '#description' => '',
+    '#attributes' => array(
+      'selected_dates_and_options' => array()
+    ),
+  );
+
+  $type['makemeeting_pollpanel'] = array(
+    '#input' => TRUE,
+    '#process' => array('makemeeting_pollpanel_process'),
+    '#description' => '',
+    '#attributes' => array(
+      'dates_and_options' => array(),
+      'answers' => NULL,
+      'multiple_allowed' => NULL,
+      'maybe_option' => NULL,
+      'secure' => NULL
+    ),
+  );
+
+  return $type;
+}
+
+/**
+ * makemeeting_calendarselector_process()
+ *
+ * @return
+ */
+function makemeeting_calendarselector_process($element, $form_state) {
+
+  // collecting the selected date and options from the posted form
+  // and put it into the calendar element's 'value' field
+  $day_options = array();
+  $days = array();
+
+  // using preg_match to indentifing and collecting dynamicly created input fields
+  foreach ($element['#post'] as $k => $v) {
+    preg_match("/(day_)(\d+)/i", $k, $matches_day);
+    if (!empty($matches_day)) {
+      $days[] = $v;
+      $day_options[$v] = array();
+    }
+  }
+
+  foreach ($element['#post'] as $k => $v) {
+    preg_match("/(day_option_)(\d+)(_)(\d+)/i", $k, $matches_options);
+    if (!empty($matches_options)) {
+      $field_name = $element['#post']['day_' . $matches_options[2]];
+      $day_options[$field_name][] = $v;
+    }
+  }
+  $element['#value'] = $day_options;
+
+  // adding custon javascript and css
+  drupal_add_js(drupal_get_path('module', 'makemeeting') . '/jcalendar-source.js');
+  drupal_add_css(drupal_get_path('module', 'makemeeting') . '/jcalendar.css');
+  return $element;
+}
+
+/**
+ * makemeeting_pollpanel_process()
+ *
+ * @return
+ */
+function makemeeting_pollpanel_process($element, $form_state) {
+
+  // processing posted datas
+  if ($element['#attributes']['maybe_option'] == 1 || $element['#attributes']['multiple_allowed'] == 1) {
+    $alter_ids = array();
+    // collects the alter_ids and the vote values
+    foreach ($element['#post'] as $k => $v) {
+      preg_match("/(option_)(\d+)/", $k, $matches);
+      if (is_numeric($matches[2]))
+        $alter_ids[$matches[2]] = $v;
+    }
+  }
+  else {
+    $alter_ids = array();
+    // collect only the alter_ids
+    foreach ($element['#post'] as $k => $v)
+      if (preg_match("/option_/i", $k))
+        $alter_ids[] = $v;
+  }
+  $element['#value']['alter_ids'] = $alter_ids;
+  $element['#value']['name'] = $element['#post']['your_name'];
+
+  // adding custon css
+
+  drupal_add_css(drupal_get_path('module', 'makemeeting') . '/pollpanel.css');
+  return $element;
+}
+
+
+/**
+ * Implements hook_form_alter().
+ *
+ * Remove preview button from makemeeting_node new form
+ */
+function makemeeting_form_alter($form_id, &$form) {
+  switch ($form_id['form_id']['#value']) {
+    case 'makemeeting_node_form':
+      unset($form_id['buttons']['preview']);
+      break;
+  }
+}
+
+/**
+ * node_info implementation
+ */
+function makemeeting_node_info() {
+  return array(
+    'makemeeting' => array(
+      'name' => t('Schedule an event'),
+      'module' => 'node_makemeeting',
+      'description' => t("Create a poll for a business lunch, a meeting or a movie night."),
+      'has_title' => TRUE,
+      'title_label' => t('Your question'),
+      'has_body' => TRUE,
+      'body_label' => t('Add some description'),
+    )
+  );
+}
+
+/**
+ * Implements node_access().
+ */
+function node_makemeeting_access($op, $node, $account) {
+  if ($op == 'create') {
+    return user_access('create poll', $account);
+  }
+
+  // disabling the edit page: we don't give access to any user
+  // reason: we're using custom urls to update the nodes, and only
+  // the owner of the poll has the custom admin url
+  if ($op == 'update') {
+    return FALSE;
+  }
+
+  if ($op == 'delete') {
+    if (user_access('delete poll', $account) && ($account->uid == $node->uid)) {
+      return TRUE;
+    }
+  }
+}
+
+/**
+ * Implements node_form().
+ */
+function node_makemeeting_form(&$node) {
+  GLOBAL $user;
+
+  $type = node_get_types('type', $node);
+
+  if ($type->has_title) {
+    $form['title'] = array(
+      '#type' => 'textfield',
+      '#title' => check_plain($type->title_label),
+      '#required' => TRUE,
+      '#default_value' => $node->title,
+      '#weight' => -5
+    );
+  }
+
+  if ($type->has_body) {
+    $form['body'] = array(
+      '#type' => 'textarea',
+      '#title' => check_plain($type->body_label),
+      '#default_value' => $node->body,
+      '#rows' => 5
+    );
+  }
+
+  if ((isset($node->nid) && $node->uid == 0) || $user->uid == 0) {
+    $form['anonym'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Add your name and email'),
+      '#tree' => TRUE,
+    );
+
+    $form['anonym']['user_name'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Your name'),
+      '#maxlength' => 100,
+      '#description' => t('This is optional.'),
+    );
+
+    $form['anonym']['user_email'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Your e-mail'),
+      '#description' => t('This is optional, too. But if you add, we can send e-mail notification after every valid vote.'),
+      '#maxlength' => 100,
+    );
+  }
+
+  // transform the days_and_options array to the structure required by the theme funcion
+  if (is_array($node->days_and_options)) {
+    $attributes = array();
+    $i = 1;
+    foreach ($node->days_and_options as $days => $options_array) {
+      $start_day = strpos($days, "_");
+      $day_str = substr($days, $start_day + 1);
+      $day_id = substr($days, 0, $start_day);
+
+      $attributes['date_' . $i] = $day_str;
+
+      foreach ($options_array as $k => $option) {
+        $start_option = strpos($option, "_");
+        $option_id = substr($option, 0, $start_option);
+        $option_str = substr($option, $start_option + 1);
+
+        $attributes['option_' . $i][] = $option_str;
+      }
+      $i++;
+    }
+  }
+  else {
+    // initializing data for dates and options (options are empty)
+    $attributes = array(
+      'date_1' => date("Y-m-d"),
+      'option_1' => array("", "")
+    );
+  }
+
+  $form['calendar'] = array(
+    '#type' => 'makemeeting_calendarselector',
+    '#title' => t('Calendar test'),
+    '#description' => t('Use the calendar above to select the days, then add the options for the days. For example select the day of tomorrow and add "AM", "PM" as options. You can use only upcoming days.'),
+    '#default_value' => $attributes,
+    '#attributes' => array('selected_dates_and_options' => $attributes),
+  );
+
+  $form['poll_options'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Scheduler options'),
+    '#tree' => TRUE,
+  );
+
+  $form['poll_options']['secure'] = array(
+    '#type' => 'radios',
+    '#title' => t('Show previous votes'),
+    '#description' => t("Deny new voters to see the previous votes."),
+    '#options' => array('0' => t('Yes'), '1' => t('No')),
+    '#default_value' => isset($node->secure) ? $node->secure : 0,
+  );
+
+  $form['poll_options']['maybe_option'] = array(
+    '#type' => 'radios',
+    '#title' => t('Maybe option'),
+    '#description' => t("Voters can select maybe as answer too."),
+    '#options' => array('0' => t('Disabled'), '1' => t('Enabled')),
+    '#default_value' => isset($node->maybe_option) ? $node->maybe_option : 0,
+  );
+
+  $form['poll_options']['multiple_allowed'] = array(
+    '#type' => 'radios',
+    '#title' => t('Multiple option is selectable per answers.'),
+    '#options' => array('0' => t('Disabled'), '1' => t('Enabled')),
+    '#default_value' => isset($node->multiple_allowed) ? $node->multiple_allowed : 0,
+  );
+
+  $form['email'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('E-mail notification')
+  );
+
+  $form['email']['email_notification'] = array(
+    '#type' => 'radios',
+    '#title' => t('Send me an e-mail after every valid vote'),
+    '#options' => array('1' => t('Yes'), '0' => t('No')),
+    '#default_value' => isset($node->email_notification) ? $node->email_notification : 1,
+  );
+
+  return $form;
+}
+
+
+/**
+ * Implements node_validate().
+ */
+function node_makemeeting_validate(&$node) {
+}
+
+/**
+ * node_insert implementation
+ */
+function node_makemeeting_insert($node) {
+  GLOBAL $user;
+  //  print_r($node);
+
+  // poll_head
+  // generate the poll urls and save them
+  $poll_url = makemeeting_keygen(10);
+  while (db_result(db_query("SELECT COUNT(*) FROM {makemeeting_poll_heads} WHERE url = '%s'", $poll_url)) > 0)
+    $poll_url = makemeeting_keygen(10);
+
+  $admin_url = makemeeting_keygen(25);
+  while (db_result(db_query("SELECT COUNT(*) FROM {makemeeting_poll_heads} WHERE url = '%s'", $admin_url)) > 0)
+    $admin_url = makemeeting_keygen(25);
+
+  // save the poll options
+  db_query("INSERT INTO {makemeeting_poll_heads}
+    (nid, vid, uid, anonym_name, anonym_email, email_notification, poll_type, url, admin_url, multiple_allowed, secure, maybe_option)
+      VALUES
+    ('%d', '%d', '%d', '%s', '%s', '%d', '%d', '%s', '%s', '%d', '%d', '%d')",
+           $node->nid, $node->vid, $user->uid, $node->anonym['user_name'], $node->anonym['user_email'], $node->email_notification, 1, $poll_url, $admin_url, $node->poll_options['multiple_allowed'], $node->poll_options['secure'], $node->poll_options['maybe_option']);
+
+  // we get the selected dates and options in $node->calendar
+  // collecting the form datas in makemeeting_calendarselector_process()
+  foreach ($node->calendar as $day => $options_array) {
+    db_query("INSERT INTO {makemeeting_poll_rows} (nid, answer_text, type) VALUES (%d, '%s', %d)", $node->nid, $day, 1);
+    $answer_id = db_result(db_query("SELECT MAX(answer_id) FROM {makemeeting_poll_rows}"));
+
+    foreach ($options_array as $option)
+      db_query("INSERT INTO {makemeeting_poll_alters (answer_id, alter_text) VALUES (%d, '%s')", $answer_id, $option);
+  }
+
+  // setting the output texts: the url of the poll page and the admin page
+  drupal_set_message(l(t("Poll page URL: !url", array("!url" => url('makemeeting/' . $poll_url, array("absolute" => TRUE)))), "makemeeting/" . $poll_url));
+  drupal_set_message(l(t("Admin page URL: !url", array("!url" => url('makemeeting/' . $admin_url, array("absolute" => TRUE)))), "makemeeting/" . $admin_url));
+
+  // send an email message
+  $mail = "";
+  if ($user->uid > 0 && valid_email_address($user->mail)) {
+    $mail = $user->mail;
+  }
+  elseif (valid_email_address($node->anonym['user_email'])) {
+    $mail = $node->anonym['user_email'];
+  }
+
+  if ($mail != "") {
+    if ($user->uid > 0) {
+      $name = $user->name;
+    }
+    elseif (isset($node->anonym['user_name'])) {
+      $name = $node->anonym['user_name'];
+    }
+    else {
+      t("user");
+    }
+
+    $params = array(
+      "name" => $name,
+      "poll_url" => $poll_url,
+      "admin_url" => $admin_url
+    );
+    drupal_mail('makemeeting', 'create_new_poll', $mail, language_default(), $params);
+  }
+}
+
+/**
+ * Implements node_update().
+ */
+function node_makemeeting_update($node) {
+  // do nothing here
+  // reason: we using custom urls to update the poll
+}
+
+/**
+ * Implements node_nodeapi().
+ */
+function node_makemeeting_nodeapi(&$node, $op, $teaser, $page) {
+  switch ($op) {
+    case 'delete revision':
+      db_query('DELETE FROM {makemeeting_poll_heads} WHERE vid = %d', $node->vid);
+      break;
+  }
+}
+
+/**
+ * Implements node_delete().
+ */
+function node_makemeeting_delete($node) {
+  $res = db_query("SELECT answer_id FROM {makemeeting_poll_rows} WHERE nid = %d", $node->nid);
+  while ($answer_id_row = db_fetch_array($res))
+    db_query("DELETE FROM {makemeeting_poll_alters} WHERE answer_id = %d", $answer_id_row['answer_id']);
+
+  db_query("DELETE FROM {makemeeting_poll_rows} WHERE nid = %d", $node->nid);
+  db_query("DELETE FROM {makemeeting_poll_heads} WHERE nid = %d", $node->nid);
+  db_query("DELETE FROM {makemeeting_poll_votes} WHERE poll_id = %d", $node->nid);
+}
+
+/**
+ * Implements node_load().
+ */
+function node_makemeeting_load($node) {
+
+  // load the poll days and options
+  $days_and_options = array();
+
+  $poll_head = db_fetch_array(db_query("SELECT * FROM {makemeeting_poll_heads} WHERE nid = %d", $node->nid));
+
+  $answer_result = db_query("SELECT * FROM {makemeeting_poll_rows} WHERE nid = %d ORDER BY answer_id", $node->nid);
+
+  while ($answer_row = db_fetch_array($answer_result)) {
+    $options_result = db_query("SELECT * FROM {makemeeting_poll_alters} WHERE answer_id = %d ORDER BY alter_id", $answer_row['answer_id']);
+    while ($options_row = db_fetch_array($options_result)) {
+      $days_and_options[$answer_row['answer_id'] . "_" . $answer_row['answer_text']][] = $options_row['alter_id'] . "_" . $options_row['alter_text'];
+    }
+  }
+
+  // load answers
+  $answers = array();
+  $votes_result = db_query("SELECT * FROM {makemeeting_poll_votes} WHERE poll_id = %d ORDER BY dt", $node->nid);
+  while ($votes_row = db_fetch_array($votes_result)) {
+    $answers[$votes_row['user_name']][$votes_row['answer_id']] = $votes_row['answer_value'];
+  }
+
+  return array(
+    "days_and_options" => $days_and_options,
+    "answers" => $answers,
+    "poll_type" => $poll_head['poll_type'],
+    "poll_url" => $poll_head['url'],
+    "poll_admin_url" => $poll_head['admin_url'],
+    "anonym_name" => $poll_head['anonym_name'],
+    "anonym_email" => $poll_head['anonym_email'],
+    "email_notification" => $poll_head['email_notification'],
+    "secure" => $poll_head['secure'],
+    "multiple_allowed" => $poll_head['multiple_allowed'],
+    "maybe_option" => $poll_head['maybe_option'],
+  );
+}
+
+/**
+ * If $teaser is TRUE, we return empty string, so we can hide the poll body
+ * from the list site/node.
+ */
+function node_makemeeting_view($node, $teaser = FALSE, $page = FALSE) {
+
+  unset($node->title);
+  $node = node_prepare($node, $teaser);
+
+  $node->content['poll_panel'] = array(
+    "#value" => theme("makemeeting_showpoll_theme", $node, drupal_get_form('makemeeting_pollpanel_form', $node)),
+    "#weight" => 1
+  );
+
+  if ($teaser || $page) {
+    unset($node->content);
+  }
+  elseif (!preg_match("/" . $node->poll_url . "/i", request_uri())) {
+    unset($node->content);
+  }
+
+  return $node;
+}
+
+/**
+ * hook_nodeapi implementation
+ */
+function makemeeting_nodeapi(&$node, $op, $arg) {
+  switch ($op) {
+    case 'load':
+      break;
+  }
+}
+
+/**
+ * The poll panel form
+ */
+function makemeeting_pollpanel_form(&$form_state, $node) {
+  $form['add_your_vote'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Add your vote'),
+    '#tree' => TRUE
+  );
+
+  $form['add_your_vote']['pollpanel'] = array(
+    '#type' => 'makemeeting_pollpanel',
+    '#attributes' => array(
+      'days_and_options' => $node->days_and_options,
+      'answers' => $node->answers,
+      'multiple_allowed' => $node->multiple_allowed,
+      'maybe_option' => $node->maybe_option,
+      'secure' => $node->secure
+    ),
+    '#description' => t('Choose your name and select the answers.'),
+  );
+
+  $form['node_id'] = array(
+    '#type' => 'value',
+    '#value' => $node->nid
+  );
+
+  $form['poll_url'] = array(
+    '#type' => 'value',
+    '#value' => $node->poll_url
+  );
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit')
+  );
+
+  return $form;
+}
+
+/**
+ * pollpanel_form validate function
+ */
+function makemeeting_pollpanel_form_validate($form, &$form_state) {
+  $node = node_load($form_state['values']['node_id']);
+
+  if ($form_state['values']['poll_url'] != $node->poll_url) {
+    form_set_error('add_your_vote', t('Hacking attempt.'));
+  }
+  if ($form_state['clicked_button']['#post']['your_name'] == "") {
+    form_set_error('pollpanel', t('You must enter your name.'));
+  }
+}
+
+/**
+ * pollpanel_form submit function
+ */
+function makemeeting_pollpanel_form_submit($form, &$form_state) {
+  $node = node_load($form_state['values']['node_id']);
+
+  if ($node->maybe_option == 1 || $node->multiple_allowed == 1) {
+    // we using $vote_value here
+    foreach ($form_state['values']['add_your_vote']['pollpanel']['alter_ids'] as $alter_id => $vote_value) {
+      db_query("INSERT INTO {makemeeting_poll_votes} (user_name, poll_id, answer_id, answer_value, dt) VALUES ('%s', %d, %d, %d, %d)", $form_state['values']['add_your_vote']['pollpanel']['name'], $node->nid, $alter_id, $vote_value, time());
+    }
+  }
+  else {
+    // $vote_value is 1 here -> checked is yes
+    foreach ($form_state['values']['add_your_vote']['pollpanel']['alter_ids'] as $alter_id) {
+      db_query("INSERT INTO {makemeeting_poll_votes} (user_name, poll_id, answer_id, answer_value, dt) VALUES ('%s', %d, %d, %d, %d)", $form_state['values']['add_your_vote']['pollpanel']['name'], $node->nid, $alter_id, 1, time());
+    }
+  }
+
+  // log
+  makemeeting_insert_log($node->nid, $form_state['values']['add_your_vote']['pollpanel']['name']);
+
+  // send notification email
+  if ($node->email_notification == 1) {
+    // if anonym and has valid email address
+    if ($node->uid == 0) {
+      if (valid_email_address($node->user_email)) {
+        $params = array(
+          'name' => $node->user_name == "" ? t("user") : $node->user_name,
+          'poll_url' => $node->poll_url);
+
+        drupal_mail('makemeeting', 'new_vote', $node->user_mail, language_default(), $params);
+      }
+    }
+    else {
+      // if registered and has valid email address
+      $account = user_load(array("uid" => $node->uid));
+      if (valid_email_address($account->mail)) {
+        $params = array(
+          'name' => $account->name,
+          'poll_url' => $node->poll_url
+        );
+
+        drupal_mail('makemeeting', 'new_vote', $node->user_mail, user_preferred_language($account), $params);
+      }
+    }
+  }
+
+  drupal_set_message(t("Succesfull."));
+  return;
+}
+
+/**
+ * hook_mail implementation
+ */
+function makemeeting_mail($key, &$message, $params) {
+  $language = $message['language'];
+  switch ($key) {
+
+    // send to friends the poll link
+
+    case 'refer':
+      $variables = array(
+        '!site' => variable_get('site_name', 'Drupal'),
+        '!nickname' => $params['name'],
+        '!poll_owner' => $params['owner_name'],
+        '!poll_link' => url('makemeeting/' . $params['poll_url'], array("absolute" => TRUE))
+      );
+
+      $message['subject'] = t('Please vote at !site', $variables, $language->language);
+      $message['body'] =
+              t('Dear !nickname,
+
+please follow the link below to answer the question of !poll_owner.
+
+!poll_link
+
+Greetings,
+!site', $variables, $language->language);
+
+      break;
+
+    // send notify to poll owner
+
+    case 'new_vote':
+      $variables = array(
+        '!name' => $params['name'],
+        '!site' => variable_get('site_name', 'Drupal'),
+        '!poll_link' => url('makemeeting/' . $params['poll_url'], array("absolute" => TRUE))
+      );
+
+      $message['subject'] = t('New vote on !site', $variables, $language->language);
+      $message['body'] =
+              t('Dear !name,
+
+somebody voted on your poll!
+Check it at the following link:
+
+!poll_link', $variables, $language->language);
+      break;
+
+    case 'create_new_poll':
+      $variables = array(
+        '!name' => $params['name'],
+        '!site' => variable_get('site_name', 'Drupal'),
+        '!poll_link' => url('makemeeting/' . $params['poll_url'], array("absolute" => TRUE)),
+        '!admin_link' => url('makemeeting/' . $params['admin_url'], array("absolute" => TRUE))
+      );
+
+      $message['subject'] = t('Created new poll');
+      $message['body'] =
+              t("Dear !name,
+
+your poll created successfull!
+Your poll's link are the following:
+
+Poll link: !poll_link
+Admin link: !admin_link", $variables, $language->language);
+      break;
+  }
+
+}
+
+/**
+ * makemeeting_insert_log()
+ *
+ * @return void
+ */
+function makemeeting_insert_log($nid, $username) {
+  db_query("INSERT INTO {makemeeting_poll_logs} (nid, username, dt) VALUES (%d, '%s', NOW())", $nid, $username);
+}
+
+/**
+ * makemeeting_update_poll()
+ *
+ * @return
+ */
+function makemeeting_update_poll(&$form_state, $node) {
+  $type = node_get_types('type', $node);
+
+  if ($type->has_title) {
+    $form['title'] = array(
+      '#type' => 'textfield',
+      '#title' => check_plain($type->title_label),
+      '#required' => TRUE,
+      '#default_value' => $node->title,
+      '#weight' => -5
+    );
+  }
+
+  if ($type->has_body) {
+    //$form['body_field'] = node_body_field($node, $type->body_label, $type->min_word_count);
+
+    $form['body'] = array(
+      '#type' => 'textarea',
+      '#title' => check_plain($type->body_label),
+      '#default_value' => $node->body,
+      '#rows' => 5
+    );
+  }
+
+  if (isset($node->nid) && $node->uid == 0) {
+    $form['anonym'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Add your name and email'),
+      '#tree' => TRUE,
+    );
+
+    $form['anonym']['user_name'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Your name'),
+      '#maxlength' => 100,
+      '#default_value' => check_plain($node->anonym_name),
+      '#description' => t('This is optional.'),
+    );
+
+    $form['anonym']['user_email'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Your e-mail'),
+      '#description' => t('This is optional, too. But if you add, we can send e-mail notification after every valid vote.'),
+      '#default_value' => check_plain($node->anonym_email),
+      '#maxlength' => 100,
+    );
+  }
+
+  // translate the collected db datas into node data
+  if (is_array($node->days_and_options)) {
+    $attributes = array();
+    $i = 1;
+    foreach ($node->days_and_options as $days => $options_array) {
+      $start_day = strpos($days, "_");
+      $day_str = substr($days, $start_day + 1);
+      $day_id = substr($days, 0, $start_day);
+
+      $attributes['date_' . $i] = $day_str;
+
+      foreach ($options_array as $k => $option) {
+        $start_option = strpos($option, "_");
+        $option_id = substr($option, 0, $start_option);
+        $option_str = substr($option, $start_option + 1);
+
+        $attributes['option_' . $i][] = $option_str;
+      }
+      $i++;
+    }
+  }
+  else {
+    $attributes = array(
+      'date_1' => date("Y-m-d"),
+      'option_1' => array("", "")
+    );
+  }
+
+  $form['calendar'] = array(
+    '#type' => 'makemeeting_calendarselector',
+    '#title' => t('Calendar test'),
+    '#description' => t('Use the calendar above to select the days, then add the options for the days. For example select the day of tomorrow and add "AM", "PM" as options. You can use only upcoming days.'),
+    '#attributes' => array('selected_dates_and_options' => $attributes),
+  );
+
+  $form['poll_options'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Scheduler options'),
+    '#tree' => TRUE,
+  );
+
+  $form['poll_options']['secure'] = array(
+    '#type' => 'radios',
+    '#title' => t('Show previous votes'),
+    '#description' => t("Deny new voters to see the previous votes."),
+    '#options' => array('0' => t('Yes'), '1' => t('No')),
+    '#default_value' => isset($node->secure) ? $node->secure : 0,
+  );
+
+  $form['poll_options']['maybe_option'] = array(
+    '#type' => 'radios',
+    '#title' => t('Maybe option'),
+    '#description' => t("Voters can select maybe as answer too."),
+    '#options' => array('0' => t('Disabled'), '1' => t('Enabled')),
+    '#default_value' => isset($node->maybe_option) ? $node->maybe_option : 0,
+  );
+
+  $form['poll_options']['multiple_allowed'] = array(
+    '#type' => 'radios',
+    '#title' => t('Multiple option is selectable per answers.'),
+    '#options' => array('0' => t('Disabled'), '1' => t('Enabled')),
+    '#default_value' => isset($node->multiple_allowed) ? $node->multiple_allowed : 0,
+  );
+
+  $form['email'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('E-mail notification')
+  );
+
+  $form['email']['email_notification'] = array(
+    '#type' => 'radios',
+    '#title' => t('Send me an e-mail after every valid vote'),
+    '#options' => array('1' => t('Yes'), '0' => t('No')),
+    '#default_value' => isset($node->email_notification) ? $node->email_notification : 0,
+  );
+
+  $form['poll_admin_url'] = array(
+    '#type' => 'value',
+    '#value' => $node->poll_admin_url
+  );
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit')
+  );
+
+  return $form;
+}
+
+/**
+ * makemeeting_update_poll_submit()
+ *
+ * @return void
+ */
+function makemeeting_update_poll_submit($form, &$form_state) {
+  // poll head
+  $node_id = db_result(db_query("SELECT nid FROM {makemeeting_poll_heads} WHERE admin_url = '%s'", $form_state['values']['poll_admin_url']));
+  $node = node_load($node_id);
+
+  // save node options
+  $node->title = $form_state['values']['title'];
+  $node->body = $form_state['values']['body'];
+  node_save($node);
+
+  // save poll options
+  db_query("UPDATE {makemeeting_poll_heads} SET anonym_name = '%s', anonym_email = '%s', email_notification = %d, multiple_allowed = %d, secure = %d, maybe_option = %d WHERE nid = %d", $form_state['values']['anonym']['user_name'], $form_state['values']['anonym']['user_email'], $form_state['values']['email_notification'], $form_state['values']['poll_options']['multiple_allowed'], $form_state['values']['poll_options']['secure'], $form_state['values']['poll_options']['maybe_option'], $node_id);
+
+  // days and options
+
+  // collect the ids of the days which are already in the db
+  $days_ids_result = db_query("SELECT answer_id FROM {makemeeting_poll_rows} WHERE nid = %d", $node->nid);
+  $days_ids = array();
+  while ($row = db_fetch_array($days_ids_result))
+    $days_ids[] = $row['answer_id'];
+
+  // insert and update days and options datas
+
+  $i = 0;
+  foreach ($form_state['values']['calendar'] as $day => $options_array) {
+    // get the first id in the db
+    $current_answer_id = $days_ids[$i++];
+
+    // if we have an option in this position, we updating it
+    if ($current_answer_id > 0) {
+      db_query("UPDATE {makemeeting_poll_rows} SET answer_text = '%s' WHERE answer_id = %d", $day, $current_answer_id);
+      $answer_id = $current_answer_id;
+    }
+    else {
+      // else we insert a new row with the new day
+      db_query("INSERT INTO {makemeeting_poll_rows} (nid, answer_text, type) VALUES (%d, '%s', %d)", $node->nid, $day, 1);
+      $answer_id = db_result(db_query("SELECT MAX(answer_id) FROM {makemeeting_poll_rows}"));
+    }
+    // at here we have in $answer_id the acutal day, so we updating the day's option
+
+    // the method is the same
+    // collecting the options ids for the day
+    $options_ids_result = db_query("SELECT alter_id FROM {makemeeting_poll_alters} WHERE answer_id = %d", $answer_id);
+    $options_ids = array();
+    while ($row = db_fetch_array($options_ids_result))
+      $options_ids[] = $row['alter_id'];
+
+    // drive through the options array, and update the old or insert the new one
+    $j = 0;
+    foreach ($options_array as $option) {
+      $current_alter_id = $options_ids[$j++];
+      if ($current_alter_id > 0) {
+        db_query("UPDATE {makemeeting_poll_alters} SET alter_text = '%s' WHERE alter_id = %d", $option, $current_alter_id);
+      }
+      else {
+        db_query("INSERT INTO {makemeeting_poll_alters} (answer_id, alter_text) VALUES (%d, '%s')", $answer_id, $option);
+      }
+    }
+    // if there is some unused id in $options_ids, that's mean we deleted them
+    while ($j < sizeof($options_ids)) {
+      db_query("DELETE FROM {makemeeting_poll_alters} WHERE alter_id = %d", $options_ids[$j]);
+      $j++;
+    }
+  }
+
+  // if there is some unused id in $days_ids, that's mean we deleted them
+  while ($i < sizeof($days_ids)) {
+    db_query("DELETE FROM {makemeeting_poll_rows} WHERE answer_id = %d", $days_ids[$i]);
+    $i++;
+  }
+
+  drupal_set_message(t("Saved."));
+}
+
+/**
+ * makemeeting_sendfw_form()
+ *
+ * @return
+ */
+function makemeeting_sendfw_form(&$form_state, $node) {
+  $form['sendfw'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Add your friends e-mail addresses'),
+    '#tree' => TRUE,
+  );
+
+  for ($i = 0; $i < 5; $i++) {
+    $form['sendfw']['address_' . $i] = array(
+      '#type' => 'textfield',
+      '#title' => t('E-mail address #@num', array("@num" => $i + 1)),
+      '#maxlength' => 100,
+    );
+  }
+
+  $form['sendfw']['poll_url'] = array(
+    '#type' => 'value',
+    '#value' => $node->poll_url
+  );
+
+  $form['sendfw']['submit_bt'] = array(
+    '#type' => 'submit',
+    '#value' => t('Send')
+  );
+
+  return $form;
+}
+
+/**
+ * makemeeting_sendfw_form_submit()
+ *
+ * @return void
+ */
+function makemeeting_sendfw_form_submit($form, &$form_state) {
+
+  // load node
+
+  $node_id = db_result(db_query("SELECT nid FROM {makemeeting_poll_heads} WHERE url = '%s'", $form['#post']['sendfw']['poll_url']));
+  $node = node_load($node_id);
+
+  $addresses = array();
+
+  // owner name
+
+  if ($node->uid == 0) {
+    $owner_name = $node->user_name == "" ? t("user") : $node->user_name;
+  }
+  else {
+    $account = user_load(array("uid" => $node->uid));
+    $owner_name = $account->name;
+  }
+
+  // mail params
+
+  $mail_params = array(
+    "name" => t("user"),
+    "owner_name" => $owner_name,
+    "poll_url" => $node->poll_url
+  );
+
+  // send emails
+
+  for ($i = 0; $i < 5; $i++) {
+    if (!empty($form['#post']['sendfw']['address_' . $i])) {
+      $email = $form['#post']['sendfw']['address_' . $i];
+      drupal_mail('makemeeting', 'refer', $email, language_default(), $mail_params);
+    }
+  }
+
+  drupal_set_message(t("Mail sent."));
+}
+
+/**
+ * makemeeting_sendfw_form_validate()
+ *
+ * @return void
+ */
+function makemeeting_sendfw_form_validate($form_id, $form_values) {
+  for ($i = 0; $i < 5; $i++) {
+    if (!empty($form_values['values']['sendfw']['address_' . $i])) {
+      if (!valid_email_address($form_values['values']['sendfw']['address_' . $i])) {
+        form_set_error('sendfw[address_' . $i . ']', t('E-mail #@count is not valid', array("@count" => $i + 1)));
+      }
+    }
+  }
+}
+
+/**
+ * keygen function
+ */
+function makemeeting_keygen($length) {
+  $pattern = "1234567890abcdefghijklmnopqrstuvwxyz";
+  $key = $pattern{rand(0, 35)};
+  for ($i = 1; $i < $length; $i++) {
+    $key .= $pattern{rand(0, 35)};
+  }
+  return $key;
+}

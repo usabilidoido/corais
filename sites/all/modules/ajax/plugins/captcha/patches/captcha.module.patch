@@ -1,0 +1,35 @@
+--- captcha.module.orig	2008-11-14 02:28:11.000000000 -0800
++++ captcha.module	2008-11-14 03:02:59.000000000 -0800
+@@ -240,7 +240,14 @@ function captcha_form_alter(&$form, $for
+       '#type' => 'value',
+       '#value' => $captcha['solution'],
+     );
+-
++    $form['captcha']['captcha_query'] = array(
++      '#type' => 'value',
++      '#value' => $captcha['query']
++    );
++    $form['captcha']['captcha_type'] = array(
++      '#type' => 'value',
++      '#value' => $captcha['type']
++    );
+     // The CAPTCHA token is used to differentiate between different instances
+     // of the same form. This makes it possible to request the same form a
+     // couple of times before submitting them. The solution of the CAPTCHA of
+@@ -446,12 +453,15 @@ function captcha_captcha($op, $captcha_t
+         $answer = mt_rand(1, 20);
+         $x = mt_rand(1, $answer);
+         $y = $answer - $x;
++        $query = t('@x + @y = ', array('@x' => $x, '@y' => $y));
+         $result['solution'] = "$answer";
++        $result['query'] = $query;
++        $result['type'] = 'math';
+         $result['form']['captcha_response'] = array(
+           '#type' => 'textfield',
+           '#title' => t('Math Question'),
+           '#description' => t('Solve this simple math problem and enter the result. E.g. for 1+3, enter 4.'),
+-          '#field_prefix' => t('@x + @y = ', array('@x' => $x, '@y' => $y)),
++          '#field_prefix' => $query,
+           '#size' => 4,
+           '#maxlength' => 2,
+           '#required' => TRUE,

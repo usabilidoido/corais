@@ -1,0 +1,11 @@
+; $Id: session_api.info,v 1.1 2008/07/01 18:21:30 jhedstrom Exp $
+name = Session API
+description = Provides an interface for storing session information.
+core = 6.x
+
+; Information added by drupal.org packaging script on 2011-01-04
+version = "6.x-1.4"
+core = "6.x"
+project = "session_api"
+datestamp = "1294160179"
+

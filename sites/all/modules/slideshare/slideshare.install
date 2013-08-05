@@ -1,0 +1,37 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the Slideshare module.
+ */
+
+/**
+* Implementation of hook_install().
+*/
+
+function slideshare_install() {
+  drupal_set_message(st("The Slideshare module has been installed. Configure the module settings at !link",
+    array( '!link' => l('Administer > Content management > Embedded Media Field configuration > Videos',  'admin/content/emfield/emvideo' ) )
+  ));
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function slideshare_uninstall() {
+  // drupal_uninstall_schema('emfield');
+
+  // Remove all variables that live in our namespace.
+  $result = db_query("SELECT name FROM {variable} WHERE name LIKE 'emvideo_slideshare_%'");
+  while ($row = db_fetch_object($result)) {
+    variable_del($row->name);
+  }
+  
+  // Remove Slideshare option from Embedded Media Field videos.
+  $result = db_query("SELECT name FROM {variable} WHERE name LIKE 'emfield_emvideo_allow_slideshare'");
+  while ($row = db_fetch_object($result)) {
+    variable_del($row->name);
+  }
+
+  drupal_set_message(t('The Slideshare module has been uninstalled.'));
+}

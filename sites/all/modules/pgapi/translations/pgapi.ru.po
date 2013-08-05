@@ -1,0 +1,100 @@
+# $Id: pgapi.ru.po,v 1.1 2009/11/24 22:06:36 gor Exp $
+#
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2009-06-24 04:28+0000\n"
+"PO-Revision-Date: 2009-06-24 04:28+0000\n"
+"Last-Translator: NAME <EMAIL@ADDRESS>\n"
+"Language-Team: Russian <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=((((n%10)==1)&&((n%100)!=11))?(0):(((((n%10)>=2)&&((n%10)<=4))&&(((n%100)<10)||((n%100)>=20)))?(1):2));\n"
+
+#: pgapi.module:31
+msgid "Payment Gateway"
+msgstr "Платежная система"
+
+#: pgapi.module:31
+msgid "Payment Gateway API Settings"
+msgstr "PGAPI: настройки API"
+
+#: pgapi.module:31
+msgid "Payment Gateway API Tools"
+msgstr "PGAPI: инструменты API"
+
+#: pgapi.module:31
+msgid "pending"
+msgstr "ожидает"
+
+#: pgapi.module:31
+msgid "completed"
+msgstr "завершен"
+
+#: pgapi.module:31
+msgid "failed"
+msgstr "ошибка"
+
+#: pgapi.module:31
+msgid "denied"
+msgstr "запрещен"
+
+#: pgapi.module:31
+msgid "refunded"
+msgstr "возвращен"
+
+#: pgapi.module:31
+msgid "canceled"
+msgstr "отменен"
+
+#: pgapi.module:31
+msgid "received"
+msgstr "принят"
+
+#: pgapi.module:31
+msgid "invioced"
+msgstr "выставлен счет"
+
+#: pgapi.module:31
+msgid "shipped"
+msgstr "отправлен"
+
+#: pgapi.module:31
+msgid "awaiting customer response"
+msgstr "ожидает ответа покупателя"
+
+#: pgapi.module:31
+msgid "canceled"
+msgstr "отменен"
+
+#: pgapi.module:31
+msgid "security violation"
+msgstr "нарушение безопасности"
+
+#: pgapi.module:31
+msgid "No payment gateway available."
+msgstr "на сайте нет доступных платежных систем"
+
+#: pgapi.admin.inc:31
+msgid "Process purchase"
+msgstr "Оплатить"
+
+#: pgapi.admin.inc:31
+msgid "Cancel purchase"
+msgstr "Отменить"
+
+#: pgapi.admin.inc:31
+msgid "Update status of payment gateways"
+msgstr "Обновить статус платежных систем"
+
+#: pgapi.admin.inc:31
+msgid "Status of payment gateway has been updated."
+msgstr "Статус платежных систем был обновлен"
+
+
+
+
+

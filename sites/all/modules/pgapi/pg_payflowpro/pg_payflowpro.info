@@ -1,0 +1,11 @@
+name = PayFlow Pro
+description = A gateway used to process payments using PayPal PayFlow Pro.  This module conflicts with the PayPal module.
+dependencies[] = pgapi
+package = "Payment Gateway API"
+
+; Information added by drupal.org packaging script on 2012-03-20
+version = "6.x-2.0-beta1"
+core = "6.x"
+project = "pgapi"
+datestamp = "1332259543"
+

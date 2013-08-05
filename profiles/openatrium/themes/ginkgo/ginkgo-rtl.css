@@ -1,0 +1,285 @@
+.toggle-blocks .block {
+  float:right;
+  }
+
+/**
+ * Togglable blocks ===================================================
+ */
+.dropdown-blocks .block {
+  padding-left:0px;
+  padding-right:5px;
+  }
+
+.dropdown-blocks .block .block-title span.icon {
+  float:right;
+  margin-right:0px;
+  margin-left:5px;
+  }
+
+.dropdown-blocks .block-toggle .block-content {
+  left:0px;
+  right:auto;
+  -moz-border-radius:0px 5px 5px 5px;
+  -webkit-border-radius:5px;
+  -webkit-border-top-left-radius:0px;
+  }
+
+.dropdown-blocks .block-toggle li a,
+.dropdown-blocks .block-toggle .more-link a { padding:2px 10px 2px 40px; }
+
+.dropdown-blocks .block-toggle li a span {
+  float:right;
+  margin-right:0px;
+  margin-left:10px;
+  }
+
+/* Panes */
+.dropdown-blocks .block-toggle .panes { background-position:359px 0px; }
+
+.dropdown-blocks .block-toggle .pane-left,
+.dropdown-blocks .block-toggle .pane-right { float:right; }
+
+.dropdown-blocks .block-toggle .pane-right li { float:right; }
+
+/**
+ * Page tools ========================================================
+ */
+#page-tools .page-title,
+#page-tools .tabs {
+  left:auto;
+  right:20px;
+  }
+
+#page-tools .context-links,
+#page-tools .dropdown-blocks { float:left; }
+
+#page-tools .dropdown-blocks .block-toggle .block-title {
+  border-right:1px solid #ccc;
+  border-left:0px;
+  }
+
+#page-tools .context-links {
+  border-right:1px solid #ccc;
+  border-left:0px;
+  padding:7px 5px 7px 0px;
+  }
+
+  .buttons a,
+  #page-tools .context-links a {
+    margin-left:0px;
+    margin-right:5px;
+    }
+
+#page-tools #help-toggler {
+  float:left;
+  margin: 10px 10px 0px 0px;
+  }
+
+/**
+ * Page layout ========================================================
+ */
+#page .limiter { background-position:35% 0px; }
+
+#content { float:right; }
+#content .page-region {
+  padding-left:10px;
+  padding-right:20px;
+  }
+
+#right { float:left; }
+#right .page-region {
+  padding-right:10px;
+  padding-left:20px;
+  }
+
+/**
+ * Menus ==============================================================
+ */
+.drilldown .trail a {
+  background-image:url(images/sprite_base-rtl.png);
+  background-position:100% -160px;
+  }
+
+.drilldown .trail a.depth-1,
+.drilldown .trail a.depth-2,
+.drilldown .trail a.depth-3,
+.drilldown .trail a.depth-4,
+.drilldown .trail a.depth-5,
+.drilldown .trail a.depth-6,
+.drilldown .trail a.depth-7 { padding-left:0px; }
+
+.drilldown .trail a.depth-1 {
+  padding-right:25px;
+  }
+
+.drilldown .trail a.depth-2 {
+  padding-right:50px;
+  background-position:30px -160px;
+  }
+
+.drilldown .trail a.depth-3 {
+  padding-right:75px;
+  background-position:55px -160px;
+  }
+
+.drilldown .trail a.depth-4 {
+  padding-right:100px;
+  background-position:80px -160px;
+  }
+
+.drilldown .trail a.depth-5 {
+  padding-right:125px;
+  background-position:105px -160px;
+  }
+
+.drilldown .trail a.depth-6 {
+  padding-right:150px;
+  background-position:130px -160px;
+  }
+
+.drilldown .trail a.depth-7 {
+  padding-right:175px;
+  background-position:155px -160px;
+  }
+
+.block-atrium .menu a,
+.drilldown .menu a {
+  padding:4px 0px 5px 10px;
+  margin-left:0px;
+  margin-right:25px;
+  }
+
+.block-atrium .menu ul {
+  border-left:0px;
+  border-right:24px solid #f8f8f8;
+  padding-left:0px;
+  padding-right:1px;
+  }
+
+/* RESET, now do it again */
+.drilldown .menu ul,
+.drilldown .menu li {
+  padding:0px;
+  border:0px;
+  }
+
+  .drilldown .menu ul ul {
+    border-left:0px;
+    border-right:24px solid #f8f8f8;
+    padding-left:0px;
+    padding-right:1px;
+    }
+
+.block-atrium .menu li.collapsed,
+.block-atrium .menu li.expanded {
+  background-image:url(images/sprite_base-rtl.png);
+  background-position:100% -60px;
+  }
+
+.block-atrium .menu li.leaf {
+  background-image:url(images/sprite_base-rtl.png);
+  background-position:100% -110px;
+  }
+
+/**
+ * Palette blocks =====================================================
+ */
+div.messages span.close,
+#palette .block .block-title span.close {
+  left:5px;
+  right:auto;
+  }
+
+/* Help block */
+#help-text { padding:5px 50px 5px 0px; }
+
+#help-text span.icon {
+  left:auto;
+  right:5px;
+  }
+
+/**
+ * Nodes, comments ====================================================
+ */
+.node-submitted,
+.comment-submitted { float:left; }
+
+.node-submitted div.picture,
+.comment-submitted div.picture {
+  float:right;
+  margin-right:0px;
+  margin-left:5px;
+  }
+
+.more-link a,
+.node-links ul.links,
+.comment-links ul.links { float:left; }
+
+/**
+ * Module: SHOUTBOX ===================================================
+ */
+.shoutbox-input { padding:0px 0px 10px 100px; }
+
+.shoutbox-input input.form-submit {
+  right:auto;
+  left:0px;
+  }
+
+.view-atrium-profile div.user-picture,
+.view-atrium-profile div.username {
+  margin-right:0px;
+  margin-left:0px;
+  float:right;
+  }
+
+table.views-view-grid div.picture {
+  float:right;
+  margin-left:10px;
+  margin-right:0px;
+  }
+
+/**
+ * Views ==============================================================
+ */
+
+/* Grouped fields */
+.view .grouped-meta {
+  float:left;
+  margin-left:0px;
+  margin-right:10px;
+  }
+
+.view .grouped-meta .user-picture {
+  float:right;
+  margin-left:5px;
+  margin-right:0px;
+  }
+
+/* Views block filter */
+.block .views-exposed-form .views-exposed-widget { padding:5px 100px 4px 0px; }
+
+.block .views-exposed-form .views-exposed-widget label {
+  right:0px;
+  left:auto;
+  }
+
+/**
+ * Pager ==============================================================
+ */
+#palette .block .minipager,
+.page-region .block .boxes-box-controls,
+.page-region .block .minipager {
+  right:auto;
+  left:5px;
+  }
+
+/**
+ * Atrium welcome blocks ==============================================
+ */
+.atrium-welcome-links .column { float:right; }
+
+.atrium-welcome-links a span.spaces-feature {
+  float:right;
+  margin-right:0px;
+  margin-left:10px;
+  }

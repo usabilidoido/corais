@@ -1,0 +1,16 @@
+name = Autosave
+description = Saves node edits in the background in case browser dies while editing.
+
+package = Other
+project = autosave
+
+core = 6.x
+
+
+
+; Information added by drupal.org packaging script on 2012-08-06
+version = "6.x-2.11"
+core = "6.x"
+project = "autosave"
+datestamp = "1344266211"
+

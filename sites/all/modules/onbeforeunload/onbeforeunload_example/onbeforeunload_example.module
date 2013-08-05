@@ -1,0 +1,30 @@
+<?php
+// $Id: onbeforeunload_example.module,v 1.1.2.2 2009/03/31 08:21:47 markuspetrux Exp $
+
+/**
+ * @file
+ * Hello world example for the onBeforeUnload API.
+ */
+
+/**
+ * Implementation of hook_init().
+ */
+function onbeforeunload_example_init() {
+  // Send the example javascript to all pages on the site,
+  // except admin pages.
+  if (strpos($_GET['q'], 'admin') !== 0) {
+    // Load the onBeforeUnload API.
+    onbeforeunload_add_js();
+
+    // Install our client-side behavior.
+    drupal_add_js(drupal_get_path('module', 'onbeforeunload_example') .'/onbeforeunload_example.js');
+
+    // We will display the warning only to site administrators, but the
+    // actual check is performed by the onBeforeUnload example callback
+    // for demonstration purposes.
+    $js_settings = array(
+      'showWarning' => user_access('administer site configuration'),
+    );
+    drupal_add_js(array('onBeforeUnloadExample' => $js_settings), 'setting');
+  }
+}

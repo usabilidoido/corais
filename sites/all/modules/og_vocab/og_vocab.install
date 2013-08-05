@@ -1,0 +1,79 @@
+<?php
+
+/**
+ * @file
+ * Install file for the og_vocab module.
+ */ 
+
+/**
+ * Implementation of hook_install().
+ */
+function og_vocab_install() {
+  // Create tables.
+  drupal_install_schema('og_vocab');
+  
+  db_query("UPDATE {system} SET weight = %d WHERE name = '%s'", 5, 'og_vocab');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function og_vocab_uninstall() {
+  drupal_uninstall_schema('og_vocab');
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function og_vocab_schema() {
+  return array(
+    'og_vocab' => array(
+      'description' => t('relate group nodes to vocabularies'),
+      'fields' => array(
+        'nid' => array(
+          'description' => t("Node ID we are associated with"),
+          'type'        => 'int',
+          'not null'    => TRUE,
+          'default'     => 0,
+        ),
+        'vid' => array(
+          'description' => t('Vocabulary ID'),
+          'type'        => 'int',
+          'not null'    => TRUE,
+          'default'     => 0,
+        ),
+      ),
+      'primary key' => array('vid'),
+      'indexes' => array(
+        'nid' => array('nid'),
+      ),
+    ),
+  );
+}
+
+/**
+ * Need to increase the weight so that this module will execute after taxonomy.
+ */
+function og_vocab_update_1() {
+  db_query("UPDATE {system} SET weight = %d WHERE name = '%s'", 5, 'og_vocab');
+}
+
+/**
+ * Fix schema.
+ */
+function og_vocab_update_6000() {
+  $ret = array();
+  db_drop_primary_key($ret, 'og_vocab');
+  db_add_primary_key($ret, 'og_vocab', array('vid'));
+  db_add_index($ret, 'og_vocab', 'nid', array('nid'));
+  return $ret;
+}
+
+/**
+ * Update the vocabualry table where the module is 'og_vocab' to 'taxonomy'.
+ */
+function og_vocab_update_6001() {
+  $ret = array();
+  db_query("UPDATE {vocabulary} SET module = '%s' WHERE module ='%s'", 'taxonomy', 'og_vocab');
+  return $ret;
+}

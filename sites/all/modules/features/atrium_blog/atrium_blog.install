@@ -1,0 +1,41 @@
+<?php
+
+/**
+ * Update for Kit compliance
+ */
+function atrium_blog_update_6001() {
+  $components = array(
+    'views' => array(
+      'atrium_blog' => array(
+        'blog_listing' => array(
+          'block_1' => array(
+            'module' => 'views',
+            'delta' => 'block_1',
+          ),
+          'block_2' => array(
+            'module' => 'views',
+            'delta' => 'block_2',
+          ),
+        ),
+      ),
+      'atrium_blog_comments' => array(
+        'blog_comments' => array(
+          'block_1' => array(
+            'module' => 'views',
+            'delta' => 'block_1',
+          ),
+        ),
+      ),
+    ),
+    'contexts' => array(
+      'spaces-feature-blog' => 'blog_listing',
+    ),
+  );
+
+  module_load_include('inc', 'atrium', 'includes/atrium_update_kit');
+  atrium_kit_comply_presets($components);
+  atrium_kit_comply_overrides($components);
+  atrium_kit_comply_contexts($components);
+  
+  return array(array('success' => true, 'query' => 'Atrium Blog updated for Kit compliance.'));
+}

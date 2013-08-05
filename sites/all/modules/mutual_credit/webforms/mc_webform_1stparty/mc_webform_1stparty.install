@@ -1,0 +1,58 @@
+<?php
+// $Id: mc_webform_1stparty.install,v 1.1.2.3 2010/12/15 22:04:04 matslats Exp $
+
+if (!defined('INCOMING_DIRECT')){
+  define('INCOMING_SIGNED', 4);
+  define('OUTGOING_SIGNED', 8);
+  define('INCOMING_DIRECT', 1);
+  define('OUTGOING_DIRECT', 2);
+}
+
+function mc_webform_1stparty_requirements($phase) {
+  $req = array();
+  if ($phase == 'install') {
+    $req[] = array(
+      'title' => t("MCAPI should be installed first"),
+      'description' => t('This module required that a currency node already exists. One has now been created, please install mutual credit 1stparty module again'),
+      'severity' => module_exists('mcapi') ? REQUIREMENT_OK : REQUIREMENT_ERROR,
+    );
+  }
+  return $req;
+}
+
+function mc_webform_1stparty_install() {
+  //every currency has to have some of the transaction types ticked.
+  //The default is the two unsigned exchanges
+  $result = db_query("SELECT nid FROM {node} WHERE type = 'currency'");
+  while ($nid = db_result($result)) {
+    $currency = node_load($nid);
+    $currency->exchange_subtypes = array(
+      INCOMING_SIGNED => INCOMING_SIGNED,
+      OUTGOING_SIGNED => OUTGOING_SIGNED
+    );
+    node_save($currency);
+  }
+  drupal_set_message(t("@name has had the two 'confirm' exchange types enabled by default. !edit", array(
+    '@name' => $currency->title,
+    '!edit' => l(t('edit'), 'node/'.$currency->nid.'/edit')
+  )));
+
+  if ($oldnames = variable_get('cc_transaction_types', NULL)) {//upgrade
+    $oldnames = $oldnames['transactions'];
+    $names = array(
+      INCOMING_DIRECT => $names['incoming_direct'],
+      OUTGOING_DIRECT => $names['outgoing_direct'],
+      INCOMING_SIGNED => $names['incoming_confirm'],
+      OUTGOING_SIGNED => $names['outgoing_confirm']
+    );
+    variable_del('cc_transaction_types');
+  }
+  else {//fresh start
+    $names = variable_get('mc_subtypes', array());
+    $names += array(
+      INCOMING_DIRECT => t('Claim'),
+      OUTGOING_DIRECT => t('Gift'),
+    );
+  }
+  variable_set('mc_subtypes', $names);
+}

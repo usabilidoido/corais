@@ -1,0 +1,138 @@
+<?php
+// $Id: uuid_features.module,v 1.1 2010/07/26 22:16:15 rz Exp $
+
+/**
+ * Implementation of hook_features_api().
+ */
+function uuid_features_features_api() {
+  $components = array(
+    'uuid_node' => array(
+      'name' => t('Content'),
+      'features_source' => TRUE,
+      'default_hook' => 'uuid_features_default_content',
+      'default_file' => FEATURES_DEFAULTS_INCLUDED,
+      'file' => drupal_get_path('module', 'uuid_features') .'/includes/uuid_node.features.inc',
+    ),
+    'uuid_vocabulary' => array(
+      'name' => t('Vocabulary'),
+      'default_hook' => 'uuid_features_default_vocabularies',
+      'default_file' => FEATURES_DEFAULTS_INCLUDED,
+      'file' => drupal_get_path('module', 'uuid_features') .'/includes/uuid_vocabulary.features.inc',
+    ),
+    'uuid_term' => array(
+      'name' => t('Taxonomy Term'),
+      'default_hook' => 'uuid_features_default_terms',
+      'default_file' => FEATURES_DEFAULTS_INCLUDED,
+      'file' => drupal_get_path('module', 'uuid_features') .'/includes/uuid_term.features.inc',
+    ),
+  );
+
+  // Depends on http://drupal.org/node/808690
+  if (function_exists('uuid_file_insert')) {
+    $components['uuid_file'] = array(
+      'name' => t('File'),
+      'default_hook' => 'uuid_features_default_files',
+      'default_file' => FEATURES_DEFAULTS_INCLUDED,
+      'file' => drupal_get_path('module', 'uuid_features') .'/includes/uuid_file.features.inc',
+    );
+  }
+
+  return $components;
+}
+
+/**
+ * Load all include files for enabled modules that this module provides 
+ * on-behalf-of functionality for.
+ */
+function uuid_features_load_module_includes() {
+  static $loaded = FALSE;
+
+  if (!$loaded) {
+    $inc_path = drupal_get_path('module', 'uuid_features') .'/includes/modules';
+    foreach (module_list() as $module) {
+      $file = "$inc_path/$module.inc";
+      if (file_exists($file)) {
+        include_once($file);
+      }
+    }
+    $loaded = TRUE;
+  }
+}
+
+// Remove once http://drupal.org/node/858274 is resolved.
+if (!function_exists('uuid_get_uuid')) {
+  /**
+   * API function to get the UUID of an object based on its serial ID.
+   *
+   * @param $table
+   *   Base table of the object. Currently, one of node, revision_revisions,
+   *   users, vocabulary or term_data.
+   * @param $key
+   *   The name of the serial ID column.
+   * @param $id
+   *   The serial ID of the object.
+   * @return
+   *   The UUID of the object, or FALSE if not found.
+   */
+  function uuid_get_uuid($table, $key, $id) {
+    $uuid_table = 'uuid_'. $table;
+    return db_result(db_query("SELECT uuid FROM {{$uuid_table}} WHERE $key = %d", $id));
+  }
+}
+
+// Remove once http://drupal.org/node/858274 is resolved.
+if (!function_exists('uuid_get_serial_id')) {
+  /**
+   * API function to get the serial ID of an object based on its UUID.
+   *
+   * @param $table
+   *   Base table of the object. Currently, one of node, revision_revisions,
+   *   users, vocabulary or term_data.
+   * @param $key
+   *   The name of the serial ID column.
+   * @param $uuid
+   *   The UUID of the object.
+   * @return
+   *   The serial ID of the object, or FALSE if not found.
+   */
+  function uuid_get_serial_id($table, $key, $uuid) {
+    $uuid_table = 'uuid_'. $table;
+    return db_result(db_query("SELECT ". $key ." FROM {". $uuid_table ."} WHERE uuid = \"%s\"", $uuid));
+  }
+}
+
+// Remove once http://drupal.org/node/858274 is resolved.
+if (!function_exists('uuid_set_uuid')) {
+  /**
+   * API function to set the UUID of an object based on its serial ID.
+   *
+   * @param $table
+   *   Base table of the object. Currently, one of node, revision_revisions,
+   *   users, vocabulary or term_data.
+   * @param $key
+   *   The name of the serial ID column.
+   * @param $serial_id
+   *   The serial ID of the object.
+   * @param $uuid
+   *   Optional UUID.  If omitted, a UUID will be generated.
+   * @return
+   *   The UUID on success, FALSE if the uuid provided is not valid.
+   */
+  function uuid_set_uuid($table, $key, $serial_id, $uuid = FALSE) {
+    if (empty($uuid)) {
+      $uuid = uuid_uuid();
+    }
+
+    if (!uuid_is_valid($uuid)) {
+      return FALSE;
+    }
+
+    $uuid_table = 'uuid_'. $table;
+    db_query("UPDATE {". $uuid_table ."} SET uuid = '%s' WHERE ". $key ." = %d", $uuid, $serial_id);
+    if (!db_affected_rows()) {
+      @db_query("INSERT INTO {". $uuid_table ."} (". $key .", uuid) VALUES (%d, '%s')", $serial_id, $uuid);
+    }
+
+    return $uuid;
+  }
+}

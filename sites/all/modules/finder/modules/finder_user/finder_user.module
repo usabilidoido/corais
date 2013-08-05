@@ -1,0 +1,228 @@
+<?php
+
+/**
+ * @file
+ * The finder user module.
+ */
+
+/**
+ * Implementation of hook_theme().
+ *
+ * @see hook_theme()
+ */
+function finder_user_theme() {
+  return array(
+    'finder_user_result' => array(
+      'arguments' => array(
+        'key' => NULL,
+        'result' => NULL,
+        'finder' => NULL,
+        'form_state' => NULL,
+      ),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_finder_base_handlers().
+ *
+ * @see hook_finder_base_handlers()
+ */
+function finder_user_finder_base_handlers() {
+  return array(
+    'user' => array(
+      '#title' => t('User finder'),
+      '#module' => 'finder_user',
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ *
+ * @see hook_form_FORM_ID_alter()
+ */
+function finder_user_form_finder_admin_element_edit_alter(&$form, $form_state) {
+
+  $finder = &$form_state['storage']['finder'];
+
+  if ($finder->base == 'user') {
+
+    $element = &$form_state['storage']['finder_element_defaults'];
+    $roles = finder_user_get_roles();
+
+    if ($roles) {
+      $form['settings']['choices']['user_roles'] = array(
+        '#type' => 'select',
+        '#title' => t('Restrict users that can be found to only these user roles'),
+        '#default_value' => $element->settings['choices']['user_roles'],
+        '#options' => $roles,
+        '#description' => t('If no user role is selected, users of all roles will be displayed.'),
+        '#multiple' => TRUE,
+        '#size' => min(6, count($roles)+1),
+        '#weight' => 10,
+      );
+    }
+    else {
+      $form['settings']['choices']['no_roles'] = array(
+        '#value' => t("<em>There are currently no user roles to choose from.</em>"),
+        '#weight' => 10,
+      );
+    }
+
+    $form['settings']['choices']['active'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Active'),
+      '#default_value' => $element->settings['choices']['active'],
+      '#weight' => 90,
+      '#description' => t('Only show users that are active.'),
+    );
+
+    $form['settings']['choices']['per_result'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Choices per result'),
+      '#default_value' => $element->settings['choices']['per_result'],
+      '#weight' => 110,
+      '#description' => t('Forces finder to internally process a choice for each potential result user.'),
+    );
+
+  }
+
+}
+
+/**
+ * Implementation of hook_finder_fields().
+ *
+ * @see hook_finder_fields()
+ */
+function finder_user_finder_fields($finder, $finder_element_id) {
+  // specify fields like: 'table.field-name' => t('display title')
+  $prefix = t('User') .': ';
+  $field_array = array(
+    'users.uid' => $prefix . t('Uid'),
+    'users.name' => $prefix . t('Name'),
+    'users.mail' => $prefix . t('Mail'),
+    'role.role' => $prefix . t('Role'),
+  );
+
+  return $field_array;
+}
+
+/**
+ * Get an array of user roles for use in select forms.
+ */
+function finder_user_get_roles() {
+  $roles = array();
+  $roles[''] = t('- all -');  // this is the 'select none' option in the form
+  $user_roles = user_roles();
+  foreach ($user_roles as $rid => $role) {
+    $roles[$rid] = $role;
+  }
+  if (count($roles) === 1) {
+    return FALSE;
+  }
+  return $roles;
+}
+
+/**
+ * Implementation of hook_finder_find().
+ *
+ * @see hook_finder_find()
+ */
+function finder_user_finder_find($finder, $finder_element_id, $keywords, $mode, $match, $pager) {
+
+  foreach ($keywords as $feid => $keyword_array) {
+
+    $element = &finder_element($finder, $feid);
+
+    $roles[$feid] = &$element->settings['choices']['user_roles'];
+    $active[$feid] = &$element->settings['choices']['active'];
+
+    // restrict by roles
+    unset($roles[$feid]['']);
+    if (!empty($roles[$feid])) {
+      $query['joins'] = array(
+        'INNER JOIN {users_roles} users_roles ON users_roles.uid = users.uid',
+      );
+      if ($feid == $finder_element_id) {
+        $query['wheres'][] = "users_roles.rid IN (". db_placeholders(array_keys($roles[$feid])) .")";
+      }
+      else {
+        $query['wheres']['restrictions'][$feid][] = "users_roles.rid IN (". db_placeholders(array_keys($roles[$feid])) .")";
+      }
+      $query['arguments'] = isset($query['arguments']) ? array_merge($query['arguments'], array_keys($roles[$feid])) : array_keys($roles[$feid]);
+    }
+
+  }
+
+  // restrict to active users if required
+  if (in_array(1, $active)) {
+    $query['wheres'][] = 'users.status = 1';
+  }
+
+  $join_ons = array(
+    'role' => array(
+      'users_roles' => 'users_roles.uid = users.uid',
+      'role' => 'role.rid = users_roles.rid',
+    ),
+  );
+
+  $base_table = 'users';
+  $base_field = 'uid';
+
+  $query = finder_find_query($query, $finder, $finder_element_id, $keywords, $mode, $match, $pager, $join_ons, $base_table, $base_field);
+
+  return finder_query($query);
+
+}
+
+/**
+ * Implementation of hook_finder_goto().
+ *
+ * @see hook_finder_goto()
+ */
+function finder_user_finder_goto($finder, $result) {
+  drupal_goto('user/'. $result->uid);
+}
+
+/**
+ * Implementation of hook_finder_result().
+ *
+ * @see hook_finder_result()
+ */
+function finder_user_finder_result($finder, $keywords, $result_array, $form_state) {
+  $output = '';
+  foreach ($result_array as $key => $result) {
+    $output .= theme('finder_user_result', $key, $result, $finder, $form_state);
+  }
+  return $output;
+}
+
+/**
+ * Theme a user finder result.
+ *
+ * @param $key
+ *   The result key.
+ * @param $result
+ *   A result object.
+ * @param $finder
+ *   The finder object.
+ * @param $form_state
+ *   The Forms API form state.
+ */
+function theme_finder_user_result($key, $result, $finder, $form_state) {
+  $output = '';
+  $result_user = user_load($result->uid);
+
+  // Open the results wrapper
+  $output .= '<div class="finder-node-result-'. $key .'" class="finder-node-result">';
+
+  // Output a themed username
+  $output .= theme('username', $result_user);
+
+  // Close the results wrapper
+  $output .= '</div>';
+
+
+  return $output;
+}

@@ -1,0 +1,13 @@
+core = "6.x"
+dependencies[] = "ctools"
+dependencies[] = "features"
+description = "Provides a customizable spaces layer on top of Drupal."
+name = "Spaces"
+package = "Spaces"
+
+; Information added by drupal.org packaging script on 2012-07-25
+version = "6.x-3.6"
+core = "6.x"
+project = "spaces"
+datestamp = "1343253485"
+

@@ -1,0 +1,12 @@
+name = Notifications Rules
+description = Notifications integration with rules
+core = 6.x
+package = Notifications
+dependencies[] = notifications
+dependencies[] = rules
+; Information added by drupal.org packaging script on 2011-04-02
+version = "6.x-1.x-dev"
+core = "6.x"
+project = "notifications_rules"
+datestamp = "1301703427"
+

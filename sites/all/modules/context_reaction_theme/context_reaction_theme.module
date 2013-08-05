@@ -1,0 +1,50 @@
+<?php
+
+/**
+ * Implementation of hook_init().
+ */
+function context_reaction_theme_init() {
+  if ($plugin = context_get_plugin('reaction', 'context_reaction_active_theme')) {
+    $plugin->execute();
+  }
+}
+
+/**
+ * Notify CTools that we'll be using the plugin API with Context module
+ */
+function context_reaction_theme_ctools_plugin_api($module, $api) {
+  if ($module == 'context' && $api == 'plugins') {
+    return array('version' => 3);
+  }
+}
+
+/**
+ * CTools plugin API hook for Context
+ */
+function context_reaction_theme_context_plugins() {
+  $plugins = array();
+  $plugins['context_reaction_active_theme'] = array(
+    'handler' => array(
+      'path' => drupal_get_path('module', 'context_reaction_theme') .'/plugins',
+      'file' => 'context_reaction_active_theme.inc',
+      'class' => 'context_reaction_active_theme',
+      'parent' => 'context_reaction',
+    ),
+  );
+
+  return $plugins;
+}
+
+/**
+ * Registry hook for conditions & reactions.
+ */
+function context_reaction_theme_context_registry() {
+  return array(
+    'reactions' => array(
+      'context_reaction_active_theme' => array(
+        'title' => t('Active theme'),
+        'plugin' => 'context_reaction_active_theme',
+      ),
+    ),
+  );
+}

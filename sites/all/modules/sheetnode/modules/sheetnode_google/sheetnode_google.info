@@ -1,0 +1,13 @@
+name = Sheetnode Google Spreadsheets
+description = Provides Google Spreadsheets import/export support for Sheetnode.
+package = Sheetnode
+dependencies[] = sheetnode 
+core = 6.x
+php = 5.2.4
+
+; Information added by drupal.org packaging script on 2012-07-31
+version = "6.x-1.8"
+core = "6.x"
+project = "sheetnode"
+datestamp = "1343710686"
+

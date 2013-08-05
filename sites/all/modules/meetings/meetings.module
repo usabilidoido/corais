@@ -1,0 +1,420 @@
+<?php
+// $Id: meetings.module,v 1.6.2.10 2010/08/16 11:22:34 auzigog Exp $
+
+/**
+ *  Most of the magic is done using Features. CCK, views, etc.
+ */
+include_once('meetings.features.inc');
+
+define('MEETINGS_FIELD_EDIT_OVERRIDE_PERMISSION', 'edit all meeting fields');
+define('MEETINGS_TAKE_ATTENDANCE_PERMISSION', 'take attendance for meetings');
+define('MEETINGS_VIEW_ATTENDANCE_PERMISSION', 'view attendance for meetings');
+define('MEETINGS_ATTENDANCE_UNKNOWN', 0);
+define('MEETINGS_ATTENDANCE_NO', -1);
+define('MEETINGS_ATTENDANCE_YES', 1);
+
+/**
+ *  Implementation of hook_perm().
+ */
+function meetings_perm() {
+  $perms = array();
+  $fields = meetings_get_fields();
+  
+  
+  // Add field-level permissions
+  if (!empty($fields)) {
+    foreach($fields as $field) {
+      $field_pretty = meetings_field_pretty($field);
+      //$perms[] = 'view ' . $field_pretty;
+      $perms[] = 'edit ' . $field_pretty;
+    }
+  }
+  
+  // Add an override permission to edit all fields
+  $perms[] = MEETINGS_FIELD_EDIT_OVERRIDE_PERMISSION;
+  $perms[] = MEETINGS_TAKE_ATTENDANCE_PERMISSION;
+  $perms[] = MEETINGS_VIEW_ATTENDANCE_PERMISSION;
+  
+  return $perms;
+}
+
+/**
+ * Implementations of hook_theme().
+ */
+function meetings_theme() {
+  return array(
+    'meetings_attendance_form' => array(
+      'arguments' => array(
+        'form' => NULL,
+      ),
+    ),
+  );
+}
+
+
+/**
+ * Implementation of hook_menu().
+ */
+function meetings_menu() {
+  $items = array();
+  // Adds 'Take Attendance' tab to every meeting
+  $items['node/%node/attendance'] = array(
+    'title' => 'Attendance',
+    'page callback' => 'meetings_attendance_page',
+    'page arguments' => array(1),
+    'access callback' => 'meetings_attendance_access',
+    'access arguments' => array(1),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 20,
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_field_access().
+ *
+ * @see content_access().
+ */
+function meetings_field_access($op, $field, $account, $node = NULL) {
+  switch ($op) {
+    case 'view':
+      return TRUE;
+      break;
+    case 'edit':
+      // If own content or has override permission, then allow full editing
+      if (user_access(MEETINGS_FIELD_EDIT_OVERRIDE_PERMISSION, $account) || ($account->uid == $node->uid)) {
+        return TRUE;
+      }
+      else {
+        // Otherwise, defer to edit permissions
+        $field_pretty = meetings_field_pretty($field['field_name']);
+        return user_access('edit ' . $field_pretty, $account);
+      }
+      break;
+  }
+  return TRUE;
+}
+
+function meetings_field_pretty($field) {
+  $pretty = substr($field, 6);
+  $pretty = str_replace('_', ' ', $pretty);
+  return $pretty;
+}
+
+/**
+ * Retrieves a list of all fields contained within the Meeting content type
+ */
+function meetings_get_fields() {
+  $meeting_fields = array();
+  $all_fields = content_fields();
+  if (!empty($all_fields)) {
+    foreach ($all_fields as $key => $cur_field) {
+      if ($cur_field['type_name'])
+        $meeting_fields[] = $key;
+    }
+    return $meeting_fields;
+  }
+}
+
+/**
+ * Internal function to determine if OG integration should be enabled.
+ * accessible.
+ */
+function meetings_og_ready() {
+  return module_exists('og');
+}
+
+/**
+ * Check if the user is allowed to take or view attendance.
+ */
+function meetings_attendance_access($node) {
+  $access = false;
+  if ($node->type == 'meeting') {
+    global $user;
+    $is_owner = $node->author == $user->uid;
+    $access = $is_owner || 
+      (node_access('view', $node) && (user_access(MEETINGS_TAKE_ATTENDANCE_PERMISSION) || user_access(MEETINGS_VIEW_ATTENDANCE_PERMISSION)));
+    // Extra perms if OG is enabled and the meeting is associated with a group
+    if (module_exists('og')) {
+      $gid = count($node->og_groups) > 0 ? current($node->og_groups) : NULL;
+      if ($gid) {
+        $og_access = FALSE;
+        $is_member = og_is_group_member($gid);
+        $og_access = $is_member || user_access('administer organic groups');
+        $access = $access && $og_access;
+      }
+    }
+  }
+  return $access;
+}
+
+/**
+ * Implementaiton of hook_form_FORM_ID_alter(). Changes the notifications_team
+ * form to be framed as invitations instead of just notifications.
+ */
+function meetings_form_alter(&$form, &$form_state, $form_id) {
+  if ($form_id == 'meeting_node_form' && $form_state['submitted'] == FALSE) {
+    if (isset($form['notifications'])) {
+      $form['notifications']['#title'] = t('Meeting Invitations & Notifications');
+    }
+    return $form;
+  }
+}
+
+/**
+ * Render the attendance page tab page and corresponding view/form.
+ */
+function meetings_attendance_page(&$node) {
+  global $user;
+  $output = '';
+  $is_owner = $node->author == $user->uid;
+  if ($is_owner || user_access(MEETINGS_TAKE_ATTENDANCE_PERMISSION)) {
+    $form = drupal_get_form('meetings_attendance_form', $node);
+    $output .= $form;
+  }
+  elseif (user_access(MEETINGS_VIEW_ATTENDANCE_PERMISSION)) {
+    $view = views_embed_view('meetings_attendance', 'default', $node->nid);
+    $output .= $view;
+  }
+  
+  return $output;
+}
+
+/**
+ * Implementation of hook_form(). Shows list of all users with checkboxes.
+ */
+function meetings_attendance_form($form_state, $node) {
+  $users = meetings_get_subscribed_users($node);
+  $current_attendance = meetings_get_meeting_attendance($node);
+  
+  $form = array();
+  $form['#theme'] = 'meetings_attendance_form';
+  $form['nid'] = array(
+    '#type' => 'hidden',
+    '#value' => $node->nid,
+  );
+  
+  $form['attendance'] = array(
+    '#tree' => TRUE,
+    '#type' => 'fieldset',
+    '#title' => t('Attendance'),
+    '#description' => t('Mark "Yes" those members who attended this meeting. Mark "?" if it is unknown whether a member attended the meeting or not.'),
+  );
+  
+  foreach($users as $user) {
+    $uid = $user->uid;
+    $is_attending = isset($current_attendance[$uid]) ? $current_attendance[$uid] : MEETINGS_ATTENDANCE_UNKNOWN;
+    $form['attendance'][$uid] = array(
+      '#type' => 'radios',
+      '#title' => $user->name,
+      '#default_value' => $is_attending,
+      '#options' => array(
+        MEETINGS_ATTENDANCE_UNKNOWN => t('?'),
+        MEETINGS_ATTENDANCE_NO => t('No'),
+        MEETINGS_ATTENDANCE_YES => t('Yes'),
+      ),
+    );
+  }
+  
+  // TODO - add select all/none functionality
+  
+  $form['save'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save'),
+  );
+  return $form;
+}
+
+/**
+ * Submit handler for attendance form. Inserts the updated attendance records
+ * into the database using VotingAPI
+ */
+function meetings_attendance_form_submit($form, &$form_state) {
+  $nid = $form['nid']['#value'];
+  
+  // Build up an attendance record array for this meeting
+  $attendance = $form_state['values']['attendance'];
+  // TODO probably add some checks here to make sure that the input we got was what we expected
+  
+  $results = meetings_update_attendance_records($nid, $attendance);
+  if ($results) {
+    drupal_set_message(t('Attendance successfully updated.'));
+  }
+}
+
+/**
+ * Theme the meetings_attendance_form.
+ */
+
+function theme_meetings_attendance_form($form) {
+  // Include CSS file so radio buttons are on one line.
+  drupal_add_css(drupal_get_path('module', 'meetings') .'/meetings.css');
+  
+  $header = array(
+    array(
+      'data' => t('Attended?'),
+      'width' => '30%',
+    ),
+    'Name',
+  );
+  $rows = array();
+  foreach (element_children($form['attendance']) as $key) {
+    $cur_element = &$form['attendance'][$key];
+    $row = array();
+    $title = $cur_element['#title'];
+    // Unset the title so it doesn't render using drupal_render()
+    unset($cur_element['#title']);
+    $row[] = drupal_render($cur_element);
+    $row[] = $title;
+    $rows[] = $row;
+  }
+  $form['attendance']['table'] = array(
+    '#type' => 'markup',
+    '#value' => theme('table', $header, $rows),
+  );
+  
+  $output = '';
+  $output .= drupal_render($form);
+  return $output;
+}
+
+/** 
+ * Implementaiton of hook_votingapi_views_formatters()
+ */
+function meetings_votingapi_views_formatters() {
+  return array('meetings_views_attendance_formatter' => 'Format attendance votes as human-readable text.');
+}
+
+/**
+ * Callback to format view field values as human-readable text instead
+ * of -1, 0, 1.
+ */
+function meetings_views_attendance_formatter($value) {
+  return meetings_translate_attendance_constants($value);
+}
+
+/**
+ * Translates attendance constants to human-readable text.
+ */
+function meetings_translate_attendance_constants($value) {
+  switch ($value) {
+    case MEETINGS_ATTENDANCE_UNKNOWN:
+      return t('Unknown');
+      
+    case MEETINGS_ATTENDANCE_YES:
+      return t('Attended');
+      
+    case MEETINGS_ATTENDANCE_NO:
+      return t('Absent');
+  }
+}
+
+/**
+ * Mark the attendance for multiple users.
+ * 
+ * Uses VotingAPI to update/add/delete the attendance records for each meeting.
+ * 
+ * @param $nid
+ *   The nid of the meeting that the attendance is being taken for.
+ * @param $records
+ *   An associative array containing the updated (or new) attendance
+ *   status for users in the format
+ *   @code
+ *     $attendance = array(
+ *       $uid => MEETINGS_ATTENDANCE_YES,  // Attending (1)
+ *       $uid => MEETINGS_ATTENDANCE_NO, // Not attending (-1)
+ *       $uid => MEETINGS_ATTENDANCE_UNKNOWN,  // Unknown (0)
+ *     );
+ *   @endcode
+ *
+ */
+function meetings_update_attendance_records($nid, $attendance) {
+  $votes = array();
+  $criteria = array();
+  if (is_array($attendance)) {
+    foreach ($attendance as $uid=>$attended) {
+      $votes[] = array(
+        'content_id' => $nid,
+        // 'score' is another possibility, but it is probably better to have a sum of each rather than forcing meetings attended and meetings missed to cancel one another out.
+        'value_type' => 'option', 
+        'value' => $attended,
+        'tag' => 'attendance',
+        // Do not use the current UID. Use the UID for the user being marked.
+        'uid' => $uid,
+      );
+      
+      // Add to the criteria array to tell the API to delete any previous
+      //  records of this members attendance. This would be the default 
+      //  behavior of votingapi, but we aren't using the "current user's" uid,
+      //  so we have to create the behavior ourself.
+      $criteria[] = array(
+        'content_id' => $nid,
+        'uid' => $uid,
+      );
+    }
+  }
+  
+  if ($votes) {
+    $affected_votes = votingapi_set_votes($votes, $criteria);
+    return $affected_votes;
+  }
+}
+
+/**
+ * Returns an array of uid's for users who are marked as having attended
+ * the meeting. Merges in data from notifications_team and marks those users
+ * as "unknown".
+ */
+function meetings_get_meeting_attendance(&$node) {
+  $attendance = array();
+  
+  $criteria = array(
+    'content_id' => $node->nid,
+  );
+  $votes = votingapi_select_votes($criteria);
+  
+  if (is_array($votes)) {
+    foreach($votes as $vote) {
+      $attendance[$vote['uid']] = $vote['value'];
+    }
+  }
+  
+  // Merge in info from notifications_team in case users don't have an
+  //  attendance record yet.
+  $users = meetings_get_subscribed_users($node);
+  $default_attendance = array();
+  foreach($users as $user) {
+    $uid = $user->uid;
+    $default_attendance[$uid] = MEETINGS_ATTENDANCE_UNKNOWN;
+  }
+  
+  $final_attendance = $attendance + $default_attendance;
+  
+  return $attendance;
+}
+
+/**
+ * Helper function to get an array of all $user objects that are subscribed to
+ * a given node. 
+ */
+function meetings_get_subscribed_users(&$node) {
+  static $users;  // Lazy caching
+  if (!is_array($users)) {
+    $subscriptions = notifications_team_get_subscriptions($node->nid);
+    $subscribers = array();
+    foreach($subscriptions as $s) {
+      $subscribers[] = $s->uid;
+    }
+    $gid = meetings_get_gid($node);
+    $users = notifications_team_get_users(NULL, 0, $gid, $subscribers); 
+  }
+  return $users;
+}
+
+/**
+ * Returns the $gid of the current group context if OG is enabled and such a 
+ * context is available.
+ */
+function meetings_get_gid(&$node) {
+  return module_exists('og') && ($group = og_get_group_context($node)) ? $group->nid : 0;
+}

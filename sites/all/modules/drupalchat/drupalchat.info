@@ -1,0 +1,14 @@
+name = DrupalChat
+package = DrupalChat
+description = Allows users to communicate via instant chat messaging. Provides multiple AJAX implementations.
+core = 6.x
+php = 5.1
+dependencies[] = jquery_update
+
+
+; Information added by drupal.org packaging script on 2013-05-31
+version = "6.x-2.0-beta20"
+core = "6.x"
+project = "drupalchat"
+datestamp = "1370022821"
+

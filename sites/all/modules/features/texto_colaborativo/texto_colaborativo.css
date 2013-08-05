@@ -1,0 +1,15 @@
+span.spaces-feature.node-texto_colaborativo {
+  background: url(icon-small.png);
+}
+#features-menu li a.icon-texts span.icon {
+  background: url(icon.png);
+}
+
+
+.feature .feature-texto_colaborativo {
+  background:transparent url(icon-small.png) no-repeat;
+}
+
+.feature-texto_colaborativo{
+  background:url(icon-small.png) no-repeat !important;
+}

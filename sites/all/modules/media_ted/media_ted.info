@@ -1,0 +1,12 @@
+name = "Media: TED"
+description = "Embedded Media Field provider for http://ted.com"
+core = 6.x
+package = Media
+dependencies[] = emvideo
+
+; Information added by drupal.org packaging script on 2011-05-13
+version = "6.x-1.0-beta2"
+core = "6.x"
+project = "media_ted"
+datestamp = "1305297416"
+

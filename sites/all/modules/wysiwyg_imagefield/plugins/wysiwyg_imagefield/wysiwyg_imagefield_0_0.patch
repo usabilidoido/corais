@@ -1,0 +1,28 @@
+--- C:/Users/Emil/Desktop/wysiwyg_imagefield.js	Fri Sep 17 16:35:13 2010
++++ C:/Users/Emil/Desktop/wysiwyg_imagefield2.js	Fri Sep 17 16:32:23 2010
+@@ -30,12 +30,19 @@
+      * Create wysiwyg_imagefield dialog window.
+      */
+     attach: function(content, settings, instanceId) {
+-      $('#wysiwyg_imagefield-wrapper').dialog({
+-        autoOpen: false,
+-        height: 'inherit',
+-        title: Drupal.t('WYSIWYG ImageField')
+-      });
+-      Drupal.wysiwygImageField.init();
++      // If we dont have any wrapper, we should not add the dialog
++      if($('#wysiwyg_imagefield-wrapper').length > 0) {
++        $('#wysiwyg_imagefield-wrapper').dialog({
++          autoOpen: false,
++          height: 'inherit',
++          title: Drupal.t('WYSIWYG ImageField')
++        });
++        Drupal.wysiwygImageField.init();
++      }
++      else {
++        // If we dont have any wrapper, remove the icon from the wysiwyg toolbar
++        $('#edit-body_wysiwyg_imagefield').parent().remove();
++      }
+       return content;
+     },
+ 

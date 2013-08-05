@@ -1,0 +1,10 @@
+name = Reference Preview
+description = Preview a node-reference in the node-edit form
+core = 6.x
+
+; Information added by drupal.org packaging script on 2013-05-25
+version = "6.x-2.x-dev"
+core = "6.x"
+project = "reference_preview"
+datestamp = "1369451692"
+

@@ -1,0 +1,1 @@
+<?php print t('Default question type template'); ?>

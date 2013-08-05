@@ -1,0 +1,13 @@
+<?php
+// $Id: used_modules.install,v 1.1.2.1 2009/05/17 00:09:05 narno Exp $
+
+/**
+ * Implementation of hook_uninstall()
+ */
+function used_modules_uninstall() {
+  variable_del('used_modules_page_title');
+  variable_del('used_modules_page_description');
+  variable_del('used_modules_page_display_description');
+  variable_del('used_modules_page_display_version');
+  variable_del('used_modules_page_add_link');
+}

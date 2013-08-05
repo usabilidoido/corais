@@ -1,0 +1,65 @@
+# $Id$
+#
+# LANGUAGE translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  mc_offer_want.module,v 1.9 2010/10/02 15:54:27 matslats
+#  offers_wants_import.info: n/a
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2012-01-18 10:04+0100\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Last-Translator: NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: offers_wants_import.module:10
+msgid "Defines two contentTypes which are created and edited by each user and which are presented as a directory categorised using taxonomy."
+msgstr ""
+
+#: offers_wants_import.module:89
+msgid "This page allows you to import users' @type for users already on the system."
+msgstr ""
+
+#: offers_wants_import.module:90
+msgid "There are other ways of doing this, but this is simple and maintained along with the rest of the marketplace module."
+msgstr ""
+
+#: offers_wants_import.module:92
+msgid "Use a spreadsheet tool to prepare a list of user ids, or names, and their @type in one line. "
+msgstr ""
+
+#: offers_wants_import.module:93
+msgid "For aesthetic reasons, there is a 128 character limit on each description. "
+msgstr ""
+
+#: offers_wants_import.module:94
+msgid "Each line should look like this (you must include the header row): !code"
+msgstr ""
+
+#: offers_wants_import.module:95
+msgid "Try importing one or two first."
+msgstr ""
+
+#: offers_wants_import.module:104
+msgid "The description on line @rownum is more than 128 characters: @string"
+msgstr ""
+
+#: offers_wants_import.info:0
+msgid "Offers/wants import"
+msgstr ""
+
+#: offers_wants_import.info:0
+msgid "paste your comma separated values"
+msgstr ""
+
+#: offers_wants_import.info:0
+msgid "Local communities"
+msgstr ""
+

@@ -1,0 +1,4 @@
+; $Id$ 
+name = SVG Renderer
+description = "Displays SVG code as images for all browsers."
+core = 6.x

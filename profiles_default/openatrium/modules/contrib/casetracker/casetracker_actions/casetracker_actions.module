@@ -1,0 +1,320 @@
+<?php
+// $Id: casetracker_actions.module,v 1.1.2.4 2010/02/12 16:19:34 jmiccolis Exp $
+/**
+ * casetracker_actions.module
+ * @file
+ * Implements Actions integration for Case Tracker
+ */
+
+/**
+ * Implementation of hook_action_info()
+ * Used to define new actions: 
+ *   set priority, set status, set type, set project, set assign-to, take case.
+ */
+function casetracker_actions_action_info() {
+  return array(
+    'casetracker_actions_set_priority_action' => array(
+      'description' => t('Set case priority'),
+      'type' => 'node',  
+      'configurable' => TRUE,
+      'hooks' => array('any' => TRUE),	// this is a sloppy cheat. 
+    ),
+    'casetracker_actions_set_status_action' => array(
+      'description' => t('Set case status'),
+      'type' => 'node',
+      'configurable' => TRUE,
+      'hooks' => array('any' => TRUE),
+    ),
+    'casetracker_actions_set_type_action' => array(
+      'description' => t('Set case type'),
+      'type' => 'node',
+      'configurable' => TRUE,
+      'hooks' => array('any' => TRUE),
+    ),
+    'casetracker_actions_set_assign_to_action' => array(
+      'description' => t('Set case assigned user'),
+      'type' => 'node',
+      'configurable' => TRUE,
+      'hooks' => array('any' => TRUE),
+    ),
+    'casetracker_actions_set_project_action' => array(
+      'description' => t('Set case project'),
+      'type' => 'node',
+      'configurable' => TRUE,
+      'hooks' => array('any' => TRUE),
+    ),
+    'casetracker_actions_take_case_action' => array(
+      'description' => t('Take over case'),
+      'type' => 'node',
+      'configurable' => FALSE,
+      'hooks' => array('any' => TRUE),
+    ),
+  );
+}
+
+/**
+ * Definitions of Action Behaviors
+ */
+
+/** 
+ * Set Priority action behavior.
+ */
+function casetracker_actions_set_priority_action(&$object, $context = array()) {
+  $nid = _casetracker_actions_get_nid( $object->nid, $context['nid'] );
+  _casetracker_actions_act( $nid, 'case_priority_id', $context['priority']);
+}
+
+/** 
+ * Set Status action behavior.
+ */
+function casetracker_actions_set_status_action(&$object, $context = array()) {
+  $nid = _casetracker_actions_get_nid( $object->nid, $context['nid'] );
+  _casetracker_actions_act($nid, 'case_status_id', $context['status']);
+}
+
+/** 
+ * Set Type action behavior.
+ */
+function casetracker_actions_set_type_action(&$object, $context = array()) {
+  $nid = _casetracker_actions_get_nid( $object->nid, $context['nid'] );
+  _casetracker_actions_act($nid, 'case_type_id', $context['type']);
+}
+
+/** 
+ * Set Assign to action behavior.
+ */
+function casetracker_actions_set_assign_to_action(&$object, $context = array()) {
+  $nid = _casetracker_actions_get_nid( $object->nid, $context['nid'] );
+  _casetracker_actions_act($nid, 'assign_to', $context['assign_to']);
+}
+
+/** 
+ * Set Project action behavior.
+ */
+function casetracker_actions_set_project_action(&$object, $context = array()) {
+  $nid = _casetracker_actions_get_nid($object->nid, $context['nid']);
+  _casetracker_actions_act($nid, 'pid', $context['project']);
+}
+
+/** 
+ * Take Case action behavior.
+ */
+function casetracker_actions_take_case_action(&$object, $context = array()) {
+  global $user;
+  $nid = _casetracker_actions_get_nid( $object->nid, $context['nid'] );  
+  _casetracker_actions_act($nid, 'assign_to', $user->name);
+}
+
+/**
+ * Action Configuration Forms
+ */
+
+/**
+ * Select a priority level for the Set Priority action.
+ */
+function casetracker_actions_set_priority_action_form($context) {
+  $case_priority_options = casetracker_realm_load('priority');
+  $default_priority = variable_get('casetracker_default_case_priority', 
+    key($case_priority_options));	
+
+  $form['casetracker_actions_priority'] = array(
+    '#title' => t('Priority'),
+    '#type' => 'select',
+    '#description' => t('The case will be updated with the priority selected above.'),
+    '#default_value' => $default_priority,
+    '#options' => $case_priority_options,
+  );
+  return $form;
+}
+
+function casetracker_actions_set_priority_action_submit($form, $form_state) {
+  return array('priority' => $form_state['values']['casetracker_actions_priority']);
+}
+
+/**
+ * Select a status condition for the Set Status action.
+ */
+function casetracker_actions_set_status_action_form($context) {
+  $case_status_options = casetracker_realm_load('status');
+  $default_status = variable_get('casetracker_default_case_status', 
+    key($case_status_options));	
+
+  $form['casetracker_actions_status'] = array(
+    '#title' => t('Status'),
+    '#type' => 'select',
+    '#description' => t('The case will be updated with the status selected above.'),
+    '#default_value' => $default_status,
+    '#options' => $case_status_options,
+  );
+  return $form;
+}
+
+function casetracker_actions_set_status_action_submit($form, $form_state) {
+  return array('status' => $form_state['values']['casetracker_actions_status']);
+}
+
+/**
+ * Select a type for the Set Type action.
+ */
+function casetracker_actions_set_type_action_form($context) {
+  $case_type_options = casetracker_realm_load('type');
+  $default_type = variable_get('casetracker_default_case_type', key($case_type_options));
+
+  $form['casetracker_actions_type'] = array(
+    '#title' => t('Type'),
+    '#type' => 'select',
+    '#description' => t('The case will be updated with the type selected above.'),
+    '#default_value' => $default_type,
+    '#options' => $case_type_options,
+  );
+  return $form;
+}
+
+function casetracker_actions_set_type_action_submit($form, $form_state) {
+  return array('type' => $form_state['values']['casetracker_actions_type']);
+}
+
+/**
+ * Select a user to assign for the Set Assign to action.
+ */
+function casetracker_actions_set_assign_to_action_form($context) {
+  $options = casetracker_user_options();
+  $form['casetracker_actions_assign_to'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Assign to'),
+    '#autocomplete_path' => 'casetracker_autocomplete',
+    '#required' => TRUE,
+    '#size' => 12,
+  );
+  if (count($options) < 20) {
+    $normalized = array();
+    foreach ($options as $uid=>$name) {
+      $normalized[$uid] = $name;
+    }
+    $form['casetracker_actions_assign_to'] = array(
+    '#type' => 'radios',
+    '#title' => t('Assign to'),
+    '#required' => TRUE,
+    '#options' => $normalized,
+    );
+  }
+
+  $form['casetracker_actions_assign_to']['#default_value'] = variable_get(
+    'casetracker_default_assign_to', t('Unassigned'));
+  return $form;
+}
+
+function casetracker_actions_set_assign_to_action_submit($form, $form_state) {
+  return array('assign_to' => $form_state['values']['casetracker_actions_assign_to']);
+}
+
+/**
+ * Select a project for the Set Project action
+ */
+function casetracker_actions_set_project_action_form($context) {
+  $project_options = casetracker_project_options();
+
+  // if there's no project ID from the URL, or more than one project,
+  // we'll create a select menu for the user; otherwise, we'll save
+  // the passed (or only) project ID into a hidden field.
+  if (count($project_options) > 1) {
+    $form['casetracker_actions_pid'] = array(
+      '#title' => t('Project'),
+      '#type' => 'select',
+      '#options' => $project_options,
+    );
+  }
+  else {
+    $form['casetracker']['pid'] = array(
+      '#type' => 'value', 
+      '#value' => !empty($default_project) ? $default_project : key($project_options),
+    );
+  }
+  return $form;
+}
+
+function casetracker_actions_set_project_action_submit($form, $form_state) {
+  return array('project' => $form_state['values']['casetracker_actions_pid']);
+}
+
+/**
+ * Helper Functions
+ */
+
+/**
+ * generalized casetracker update function
+ * All casetracker actions have the same fundamental behavior.
+ */
+function _casetracker_actions_act($nid, $field, $value) {
+  if(!$nid) return;
+  // make sure we have a valid case node
+  $node = node_load(array('nid' => $nid, 'type' => 'casetracker_basic_case'));
+ 
+  $success = _casetracker_actions_update_by_comment(
+    $field, $value, $node);
+  
+  if($success) {
+    _casetracker_actions_log($field, $value, $nid);
+  }
+}
+
+/**
+ * Get nid from action invocation.
+ * Failing that, grab it off the current node.
+ */
+function _casetracker_actions_get_nid($object_nid, $context_nid) {
+  // get the nid from the object.
+  if (isset($object_nid)) {
+    $nid = $object_nid;
+  }
+  elseif (isset($context_nid)) {
+    $nid = $context_nid;
+  }
+  elseif (arg(0) == 'node') {
+    $nid = arg(1);
+  }
+
+  return $nid;
+}
+
+/**
+ * Update case by programmatically inserting a comment posted by current user.
+ */
+function _casetracker_actions_update_by_comment($field, $value, $node) {
+  global $user;
+  if (user_access('post comments') 
+    && (user_access('administer comments') || node_comment_mode($nid) 
+    == COMMENT_NODE_READ_WRITE)) {
+
+      $case_info = get_object_vars($node->casetracker);
+      $case_info[$field] = ($field == 'assign_to') ? casetracker_get_name($value) : $value;
+      if ($field != 'assign_to') {
+        $case_info['assign_to'] = casetracker_get_name($case_info['assign_to']);
+      }
+
+      // casetracker uses revision_id as a primary key for casetracker_case table.
+      $edit = array(
+        'nid' => $node->nid,
+        'pid' => 0, // comment parent id
+        'comment' => t('Case changed in bulk update.'), // comment body
+        'subject' => t('Update'),
+        'uid' => $user->uid,
+        'revision_id' => $node->vid,
+        'casetracker' => $case_info,
+      );
+      return comment_save($edit);
+  }
+  drupal_set_message(t('You may not post an update to case #%nid. Either you do not have the necessary permissions or the case has been locked.', array('%nid' => $nid)));
+  return 0;
+}
+
+/**
+ * Watchdog logging & verbose user message for actions
+ */
+function _casetracker_actions_log($field, $value, $nid) {
+  watchdog('action', 'Case nid %nid: %field set to %value.',
+    array('%field'=>$field, '%value'=>$value, '%nid'=>$nid));
+
+  drupal_set_message(t("Case #%nid: %field set to %value", array('%nid' => $nid, '%field' => $field, '%value' => $value)));
+}
+

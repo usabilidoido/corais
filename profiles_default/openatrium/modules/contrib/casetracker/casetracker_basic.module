@@ -1,0 +1,97 @@
+<?php
+// $Id: casetracker_basic.module,v 1.22.2.1 2010/03/13 02:45:43 jmiccolis Exp $
+
+/**
+ * @file
+ * Enables a basic project node type for use with Case Tracker.
+ */
+
+/**
+ * Implementation of hook_perm().
+ */
+function casetracker_basic_perm() {
+  return array('create projects', 'create cases', 'edit own projects', 'edit own cases');
+}
+
+/**
+ * Implementation of hook_node_info().
+ */
+function casetracker_basic_node_info() {
+  return array(
+    'casetracker_basic_project' => array(
+      'name'        => t('Project'),
+      'module'      => 'casetracker_basic_project',
+      'description' => t('Create a basic project for use with Case Tracker.'),
+      'help'        => t('Create a basic project for use with Case Tracker.'),
+      'body_label'  => t('Description'),
+    ),
+    'casetracker_basic_case' => array(
+      'name'        => t('Case'),
+      'module'      => 'casetracker_basic_case',
+      'description' => t('Open a new case assigned to a particular project.'),
+      'help'        => t('Open a new case assigned to a particular project.'),
+      'body_label'  => t('Description'),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_form().
+ */
+function casetracker_basic_project_form(&$node) {
+  $form = array();
+  if (casetracker_is_project($node->type)) {
+    $type = node_get_types('type', $node);
+    $form['title'] = array('#type' => 'textfield', '#title' => check_plain($type->title_label), '#required' => TRUE, '#default_value' => !empty($node->title) ? $node->title : NULL, '#weight' => -5);
+    $form['body_field'] = node_body_field($node, $type->body_label, $type->min_word_count);
+  }
+  return $form;
+}
+
+/**
+ * Implementation of hook_form().
+ */
+function casetracker_basic_case_form(&$node) {
+  $form = array();
+  if (casetracker_is_case($node->type)) {
+    $type = node_get_types('type', $node);
+    $form['title'] = array('#type' => 'textfield', '#title' => check_plain($type->title_label), '#required' => TRUE, '#default_value' => !empty($node->title) ? $node->title : NULL, '#weight' => -5);
+    $form['body_field'] = node_body_field($node, $type->body_label, $type->min_word_count);
+  }
+  return $form;
+}
+
+/**
+ *  Implementation of hook_access().
+ */
+function casetracker_basic_project_access($op, $node, $account) {
+  switch ($op) {
+    case 'create':
+      return user_access('create projects', $account);
+      break;
+    case 'update':
+    case 'delete':
+      if (user_access('edit own projects', $account) && ($account->uid == $node->uid)) {
+        return TRUE;
+      }
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_access().
+ */
+function casetracker_basic_case_access($op, $node) {
+  global $user;
+
+  switch ($op) {
+    case 'create':
+      return user_access('create cases');
+    case 'update':
+    case 'delete':
+      if (user_access('edit own cases') && ($user->uid == $node->uid)) {
+        return TRUE;
+      }
+      break;
+  }
+}

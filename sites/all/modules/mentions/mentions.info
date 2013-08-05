@@ -1,0 +1,11 @@
+; $Id: mentions.info,v 1.3 2009/07/20 03:17:24 deciphered Exp $
+name = Mentions
+description = Adds Twitter like @username linking and tracking features.
+core = 6.x
+
+; Information added by drupal.org packaging script on 2009-07-24
+version = "6.x-1.0"
+core = "6.x"
+project = "mentions"
+datestamp = "1248398152"
+

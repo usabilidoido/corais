@@ -1,0 +1,111 @@
+<?php 
+
+/**
+ * @file truefalse_report.module
+ *
+ * Module must expose two functions: get_truefalse_reports and get_truefalse_themed_output
+ * These two functions are called from the quiz_stats module when generating statistics for this
+ * question type. 
+ * 
+ */
+
+/**
+ * Implementation of hook_help()
+ */
+function truefalse_report_help( $path, $arg ) {
+  $output = '';
+  
+  switch ( $path ) {
+    case 'admin/help#truefalse_report';
+      $output = '<p>' . t('Generates statistic for a true/false question type') . '</p>';
+      break;
+  }
+  
+  return $output;
+}
+
+/**
+ * Implementation of hook_theme()
+ */
+function truefalse_report_theme() {
+  return array(
+    'truefalse_outputs' => array(
+      'arguments' => array( 'statistics' => NULL,  ),
+      'path' => drupal_get_path( 'module', 'truefalse_report' ) . '/theme',
+      'template' => 'truefalse_output',
+    ),
+  );
+}
+
+/**
+ * Themes the statistics.
+ *
+ * @param array $statistics
+ *      The statistics calculated in get_truefalse_reports
+ * @return string
+ *      The HTML output for this question.
+ */
+function truefalse_get_themed_output( $statistics = NULL ) {
+  // Just a check to see if we have stats
+  if ( $statistics == NULL )
+      return t("Statistics to populate theme is missing.");
+  
+  // Return themed output
+  return theme( 'truefalse_outputs', $statistics );
+
+}
+
+/**
+ * Calculates and returns statistic for a given question in relation to a 
+ * quiz node revision.
+ *
+ * @param object $quesetion
+ * @param int $vid
+ * @return array
+ */
+#function get_truefalse_reports( $question, $vid ) {
+function truefalse_report_get_statistics( $question, $vid, $generic ) {
+  $statistics = array();
+  
+  drupal_add_css(drupal_get_path('module', 'truefalse_report') .'/truefalse_report.css', 'theme');
+  
+  // Get the correct answer (true or false)
+  $sql = "SELECT
+              correct_answer
+          FROM
+              {quiz_truefalse_node}
+          WHERE
+              nid = %d
+              AND vid = %d";
+  $correct = db_result(db_query($sql, $question->question_nid, $question->question_vid));
+  
+  $statistics['correct'] = $correct;
+  
+  $sql = "SELECT 
+          	COUNT(*) AS count, 
+          	SUM(answer=1) AS sum_true, 
+          	SUM(answer=0) AS sum_false 
+          FROM 
+          	{quiz_truefalse_user_answers} qtfua
+          INNER JOIN
+          	{quiz_node_results} qnr ON qnr.result_id = qtfua.result_id
+          WHERE
+          	qnr.vid = %d";
+  
+  $result = db_fetch_array(db_query($sql, $vid));
+  
+  $count = (int)$result['count'];
+  $statistics['count'] = $count;
+  
+  if ($count > 0) {
+    $true = (int)$result['sum_true'];
+    $statistics['true'] = $true;
+    $statistics['percentage_true'] = round($true/$count*100);
+    
+    $false = (int)$result['sum_false'];
+    $statistics['false'] = $false;
+    $statistics['percentage_false'] = round($false/$count*100);
+  }
+  
+  return $statistics;
+}

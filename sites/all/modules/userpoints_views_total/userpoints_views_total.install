@@ -1,0 +1,18 @@
+<?php
+// $Id$
+
+/**
+* Implementation of hook_install().
+*/
+function userpoints_views_total_install() {
+ $sql = "CREATE VIEW {userpoints_total} AS SELECT uid, SUM(points) AS total_points FROM {userpoints} GROUP BY uid;";
+ db_query($sql);
+}
+
+/**
+* Implementation of hook_uninstall().
+*/
+function userpoints_views_total_uninstall() {
+ $sql = "DROP VIEW {userpoints_total}";
+ db_query($sql);
+}

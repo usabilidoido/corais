@@ -1,0 +1,102 @@
+<?php
+// $Id: purl.install,v 1.1.2.7 2010/02/04 20:14:51 yhahn Exp $
+
+/**
+ * Implementation of hook_install().
+ */
+function purl_install() {
+  drupal_install_schema('purl');
+  db_query("UPDATE {system} SET weight = -20 WHERE name = 'purl'");
+
+  // Migrate context_prefix table if present.
+  _purl_migrate();
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function purl_uninstall() {
+  drupal_uninstall_schema('purl');
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function purl_schema() {
+  $schema['purl'] = array(
+    'description' => t('purl.'),
+    'fields' => array(
+      'value' => array(
+        'description' => t('The string to detect from incoming URLs and to use when rewriting outgoing URLs.'),
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'provider' => array(
+        'description' => t('The provider (usually a module\'s name) of the prefix/id pair.'),
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'id' => array(
+        'description' => t('The ID given by the provider to associate with a corresponding prefix. This might be a group_nid (og), a language code (i18n) or some other unique identifier that the provider is interested in associating with the URL prefix.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('value'),
+  );
+
+  return $schema;
+}
+
+/**
+ * Migrate any modifiers from context_prefix tables to PURL.
+ */
+function _purl_migrate() {
+  drupal_get_schema(NULL, TRUE);
+  if (db_table_exists('purl') && db_table_exists('context_prefix')) {
+    $result = db_query("SELECT * FROM {context_prefix}");
+    while ($row = db_fetch_object($result)) {
+      $exists = db_result(db_query("SELECT id FROM {purl} WHERE provider = '%s' AND id = '%d'", $row->provider, $row->id));
+      if (!$exists) {
+        $modifier = array(
+          'value' => $row->prefix,
+          'provider' => $row->provider,
+          'id' => $row->id,
+        );
+        drupal_write_record('purl', $modifier);
+      }
+    }
+    $ret = array();
+    db_drop_table($ret, 'context_prefix');
+  }
+}
+
+/**
+ * The "path pair" processor was using a variable named
+ * "purl_method_path_key", update that to "purl_method_pair_key".
+ */
+function purl_update_6001() {
+  if ($pair = variable_get('purl_method_path_key', FALSE)) {
+    variable_set('purl_method_pair_key', $pair);
+    variable_del('purl_method_path_key');
+  }
+  return array();
+}
+
+/**
+ * Install CTools.
+ */
+function purl_update_6002() {
+  drupal_install_modules(array('ctools'));
+  $modules = module_list();
+  if (!isset($modules['ctools'])) {
+    return array('#abort' => array('success' => FALSE, 'query' => 'Could not enable CTools.'));
+  }
+  return array(array('success' => TRUE, 'query' => 'Enabled CTools successfully.'));
+}

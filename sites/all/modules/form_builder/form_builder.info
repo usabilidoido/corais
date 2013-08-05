@@ -1,0 +1,12 @@
+name = Form builder
+description = Form building framework.
+dependencies[] = jquery_ui
+dependencies[] = options_element
+core = 6.x
+
+; Information added by drupal.org packaging script on 2012-10-19
+version = "6.x-1.3+1-dev"
+core = "6.x"
+project = "form_builder"
+datestamp = "1350608303"
+

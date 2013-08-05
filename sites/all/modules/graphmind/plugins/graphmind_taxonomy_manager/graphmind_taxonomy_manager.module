@@ -1,0 +1,145 @@
+<?php
+
+
+/**
+ * Implementation of hook_graphmind_plugin_info().
+ *
+ * @return array
+ */
+function graphmind_taxonomy_manager_graphmind_plugin_info() {
+  return array(
+    'taxonomy_manager' => array(
+      // Module implement this plugin
+      'module' => 'graphmind_taxonomy_manager',
+      // Name of the plugin in flash (src/plugin/PLUGIN.as)
+      'plugin' => 'TaxonomyManager',
+      'name' => t('Taxonomy manager for Graphmind'),
+      'description' => t('Taxonomy manager for Graphmind'),
+    ),
+  );
+}
+
+
+/**
+ * Implementation of hook_service().
+ *
+ * @return array
+ */
+function graphmind_taxonomy_manager_service() {
+  return array(
+    array(
+      '#method' => 'graphmindTaxonomyManager.getAll',
+      '#access arguments' => array('access content'),
+      '#callback' => 'graphmind_taxonomy_manager_get_all',
+      '#file' => array('file' => 'inc', 'module' => 'graphmind_taxonomy_manager'),
+      '#return' => 'struct',
+      '#args' => array(),
+    ),
+    array(
+      '#method' => 'graphmindTaxonomyManager.moveTerm',
+      '#access arguments' => array(array('access content', 'administer taxonomy')),
+      '#access callback' => 'graphmind_service_access',
+      '#callback' => 'graphmind_taxonomy_manager_move_term',
+      '#file' => array('file' => 'inc', 'module' => 'graphmind_taxonomy_manager'),
+      '#return' => 'int',
+      '#args' => array(
+        array(
+          '#name' => 'source_tid',
+          '#type' => 'int',
+          '#description' => t('Source term\'s id.'),
+          '#optional' => FALSE,
+        ),
+        array(
+          '#name' => 'target_vid',
+          '#type' => 'int',
+          '#description' => t('Target vocabulary\'s id.'),
+          '#optional' => FALSE,
+        ),
+        array(
+          '#name' => 'parent_tid',
+          '#type' => 'int',
+          '#description' => t('Parent term\'s id.'),
+          '#optional' => FALSE,
+        ),
+        array(
+          '#name' => 'order',
+          '#type' => 'string',
+          '#description' => t('Order number of the term in it\'s parent\'s terms.'),
+          '#optional' => FALSE,
+        ),
+        array(
+          '#name' => 'child_nodes',
+          '#type' => 'string',
+          '#description' => t('Child terms of the moved term.'),
+          '#optional' => FALSE
+        )
+      ),
+    ),
+    array(
+      '#method' => 'graphmindTaxonomyManager.deleteTerm',
+      '#access arguments' => array(array('access content', 'administer taxonomy')),
+      '#access callback' => 'graphmind_service_access',
+      '#callback' => 'graphmind_taxonomy_manager_delete_term',
+      '#file' => array('file' => 'inc', 'module' => 'graphmind_taxonomy_manager'),
+      '#return' => 'int',
+      '#args' => array(
+        array(
+          '#name' => 'tid',
+          '#type' => 'int',
+          '#description' => t('Term\'s ID.'),
+          '#optional' => FALSE,
+        ),
+      ),
+    ),
+    array(
+      '#method' => 'graphmindTaxonomyManager.addSubtree',
+      '#access arguments' => array(array('access content', 'administer taxonomy')),
+      '#access callback' => 'graphmind_service_access',
+      '#callback' => 'graphmind_taxonomy_manager_add_subtree',
+      '#file' => array('file' => 'inc', 'module' => 'graphmind_taxonomy_manager'),
+      '#return' => 'array',
+      '#args' => array(
+        array(
+          '#name' => 'tid',
+          '#type' => 'int',
+          '#description' => t('Source term\'s id.'),
+          '#optional' => FALSE,
+        ),
+        array(
+          '#name' => 'vid',
+          '#type' => 'int',
+          '#description' => t('Target vocabulary\'s id.'),
+          '#optional' => FALSE,
+        ),
+        array(
+          '#name' => 'subtree',
+          '#type' => 'array',
+          '#description' => t('Add a subtree to a term or vocabulary.'),
+          '#optional' => FALSE,
+        ),
+      ),
+    ),
+    array(
+      '#method' => 'graphmindTaxonomyManager.renameTerm',
+      '#callback' => 'graphmind_taxonomy_manager_rename_term',
+      '#access arguments' => array(array('access content', 'administer taxonomy')),
+      '#access callback' => 'graphmind_service_access',
+      '#file' => array('file' => 'inc', 'module' => 'graphmind_taxonomy_manager'),
+      '#return' => 'array',
+      '#args' => array(
+        array(
+          '#name' => 'tid',
+          '#type' => 'int',
+          '#description' => t('Source term\'s id.'),
+          '#optional' => FALSE,
+        ),
+        array(
+          '#name' => 'name',
+          '#type' => 'string',
+          '#description' => t('New name.'),
+          '#optional' => FALSE,
+        ),
+      ),
+    ),
+  );
+}

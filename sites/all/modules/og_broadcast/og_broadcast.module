@@ -1,0 +1,37 @@
+<?php
+// $Id: og.broadccast,v 1.628.4.34 2010/02/21 17:32:35 amitaibu Exp $
+
+function og_broadcast_form_submit_form_alter($form, &$form_state) {
+  global $user;
+
+  $sql = og_list_users_sql(1);
+  $result = db_query($sql, $form_state['values']['gid']);
+  $recipients = array();
+  while ($row = db_fetch_object($result)) {
+    $recipients[] = $row->uid;
+  }
+
+  $node = node_load($form_state['values']['gid']);
+  $variables = array(
+    '@group' => $node->title,
+    '@subject' => $form_state['values']['subject'],
+    '@body' => $form_state['values']['body'],
+    '@site' => variable_get('site_name', 'drupal'),
+    '!url_group' => url("", array('absolute' => TRUE)),
+    '!url_unsubscribe' => url("og/unsubscribe/$node->nid/$user->uid", array('absolute' => TRUE))
+  );//'!url_group' => url("node/$node->nid", array('absolute' => TRUE)),
+
+  $message = array(
+    'from' => $user,
+    'subject' => $form_state['values']['subject'],
+    'body' => _og_mail_text('og_admin_email_body', $variables)
+  );
+
+  // Send notifications to each member; Sending an array of recipients implies
+  // that this is a bulk message.
+  module_invoke_all('og', 'user broadcast', $node->nid, $recipients, $message);
+  drupal_set_message(format_plural(count($recipients), '1 message queued for delivery.', '@count messages queued for delivery.'));
+  
+}
+
+?>

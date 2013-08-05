@@ -1,0 +1,42 @@
+<?php
+
+
+/**
+ * Implementation of hook_install().
+ */
+function graphmind_futures_wheel_install() {
+  drupal_install_schema('graphmind_futures_wheel');
+}
+
+
+/**
+ * Implementation of the schema definition.
+ *
+ * @return array
+ */
+function graphmind_futures_wheel_schema() {
+  return array(
+    'graphmind_futures_wheel' => array(
+      'fields' => array(
+        'nid' => array(
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+        ),
+      ),
+      'primary key' => array('nid'),
+      'indexes' => array('nid' => array('nid')),
+    ),
+  );
+}
+
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function graphmind_futures_wheel_uninstall() {
+  drupal_uninstall_schema('graphmind_futures_wheel');
+}
+
+

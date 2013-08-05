@@ -1,0 +1,295 @@
+<?php
+
+require('atrium_casetracker.features.inc');
+
+/**
+ * Implementation of hook_help().
+ */
+function atrium_casetracker_help($path, $arg) {
+  if (($path == 'help#atrium_casetracker') || context_isset('context', 'casetracker_listing')) {
+    switch ($path) {
+      case 'node/add/casetracker-basic-case':
+      case 'node/add/casetracker-basic-project':
+      case 'node/%/edit':
+        $help = '';
+        $help .= '<h3>'. t('Case Tracker') .'</h3>';
+        $node = menu_get_object();
+        if ($node->type == 'casetracker_basic_case') {
+          $help .= '<p>'. t('Tips for adding and editing cases:') .'</p>';
+          $help .= '<ul>';
+          $help .= '<li>'. t('Choose the project that your case applies to.') .'</li>';
+          $help .= '<li>'. t('Fill in a descriptive title and summary of the issue.') .'</li>';
+          $help .= '<li>'. t('Choose a status, priority and type for the case. Assign the case to a user and consider notifying any others who might be interested in the case.') .'</li>';
+          $help .= '</ul>';
+        }
+        else {
+          $help .= '<p>'. t('Projects can be used to organize cases and collect resources and documentations about ongoing work. You can organize <strong>book pages</strong> in a hierarchy under each project and view all of the cases that belong to a certain project in the case tracker.') .'</p>';
+        }
+        return $help;
+
+      case 'help#atrium_casetracker':
+      default:
+        $help = '';
+        $help .= '<h3>'. t('Case Tracker') .'</h3>';
+        $help .= '<p>'. t('The case tracker gives you a way to track progress on your <strong>projects</strong> and assign <strong>cases</strong> to yourself and others.') .'</p>';
+        $help .= '<ul>';
+        $help .= '<li>'. t('!add_projects to keep your cases organized.', array('!add_projects' => l(t('Add projects'), 'node/add/casetracker-basic-project'))) .'</li>';
+        $help .= '<li>'. t('!add_cases to assign tasks or assignments to yourself and others for completion.', array('!add_cases' => l(t('Add cases'), 'node/add/casetracker-basic-case'))) .'</li>';
+        $help .= '<li>'. t('Cases can be <strong>reassigned</strong>, <strong>postponed</strong>, and <strong>closed</strong>, among other actions.') .'</li>';
+        $help .= '<li>'. t('The history of a case - who it\'s been assigned to, its status and its priority - can be tracked viewing its comment thread.') .'</li>';
+        $help .= '</ul>';
+        return $help;
+    }
+  }
+}
+
+/**
+ * Implementation of hook_menu_alter().
+ * Ensure casetracker views are disabled.
+ */
+function atrium_casetracker_menu_alter(&$items) {
+  // Views: disable views that we are 'overriding'
+  $views_defaults = variable_get('views_defaults', array());
+  $disabled = array(
+    'casetracker_assignee_options',
+    'casetracker_project_cases',
+    'casetracker_project_options',
+  );
+  $set = FALSE;
+  foreach ($disabled as $view_name) {
+    if (empty($views_defaults[$view_name])) {
+      $set = TRUE;
+      $views_defaults[$view_name] = TRUE;
+    }
+  }
+  if ($set) {
+    variable_set('views_defaults', $views_defaults);
+  }
+}
+
+/**
+ * Implementation of hook_nodeapi().
+ */
+function atrium_casetracker_nodeapi(&$node, $op, $teaser = NULL, $page = NULL) {
+  switch ($op) {
+    case 'view':
+      // Confirm we are actually on a page of relevance
+      if (menu_get_object() === $node) {
+        switch ($node->type) {
+          case 'casetracker_basic_project':
+            // Omit casetracker project summary -- not useful at the moment (may be one day...)
+            unset($node->content['casetracker_project_summary']);
+            break;
+        }
+      }
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_form_alter().
+ * Ensure projects become root books.
+ * Test: AtriumCaseTrackerTest->testProjectNode().
+ */
+function atrium_casetracker_form_alter(&$form, $form_state, $form_id) {
+  if (!empty($form['#node']) && !empty($form['book'])) {
+    switch ($form['#node']->type) {
+      case 'casetracker_basic_project':
+        if (!empty($form['book'])) {
+          if (!empty($form['#node']->nid) && isset($form['book']['bid']['#options'][$form['#node']->nid])) {
+            $form['book']['bid']['#default_value'] = $form['#node']->nid;
+          }
+          else {
+            $form['book']['bid']['#default_value'] = 'new';
+          }
+          $form['book']['#access'] = FALSE;
+        }
+        break;
+    }
+  }
+}
+
+/**
+ * Implementation of hook_form_views_exposed_form_alter().
+ */
+function atrium_casetracker_form_views_exposed_form_alter(&$form, &$form_state) {
+  // Pass table sort on when submitting filter forms
+  if (isset($_GET['order'])) {
+    $form['order'] = array(
+      '#type' => 'hidden',
+      '#value' => $_GET['order'],
+    );
+  }
+  if (isset($_GET['sort'])) {
+    $form['sort'] = array(
+      '#type' => 'hidden',
+      '#value' => $_GET['sort'],
+    );
+  }
+}
+
+/**
+ * Implementation of hook_block().
+ */
+function atrium_casetracker_block($op = 'list', $delta = 0) {
+  switch ($op) {
+    case 'list':
+      $blocks['filters'] = array('info' => t('Atrium: Case Tracker filter'));
+      return $blocks;
+    case 'view':
+      $function = '_atrium_casetracker_block_'. $delta;
+      if (function_exists($function)) {
+        return call_user_func($function);
+      }
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_theme_registry_alter().
+ */
+function atrium_casetracker_theme_registry_alter(&$theme_registry) {
+  $theme_registry['casetracker_case_summary']['function'] = 'atrium_casetracker_casetracker_case_summary';
+}
+
+/**
+ * Preprocessor for theme('views_view').
+ */
+function atrium_casetracker_preprocess_views_view(&$vars) {
+  $view = $vars['view'];
+  if ($view->name == 'casetracker_cases') {
+    // Whisk away exposed filter for display in a block
+    _atrium_casetracker_block_filters($vars['exposed']);
+    $vars['exposed'] = '';
+  }
+}
+
+/**
+ * Preprocessor for theme('views_view_table').
+ */
+function atrium_casetracker_preprocess_views_view_table(&$vars) {
+  $view = $vars['view'];
+  if ($view->name == 'casetracker_cases') {
+    $vars['class'] .= " cases";
+
+    global $user;
+    $inactive_states = atrium_casetracker_get_inactive_states();
+    foreach ($view->result as $index => $row) {
+      if (!empty($row->casetracker_case_assign_to) && $row->casetracker_case_assign_to == $user->uid) {
+        $vars['row_classes'][$index][] = 'mine';
+      }
+      if (!empty($row->casetracker_case_case_status_id) && in_array($row->casetracker_case_case_status_id, $inactive_states)) {
+        $vars['row_classes'][$index][] = 'status-inactive';
+      }
+    }
+  }
+}
+
+/**
+ * Filter block.
+ */
+function _atrium_casetracker_block_filters($set = '') {
+  static $filters;
+  if (!empty($set)) {
+    $filters = $set;
+    return;
+  }
+  if (!empty($filters)) {
+    return array('subject' => t('Filter results'), 'content' => $filters);
+  }
+  return array();
+}
+
+/**
+ * THEME ==============================================================
+ */
+
+/**
+ * Implementation of hook_theme().
+ */
+function atrium_casetracker_theme() {
+  return array(
+    'atrium_casetracker_priority' => array(),
+  );
+}
+
+/**
+ * Case priority theme function.
+ */
+function theme_atrium_casetracker_priority($id) {
+  return "<span class='case-priority priority-$id'>$id</span>";
+}
+
+/**
+ * Override of theme_casetracker_case_summary().
+ * @TODO: move to template file.
+ */
+function atrium_casetracker_casetracker_case_summary($case, $project) {
+  drupal_add_css(drupal_get_path('module', 'atrium_casetracker') .'/atrium_casetracker.css');
+
+  $status = casetracker_case_state_load($case->casetracker->case_status_id, 'status');
+  $priority = casetracker_case_state_load($case->casetracker->case_priority_id, 'priority');
+  $duedate = ($case->field_due_date[0]['value']) ? format_date(strtotime($case->field_due_date[0]['value']), 'custom', 'l, M j') : NULL;
+
+  if (is_numeric($case->casetracker->assign_to)) {
+    $assign_to = user_load(array('uid' => $case->casetracker->assign_to));
+  }
+  else {
+    $assign_to = user_load(array('name' => $case->casetracker->assign_to));
+  }
+
+  if (empty($assign_to) || $assign_to->uid == 0) {
+    $assigned =  '<em>' . t('Unassigned')  . '</em>';
+  }
+  else {
+    $assigned = t('Assigned to !user', array('!user' => theme('username', $assign_to)));
+  }
+
+  $type = casetracker_case_state_load($case->casetracker->case_type_id, 'type');
+  $project = l($project->title, "node/{$project->nid}");
+  $last_comment = db_result(db_query('SELECT last_comment_timestamp FROM {node_comment_statistics} WHERE nid = %d', $case->nid));
+  $last_comment = t('!time ago', array('!time' => format_interval(time() - $last_comment)));
+
+  $class = in_array($case->casetracker->case_status_id, atrium_casetracker_get_inactive_states()) ? 'inactive' : 'active';
+
+  $output = "<div class='atrium-case-summary atrium-case-status-{$class} clear-block'>";
+  $output .= "<div class='primary'>";
+  $output .= "<div class='status'>{$status}</div>";
+  $output .= "<div class='project'>{$project}</div>";
+  $output .= "<div class='assigned'>{$assigned}</div>";
+  $output .= "</div>";
+  $output .= "<div class='secondary";
+  if ($duedate) { $output .= " with-duedate"; }
+  $output .= "'>";
+  if ($duedate) { $output .= "<div class='duedate'><label>". t('Due Date') ."</label>{$duedate}</div>"; }
+  $output .= "<div class='priority'><label>". t('Priority') ."</label>{$priority}</div>";
+  $output .= "<div class='type'><label>" . t('Type') . "</label>{$type}</div>";
+  $output .= "<div class='updated'><label>". t('Last updated') ."</label>{$last_comment}</div>";
+  $output .= "</div>";
+  $output .= "</div>";
+
+  return $output;
+}
+
+/**
+ * Retrieve an array of inactive state IDs.
+ */
+function atrium_casetracker_get_inactive_states() {
+  // @TODO: Replace this with a proper fix upstream in Casetracker
+  static $inactive_states;
+  if (!isset($inactive_states)) {
+    $inactive_states = array();
+    $search = array('closed', 'defer', 'duplicate', 'postponed', 'fixed', 'resolved');
+    $states = casetracker_case_state_load(NULL, 'status');
+    foreach ($states as $status_id => $state) {
+      $state = strtolower($state);
+      foreach ($search as $needle) {
+        if (strpos($state, $needle) !== FALSE) {
+          $inactive_states[] = $status_id;
+          continue;
+        }
+      }
+    }
+  }
+  return $inactive_states;
+}

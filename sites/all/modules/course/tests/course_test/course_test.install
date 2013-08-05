@@ -1,0 +1,15 @@
+<?php
+
+/**
+ * @file course_test.install
+ * Install, update and uninstall functions for the course_test module.
+ *
+ */
+
+/**
+ * Implements hook_install().
+ */
+function course_test_install() {
+  variable_set('course_use_course_test', 1);
+  variable_set('course_content_use_course_test_content', 1);
+}

@@ -1,0 +1,26 @@
+<?php
+
+function userpoints_karma_requirements($phase) {
+  $requirements = array();
+
+  if ($phase != 'runtime') {
+    return $requirements;
+  }
+
+  $vud_tag = variable_get('vud_tag', 'vote');
+  $upk_tag = variable_get(USERPOINTS_KARMA_TAG, USERPOINTS_KARMA_TAG_DEFAULT);
+  if ($vud_tag != $upk_tag) {
+    $requirements['userpoints_karma'] = array(
+      'title'       => t('Userpoints Karma'),
+      'value'       => 'Vote Up/Down Tag',
+      'severity'    => REQUIREMENT_ERROR,
+      'description' => t('The VotingAPI tag for the Vote Up Down modle is not set to @tag. For the Userpoints Karma module to work correctly, the !vup_tag and the !upk_tag must be the same, or disable the userpoints_karma module.', array(
+        '@tag' => $upk_tag,
+        '!vup_tag' => l('Vote Up Down tag', 'admin/settings/voteupdown'),
+        '!upk_tag' => l('Userpoints Karma tag', 'admin/settings/userpoints'))),
+
+    );
+  }
+
+  return $requirements;
+}

@@ -1,0 +1,814 @@
+<?php
+// $Id: pg_showtransactions.module,v 1.1 2009/11/24 22:06:36 gor Exp $
+
+/********************************************************************
+ * Drupal Hooks
+ ********************************************************************/
+
+/**
+ * Implementation of hook_menu_alter()
+ */
+/*function pg_showtransactions_menu_alter(&$callbacks) {
+  // Example - disable the page at node/add
+  print_r($callbacks);
+}
+*/
+/**
+ * Implementation of hook_perm()
+ */
+
+function pg_showtransactions_perm() {
+  return array('show personal transaction','operate on transactions');
+}
+
+/**
+ * Implementation of hook_theme()
+ */
+function pg_showtransactions_theme() {
+   return array(
+    'pg_showtransactions_filters' => array(
+      'arguments' => array('form' => NULL),
+    ),
+    'pg_showtransactions_chart' => array(
+      'arguments' => array('title' => NULL, 'charts' => NULL),
+    ),
+    'pg_showtransaction_renderchart' => array(
+      'arguments' => array('title' => NULL, 'charts' => NULL),
+    ),
+    'pg_showtransactions_history' => array(
+      'arguments' => array('rows' => array(), 'filter_form' => NULL),
+    ),
+    'pg_showtransactions_operator_history' => array(
+      'arguments' => array('rows' => array(), 'filter_form' => NULL),
+    ),
+    'pg_showtransactions_personal_history' => array(
+      'arguments' => array('rows' => array(), 'filter_form' => NULL),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_menu()
+ */
+
+function pg_showtransactions_menu() {
+
+
+  $items['admin/reports/pg_charts'] = array(
+      'title'            => 'PGAPI :: ShowTransaction :: Charts',
+      'page callback'    => 'pg_showtransactions_overview',
+      'access callback'  => 'user_access',
+      'access arguments' => array('administer pgapi'),
+      'weight'           => 1,
+      'file'             => 'pg_showtransactions.charts.inc',
+      'description'      => 'There is charts based on transaction information.',
+
+  );
+  $items['admin/reports/pg_charts/overview'] = array(
+      'title'            => 'Overview',
+      'page callback'    => 'pg_showtransactions_overview',
+      'access callback'  => 'user_access',
+      'access arguments' => array('administer pgapi'),
+      'weight'           => 1,
+      'file'             => 'pg_showtransactions. charts.inc',
+      'type'             => MENU_DEFAULT_LOCAL_TASK,
+  );
+  $items['admin/reports/pg_charts/yearmoney'] = array(
+      'title'            => 'Years payment money chart',
+      'page callback'    => 'pg_showtransactions_yearchart_money',
+      'access callback'  => 'user_access',
+      'access arguments' => array('administer pgapi'),
+      'weight'           => 1,
+      'file'             => 'pg_showtransactions.charts.inc',
+      'type'             => MENU_LOCAL_TASK,
+  );
+
+  $items['admin/reports/pg_charts/monthmoney'] = array(
+      'title'            => 'Month payment money chart',
+      'page callback'    => 'pg_showtransactions_monthchart_money',
+      'access callback'  => 'user_access',
+      'access arguments' => array('administer pgapi'),
+      'weight'           => 2,
+      'file'             => 'pg_showtransactions.charts.inc',
+      'type'             => MENU_LOCAL_TASK,
+  );
+  $items['admin/reports/pg_charts/yearstatus'] = array(
+      'title'            => 'Years payment status chart',
+      'page callback'    => 'pg_showtransactions_yearchart',
+      'access callback'  => 'user_access',
+      'access arguments' => array('administer pgapi'),
+      'weight'           => 3,
+      'file'             => 'pg_showtransactions.charts.inc',
+      'type'             => MENU_LOCAL_TASK,
+  );
+
+  $items['admin/reports/pg_charts/monthstatus'] = array(
+      'title'            => 'Month payment status chart',
+      'page callback'    => 'pg_showtransactions_monthchart',
+      'access callback'  => 'user_access',
+      'access arguments' => array('administer pgapi'),
+      'weight'           => 4,
+      'file'             => 'pg_showtransactions.charts.inc',
+      'type'             => MENU_LOCAL_TASK,
+  );
+  $items['admin/reports/pg_charts/settings'] = array(
+      'title'            => 'Overview Settings',
+      'page callback'    => 'drupal_get_form',
+      'page arguments'   => array('pg_showtransactions_overviewsettings'),
+      'access callback'  => 'user_access',
+      'access arguments' => array('administer pgapi'),
+      'weight'           => 5,
+      'file'             => 'pg_showtransactions.charts.inc',
+      'type'             => MENU_LOCAL_TASK,
+  );
+
+/*  $items['operator'] = array(
+      'title'            => 'Operator',
+      'description'      => 'Operator menu.',
+      'page callback'    => 'pg_showtransactions_operator_history',
+      'access callback'  => 'user_access',
+      'access arguments' => array('operate on transactions'),
+      'file'             => 'pg_showtransactions.operator.inc',
+  );
+
+  $items['operator/showtransactions'] = array(
+      'title'            => 'Show Transactions',
+      'description'      => 'All pgapi data is here.',
+      'page callback'    => 'pg_showtransactions_operator_history',
+      'access callback'  => 'user_access',
+      'access arguments' => array('operate on transactions'),
+      'file'             => 'pg_showtransactions.admin.inc',
+  );
+
+  $items['operator/showtransactions/edit/%txnid'] = array(
+      'title'            => 'Edit transaction',
+      'description'      => 'All pgapi data is here.',
+      'page callback'    => 'drupal_get_form',
+      'page arguments'   => array('pg_showtransactions_edit',4),
+      'access callback'  => 'user_access',
+      'access arguments' => array('operate on transactions'),
+      'file'             => 'pg_showtransactions.admin.inc',
+      'type'             => MENU_CALLBACK,
+  );*/
+
+
+  $items['pg_showtransactions/editgroup'] = array(
+      'description'      => 'Edit transaction group',
+      'page callback'    => 'pg_showtransactions_transactions_editgroup',
+	  'access arguments' => array('has account'),
+  );
+
+  $items['admin/reports/showtransactions'] = array(
+      'title'            => 'PGAPI :: ShowTransaction' ,
+      'description'      => 'There is transaction information.',
+      'page callback'    => 'pg_showtransactions_history',
+      'access callback'  => 'user_access',
+      'access arguments' =>  array('administer pgapi'),
+      'file'             => 'pg_showtransactions.admin.inc',
+  );
+
+  $items['admin/reports/showtransactions/edit/%txnid'] = array(
+      'title'            => 'Edit transaction',
+      'description'      => 'All pgapi data is here.',
+      'page callback'    => 'drupal_get_form',
+      'page arguments'   => array('pg_showtransactions_edit',4),
+      'access callback'  => 'user_access',
+      'access arguments' => array('administer pgapi'),
+      'file'             => 'pg_showtransactions.admin.inc',
+      'type'             => MENU_CALLBACK,
+  );
+
+  $items['user/%user/showtransactions'] = array(
+      'title'            => 'Show Transactions',
+      'description'      => 'There is transaction history.',
+      'page callback'    => 'pg_showtransactions_personal_history',
+      'access callback'  => 'user_access',
+      'access arguments' => array('show personal transaction'),
+      'file'             => 'pg_showtransactions.admin.inc',
+      'type'             => MENU_LOCAL_TASK,
+	  'weight'           => 30,
+  );
+
+  $items['user/%user/showtransactions/history'] = array(
+      'title'            => 'Transaction History',
+      'weight'           => 1,
+      'type'             => MENU_DEFAULT_LOCAL_TASK,
+  );
+  foreach (module_implements('pg_showtransactions') as $module) {
+    if ($subtables= module_invoke($module, 'pg_showtransactions','subtables')) {
+      foreach($subtables as $key => $subtable){
+        $items['user/%user/showtransactions/'.$subtable['path']] = array(
+          'title'            => $subtable['title'],
+          'page callback'    => 'pg_showtransactions_history_by_type',
+          'page arguments'   => array($module,$key),
+          'access callback'  => $subtable['access callbacks'],
+          'access arguments' => $subtable['access argument'],
+          'type'             => MENU_LOCAL_TASK,
+          'weight'           => $subtable['weight'],
+        );
+      }//foreach
+    }//if
+  }//foreach
+  return $items;
+}
+
+
+/**
+ * Implementation of hook_cron()
+ */
+
+function pg_showtransactions_cron(){
+  $lasttime=variable_get('pg_showtransactions_lasttime',0);
+  $today = date("d");
+  $lastday = date("d",$lasttime);
+  if($today==$lastday){
+    return '';
+  }
+  $sql= "SELECT * FROM {pgapi_transaction} WHERE created > '%d'";
+  $result = db_query($sql,$lasttime);
+  $stats=array();
+  while ($row = db_fetch_object($result)){
+    $day = date("d",$row->created);
+    $month = date("m",$row->created);
+    $year = date("Y",$row->created);
+    $stats[$year][$month][$day][$row->status]=$stats[$year][$month][$day][$row->status] + 1;
+  }
+
+  $sql= "SELECT * FROM {pgapi_transaction} WHERE created > '%d' and status='%d'";
+  $result = db_query($sql,$lasttime,pgapi_get_status_id('completed'));
+  $money=array();
+  while ($row = db_fetch_object($result)){
+    $day = date("d",$row->created);
+    $month = date("m",$row->created);
+    $year = date("Y",$row->created);
+    $money[$year][$month][$day]=$money[$year][$month][$day] + $row->amount;
+  }
+
+
+  foreach($stats as $year => $months){
+    foreach($months as $month => $days){
+      foreach($days as $day => $statuses){
+        foreach($statuses as $status => $count){
+         $stat=array();
+
+          $stat['year']=$year;
+          $stat['month']=$month;
+          $stat['day']=$day;
+          $stat['status']=$status;
+          $stat['count']=$count;
+          drupal_write_record('pg_showtransactions_stats', $stat);
+        }
+      }
+    }
+  }
+  foreach($money as $year => $months){
+    foreach($months as $month => $days){
+      foreach($days as $day => $amount){
+         $stat=array();
+
+          $stat['year']=$year;
+          $stat['month']=$month;
+          $stat['day']=$day;
+          $stat['amount']=$amount;
+          drupal_write_record('pg_showtransactions_amount', $stat);
+      }
+    }
+  }
+  variable_set('pg_showtransactions_lasttime',time());
+}
+
+/********************************************************************
+ * Other Functions
+ ********************************************************************/
+function pg_showtransactions_filters_by_type(){
+  $filters = array();
+  $filters['ID']= array('type'  => 'textfield',
+                          'title' => t('ID'),
+                          'where' => "t.txnid='%s'",
+                       );
+  $filters['name']= array('type'  => 'textfield',
+                          'title' => t('User'),
+                          'where' => "u.name='%s'",
+                       );
+
+  $filters['email']= array('type'  => 'textfield',
+                          'title' => t('Email'),
+                          'where' => "t.email='%s'",
+                       );
+
+  $filters['price']= array('type'  => 'textfield',
+                          'title' => t('Amount'),
+                          'where' => "t.amount='%f'",
+                       );
+
+  $filters['product']= array('type'  => 'textfield',
+                          'title' => t('Title'),
+                          'where' => "t.title='%s'",
+                       );
+  $filters['method']= array('title' => t('Method'),
+                          'where' => "t.method = '%s'",
+                          'options' => pgapi_build_gateway(),
+                       );
+
+  $filters['status'] = array('title' => t('payment status'),
+                         'where' => 't.status = %d',
+                         'options' => pgapi_build_status(),
+                       );
+  return $filters;
+}
+
+function pg_showtransactions_build_filter_query_by_type($module,$filters) {
+  $sess='pg_showtransactions_by_'.$module;
+//  $filters = pg_showtransactions_filters_by_type($modulefilters);
+
+  // Build query
+  $where = $args = $join = array();
+  if(isset($_SESSION[$sess])){
+    foreach ($_SESSION[$sess] as $filter) {
+      list($key, $value) = $filter;
+      $where[] = $filters[$key]['where'];
+      $args[] = $value;
+      $join[] = $filters[$key]['join'];
+    }
+  }
+  $where = count($where) ? 'WHERE '. implode(' AND ', $where) : '';
+  $join = count($join) ? ' '. implode(' ', array_unique($join)) : '';
+
+  return array('where' => $where,
+           'join' => $join,
+           'args' => $args,
+         );
+}
+
+
+function pg_showtransactions_filter_form_by_type($form_state,$module,$filters){
+  $sess='pg_showtransactions_by_'.$module;
+  $session = &$_SESSION[$sess];
+  $session = is_array($session) ? $session : array();
+//  $filters = pg_showtransactions_filters_by_type($modulefilters);
+
+  $i = 0;
+  $form['filtersstore'] = array('#type' => 'value', '#value' => serialize($filters));
+  $form['session_name']= array ('#type' => 'hidden', '#value' => $sess);
+  $form['filters'] = array('#type' => 'fieldset',
+                       '#title' => t('Show payment where'),
+                       '#theme' => 'pg_showtransactions_filters',
+                     );
+  foreach ($session as $filter) {
+    list($type, $value) = $filter;
+    // Merge an array of arrays into one if necessary.
+    if($filters[$type]['type']=='textfield'){
+     $params = array('%property' => $filters[$type]['title'] , '%value' => $value);
+    }else{
+      $options = $type == 'permission' ? call_user_func_array('array_merge', $filters[$type]['options']) : $filters[$type]['options'];
+      $params = array('%property' => $filters[$type]['title'] , '%value' => $options[$value]);
+    }
+    if ($i++ > 0) {
+      $form['filters']['current'][] = array('#value' => t('<em>and</em> where <strong>%property</strong> - <strong>%value</strong>', $params));
+    }
+    else {
+      $form['filters']['current'][] = array('#value' => t('<strong>%property</strong> - <strong>%value</strong>', $params));
+    }
+  }
+
+  foreach ($filters as $key => $filter) {
+    $names[$key] = $filter['title'];
+    if($filter['type'] == "textfield"){
+     $form['filters']['status'][$key] = array('#type' => 'textfield','#size' => 23);
+    }else{
+      $form['filters']['status'][$key] = array('#type' => 'select',
+                                         '#options' => $filter['options'],
+                                       );
+    }
+  }
+
+  $form['filters']['filter'] = array('#type' => 'radios',
+                                 '#options' => $names,
+                               );
+  $form['filters']['buttons']['submit'] = array('#type' => 'submit',
+                                            '#value' => (count($session) ? t('Refine') : t('Filter'))
+                                          );
+  if (count($session)) {
+    $form['filters']['buttons']['undo'] = array('#type' => 'submit',
+                                            '#value' => t('Undo')
+                                          );
+    $form['filters']['buttons']['reset'] = array('#type' => 'submit',
+                                             '#value' => t('Reset')
+                                           );
+  }
+
+  return $form;
+}
+
+function pg_showtransactions_filter_form_by_type_submit($form, &$form_state) {
+  $op = $form_state['values']['op'];
+  $sess=$form_state['values']['session_name'];
+  $filters = unserialize($form_state['values']['filtersstore']);
+
+  switch ($op) {
+    case t('Filter'): case t('Refine'):
+      if (isset($form_state['values']['filter'])) {
+        $filter = $form_state['values']['filter'];
+        // Merge an array of arrays into one if necessary.
+        if($filters[$filter]['type'] == 'textfield'){
+          $_SESSION[$sess][] = array($filter, $form_state['values'][$filter]);
+        }else{
+          $options = $filter == 'permission' ? call_user_func_array('array_merge', $filters[$filter]['options']) : $filters[$filter]['options'];
+          if (isset($options[$form_state['values'][$filter]])) {
+            $_SESSION[$sess][] = array($filter, $form_state['values'][$filter]);
+          }
+        }
+      }
+      break;
+    case t('Undo'):
+      array_pop($_SESSION[$sess]);
+      break;
+    case t('Reset'):
+      $_SESSION[$sess] = array();
+      break;
+    case t('Update'):
+      return;
+  }
+}
+
+function pg_showtransactions_history_by_type($module,$subtable){
+  if(!user_access('show personal transaction')){
+    drupal_access_denied();
+  }
+  if (!$data = module_invoke($module, 'pg_showtransactions','query data',$subtable)) {
+    drupal_not_found();
+  }
+
+  $filters=pg_showtransactions_filters_by_type();
+  if($newfilters = module_invoke($module, 'pg_showtransactions','filters',$subtable,$filters)){
+    $filters=$newfilters;
+  };
+  $filters_processed = pg_showtransactions_build_filter_query_by_type($module,$filters);
+
+  $output = drupal_get_form('pg_showtransactions_filter_form_by_type',$module,$filters);
+  $header = array(
+    array('data' => t('ID'), 'field' => 't.txnid', 'sort' => 'desc'),
+    array('data' => t('Title'), 'field' => 't.title'),
+    array('data' => t('User'), 'field' => 'u.name'),
+    array('data' => t('Email'), 'field' => 't.email'),
+    array('data' => t('amount'), 'field' => 't.amount'),
+    array('data' => t('Method'), 'field' => 't.method'),
+    array('data' => t('payment status'), 'field' => 't.status'),
+    array('data' => t('created'), 'field' => 't.created'),
+    array('data' => t('changed'), 'field' => 't.changed'),
+    t('Operations')
+  );
+  if($newheader = module_invoke($module, 'pg_showtransactions','header',$subtable,$header)){
+    $header=$newheader;
+  };
+
+  if( !empty($data['where'])){
+    if(empty($filters_processed['where'])){
+      $filters_processed['where'] = "WHERE ".$data['where'];
+    } else {
+      $filters_processed['where'] .= " AND ".$data['where'];
+    }
+  }
+  if( !empty($data['select'])){
+    $select=','.$data['select'];
+  }
+  $join = ' JOIN '.$data['table'].' AS '.$module.' ON t.txnid = '.$module.'.txnid';
+  $sql='SELECT u.name, t.* '.$select.' FROM {pgapi_transaction} t LEFT JOIN {users} u ON u.uid=t.uid '.$filters_processed['join'].' '.$join.' '.$filters_processed['where'].tablesort_sql($header);
+  $result = pager_query($sql, variable_get('pg_showtransactions_'.$user->uid.'_num',10), 0, NULL, $filters_processed['args']);
+
+  while ($txn = db_fetch_object($result)) {
+
+    if($txn->status == PG_PENDING ){
+      $action=l(t('Pay'), "payment/".$txn->txnid);
+    }else{
+      $action='';
+    }
+     $row = array(
+      array(),
+      $txn->txnid,
+      $txn->title,
+      $txn->name ? l($txn->name, "user/".$txn->uid) : variable_get('anonymous',t('anonymous')),
+      $txn->email,
+      $txn->amount,
+      pgapi_get_gateway_name($txn->method),
+      pgapi_get_status($txn->status),
+      format_date($txn->created,'small'),
+      format_date($txn->changed,'small'),
+      $action
+    );
+    if($mrow = module_invoke($module, 'pg_showtransactions','row',$subtable,$row,$txn)){
+      $row=$mrow;
+    };
+    $rows[] = $row;
+  }//while
+  $output.='<div width=99% style="overflow-x: auto; ">';
+  $pager = theme('pager', NULL, variable_get('pg_showtransactions_'.$user->uid.'_num',10), 0);
+  if (!empty($pager)) {
+    $rows[] = array(array('data' => $pager, 'colspan' => 10));
+  }
+  $output .=  theme("table", $header, $rows);
+  $output.="</div>";
+  drupal_set_title($title);
+  return $output;
+
+}
+
+/********************************************************************
+ * Functions theme
+ ********************************************************************/
+function theme_pg_showtransaction_renderchart($title,$chart){
+  $colors= array(
+    '#FFD700',
+//    '#DCDCDC',
+    '#B8860B',
+//    '#FAEBD7',
+//    '#E6E6FA',
+    '#CD5C5C',
+//    '#FFE4E1',
+    '#DEB887',
+    '#B22222',
+    '#2F4F4F',
+    '#B03060',
+    '#6495ED',
+    '#9932CC',
+    '#5F9EA0',
+    '#9370DB',
+//    '#006400',
+    '#E0EEE0'
+  );
+  $graph = new open_flash_chart_api();
+  $graph->set_title( $title, '{font-size: 20px;}' );
+
+  $graph->set_width($chart['width']);
+  $graph->set_height($chart['height']);
+
+  $graph->set_bg_colour($chart['bgcolor']);
+  $graph->set_x_labels( $chart['chart_x_labels'] );
+  $graph->set_x_label_style( 10, '#9933CC', 0,1 );
+  $graph->set_x_legend( $chart['chart_x_legend'], 12, '#736AFF' );
+  $graph->set_x_axis_steps( 1 );
+
+  $step=10;
+  if($chart['max_y']/$step < 1){
+   $step=$chart['max_y'];
+  }
+  if($chart['max_y']< 20){
+   $step=$chart['max_y'];
+  }
+  if($chart['max_y']> 20){
+    $flag=true;
+    while($flag){
+     $temp=$chart['max_y']/$step;
+     if( (gettype($temp) == 'double') ) {
+       if($step < 21){
+        $step ++;
+       } else {
+        $step=10;
+        $chart['max_y']++;
+       }
+     } else {
+       $flag=false;
+     }
+    }
+  }
+
+  $graph->set_y_max( $chart['max_y'] );
+  $graph->y_label_steps( $step);
+  $graph->set_y_legend( $chart['chart_y_legend'], 12, '#736AFF' );
+
+$count=0;
+foreach( $chart['chart_type'] as $key => $data){
+    $color=$colors[$count];
+    if(empty($color)){
+      $count=0;
+      $color=$colors[$count];
+    }
+    $count++;
+
+    switch($data){
+     case 'line':
+          $graph->line( 2, $color, $chart['chart_title'][$key], 10 );
+          $graph->set_data($chart['chart_data'][$key]);
+       break;
+     case 'line_dot':
+          $graph->line_dot( 2,5, $color, $chart['chart_title'][$key], 10 );
+          $graph->set_data($chart['chart_data'][$key]);
+       break;
+     case 'line_hollow':
+          $graph->line_hollow( 2,5, $color, $chart['chart_title'][$key], 10 );
+          $graph->set_data($chart['chart_data'][$key]);
+       break;
+     case 'area_hollow':
+          $graph->area_hollow( 2,5,$color, 50, $chart['chart_title'][$key], 10,$color );
+          $graph->set_data($chart['chart_data'][$key]);
+       break;
+     case 'bar':
+          $graph->bar( 50, $color, $color+1,$chart['chart_title'][$key], 10 );
+          $graph->set_data($chart['chart_data'][$key]);
+       break;
+     case 'bar_filled':
+          $graph->bar_filled( 50, $color, $color+1, $chart['chart_title'][$key], 10 );
+          $graph->set_data($chart['chart_data'][$key]);
+       break;
+     case 'bar_3D':
+          $graph->bar_3D( 50, $color, $chart['chart_title'][$key], 10 );
+          $graph->set_data($chart['chart_data'][$key]);
+       break;
+     case 'bar_glass':
+          $graph->bar_glass( 50, $color, $color+1, $chart['chart_title'][$key], 10 );
+          $graph->set_data($chart['chart_data'][$key]);
+       break;
+     case 'bar_fade':
+          $graph->bar_fade( 50, $color, $chart['chart_title'][$key], 10 );
+          $graph->set_data($chart['chart_data'][$key]);
+       break;
+     case 'pie':
+          $graph->pie( 50, $color, $color+1,TRUE,2 );
+          $graph->pie_values($chart['chart_data'][$key],$chart['chart_data'][$key],array());
+          return $graph->render();
+       break;
+    }
+  }
+
+  return $graph->render();
+}
+function theme_pg_showtransactions_chart($title, $chart){
+  $output .= '<center>';
+  $output .= theme('pg_showtransaction_renderchart',$title,$chart);
+  $output .= '</center><br />';
+  return $output;
+};
+
+function theme_pg_showtransactions_filters($form) {
+  drupal_add_css(drupal_get_path('module', 'pg_showtransactions') .'/pg_showtransactions.css');
+  if (sizeof($form['current'])) {
+    $output.= '<div>';
+  	$output.= t('Active filters').':';
+    $output.= '<ul class="clear-block">';
+    foreach (element_children($form['current']) as $key) {
+      $output.= '<li>'. drupal_render($form['current'][$key]) .'</li>';
+    }
+    $output.= '</ul>';
+    $output.= '</div>';
+  }
+
+  $output .= '<dl class="multiselect" >'. (sizeof($form['current']) ? '<dt><em>'. t('and') .'</em> '. t('where') .'</dt>' : '') .'<dd class="a" >';
+  foreach (element_children($form['filter']) as $key) {
+    $output .= drupal_render($form['filter'][$key]);
+  }
+  $output .= '</dd>';
+
+  $output .= '<dt>'. t('is') .'</dt><dd class="b">';
+  foreach (element_children($form['status']) as $key) {
+    $output .= drupal_render($form['status'][$key]);
+  }
+  $output .= '</dd>';
+  $output .= '</dl>';
+
+  $output .= '<div style="clear:both;" class="container-inline" id="user-admin-buttons">'. drupal_render($form['buttons']) .'</div>';
+
+  return $output;
+}
+
+function theme_pg_showtransactions_history($rows,$filter_form){
+  $output = $filter_form;
+  $header = array(
+    theme('table_select_header_cell'),
+    array('data' => t('ID'), 'field' => 't.txnid', 'sort' => 'desc'),
+    array('data' => t('User'), 'field' => 'u.name'),
+    array('data' => t('Email'), 'field' => 't.email'),
+    array('data' => t('Pay title'), 'field' => 't.title'),
+    array('data' => t('Pay amount'), 'field' => 't.amount'),
+    array('data' => t('Method'), 'field' => 't.method'),
+    array('data' => t('Payment status'), 'field' => 't.status'),
+    array('data' => t('Created'), 'field' => 't.created'),
+    array('data' => t('Changed'), 'field' => 't.changed'),
+    t('Operations')
+  );
+
+  if(empty($rows)){
+    $rows[] = array(array('data' => t('No data available.'), 'colspan' => '11'));
+  }
+  $output.='<form action="/pg_showtransactions/editgroup" method="POST"><div width=99% style="overflow-x: auto; ">';
+  $pager = theme('pager', NULL, variable_get('pg_showtransactions_default_num',10), 0);
+  if (!empty($pager)) {
+    $rows[] = array(array('data' => $pager, 'colspan' => 10));
+  }
+  $output .=  theme("table", $header, $rows);
+  $output.="</div>";
+  $output.= '<input type="submit" name="op" class="form-submit" onclick="return confirm(\''.t('Delete selected payments?').'\');" value="'.t('Delete selected').'"> ';
+  $output.= '<input type="submit" name="op" class="form-submit" onclick="return confirm(\''.t('Delete all unpaid payments?').'\');" value="'.t('Delete all unpaid').'">';
+  $output.= '</form>';
+  return $output;
+}
+
+
+function theme_pg_showtransactions_operator_history($rows,$filter_form){
+  $output = $filter_form;
+  $header = array(
+    theme('table_select_header_cell'),
+    array('data' => t('ID'), 'field' => 't.txnid', 'sort' => 'desc'),
+    array('data' => t('User'), 'field' => 'u.name'),
+    array('data' => t('Email'), 'field' => 't.email'),
+    array('data' => t('Pay title'), 'field' => 't.title'),
+    array('data' => t('Pay amount'), 'field' => 't.amount'),
+    array('data' => t('Method'), 'field' => 't.method'),
+    array('data' => t('Payment status'), 'field' => 't.status'),
+    array('data' => t('Created'), 'field' => 't.created'),
+    array('data' => t('Changed'), 'field' => 't.changed'),
+    t('Operations')
+  );
+
+  if(empty($rows)){
+    $rows[] = array(array('data' => t('No data available.'), 'colspan' => '11'));
+  }
+  $output.='<form action="/pg_showtransactions/editgroup" method="POST"><div width=99% style="overflow-x: auto; ">';
+  $pager = theme('pager', NULL, variable_get('pg_showtransactions_default_num',10), 0);
+  if (!empty($pager)) {
+    $rows[] = array(array('data' => $pager, 'colspan' => 10));
+  }
+  $output .=  theme("table", $header, $rows);
+  $output.="</div>";
+  $output.= '<input type="submit" name="op" class="form-submit" onclick="return confirm(\''.t('Delete selected payments?').'\');" value="'.t('Delete selected').'"> ';
+  $output.= '<input type="submit" name="op" class="form-submit" onclick="return confirm(\''.t('Delete all unpaid payments?').'\');" value="'.t('Delete all unpaid').'">';
+  $output.= '</form>';
+  return $output;
+}
+
+function theme_pg_showtransactions_personal_history($rows,$filter_form){
+  $output = $filter_form;
+  $header = array(
+    //theme('table_select_header_cell'),
+    array('data' => t('ID'), 'field' => 't.txnid', 'sort' => 'desc'),
+    array('data' => t('Pay title'), 'field' => 't.title'),
+    array('data' => t('Pay amount'), 'field' => 't.amount'),
+    array('data' => t('Method'), 'field' => 't.method'),
+    array('data' => t('Payment status'), 'field' => 't.status'),
+    array('data' => t('Created'), 'field' => 't.created'),
+    t('Operations')
+  );
+
+  if(empty($rows)){
+    $rows[] = array(array('data' => t('No data available.'), 'colspan' => '11'));
+  }
+  $output.='<form action="/pg_showtransactions/editgroup" method="POST"><div width=99% style="overflow-x: auto; ">';
+  $pager = theme('pager', NULL, variable_get('pg_showtransactions_default_num',10), 0);
+  if (!empty($pager)) {
+    $rows[] = array(array('data' => $pager, 'colspan' => 10));
+  }
+  $output.= theme("table", $header, $rows, array('class'=>'data'));
+  $output.= "</div>";
+  //$output.= '<input type="submit" name="op" onclick="return confirm(\''.t('Delete selected payments?').'\');" value="'.t('Delete selected').'"> ';
+  $output.= '<input type="submit" name="op" class="form-submit" onclick="return confirm(\''.t('Delete all unpaid payments?').'\');" value="'.t('Delete all unpaid').'">';
+  $output.= '</form>';
+  return $output;
+}
+
+function pg_showtransactions_transactions_editgroup() {
+  global $user;
+
+  if ($_POST['op']==t('Delete selected')) {
+  	 foreach ($_POST['items'] as $txnid=>$selected) {
+		$tx = pgapi_transaction_load($txnid);
+		if (($user->uid == $tx->uid) || user_access('administer pgapi')) {
+	  	 	pgapi_transaction_delete($txnid);
+		}
+  	 }
+  }
+  if ($_POST['op']==t('Delete all unpaid')) {
+	  $result = db_query('SELECT * FROM {pgapi_transaction} WHERE uid='.$user->uid.' AND status=1');
+	  while ($tx = db_fetch_object($result)) {
+	  	pgapi_transaction_delete($tx->txnid);
+	  }
+  }
+  drupal_goto(referer_uri());
+}
+
+function pg_showtransactions_transactions_delete_confirm(&$form_state, $transaction) {
+  $form['items'] = array('#prefix' => '<ul>', '#suffix' => '</ul>', '#tree' => TRUE);
+  // array_filter returns only elements with TRUE values
+  foreach ($transaction as $txnid => $tx) {
+    $form['items'][$txnid] = array(
+      '#type' => 'hidden',
+      '#value' => $txnid,
+      '#prefix' => '<li>',
+      '#suffix' => check_plain($tx->title) ."</li>\n",
+    );
+  }
+  $form['operation'] = array('#type' => 'hidden', '#value' => 'delete');
+  $form['referer'] = referer_uri();
+  $form['#submit'][] = 'pg_showtransactions_transactions_delete_confirm_submit';
+  return confirm_form($form, referer_uri(), t('Are you sure you want to delete these items?'), '',
+  					  t('This action cannot be undone.'), t('Delete all'), t('Cancel'));
+}
+
+function pg_showtransactions_transactions_delete_confirm_submit($form, &$form_state) {
+  if ($form_state['values']['confirm']) {
+    foreach ($form_state['values']['items'] as $txnid => $value) {
+      pgapi_transaction_delete($txnid);
+    }
+    drupal_set_message(t('The items have been deleted.'));
+  }
+  $form_state['redirect'] = $form['referer'];
+  return;
+}

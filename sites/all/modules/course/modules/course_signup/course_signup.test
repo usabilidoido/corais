@@ -1,0 +1,59 @@
+<?php
+
+require_once drupal_get_path('module', 'course') . '/tests/CourseTestCase.test';
+// Fix for #824232 and testbot.
+module_load_include('inc', 'signup', 'includes/scheduler');
+
+/**
+ * Test class for dealing with adding and removing elements from the course
+ * outline.
+ */
+class CourseObjectSignupTestCase extends CourseTestCase {
+
+  public static function getInfo() {
+    // Note that getInfo() strings are not translated with t().
+    return array(
+      'name' => 'Course signup',
+      'description' => 'Ensure that the Course signup integration functions properly.',
+      'group' => 'Course',
+    );
+  }
+
+  public function getModules() {
+    $modules = parent::getModules();
+    $modules[] = 'signup';
+    $modules[] = 'course_signup';
+    return $modules;
+  }
+
+  function setUp() {
+    parent::setUp();
+
+    variable_set('signup_node_default_state_course_test', 'enabled_on');
+  }
+
+  function testSignupEnrollment() {
+    global $user;
+    // Create a signup node.
+    $courseNode = $this->createCourseNode(array(
+      'signup_user_reg' => 0,
+      'signup_enabled' => 1,
+    ));
+
+    // Sign the user up
+    $form = array(
+      'nid' => $courseNode->nid,
+      'uid' => $user->uid,
+    );
+    $sid = signup_sign_up_user($form);
+
+    // Check the enrollment.
+    $enroll = course_enrolment_load($courseNode->nid, $user->uid);
+    $this->assertTrue($enroll->eid > 0, 'Found enrollment after signing up.');
+
+    // Cancel the signup and check the enrollment.
+    signup_cancel_signup($sid);
+    $enroll = course_enrolment_load($courseNode->nid, $user->uid);
+    $this->assertFalse($enroll, 'Cancelled enrollment after cancelling signup.');
+  }
+}

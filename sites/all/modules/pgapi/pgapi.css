@@ -1,0 +1,17 @@
+.price .symbol {
+  padding: 0;
+  margin: 0;
+  font-weight: bold;
+}
+
+#pgapi-payment .price {
+  text-align: right;
+  width: 200px;
+}
+
+#pgapi-payment .price .symbol {
+  padding: 0;
+  margin: 0;
+  float: left;
+  font-weight: bold;
+}

@@ -1,0 +1,13 @@
+span.spaces-feature.feature-meeting_planner {
+  background: url(icon20.png);
+}
+#features-menu li a.icon-meetings span.icon {
+  background: url(icon40.png);
+}
+
+.field-field-possible-dates {
+  margin: 30px 0 !important;
+}
+.answer-stats{
+  background: #EFEFEF !important;
+}

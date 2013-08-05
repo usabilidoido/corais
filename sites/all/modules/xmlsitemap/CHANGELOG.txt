@@ -1,0 +1,617 @@
+$Id: CHANGELOG.txt,v 1.1.4.289 2009/08/25 16:52:52 earnie Exp $
+
+XML sitemap 6.x-1, 2009-08-24
+-----------------------------------
+#558358 Failure to submit sitemaps.
+
+XML sitemap 6.x-1, 2009-08-24
+-----------------------------------
+#557926 Update INSTALL.txt for official release.
+
+XML sitemap 6.x-1, 2009-08-21
+-----------------------------------
+#550578 Update #6106: Update in {variable} table failed.
+#548064 Sitemap is submitted on every cron run with "update when new content"
+and no new content is added.
+#553930 Disable the UI for search engine URL.
+
+XML sitemap 6.x-1, 2009-08-19
+-----------------------------------
+#550702 by hass: Moreover: Submission URL is not updated with placeholder.
+
+XML sitemap 6.x-1, 2009-08-10
+-----------------------------------
+#544774 Slow queries - add index to loc column.
+
+XML sitemap 6.x-1, 2009-07-24
+-----------------------------------
+#535192 Override node settings permission is not checked properly in xmlsitemap_node_form_alter().
+
+XML sitemap 6.x-1, 2009-07-24
+-----------------------------------
+#510076 The sitemap is not being submitted.
+#529850 Node language is not updated.
+#530136 Update INSTALL.txt for the rc2 release.
+
+XML sitemap 6.x-1, 2009-07-16
+-----------------------------------
+#516876 Deleted items not removed from sitemap. 
+#510076 The sitemap is not being submitted.
+
+XML sitemap 6.x-1, 2009-07-01
+-----------------------------------
+#507620 Translatable string bugs in watchdog messages.
+#507532 Update the INSTALL.txt file for rc1.
+
+XML sitemap 6.x-1, 2009-07-01
+-----------------------------------
+#507532 Update the INSTALL.txt file for rc1.
+
+XML sitemap 6.x-1, 2009-06-23
+-----------------------------------
+#504344 Looking for XSL in the wrong folder.
+
+XML sitemap 6.x-1, 2009-06-23
+-----------------------------------
+#470792 Translatable strings review.
+#496626 Beta6 installation instructions.
+
+XML sitemap 6.x-1, 2009-06-22
+-----------------------------------
+#483840 Directory structure prevents successful translation file import.
+#496626 Beta6 installation instructions.
+
+XML sitemap 6.x-1, 2009-06-19
+-----------------------------------
+#485632 The code to automatically calculate the sitemap chunk size is wrong.
+#490104 Use the language as the generated sitemap file id.
+#442582 Only the default language site map is submitted to the search engines.
+
+XML sitemap 6.x-1, 2009-06-17
+-----------------------------------
+#458398 Users who haven't logged in should be excluded.
+#470792 Translatable strings review.
+
+XML sitemap 6.x-1, 2009-06-16
+-----------------------------------
+#479892 Switch from Live Search to Bing.
+#470792 Translatable strings review.
+#488388 Sitemap is not updated when the user viewing it is not the anonymous
+user.
+
+XML sitemap 6.x-1, 2009-06-12
+-----------------------------------
+#487734 by Dave Reid: Add XSL stylesheet data.
+#485562 Node links are added to sitemap.xml without checking anonymous access.
+
+XML sitemap 6.x-1, 2009-06-11
+-----------------------------------
+#487734 Add XSL stylesheet data.
+#487546 hook_cron() implementations needs to notify xmlsitemap_output() of
+changes.
+#465658 Add more options to "cron limit" on settings page.
+#460046 Use file_check_directory().
+
+XML sitemap 6.x-1, 2009-06-10
+-----------------------------------
+#454190 Remove xmlsitemap_menu.module.
+#458530 Module help page still referrs to XML sitemap term.
+#458132 xmlsitemap_output() references a not initialized variable.
+#485596 Database table is wrongly described as a xmlsitemap_term base table.
+#484488 preg_match() versus is_numeric().
+#484478 node_load($id) versus node_load($id, NULL, TRUE).
+#484456 Remove xmlsitemap_api().
+#466654 Change 'Submit the sitemap when updated' title and description.
+#458710 Change unlink() for file_delete().
+#459366 Remove hook_boot() and hook_exit().
+#486230 Rename the hook_update_N _6000 to _6100 and remove the implementations
+calling the _6000 implementation.
+#487650 Indentation of the code is not correct.
+#487850 Fix coding standard violations.
+
+XML sitemap 6.x-1, 2009-06-09
+-----------------------------------
+#470534 Remove _xmlsitemap_revision().
+#484454 Bug in PHP 5.1.2 with DATE_W3C.
+#486450 Remove the check and call for hook_xmlsitemap_url().
+#470790 Remove empty update functions.
+
+XML sitemap 6.x-1, 2009-06-06
+-----------------------------------
+#483844 Restore code to beta0.
+
+XML sitemap 6.x-1, 2009-05-26
+-----------------------------------
+#473790 by Dave Reid: Fixed missing return value in xmlsitemap_update_6143().
+#472850: Install error on clean installation.
+
+XML sitemap 6.x-1, 2009-05-25
+-----------------------------------
+#470790: Remove empty update functions.
+#461570: Rearrange the tools page.
+
+XML sitemap 6.x-1, 2009-05-23
+-----------------------------------
+#471400: The opening tag misses the '>' character.
+#470974: Sitemap contains a wrong tag.
+#470778: Constant floating numbers shown in the user interface must the translatable.
+#470792: Translatable strings review.
+#470670: drupal_unistall_schema() is not called from the uninstall functions.
+#465658: Add more options to "cron limit" on settings page.
+#466654: Change 'Submit the sitemap when updated' in 'Submit the sitemap on content updates'.
+#470534: Remove _xmlsitemap_revision().
+#465734: Use sitemap chunks per module to prevent the rebuilt of all the cached files.
+#470048: Unknown column issue in xmlsitemap_node.
+#463564: Remove the central database table.
+#464914: The sitemap has a not supported file format.
+#439632: *Viewing* the sitemap should not also *update* it.
+
+XML sitemap 6.x-1, 2009-05-15
+-----------------------------------
+#451010: Add a status column to the module tables.
+#463824: Incompatible time format in sitemap.xml.
+#463538: Rearrange and optimize the installation code.
+
+XML sitemap 6.x-1, 2009-05-14
+-----------------------------------
+#454190: Remove xmlsitemap_menu.module.
+
+XML sitemap 6.x-1, 2009-05-13
+-----------------------------------
+#460310: Rearrange the settings page.
+#460772: xmlsitemap_delete_cache_files() could delete files that are associated to another domain.
+
+XML sitemap 6.x-1, 2009-05-12
+-----------------------------------
+#460100: Wrong parameters for fopen() / fclose().
+#460170: Implement a settings page for the tools.
+#460100: The variable is not initialized.
+#460046: Use file_check_directory().
+#459366: Remove hook_boot() and hook_exit().
+
+XML sitemap 6.x-1, 2009-05-11
+-----------------------------------
+#459348: Upgrade fails under PostgreSQL.
+#458992: Code should call session_save_session() before to change the value of the global variable $user.
+#458546: Cache files are not created.
+#458644: The module should return an empty sitemap, or sitemap chunk in case of error.
+
+XML sitemap 6.x-1, 2009-05-10
+-----------------------------------
+#448110: The site map should be accessible from anybody.
+#458710: Change unlink() for file_delete().
+#458660: Add more calls to watchdog().
+
+XML sitemap 6.x-1, 2009-05-09
+-----------------------------------
+#458530: XML sitemap taxonomy is still referred as XML sitemap term, in the module help page.
+#458398: Users who haven't logged in should be excluded.
+#458246: user warning: Table 'updatetest.xmlsitemap' doesn't exist.
+#458232: Removal of not used code.
+#458182: The module should implement hook_xmlsitemap_links().
+#458132: xmlsitemap_output() references a not initialized variables.
+#456430: Remove unnecessary features from xmlsitemap_node.
+#455678: Remove unnecessary features from xmlsitemap_user.
+
+XML sitemap 6.x-1, 2009-05-08
+-----------------------------------
+#456430: Remove unnecessary features from xmlsitemap_node.
+#456736: Do we really need to keep a shell module?
+#453434: Rename the modules.
+#456442: Remove unnecessary features from xmlsitemap_taxonomy.
+#455678: Remove unnecessary features from xmlsitemap_user.
+
+XML sitemap 6.x-1, 2009-05-07
+-----------------------------------
+#456766: Blocked users are not removed from sitemap.
+#456288: xmlsitemap_get_priority() is not defined.
+#456720: Call to undefined function xmslitemap_user_get_priority().
+#456710: Missing uninstall.
+#456434: Some modules don't declare their dependency from Drupal optional modules.
+#456312: Code doesn't verify if the priority is inside the range.
+#455664: Description in INSTALL.txt should be changed.
+#456116: xmlsitemap_term table doesn't exist.
+
+XML sitemap 6.x-1, 2009-05-06
+-----------------------------------
+#359901: Re-implement hook_robotstxt().
+#455678: Removal of not necessary features.
+#441564: Remove any not necessary calls to menu_rebuild().
+#453434: Rename the modules.
+#455144: Strings need updated throughout the code.
+
+XML sitemap 6.x-1, 2009-05-05
+-----------------------------------
+#412456: Update README.txt and INSTALL.txt.
+#449284: Setting priority to 'Not in Sitemap' doesn't remove link from sitemap.
+#450936: Remove the user posts threshold feature.
+#453434: Rename the modules.
+#453566: Default value for variable_get('xmlsitemap_menu_menus', array()) is incorrect.
+
+XML sitemap 6.x-1, 2009-05-01
+-----------------------------------
+#450798: Minor warning when updating the database.
+#433828: Google doesn't find the verification file.
+
+XML sitemap 6.x-1, 2009-04-29
+-----------------------------------
+#447292: Users are inserted in the site map even if they are blocked.
+#448104: Use db_query_range().
+#448424: Invalid SQL syntax for the LIMIT parameter.
+#448452: Duplicate entry error during cron execution.
+#448432: Wrong settings are shown.
+#447912: Change the default value for the cron limit.
+#441732: WSOD on sitemap.xml.
+#447854: Settings field sets appear under the form buttons.
+
+XML sitemap 6.x-1, 2009-04-28
+-----------------------------------
+#447552: xmlsitemap_user_install() is declared twice.
+#441732: Use page splitting to move UI code to .inc files.
+#366197: hook_cron() support for populating the database tables.
+#447126: Call to undefined function xmlsitemap_link_count() on execution of hook_exit().
+#447132: hook_form_FORM_ID_alter() hooks are not correctly named.
+
+XML sitemap 6.x-1, 2009-04-27
+-----------------------------------
+#446590: Index definition seems to not be parsed correctly.
+#366197: hook_cron() support for populating the database tables.
+#446144: Tools page doesn't show anything.
+#445882: Call to undefined function.
+
+XML sitemap 6.x-1, 2009-04-26
+-----------------------------------
+#384160: Implement hook_rules_action_info().
+#442538: Add a tools menu.
+
+XML sitemap 6.x-1, 2009-04-25
+-----------------------------------
+#445016: File for Rules integration causes an error during update of the module.
+#444622: Remove xmlsitemap_file.module.
+
+XML sitemap 6.x-1, 2009-04-24
+-----------------------------------
+#441748: Change from 'every Nth time cron is run' to hourly/daily/etc.
+#429598: Remove xmlsitemap_helper.module, and move the code to xmlsitemap.module.
+#442516: Chunk size should be calculated from the module.
+#443172: Database table is emptied all times some settings are changed.
+#443712: Unpublished nodes appear in the site map.
+
+XML sitemap 6.x-1, 2009-04-23
+-----------------------------------
+#443172: Database table is emptied all times some settings are changed.
+#442968: Change the default value for the chunk size.
+#442516: Add a check for the number of chunks being generated.
+#442062: Missing string delimiter for an SQL query.
+
+XML sitemap 6.x-1, 2009-04-22
+-----------------------------------
+#439832: Constant XMLSITEMAP_TIME should be global in scope.
+#441564: Remove any not necessary calls to menu_rebuild().
+#439948: Use hook_form_FORM_ID_alter().
+#439908: Rename xmlsitemap_helper_update_sitemap to something more indicative of what it does.
+#439922: Changes to xmlsitemap_engines.module.
+#439886: menu_rebuild() called twice when submitting settings form.
+#439836: Function xmlsitemap_helper_add_database_batch_operation defined and not used.
+#439940: Description of "XML Sitemap" menu could be improved.
+#439880: Typo in xmlsitemap_user.module.
+
+XML sitemap 6.x-1, 2009-04-20
+-----------------------------------
+#384160: Implement hook_rules_action_info().
+#438194: Error during uninstall.
+
+XML sitemap 6.x-1, 2009-04-19
+-----------------------------------
+#378924: Allow third-party modules to change the priority of the links added in the site map.
+#437704: $_SERVER['REQUEST_TIME'] is not defined on PHP 4.x and 5.0.x.
+
+XML sitemap 6.x-1, 2009-04-18
+-----------------------------------
+#437262: Auto-starting batch process on enabling module can create problems.
+#437288: Call to undefined function _xmlsitemap_cache_id().
+
+XML sitemap 6.x-1, 2009-04-17
+-----------------------------------
+#436874: The site map content is not ordered by priority.
+
+XML sitemap 6.x-1, 2009-04-15
+-----------------------------------
+#417110: "Not in site map" not being respected.
+
+XML sitemap 6.x-1, 2009-04-14
+-----------------------------------
+#433250: Use of clean URLs.
+#433368: User role priority changes are not saved.
+
+XML sitemap 6.x-1, 2009-04-06
+-----------------------------------
+#425250: Add a setting for the menu items priority.
+
+XML sitemap 6.x-1, 2009-04-05
+-----------------------------------
+#421028: Undefined function error on uninstall.
+
+XML sitemap 6.x-1, 2009-03-28
+-----------------------------------
+#416026: Duplicate entry for term edit.
+
+XML sitemap 6.x-1, 2009-03-23
+-----------------------------------
+#407748: Error on node add page.
+#408066: Wrong SQL query for retrieving the menu item links.
+
+XML sitemap 6.x-1, 2009-03-12
+-----------------------------------
+#385452: Error on update.
+
+XML sitemap 6.x-1, 2009-03-11
+-----------------------------------
+#398122: Add a setting for the front page change frequency.
+#398452: Add a new permission to allow to by-pass the checking on the number of nodes authored.
+#398072: Errors in the code.
+#398018: Cannot create the cache file.
+
+XML sitemap 6.x-1, 2009-03-08
+-----------------------------------
+#394034: XML Sitemap lists all pages - except the main page.
+
+XML sitemap 6.x-1, 2009-03-08
+-----------------------------------
+#387558: Change the way the site map is cached.
+
+XML sitemap 6.x-1, 2009-03-03
+-----------------------------------
+#388016: Undefined variable $uuid.
+
+XML sitemap 6.x-1, 2009-03-01
+-----------------------------------
+#387100: Problems with the user interface.
+
+XML sitemap 6.x-1, 2009-02-28
+-----------------------------------
+#386972: Wrong code to verify the content of an array.
+#386662: SQL errors in update.php.
+#382306: Add a setting to decide when the posts of a user should be added to the site map.
+#374674: Change the way the front page URL is generated.
+#372067: Rewrite the code that checks $op for forms.
+
+XML sitemap 6.x-1, 2009-02-27
+-----------------------------------
+#379292: Add a setting to increment the priority of the mostly used term.
+#385104: Division by zero when the database table is empty.
+
+XML sitemap 6.x-1, 2009-02-26
+-----------------------------------
+#374580: xmlsitemap table should not be emptied all times.
+#383890: Change the arguments for hook_xmlsitemap_links() and xmlsitemap_update_sitemap().
+
+XML sitemap 6.x-1, 2009-02-25
+-----------------------------------
+#380646: Implement a batch operation to update the database tables.
+
+XML sitemap 6.x-1, 2009-02-24
+-----------------------------------
+#376868: Change implementation of hook_nodeapi().
+
+XML sitemap 6.x-1, 2009-02-23
+-----------------------------------
+#381046: Add a setting to increment the priority of the user with the most number of comments.
+#381104: Use of a not initialized variable.
+#371756: <lastmod> tag doesn't get generate for all the site map chunks.
+#367251: xmlsitemap_update_sitemap() is not called.
+#380636: The update of the database should start in automatic.
+
+XML sitemap 6.x-1, 2009-02-22
+-----------------------------------
+#380048: Function is declared twice.
+#379932: Force an update for the site map when path aliases are changed.
+
+XML sitemap 6.x-1, 2009-02-21
+-----------------------------------
+#379450: Implement hook_enable(), and hook_disable().
+#379422: drupal _set_header() is called prematurely.
+#378986: xmlsitemap_settings_submit() is missing.
+
+XML sitemap 6.x-1, 2009-02-18
+-----------------------------------
+#374421: Add a setting for the attachment priority.
+#373274: Rewrite the implementation of hook_xmlsitemap_links().
+
+XML sitemap 6.x-1, 2009-02-15
+-----------------------------------
+#199710: Change the query placeholders.
+#347381: Check if anonymous user can view the links added to the site map.
+#371141: priority_override should allow an item to appear in the site map even if its normal priority would exclude it.
+#374598: Wrong parameters for hook_form_alter().
+#372703: Change the implementation of hook_xmlsitemap_engines('access').
+#374403: hook_xmlsitemap_links() must check if the database row is not already present.
+
+XML sitemap 6.x-1, 2009-02-14
+-----------------------------------
+#374387: Database update incompatibilty.
+#374389: Unknown column 'r.list' in 'where clause'.
+#374395: Remove xmlsitemap_show_admin_messages(), and xmlsitemap_add_admin_messages().
+#374317: Table '{file}' doesn't exist.
+
+XML sitemap 6.x-1, 2009-02-13
+-----------------------------------
+#373919: Unknown column 'xn.comment_ratio'.
+#373832: Database update error.
+
+XML sitemap 6.x-1, 2009-02-12
+-----------------------------------
+#346093: Change the database fields default value.
+
+XML sitemap 6.x-1, 2009-02-11
+-----------------------------------
+#370997: Use hook_node_operations(), and hook_user_operations().
+
+XML sitemap 6.x-1, 2009-02-08
+-----------------------------------
+#371025: Undefined index.
+#371023: Use '#access' for the form field set fields.
+#371002: priority_override is set to 'default' for users without 'override node settings' permission.
+
+XML sitemap 6.x-1, 2009-02-07
+-----------------------------------
+#370490: Duplicate entry in query execution.
+
+XML sitemap 6.x-1, 2009-02-06
+-----------------------------------
+#370189: Change the implementation of hook_nodeapi('update').
+#370179: Change the implementation of hook_form_alter().
+#370175: Reorganize the permissions used.
+
+XML sitemap 6.x-1, 2009-02-05
+-----------------------------------
+#369907: Tools tab needs some help text.
+
+XML sitemap 6.x-1, 2009-02-04
+-----------------------------------
+#369025: Ambiguous interface.
+#369006: Duplicate entry error.
+#368564: Duplicate ID.
+#368855: Node priority is not correct.
+
+XML sitemap 6.x-1, 2009-02-03
+-----------------------------------
+#368537: Implement the support for Checkall.
+#366973: Add an option for site map submissions based on time intervals.
+#368457: Wrong implementation of hook_exit().
+
+XML sitemap 6.x-1, 2009-02-02
+-----------------------------------
+#368115: SQL error during update.
+#345185: api.moreover.com.
+#312628: Table keys are not declared NOT NULL.
+
+XML sitemap 6.x-1, 2009-02-01
+-----------------------------------
+#367626: Don't submit on cron maintenance tasks when site is offline.
+#354462: $links_count is not initialized.
+#367395: SQL error on updating last_changed.
+
+XML sitemap 6.x-1, 2009-01-31
+-----------------------------------
+#367158: SQL errors when using the tools page.
+
+XML sitemap 6.x-1, 2009-01-29
+-----------------------------------
+#354453: priority_override doesn't get a value.
+
+XML sitemap 6.x-1, 2009-01-28
+-----------------------------------
+#365733: Call to undefined function.
+#365515: Unknown character set.
+#363355: Illegal mix of collations.
+#355149: Not closed parenthesis in SQL query.
+#349530: xmlsitemap_menu_xmlsitemap_links() is not working for URL alias.
+#361985: require_once() fails to open a file.
+#352046: Division by zero.
+
+XML sitemap 6.x-1, 2008-12-27
+-----------------------------------
+#349125: Change "site map" in the user interface.
+#351501: Node priority is not set to default.
+#351307: Call to undefined function.
+
+XML sitemap 6.x-1, 2008-12-25
+-----------------------------------
+#350730: Update function doesn't work.
+
+XML sitemap 6.x-1, 2008-12-24
+-----------------------------------
+#350810: Primary key doesn't exist.
+#350892: Call to undefined function.
+
+XML sitemap 6.x-1, 2008-12-23
+-----------------------------------
+#350335: Parse error: unexpected ')'.
+#350436: Quote missing in an SQL query.
+
+XML sitemap 6.x-1, 2008-12-18
+-----------------------------------
+#348663: SQL errors on update.
+#348759: Undefined function xmlsitemap_url().
+#348599: Undefined function db_columhn_exists().
+
+XML sitemap 6.x-1, 2008-12-17
+-----------------------------------
+#347755: Error in your SQL syntax.
+
+XML sitemap 6.x-1, 2008-12-14
+-----------------------------------
+#344645: Warning: cannot modify header information.
+#344426: Function name must be a string.
+
+XML sitemap 6.x-1, 2008-12-08
+-----------------------------------
+#344383: Unexpected T_STRING on line 211.
+#344217: Unexpected T_CONSTANT_ENCAPSED_STRING.
+#340641: xmlsitemap_file uses a not existing field.
+
+XML sitemap 6.x-1, 2008-12-06
+-----------------------------------
+#341732: Code typo in xmlsitemap_file.module.
+#342019: Wrong argument type for array_merge().
+#341730: Code typo in xmlsitemap_menu.install.
+
+XML sitemap 6.x-1, 2008-12-01
+-----------------------------------
+#341125: Missing space in query.
+
+XML sitemap 6.x-1, 2008-11-30
+-----------------------------------
+#340634: menu-xmlsitemap insertion fails.
+#340643: The schema of xmlsitemap_file is not returned.
+
+XML sitemap 6.x-1, 2008-11-29
+-----------------------------------
+#340581: Misnamed update function in xmlsitemap_file.install.
+
+XML sitemap 6.x-1, 2008-11-28
+-----------------------------------
+#340301: xmlsitemap_update_6104 should return an array.
+#340211: Wrong declaration of dependencies.
+#339984: stdClass could not be converted.
+
+XML sitemap 6.x-1, 2008-11-27
+-----------------------------------
+#339886: xmlsitemap_frequency(0) returns 'always'.
+
+XML sitemap 6.x-1, 2008-11-26
+-----------------------------------
+#339374: Problems with xmlsitemap_user.install.
+
+XML sitemap 6.x-1, 2008-11-25
+-----------------------------------
+#338907: Parse error.
+
+
+XML sitemap 6.x-1, 2008-11-23
+-----------------------------------
+#338094: Unknown column 'xn.pid' in 'field list'.
+#336878: Last modification date is reported to be January 1, 1970.
+#336982: sitemap.xml is empty (except the general tags).
+#337949: Syntax error in xmlsitemap_node.
+
+XML sitemap 6.x-1, 2008-11-20
+-----------------------------------
+#336823: Undefined function xmlsitemap_frequency().
+#336059: Table xmlsitemap doesn't exist.
+
+XML sitemap 6.x-1, 2008-11-19
+-----------------------------------
+#285457: gss.xsl is missing.
+#336059: Table xmlsitemap doesn't exist.
+#335696: Call to undefined function Fatal error.
+
+XML sitemap 6.x-1, 2008-11-17
+-----------------------------------
+#292489: Undefined variable.
+#292103: Use of an not existing array index.
+#284903: Wrong code.
+#299023: xmlsitemap_node_priority() uses a variable without to check if it is set.
+#299010: _xmlsitemap_node_submit() uses a not declared variable.
+#279954: Use of an undefined constant.

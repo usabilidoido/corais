@@ -1,0 +1,58 @@
+<?php
+
+// $Id: session_api.test,v 1.1.2.6 2010/11/17 21:04:59 jhedstrom Exp $
+
+/**
+ * @file
+ * Session API SimpleTests.
+ */
+
+/**
+ * Session API SimpleTest class
+ */
+class SessionApiTestCase extends DrupalWebTestCase {
+  function getInfo() {
+    return array(
+      'name' => t('Session API tests'),
+      'description' => t('Tests various Session API functions'),
+      'group' => t('Session API'),
+    );
+  }
+
+  function setUp() {
+    parent::setUp('session_api');
+  }
+
+  /**
+   * Verify functions.
+   */
+  function testFunctions() {
+    module_load_include('module', 'session_api');
+    // Capture existing values, which are restored at the end of this function.
+    $old_cookie = $_COOKIE;
+
+    // session_api_available();
+    $_COOKIE = NULL;
+    $this->assertFalse(session_api_available(), t('Function session_api_available() correctly returns FALSE when cookies are disabled.'));
+    $this->assertFalse(session_api_get_sid(), t('Function session_api_get_sid() correctly returns FALSE when cookies are disabled.'));
+    
+    // Enable cookies.
+    $_COOKIE = $old_cookie;
+    
+    // Check that the session_api_get_sid doesn't create a sid when the
+    // caller don't want it to get created.
+    unset($_COOKIE['session_api_session']);
+    $this->assertEqual(session_api_get_sid(FALSE), -1, t("The session_api_get_sid returns a negative value when the caller don't want to create a new session if it doesn't exist"));
+
+    // Store ID in the db.
+    $rec = new stdClass();
+    $rec->session_id = md5(ip_address() . time() . drupal_get_private_key());
+    drupal_write_record('session_api', $rec);
+    $_COOKIE['session_api_session'] = $rec->session_id;
+    $this->assertEqual(session_api_get_sid(), $rec->sid, 'Function session_api_get_sid() correctly retrieves the session_api_id from the database.'.$sid);
+
+    // Restore pre-testing values.
+    $_COOKIE = $old_cookie;
+    db_query("DELETE FROM {session_api} WHERE session_id = %d", $rec->session_id);
+  }
+}

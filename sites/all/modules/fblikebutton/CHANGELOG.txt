@@ -1,0 +1,10 @@
+
+FB Like Button 6.x-2.x, xxxx-xx-xx
+-----------------------------
+by lliss: improve help text related to locale settings.
+Fixes issue #1668256 - change the variable being used for the dynamic fblikebutton.
+by lliss make the send attribute explicit. See iframe code generated at http://developers.facebook.com/docs/reference/plugins/like/ for more info.
+Issue #1664410 by lliss - Add an update function to get the data up to a known state using boolean values.
+Issue #1664410 by lliss - fix output of iframe text so is displays 'true' and 'false'. We store the variable as a boolean so we don't have to change the stored values if the api changes again in the future.
+Issue #1509770 by fivefrank, almaris, liss - make laguage string optional by allowing an empty string.
+Issue #1509770 by fivefrank, almaris - fix display issue because height and width attribures should not have 'px' suffix

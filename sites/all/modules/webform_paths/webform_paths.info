@@ -1,0 +1,13 @@
+; $Id: webform_paths.info,v 1.1 2009/01/13 23:41:13 owahab Exp $
+name = Webform Paths
+description = Allows assigning multiple paths and destinations to a single webform.
+dependencies[] = path
+dependencies[] = webform
+core = 6.x
+
+; Information added by drupal.org packaging script on 2009-01-13
+version = "6.x-1.0"
+core = "6.x"
+project = "webform_paths"
+datestamp = "1231890347"
+

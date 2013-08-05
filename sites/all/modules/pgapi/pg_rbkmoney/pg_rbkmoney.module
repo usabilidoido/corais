@@ -1,0 +1,190 @@
+<?php
+// $Id: pg_rbkmoney.module,v 1.1 2009/11/24 22:06:36 gor Exp $
+
+/********************************************************************
+ * Constants
+ ********************************************************************/
+define("crbkmoneyPayActionUrl" ,"https://rbkmoney.ru/acceptpurchase.aspx");
+
+/********************************************************************
+ * Drupal Hooks
+ ********************************************************************/
+
+/**
+ * Implementation of hook_menu()
+ */
+
+function pg_rbkmoney_menu() {
+
+  $items['rbkmoney/done'] = array(
+      'title'           => 'Internal Data',
+      'page callback'   => 'pg_rbkmoney_done_payment',
+      'access callback' => TRUE,
+      'file'            => 'pg_rbkmoney.admin.inc',
+      'type'            => MENU_CALLBACK
+  );
+
+  $items['admin/pgdata/pgsettings/rbkmoney'] = array(
+      'title'           => 'RBK Money',
+      'description'     => 'rbkmoney payment settings.',
+      'page callback'   => 'drupal_get_form',
+      'page arguments'  => array('pg_rbkmoney_settings'),
+      'access callback' => 'user_access',
+      'access arguments' => array('administer pgapi'),
+      'file'            => 'pg_rbkmoney.admin.inc',
+      'type'            => MENU_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+
+
+/********************************************************************
+ * Pgapi Gateway Hooks
+ ********************************************************************/
+function pg_rbkmoney_pgapi_gw($op,$a3=NULL,$a4=NULL){
+  switch($op){
+    case 'display name':
+        $ret = t('RBK Money Payment Gateway');
+      break;
+    case 'payment gateway info':
+        $ret['name']=theme('image', drupal_get_path('module','pg_rbkmoney').'/images/rbk_money.png', t('RBK Money'), t('RBK Money'));
+        
+        $rate = variable_get('pg_rbkmoney_rate','1.00');
+        $currency = variable_get('pg_rbkmoney_currency','RUR');
+        
+        $prices[$currency] = round(($a3*$rate),2);
+        
+        $ret['price']= $prices;
+      break;        
+    case 'process form':
+        $form_result = $a4;
+        $t = $a3;
+        $ret = pg_rbkmoney_process_form($form_result,$t);
+      break;
+    case 'get form':
+        $t=$a3;
+        $form_result = $a4;
+        $ret = pg_rbkmoney_extraform($form_result,$t);
+      break;        
+
+  }
+  return $ret;
+}
+
+function pg_rbkmoney_pgapi_transaction($status,&$t){
+  switch($status){
+    case PG_PENDING:
+        $rate = variable_get('pg_rbkmoney_rate','1.00');
+        $currency = variable_get('pg_rbkmoney_currency','RUR');
+        $prices[$currency] = round(($t->amount*$rate), 2);
+        $t->extra['prices'] =  $prices;
+      break;
+  }
+}
+
+/********************************************************************
+ * Other Functions
+ ********************************************************************/
+function pg_rbkmoney_extraform($form_state,$t) {
+
+  $options = array (
+    "inner"       => t('RBK Money purse'),
+    "bankCard"    => t('Credit card VISA/MasterCard'),
+    "exchangers"  => t('Internet Payment systems'),
+    "prepaidcard" => t('Prepaid RBK Money Card'),
+    "transfers"   => t('Money transfer'),
+    "terminals"   => t('Payment terminals'),
+    "bank"        => t('Bank payment'),
+    "postRus"     => t('Russian post'),
+    "atm"         => t('ATM'),
+    "ibank"       => t('Internet banking'),
+    "euroset"     => t('Euroset'),
+    
+  );
+
+
+  $default=key($options);
+  $form['preference'] = array(
+    '#type' => 'select',
+    '#title' => t('Payment method'),
+    '#options' => $options,
+    '#default_value' => $default, 
+    '#attributes' => array('class' => 'rbk_method'),
+  );
+  return $form;    
+}
+
+
+
+function pg_rbkmoney_process_form($form_result,$t){
+  $output = drupal_get_form('pg_rbkmoney_payform',$form_result,$t);
+//  $output = str_ireplace('accept-charset="UTF-8"','accept-charset="cp1251"',$output);
+  $t->method='pg_rbkmoney';
+  pgapi_transaction_save($t);
+  echo '<html><body>'.$output.'<script>pgpayform.submit();</script></body>';
+  exit();
+}
+
+ 
+function pg_rbkmoney_payform($form_state,$post,$t) {
+  global $user;
+        
+
+  $form['eshopId'] = array(
+    '#type' => 'hidden',
+    '#value' => variable_get('pg_rbkmoney_eshopId',''),
+  );
+  $form['orderId'] = array(
+    '#type' => 'hidden',
+    '#value' => $t->txnid,
+  );
+  
+  $form['user_email'] = array(
+    '#type' => 'hidden',
+    '#value' => $t->email,
+  );
+  $form['preference'] = array(
+    '#type' => 'hidden',
+    '#value' => $post['preference'],
+  );
+
+  $form['serviceName'] = array(
+    '#type' => 'hidden',
+    '#default_value' => $t->title,
+  );
+
+  $rate = variable_get('pg_rbkmoney_rate','1.00');
+  $amount = round(($t->amount*$rate), 2);
+
+  $form['recipientAmount'] = array(
+    '#type' => 'hidden',
+    '#value' => $amount,
+  );
+
+  $form['recipientCurrency'] = array(
+    '#type' => 'hidden',
+    '#value' => variable_get('pg_rbkmoney_currency','RUR'),
+  );
+  $oldstatus=$t->status;
+  
+  $t->status=PG_COMPLETED;
+  $form['successUrl'] = array(
+    '#type' => 'hidden',
+    '#default_value' => url(pgapi_get_redirect_url($t),array('absolute' => TRUE)),
+  );
+
+  $t->status=PG_FAILED;
+  $form['failUrl'] = array(
+    '#type' => 'hidden',
+    '#default_value' => url(pgapi_get_redirect_url($t),array('absolute' => TRUE)),
+  );
+  
+  $t->status =$oldstatus;
+
+  $form['#attributes'] = array('name' => 'pgpayform');
+  $form['#action'] = crbkmoneyPayActionUrl;
+  return $form;
+}
+

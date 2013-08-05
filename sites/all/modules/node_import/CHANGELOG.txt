@@ -1,0 +1,41 @@
+Changes since 6.x-1.1:
+
+ New features:
+
+ * Issue #405348 by skwashd, Docc, shawngo: Node import - User Profile Values not imported.
+ * Issue #1082700 by Robrecht Jacques: Import Fails to process Image Alt Tag.
+ * Issue #1079976 by Robrecht Jacques: Scheduler?
+ * Issue #368728 by stacysimpson: menu support for node_import.
+
+ User interface:
+
+ * Issue #930994 by Robrecht Jacques: 'Remember' file options in step 3 of 8.
+ * Issue #578270 by Robrecht Jacques: Streamline File Upload.
+ * by Robrecht Jacques: Better autodetect of file options (using previously used options).
+
+ Bugfixes:
+
+ * Issue #1121524 by Bloodcarver: Act just before deletion of task.
+ * Issue #422322 by hovel, sirkitree: Fatal error: Only variables can be passed by reference...
+ * Issue #1130860 by Robrecht Jacques: Conflict with Node Form Settings module.
+ * Issue #1709996 by underq : Strick warning : Only variables should be passed by reference (line 1565).
+
+Changes in 6.x-1.1:
+
+ * Issue #267555 by mvc, Robrecht Jacques: Added support for core locale module.
+ * Issue #1080912 by Robrecht Jacques: Fixed call-time pass-by-reference.
+ * Issue #434572 by rconstantine: Added support for content_taxonomy.
+
+Changes since DRUPAL-6--1-0-RC1:
+ * by robrechtj : error in types list of user.inc
+ * by robrechtj : display an clear error when the user does not have
+   the necessary permissions and show the buttons (eg Reload) so the
+   user still sees it is a form.
+ * by robrechtj : better sorting of the content types.
+ * #344663 by robrechtj : add sample data on mapping page as well.
+ * by robrechtj : get rid of hook_node_import_static() and call it
+   hook_node_import_values() instead. All node_import hooks pair up
+   beautiful with an _alter().
+ * #346020 by robrechtj : typo fix which prevented the "Set default
+   values" page to be displayed. Thanks biohabit!
+

@@ -1,0 +1,53 @@
+<?php
+// $Id: gmapfield.unit.test,v 1.1.2.2 2009/11/22 18:24:01 zzolo Exp $
+
+/**
+ * @file
+ * Testing class for unit testing for GMap Field
+ *
+ */
+
+/**
+ * Needs documentation
+ *
+ * http://cwgordon.com/simpletest/doxygen/2008-june/class_drupal_web_test_case.html#db643dedd7d2d26608cc2683b283b49d
+ *
+ * http://drupal.org/node/30023
+ */
+class GmapFieldUnitTestCase extends DrupalWebTestCase {
+
+  /**
+   * Implementation of getInfo().
+   */
+  function getInfo() {
+    return array(
+      'name' => t('GMap Field Unit Testing.'),
+      'description' => t('Unit testing functions of the GMap Field module.'),
+      'group' => t('GMap Field'),
+    );
+  }
+
+  /**
+   * Validate Macro Function Test
+   */
+  function testGmapFieldValidateMacro() {
+    // Create macro variables
+    $valid_macro = '[gmap width="100%"]';
+    $invalid_macro_a = 0;
+    $invalid_macro_b = NULL;
+    $invalid_macro_c = 'this is not a gmap macro';
+
+    // Test valid macro
+    $results = _gmapfield_validate_macro($valid_macro);
+    $this->assertEqual($results, TRUE, t('Testing macro function: Valid Macro.'));
+    // Test invalid macro a
+    $results = _gmapfield_validate_macro($invalid_macro_a);
+    $this->assertNotEqual($results, TRUE, t('Testing macro function: InValid Macro A.'));
+    // Test invalid macro b
+    $results = _gmapfield_validate_macro($invalid_macro_b);
+    $this->assertNotEqual($results, TRUE, t('Testing macro function: InValid Macro B.'));
+    // Test invalid macro c
+    $results = _gmapfield_validate_macro($invalid_macro_c);
+    $this->assertNotEqual($results, TRUE, t('Testing macro function: InValid Macro C.'));
+  }
+}

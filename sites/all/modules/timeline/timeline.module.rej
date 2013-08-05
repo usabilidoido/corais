@@ -1,0 +1,97 @@
+***************
+*** 36,51 ****
+   * Implementation of hook_theme().
+   */
+  function timeline_theme() {
+-   $base = array('file' => 'timeline.theme.inc');
+    return array(
+-     'timeline_nodata' => $base + array(),
+-     'timeline_bubble_title' => $base + array(
+        'arguments' => array('row' => NULL, 'alias' => NULL),
+      ),
+-     'timeline_bubble_url' => $base + array(
+        'arguments' => array('row' => NULL, 'link_enabled' => NULL),
+      ),
+-     'timeline_debug' => $base + array(
+        'arguments' => array('debug_array' => NULL),
+      ),
+    );
+--- 36,50 ----
+   * Implementation of hook_theme().
+   */
+  function timeline_theme() {
+    return array(
++     'timeline_nodata' => array(),
++     'timeline_bubble_title' => array(
+        'arguments' => array('row' => NULL, 'alias' => NULL),
+      ),
++     'timeline_bubble_url' => array(
+        'arguments' => array('row' => NULL, 'link_enabled' => NULL),
+      ),
++     'timeline_debug' => array(
+        'arguments' => array('debug_array' => NULL),
+      ),
+    );
+***************
+*** 120,128 ****
+      $user->timezone : variable_get('date_default_timezone', NULL);
+  }
+  
+- function timeline_convert_to_gregorian($value, $date_format, $timezone, $db_timezone) {
+-   $timezone = new DateTimezone($timezone);
+-   $db_timezone = new DateTimezone($db_timezone);
+    switch ($date_format) {
+      case 'timestamp':
+        $date = new DateTime("@$value", $db_timezone);
+--- 119,127 ----
+      $user->timezone : variable_get('date_default_timezone', NULL);
+  }
+  
++ function timeline_convert_to_gregorian($value, $date_format) {
++   $timezone = new DateTimezone(timeline_get_timezone());
++   $db_timezone = new DateTimezone('UTC');
+    switch ($date_format) {
+      case 'timestamp':
+        $date = new DateTime("@$value", $db_timezone);
+***************
+*** 135,143 ****
+    return $date->format('M d Y G:i:s');
+  }
+  
+- function timeline_convert_to_iso($value, $date_format, $timezone, $db_timezone) {
+-   $timezone = new DateTimezone($timezone);
+-   $db_timezone = new DateTimezone($db_timezone);
+    switch ($date_format) {
+      case 'timestamp':
+        $date = new DateTime("@$value", $db_timezone);
+--- 134,142 ----
+    return $date->format('M d Y G:i:s');
+  }
+  
++ function timeline_convert_to_iso($value, $date_format) {
++   $timezone = new DateTimezone(timeline_get_timezone());
++   $db_timezone = new DateTimezone('UTC');
+    switch ($date_format) {
+      case 'timestamp':
+        $date = new DateTime("@$value", $db_timezone);
+***************
+*** 150,158 ****
+    return $date->format('Y-m-d\TH:i:s\Z');
+  }
+  
+- function timeline_convert_to_timestamp($value, $date_format, $timezone, $db_timezone) {
+-   $timezone = new DateTimezone($timezone);
+-   $db_timezone = new DateTimezone($db_timezone);
+    switch ($date_format) {
+      case 'timestamp':
+        $date = new DateTime("@$value", $db_timezone);
+--- 149,157 ----
+    return $date->format('Y-m-d\TH:i:s\Z');
+  }
+  
++ function timeline_convert_to_timestamp($value, $date_format) {
++   $timezone = new DateTimezone(timeline_get_timezone());
++   $db_timezone = new DateTimezone('UTC');
+    switch ($date_format) {
+      case 'timestamp':
+        $date = new DateTime("@$value", $db_timezone);

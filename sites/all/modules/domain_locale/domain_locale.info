@@ -1,0 +1,14 @@
+; $Id: domain_locale.info,v 1.1 2009/05/20 22:42:38 nonsie Exp $
+name = Domain Locale
+description = Adds language handling functionality per domain basis.
+package = Domain Access
+core = 6.x
+dependencies[] = domain
+dependencies[] = domain_conf
+dependencies[] = locale
+; Information added by drupal.org packaging script on 2010-12-29
+version = "6.x-1.0"
+core = "6.x"
+project = "domain_locale"
+datestamp = "1293584624"
+

@@ -1,0 +1,130 @@
+<?php
+
+/**
+ * Implementation of hook_schema().
+ */
+function og_user_roles_schema() {
+  $schema['og_users_roles'] = array(
+    'fields' => array(
+      'gid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+      'uid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+      'rid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+    ),
+    'primary key' => array('gid', 'uid', 'rid'),
+  );
+  $schema['og_users_roles_group'] = array(
+    'fields' => array(
+      'gid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+      'default_role' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+    ),
+    'primary key' => array('gid'),
+  );
+  return $schema;
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function og_user_roles_install() {
+  drupal_install_schema('og_user_roles');
+  // Decrease module weight.
+  // @see og_user_roles_init()
+  db_query("UPDATE {system} SET weight = -1 WHERE type = 'module' AND name = 'og_user_roles'");
+  // Ensure that conflicting og_roles module is disabled.
+  module_disable(array('og_roles'));
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function og_user_roles_uninstall() {
+  drupal_uninstall_schema('og_user_roles');
+
+  // Delete variables.
+  db_query("DELETE FROM {variable} WHERE name LIKE 'og_user_roles_%%'");
+}
+
+/**
+ * Remove {og_user_test} and {multinode_access} tables.
+ */
+function og_user_roles_update_6200() {
+  $ret = array();
+  db_drop_table($ret, 'og_user_test');
+  db_drop_table($ret, 'multinode_access');
+  return $ret;
+}
+
+/**
+ * Decrease module weight.
+ *
+ * @see og_user_roles_init()
+ */
+function og_user_roles_update_6201() {
+  $ret = array();
+  $ret[] = update_sql("UPDATE {system} SET weight = -1 WHERE type = 'module' AND name = 'og_user_roles'");
+  return $ret;
+}
+
+/**
+ * Remove obsolete {og_user_test}.ogr_id column.
+ */
+function og_user_roles_update_6202() {
+  $ret = array();
+  db_drop_field($ret, 'og_users_roles', 'ogr_id');
+  variable_del('og_user_roles_counter');
+  return $ret;
+}
+
+/**
+ * Clean up and remove obsolete variables.
+ */
+function og_user_roles_update_6203() {
+  $ret = array();
+
+  // Convert remaining variables.
+  variable_del('og_user_roles_assign_basicgrouprole');
+  if ($default_role = variable_get('og_user_roles_basicgrouprole_value', NULL)) {
+    variable_set('og_user_roles_default_role', $default_role);
+  }
+  variable_del('og_user_roles_basicgrouprole_value');
+
+  variable_del('og_user_roles_assign_admingrouprole');
+  if ($admin_role = variable_get('og_user_roles_admingrouprole_value', NULL)) {
+    variable_set('og_user_roles_default_admin_role', $admin_role);
+  }
+  variable_del('og_user_roles_admingrouprole_value');
+
+  // Remove other variables of removed features.
+  db_query("DELETE FROM {variable} WHERE name LIKE 'oglogo_%%'");
+  db_query("DELETE FROM {variable} WHERE name LIKE 'og_user_roles_assign_nopublic_%%'");
+  db_query("DELETE FROM {variable} WHERE name LIKE 'og_user_roles_assign_regcode_%%'");
+  db_query("DELETE FROM {variable} WHERE name LIKE 'og_user_roles_assign_regcoderole_%%'");
+  db_query("DELETE FROM {variable} WHERE name LIKE 'og_user_roles_delete_regcode_%%'");
+  db_query("DELETE FROM {variable} WHERE name LIKE 'og_user_roles_links_content_%%'");
+  db_query("DELETE FROM {variable} WHERE name LIKE 'og_user_roles_links_remove_%%'");
+  db_query("DELETE FROM {variable} WHERE name LIKE 'og_user_roles_logo_%%'");
+  db_query("DELETE FROM {variable} WHERE name LIKE 'og_user_roles_regcode_value_%%'");
+  db_query("DELETE FROM {variable} WHERE name LIKE 'og_user_roles_regcoderole_value_%%'");
+
+  $ret[] = array('success' => TRUE, 'query' => 'Obsolete variables have been removed.');
+  return $ret;
+}
+
+/**
+ * Create {og_users_roles_group} table.
+ */
+function og_user_roles_update_6204() {
+  $ret = array();
+  if (db_table_exists('og_users_roles_group')) {
+    return $ret;
+  }
+  db_create_table($ret, 'og_users_roles_group', array(
+    'fields' => array(
+      'gid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+      'default_role' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+    ),
+    'primary key' => array('gid'),
+  ));
+  return $ret;
+}
+

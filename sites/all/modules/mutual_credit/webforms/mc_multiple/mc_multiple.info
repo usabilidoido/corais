@@ -1,0 +1,13 @@
+; $Id: mc_multiple.info,v 1.1.2.2 2010/12/06 13:19:46 hutch Exp $
+name = Multiple exchanges forms
+description = Record many exchanges from a single form, Many-2-one, one-2-many etc.
+package = Mutual Credit
+core = "6.x"
+dependencies[] = mc_webforms
+
+; Information added by drupal.org packaging script on 2012-03-24
+version = "6.x-2.5"
+core = "6.x"
+project = "mutual_credit"
+datestamp = "1332592555"
+

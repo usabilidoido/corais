@@ -1,0 +1,4 @@
+$Id: CHANGELOG.txt,v 1.1 2010/07/13 21:41:28 bonked Exp $
+vimeotube.module - July, 13th 2010
+--------------------------------------
+- initial release.

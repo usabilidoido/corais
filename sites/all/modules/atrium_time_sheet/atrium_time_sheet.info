@@ -1,0 +1,13 @@
+core = "6.x"
+description = "Adds a Time Sheet icon to the Atrium Features menu that is Spaces aware"
+name = "Atrium Time Sheet"
+package = "Features"
+version = "6.x-1.0-dev"
+
+dependencies[] = "features"
+dependencies[] = "menu"
+dependencies[] = "time_tracker"
+dependencies[] = "time_sheet"
+features[menu_links][] = "features:time_sheet/%"
+spaces[types][] = "site"
+spaces[types][] = "og"

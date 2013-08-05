@@ -1,0 +1,84 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * TODO: Enter file description here.
+ */
+
+/**
+ * Implementation of hook_menu().
+ */
+function svg_renderer_menu() { 
+  // This is the minimum information you can provide for a menu item.
+  $items['TODO: Enter path'] = array(
+    'title' => 'SVG Renderer',
+    'page callback' => 'TODO: Enter callback function',
+    'access arguments' => array('TODO: Enter user permissions'),
+  );
+  // more complex menu item
+  $items['TODO: Enter path'] = array(
+    'title' => 'SVG Renderer',
+    'description' => 'TODO: Enter description',
+    'page callback' => 'TODO: Enter callback function',
+    'page arguments' => '', // An array of arguments to pass to the page callback function. Integer values pass the corresponding URL component.
+    'access callback' => '', // defaults to user_access()
+    'access arguments' => array('TODO: Enter user permissions'),
+    'weight' => 0,
+    'type' => MENU_NORMAL_ITEM, // One of MENU_NORMAL_ITEM / MENU_CALLBACK / MENU_SUGGESTED_ITEM / MENU_LOCAL_TASK / MENU_DEFAULT_LOCAL_TASK
+    'menu_name' => 'Navigation', // Menu to place this item in.
+    'title callback' => '', // Function to generate the title, defaults to t(). 
+    'title arguments' => '', // Arguments to send to t() or your custom callback. 
+  );
+  // OPTIONAL: Fill in additional static menu items
+
+  return $items;
+}
+
+
+/**
+ * Implementation of hook_block().
+ */
+function svg_renderer_block($op = 'list', $delta = 0, $edit = array()) {
+  switch ($op) {
+
+    case 'list':
+      $blocks[0]['info'] = t('SVG Renderer');
+      $blocks[1]['info'] = t('SVG Flash Renderer');
+      // OPTIONAL: Add additional block descriptions here, if required.
+      return $blocks;
+
+    case 'configure':
+      // OPTIONAL: Enter form elements to add to block configuration screen, if required.    
+      if ($delta == 0 && user_access('administer module')) {
+        $form['module_block_1'] = array();
+      }
+      if ($delta == 1 && user_access('administer module')) {
+        $form['module_block_2'] = array();
+      }
+      return $form;
+
+    case 'save':
+      // OPTIONAL: Add code to trigger when block configuration is saved, if required.
+      if ($delta == 0) {
+        variable_set('module_block_setting_1', $edit['module_block_1']);
+      }
+      if ($delta == 1) {
+        variable_set('module_block_setting_2', $edit['module_block_2']);
+      }
+      break;
+
+    case 'view':
+      if ($delta == 0) {
+        $block['subject'] = t('SVG Renderer');
+        $block['content'] = t('<script src="/sites/all/modules/svg_renderer/svgweb/src/svg.js" data-path="/sites/all/modules/svg_renderer/svgweb/src"></script>');
+      }
+      if ($delta == 1) {
+        $block['subject'] = t('SVG Flash Renderer');
+        $block['content'] = t('<script src="/sites/all/modules/svg_renderer/svgweb/src/svg.js" data-path="/sites/all/modules/svg_renderer/svgweb/src"></script><meta name="svg.render.forceflash" content="true">');
+      }
+      // OPTIONAL: Enter additional cases for each additional block, if defined.
+
+      return $block;
+  }    
+}

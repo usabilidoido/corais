@@ -1,0 +1,12 @@
+name = Better Exposed Filters
+description = Allow the use of checkboxes or radio buttons for exposed Views filters
+core = 6.x
+package = Views
+dependencies[] = views
+
+; Information added by drupal.org packaging script on 2011-08-03
+version = "6.x-3.0-beta1"
+core = "6.x"
+project = "better_exposed_filters"
+datestamp = "1312390314"
+

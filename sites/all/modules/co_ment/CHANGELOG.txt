@@ -1,0 +1,65 @@
+Co-ment 6.x-1.12, 2011-11-15
+------------------------------------------
+#1340532 by gibus: Fixed bad Content-Type for header parameter in drupal_http_request.
+
+Co-ment 6.x-1.11, 2011-11-15
+------------------------------------------
+by gibus: Added nid parameter to theme_co_ment_body in order to get correct lang and user
+
+Co-ment 6.x-1.10, 2011-07-01
+------------------------------------------
+by gibus: Fixed overmuch closing iframe tag.
+
+Co-ment 6.x-1.9, 2011-06-20
+------------------------------------------
+by gibus: Fixed use theme_username before sending Drupal user name
+ to co-ment server.
+by gibus: Fixed use check_markup to apply input filters on body
+ before sending it to co-ment server.
+
+Co-ment 6.x-1.8, 2011-06-13
+------------------------------------------
+by gibus: Fixed choosing co-ment editor role when current user is
+ auhor of the text.
+by gibus: Fixed passing of Drupal username to co-ment server in order
+ to apply has_own_perm() correctly.
+
+Co-ment 6.x-1.7, 2011-04-13
+------------------------------------------
+by gibus: Fixed hook_view to not show co-ment GUI *only* when indexing
+ (for searching).
+
+Co-ment 6.x-1.6, 2011-04-12
+------------------------------------------
+by gibus: Fixed indexing (for searching) of the body of co_ment_text
+ nodes.
+
+Co-ment 6.x-1.5, 2011-04-12
+------------------------------------------
+by gibus: Fixed edit/delete access for any co_ment_text nodes.
+
+Co-ment 6.x-1.4, 2010-12-16
+------------------------------------------
+by gibus: Fixed expected return code 204 from co-ment server when
+ deleting text.
+
+Co-ment 6.x-1.3, 2010-11-29
+------------------------------------------
+by gibus: Added notifications integration with og_notifications.
+by gibus: Added url parameter (comment_op=reply) to open
+ automatically reply to comment form.
+
+Co-ment 6.x-1.2, 2010-11-22
+------------------------------------------
+by gibus: Fixed default value (NULL) for parameter $comment_key in
+ function co_ment_fetch_comments.
+
+Co-ment 6.x-1.1, 2010-11-22
+------------------------------------------
+by gibus: Added notifications integration when a new comment is added.
+
+Co-ment 6.x-1.0, 2010-08-03
+------------------------------------------
+by gibus: Initial release of Co-ment module. Provides Drupal with an
+ interface to Co-ment®, a Web service/Free software for submitting
+ texts to comments and annotations.

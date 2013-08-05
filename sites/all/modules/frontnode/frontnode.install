@@ -1,0 +1,14 @@
+<?php
+
+/**
+ * @file
+ * Front Node uninstall rutines.
+ */
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function frontnode_uninstall() {
+  variable_del('frontnode_nid');
+  variable_del('frontnode_orig');
+}

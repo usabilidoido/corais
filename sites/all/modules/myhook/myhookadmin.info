@@ -1,0 +1,12 @@
+; $Id: myhookadmin.info,v 1.1 2010/08/23 01:24:21 ufku Exp $
+name = "MyHook Admin"
+description = "Required to define hooks for MyHook module."
+package = "Development"
+core = "6.x"
+
+; Information added by drupal.org packaging script on 2010-10-09
+version = "6.x-1.0"
+core = "6.x"
+project = "myhook"
+datestamp = "1286607681"
+

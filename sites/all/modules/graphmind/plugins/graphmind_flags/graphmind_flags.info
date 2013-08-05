@@ -1,0 +1,14 @@
+; $Id$
+name = GraphMind Flags
+description = The module adds a special flag dedicated to GraphMind to load marked nodes to a map.
+core = 6.x
+dependencies[] = graphmind_service
+dependencies[] = flag
+package =  Graphmind
+
+; Information added by drupal.org packaging script on 2011-06-24
+version = "6.x-1.x-dev"
+core = "6.x"
+project = "graphmind"
+datestamp = "1308874877"
+

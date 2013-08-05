@@ -1,0 +1,29 @@
+<?php
+
+/**
+ * Implementation of hook_install().
+ */
+function atrium_reader_install() {
+  drupal_install_schema('atrium_reader');
+}
+
+/**
+ * Implementation of hook_uninstall();
+ */
+function atrium_reader_uninstall() {
+  drupal_uninstall_schema('atrium_reader');
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function atrium_reader_schema() {
+  // Install data tables.
+  include_once('atrium_reader.data_default.inc');
+  $tables = atrium_reader_data_default();
+  $schema = array();
+  foreach ($tables as $name => $table) {
+    $schema[$name] = $table->table_schema;
+  }
+  return $schema;
+}

@@ -1,0 +1,15 @@
+<?php
+
+/**
+ * @file
+ * The Node export CSV install file.
+ */
+
+/**
+ * Implementation of hook_install().
+ */
+function node_export_csv_install() {
+  // Node export CSV is slow to fire on imports, and should allow other modules
+  // to respond first.
+  db_query("UPDATE {system} SET weight = 10 WHERE name = 'node_export_csv'");
+}

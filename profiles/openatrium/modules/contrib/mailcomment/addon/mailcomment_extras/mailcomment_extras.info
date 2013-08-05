@@ -1,0 +1,12 @@
+; $Id: mailcomment_extras.info,v 1.1.2.1 2009/11/16 14:33:24 developmentseed Exp $
+name = Mail Comment Extras
+description = Extra junk cleaners for mailcomment
+package = "Notifications"
+dependencies[] = mailcomment
+core = 6.x
+; Information added by drupal.org packaging script on 2010-02-18
+version = "6.x-1.0"
+core = "6.x"
+project = "mailcomment"
+datestamp = "1266451212"
+

@@ -1,0 +1,178 @@
+<?php
+// $Id: driven_cck_producer_consumer.module,v 1.2 2010/04/16 15:42:15 arhak Exp $
+
+/**
+ * Implements hook_menu().
+ */
+function driven_cck_producer_consumer_menu() {
+  // Callback for AHAH add more buttons.
+  $items['driven_cck_producer/js_add_more'] = array(
+    'page callback' => 'driven_cck_producer_add_more_js',
+    'access arguments' => array('access content'),
+    'file' => 'driven_cck_producer_consumer.inc',
+    'type' => MENU_CALLBACK,
+  );
+  
+  return $items;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function driven_cck_producer_consumer_theme() {
+  return array(
+    'driven_cck_producer_consumer_multiple_values' => array(
+      'arguments' => array('element' => NULL),
+      'file' => 'driven_cck_producer_consumer.inc',
+    ),
+  );
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function driven_cck_producer_consumer_form_alter(&$form, &$form_state, $form_id) {
+  if ($form_id === 'content_add_more_js') {
+    module_load_include('inc', 'driven_cck_producer_consumer');
+    _driven_cck_producer_consumer_add_more_js_form_alter($form, $form_state);
+  }
+}
+
+// helper static getter/setter
+function _driven_cck_producers_add_more($field_name, $element = NULL) {
+  static $producers_add_more = array();
+  if (isset($element)) {
+    $field_name = $element['#field_name'];
+    $producers_add_more[$field_name] = $element;
+  }
+  else {
+    return $producers_add_more[$field_name];
+  }
+}
+
+/**
+ * Callback for property behavior settings form.
+ */
+function driven_cck_producer_consumer_behavior_form($prop) {
+  // @TODO: unify multigroup's behaviors
+  // right now not having feedback from users requesting multigroup support
+  // (in addition, D7 version of multigroup haven't been planed yet [#695636-8], [#494100-58])
+  // therefore, this is postponed until an official release exists (either D6 or D7)
+  if (!empty($prop['meta']['group_name']) && $prop['meta']['group_type'] === 'multigroup') {
+    // temporary withdraw policies support for fields within a multigroup
+    // until a unified settings for multigroup be implemented
+    return FALSE;
+  }
+  
+  $meta = $prop['meta'];
+  if ($meta['realm'] != 'cck') {
+    // this behavior only address cck realm
+    return FALSE; // nothing to do
+  }
+  // $node_type, $realm, $target, $provider,
+  // $group_name/type, $field_name/type/module/multiple, $widget_type/module/handle_multiple_values
+  // $driven_diff (note that driven_diff was added in driven_diff_driven_properties_meta_extension)
+  extract($meta);
+  // @TODO: not having add_more button doesn't limit these policies, right?
+  // it will have add_more button only if $field_multiple==1 
+  if (!$field_multiple || ($widget_handle_multiple_values != CONTENT_HANDLE_CORE)) {
+    // this behavior only address fields with multiplicity having a widget with multiple values handled by CCK's core
+    return FALSE; // nothing to do
+  }
+  
+  // IMPORTANT: every behavior form needs a "none" option
+  // to act as if the behavior wasn't enabled at all
+  // which will be the default behavior when settings haven't been saved yet
+  $form = array(
+    '#type' => 'fieldset',
+    '#title' => t('Producer/Consumer Policy'),
+    '#collapsible' => TRUE,
+  );
+  $options = array(
+    'none' => t('None'),
+    'producer' => t('Incoming for all roles except selected ones'),
+    'producer_consumer' => t('Incoming for selected roles, outgoing otherwise'),
+    'consumer' => t('Outgoing for all roles except selected ones'),
+    'consumer_producer' => t('Outgoing for selected roles, incoming otherwise'),
+  );
+  $form['in_out'] = array(
+    '#type' => 'radios',
+    '#options' => $options,
+    '#default_value' => 'none',
+  );
+  $form['roles'] = array(
+    '#type' => 'checkboxes',
+    '#title' => t('Roles'),
+    '#options' => user_roles(),
+    '#default_value' => array(),
+  );
+  return $form;
+}
+
+function _driven_cck_producer_consumer_eval($in_out, $rids) {
+  global $user;
+  $selected = (count(array_intersect(array_keys($user->roles), $rids)) > 0);
+  switch ($in_out) {
+    case 'producer':
+      return ($selected ? NULL : 'producer');
+    case 'producer_consumer':
+      return ($selected ? 'producer' : 'consumer');
+    case 'consumer':
+      return ($selected ? NULL : 'consumer');
+    case 'consumer_producer':
+      return ($selected ? 'consumer' : 'producer');
+    case 'none': // no break;
+    default:
+      // settings might haven't been saved yet
+      // act as if the module wasn't enabled
+      return NULL;
+  }
+}
+
+function driven_cck_producer_consumer_apply_to_properties(&$driven_props, $policies) {
+  if (isset($policies['driven_cck_producer_consumer'])) {
+    // we got all policies at once (which can't be mistaken with a realm:target)
+    // lets pick up only ours
+    // (this supports delivering all policies returned by driven_props_get_policies)
+    // in the worse case it will be an empty array
+    $policies = $policies['driven_cck_producer_consumer'];
+  }
+  
+  foreach ($driven_props as $property_id => &$prop) {
+    $policy = $policies[$property_id];
+    if (empty($policy)) {
+      continue;
+    }
+    $result = _driven_cck_producer_consumer_eval($policy['in_out'], $policy['roles']);
+    // $result should be one of: NULL, 'producer', 'consumer'
+    if (isset($result)) {
+      $prop['#producer_consumer'] = $result;
+    }
+    elseif (!isset($prop['#producer_consumer'])) {
+      // we might wan't to avoid overriding whatever #producer_consumer might have before
+      // but if it is not set, lets make clear we evaluated and abstained
+      $prop['#producer_consumer'] = NULL;
+    }
+  }
+}
+
+function driven_cck_producer_consumer_apply_to_form(&$node_form, $driven_props, $policies) {
+  // if policy is not set then properties are expected
+  // to have Producer/Consumer Policies already applied
+  if (isset($policies)) {
+    // otherwise apply our policies to the received copy of $driven_props
+    driven_cck_producer_consumer_apply_to_properties($driven_props, $policies);
+  }
+  module_load_include('inc', 'driven_cck_producer_consumer');
+  _driven_cck_producer_consumer_to_form($node_form, $driven_props);
+}
+
+function driven_cck_producer_validate($element, &$form_state) {
+  module_load_include('inc', 'driven_cck_producer_consumer');
+  _driven_cck_producer_consumer_validate($element, $form_state, 'producer');
+}
+
+function driven_cck_consumer_validate($element, &$form_state) {
+  module_load_include('inc', 'driven_cck_producer_consumer');
+  _driven_cck_producer_consumer_validate($element, $form_state, 'consumer');
+}

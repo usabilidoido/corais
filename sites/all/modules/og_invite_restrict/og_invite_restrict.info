@@ -1,0 +1,12 @@
+name = OG Invite Restrict
+description = Restricts the Organic Groups invite page to just usernames. Also adds autocomplete.
+dependencies[] = og
+package = "Organic groups"
+core = 6.x
+version = "6.x-1.x"
+; Information added by drupal.org packaging script on 2011-03-01
+version = "6.x-1.x-dev"
+core = "6.x"
+project = "og_invite_restrict"
+datestamp = "1298981360"
+

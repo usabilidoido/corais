@@ -1,0 +1,14 @@
+name = Ajax plugin - disable_redirect
+description = Allows form redirections to be disabled for Ajax forms
+package = Ajax
+dependencies[] = ajax
+dependencies[] = ajax_ui
+core = 6.x
+
+
+; Information added by drupal.org packaging script on 2012-01-21
+version = "6.x-1.15"
+core = "6.x"
+project = "ajax"
+datestamp = "1327131337"
+

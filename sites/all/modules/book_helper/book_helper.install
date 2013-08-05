@@ -1,0 +1,22 @@
+<?php
+/**
+ * @file
+ * Install and uninstall functions for the 'Book helper' module.
+ */
+
+/**
+ * Implementation of hook_install().
+ */
+function book_helper_install() {
+  // Set weight=10 so that the book_helper.module is called after the book.module.
+  db_query("UPDATE {system} SET weight=10 WHERE name='book_helper'");
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function book_helper_uninstall() {
+  // Delete all the book helper variables and then clear the variable cache.
+  db_query("DELETE FROM {variable} WHERE name LIKE 'book_helper_%'");
+  cache_clear_all('variables', 'cache');
+}

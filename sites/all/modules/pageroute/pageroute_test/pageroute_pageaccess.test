@@ -1,0 +1,173 @@
+<?php
+// $Id: pageroute_pageaccess.test,v 1.1.2.2 2009/12/12 16:46:26 sgilits Exp $
+
+/**
+ * @file
+ * Contains the page access test.
+ */
+
+include_once('pageroute_test.inc');
+
+/**
+ * PageroutePageAccessTestCase tests the page access hook from Pageroute.
+ */
+class PageroutePageAccessTestCase extends PagerouteTestCase {
+  protected $routeId;
+  protected $user = NULL;
+  protected $route;
+  public static function getInfo() {
+    return array(
+      'name' => 'Pageroute page access test',
+      'description' => 'Tests the pageroute access invoke.',
+      'group' => 'Pageroute',
+    );
+  }
+
+  function setUp() {
+    parent::setUp("pageroute_test");
+    $this->route1 = "array (
+      'args' =>
+      array (
+      ),
+      'options' =>
+      array (
+        'tabs' =>'1',
+        'access' =>
+        array (
+          'allowed_roles' =>
+          array (
+            2 => 2,
+            1 => 0,
+            3 => 0,
+            4 => 0,
+          ),
+        ),
+        'redirect_path' => '',
+        'no_messages' => 1,
+      ),
+      'pages' =>
+      array (
+        0 =>
+        array (
+          'name' => 'p1',
+          'module' => 'pageroute',
+          'type' => 'add',
+          'title' => 'Page 1 -Add Page',
+          'options' =>
+          array (
+            'activated' => 1,
+            'no_tab' => 0,
+            'forward' => 'Forward',
+            'back' => 'Back',
+            'cancel' => 'Cancel',
+            'content-type' => 'story',
+            'preview' => 0,
+            'submit' => 1,
+          ),
+          'weight' => '-10',
+        ),
+        1 =>
+        array (
+          'name' => 'p2',
+          'module' => 'pageroute',
+          'type' => 'edit',
+          'title' => 'Page 2 - Edit Page',
+          'options' =>
+          array (
+            'activated' => 1,
+            'no_tab' => 0,
+            'forward' => 'Forward',
+            'back' => 'Back',
+            'cancel' => '',
+            'content-type' => 'story',
+            'preview' => 1,
+            'submit' => 1,
+            'nodelete' => 1,
+          ),
+          'weight' => '-10',
+        ),
+        2 =>
+        array (
+          'name' => 'p3',
+          'module' => 'pageroute',
+          'type' => 'view',
+          'title' => 'Page 3 - View page',
+          'options' =>
+          array (
+            'activated' => 1,
+            'no_tab' => 0,
+            'forward' => 'Forward',
+            'back' => 'Back',
+            'cancel' => '',
+            'nid' => '0',
+          ),
+          'weight' => '-10',
+        ),
+        3 =>
+        array (
+          'name' => 'p4',
+          'module' => 'pageroute',
+          'type' => 'view',
+          'title' => 'Page 4 - View page2',
+          'options' =>
+          array (
+            'activated' => 1,
+            'no_tab' => 0,
+            'forward' => 'Forward',
+            'back' => 'Back',
+            'cancel' => '',
+            'nid' => '0',
+          ),
+          'weight' => '-10',
+        ),
+        4 =>
+        array (
+          'name' => 'p5',
+          'module' => 'pageroute',
+          'type' => 'useredit',
+          'title' => 'Page 5 - Edit User',
+          'options' =>
+          array (
+            'activated' => 1,
+            'no_tab' => 0,
+            'forward' => 'Forward',
+            'back' => 'Back',
+            'cancel' => '',
+            'category' => 'account',
+            'submit' => 1,
+          ),
+          'weight' => '-10',
+        ),
+      ),
+      'pageIndex' =>
+      array (
+        'p1' => 0,
+        'p2' => 1,
+        'p3' => 2,
+        'p4' => 3,
+        'p5' => 4,
+      ),
+      'pageAccess' =>
+      array (
+      ),
+      'path' => 'pageroute1',
+      'pageDataCurrent' => NULL,
+      'pageDataPrevious' => NULL,
+    )";
+    $this->user = $this->useAdmin();
+    $node = array(
+      'body' => $this->randomName(32),
+      'title' => $this->randomName(8),
+    );
+    $this->drupalCreateNode($node);
+    $this->routeId = $this->importPageRoutes($this->route1);
+  }
+  
+  function testingPageAccess() {
+    $user = $this->useAdmin();
+    $this->drupalGet('pageroute1/');
+    $this->assertText('Page 2');
+    $this->assertNoText('p1');
+    $this->assertNoText('p3');
+  }
+}

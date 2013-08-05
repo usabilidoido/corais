@@ -1,0 +1,73 @@
+<?php
+ /**
+ * Automatic AJAX forms validation, preview, and submission
+ *
+ * @see http://drupal.org/project/ajax
+ * @see irc://freenode.net/#drupy
+ * @depends Drupal 6
+ * @author brendoncrawford
+ * @note This file uses a 79 character width limit.
+ *
+ */
+
+
+ /**
+ * hook_install
+ *
+ * @return Bool
+ */
+function ajax_install() {
+  db_query(
+    "UPDATE {system} SET " .
+    "  weight = 81 " .
+    "WHERE " .
+    "  name = 'ajax' AND " .
+    "  type = 'module' "
+  );
+  return TRUE;
+}
+
+/**
+ * Update 0
+ *
+ * @return Array
+ */
+function ajax_update_6100() {
+  return array();
+}
+
+/**
+ * Update 1
+ *
+ * @return Array
+ */
+function ajax_update_6101() {
+  return array();
+}
+
+/**
+ * Update 2
+ *
+ * @return Array
+ */
+function ajax_update_6102() {
+  return array();
+}
+
+/**
+ * Update 3
+ *
+ * @return Array
+ */
+function ajax_update_6103() {
+  $ret = array();
+  $ret[] = update_sql(
+    "UPDATE {system} SET " .
+    "  weight = 81 " .
+    "WHERE " .
+    "  name = 'ajax' AND " .
+    "  type = 'module' "
+  );
+  return $ret;
+}
+

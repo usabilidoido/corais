@@ -1,0 +1,10 @@
+name = Make Meeting
+description = Schedule an event 
+core = 6.x
+
+; Information added by drupal.org packaging script on 2011-06-28
+version = "6.x-1.1"
+core = "6.x"
+project = "makemeeting"
+datestamp = "1309254119"
+

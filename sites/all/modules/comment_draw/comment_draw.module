@@ -1,0 +1,120 @@
+<?php
+/* basecode copied from http://drupal.org/node/399410 nicholas.alipaz 
+/* Add our new field to the content types and/or comments */
+function comment_draw_form_alter(&$form, $form_state, $form_id) { // form override
+
+  if ($form_id == 'comment_form' && user_access('draw on comments')) { // add field to comment content type
+  	// load InputDraw javascript files
+	$module_path = drupal_get_path('module','comment_draw');
+	drupal_add_js($module_path.'/inputdraw/inputdraw.js'); 
+	drupal_add_js($module_path.'/inputdraw/swfobject.js');
+	$collapsed = TRUE;
+	if (arg(1) == "edit") {
+		$result = db_fetch_object(db_query("SELECT svg FROM {comment_draw} WHERE type='comment' AND xid = %d", arg(2) ));
+		$cb2sig = $result->svg;
+		if ($result) $collapsed = FALSE;
+	}	
+	
+	$form['draw'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Add drawing to your comments'),
+    '#tree' => TRUE,
+	'#collapsible' => TRUE,
+    '#collapsed' => $collapsed,
+  	);
+	$form['draw']['inputdraw'] = array('#type' => 'markup', '#value' => '<div id="inputdraw"></div>
+<script type="text/javascript">
+svgdrawing = new InputDraw("/'.$module_path.'/inputdraw/inputdraw.non-commercial.v1.5.swf", "inputdraw", {id:"edit-field-svg-0-value", width:"300", height:"500", animation:"60", color: "#FFFFFF", grid_style: "2 0.6 rgb(211,221,244)" });
+</script>
+	'); // place to display the drawing board
+
+    $form['draw']['svg'] = array(
+    '#type' => 'textarea', // I have used hidden fields here, because this is what I needed, you may also need to change this to suit your needs
+    '#id' => t('edit-field-svg-0-value'),
+	'#rows' => '2',
+    '#default_value' => $cb2sig,
+    '#description' => 'SVG source code. You can copy/paste the code from another comment.',
+ 	'#attributes' => array('onpaste' => "javascript: svgdrawing.AddSvg(this.value);", 'onchange' => "javascript: svgdrawing.AddSvg(this.value);", 'onblur' => "javascript: svgdrawing.AddSvg(this.value);", 'onload' => "javascript: svgdrawing.AddSvg(this.value);"),
+    );
+  }
+}
+
+/* set up permissions */
+function comment_draw_perm() {
+  return array('draw on comments');
+}
+
+/* operations for handling the values inserted into a comment's form */
+function comment_draw_comment(&$comment, $op) {
+  switch ($op) {
+    case 'insert': // insert in the database
+      $cb2sig = $comment['draw']['svg']; // here is my field as created in the last form_alter()
+      if (strlen($cb2sig) > 200){
+		db_query("INSERT INTO {comment_draw} (xid, type, svg) VALUES(%d, '%s', '%s')", $comment['cid'], 'comment', $cb2sig);
+	  } 
+      break;
+    case 'view': // get it from the database for display
+        $result = db_fetch_object(db_query("SELECT svg FROM {comment_draw} WHERE type='comment' AND xid = %d", $comment->cid));
+        $comment->svg = $result->svg;
+        $content .= $comment->svg;
+        	$module_path = drupal_get_path('module','comment_draw');
+	drupal_add_js($module_path.'/inputdraw/inputdraw.js'); 
+	drupal_add_js($module_path.'/inputdraw/swfobject.js');
+	  break;
+    case 'update': // update the database
+      $cb2sig = $comment['draw']['svg']; // here is my field as created in the last 
+      $result = db_query("SELECT * FROM {comment_draw} WHERE type='comment' AND xid = %d", $comment->cid);
+      if ($result) {
+      	db_query("UPDATE {comment_draw} SET svg = '%s' WHERE xid = %d", $cb2sig, $comment['cid']);
+      } else {
+		if (strlen($cb2sig) > 200){
+			db_query("INSERT INTO {comment_draw} (xid, type, svg) VALUES(%d, '%s', '%s')", $comment['draw']['cid'], 'comment', $cb2sig);
+		}
+      }
+      break;
+  }
+}
+
+/**
+* Implementation of hook_theme().
+*/
+function comment_draw_theme($existing, $type, $theme, $path) {
+
+  return array(
+    'comment_template' => array(
+      'template' => 'comment',
+      'arguments' => array(),
+    ),
+  );
+}
+/*
+function comment_draw_theme_registry_alter(&$theme_registry) {
+ // using our own block.tpl.php file.
+ $theme_registry['comment']['template'] = 'comment';
+ $theme_registry['comment']['path'] = drupal_get_path('module', 'comment_draw');
+ $theme_registry['comment']['type'] = 'module';
+ $theme_registry['comment']['theme path'] = drupal_get_path('module', 'comment_draw');
+ $theme_registry['comment']['theme paths'] = Array();
+ }
+
+function comment_draw_theme_registry_alter(&$theme_registry) {
+  $mod_path = drupal_get_path('module', 'comment_draw');
+  $theme_registry_copy = $theme_registry;       // munge on a copy
+  _theme_process_registry($theme_registry_copy, 'phptemplate', 'theme_engine', 'pow', $mod_path);
+  $theme_registry += array_diff_key($theme_registry_copy, $theme_registry);
+  $hooks = array('node');
+  foreach ($hooks as $h) {
+    _comment_draw_insert_after_first_element($theme_registry[$h]['theme paths'], $mod_path);
+  }
+}*/
+
+/**
+ * Helper function for re-ordering arrays (needed by theme_registry_alter)
+*/
+function _comment_draw_insert_after_first_element(&$a, $element) {
+  if(is_array($a)) {
+    $first_element = array_shift($a);
+    array_unshift($a, $first_element, $element);
+  }
+}
+?>

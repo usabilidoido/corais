@@ -1,0 +1,304 @@
+<?php
+
+define('BALANCING_ACCOUNT', 1);
+
+function mcapi_import_help($path) {
+  switch ($path) {
+    case 'admin/help#mcapi_import':
+      return t('Provides advice and a simple text box to paste csv style data from your existing spreadsheets. ') .
+      t('Assumes user 1 is the balancing account.');
+  }
+}
+
+/**
+ * Implementation of hook_menu)().
+ * http://api.drupal.org/api/function/hook_menu/6
+ */
+function mcapi_import_menu() {
+  $items['admin/mc/import'] = array (
+    'title' => 'Import Tools',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('import_balances_form'),
+    'access arguments' => array('configure currencies'),
+    'weight' => 5
+  );
+  $items['admin/mc/import/balances'] = array(
+    'title' => 'Import Balances',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10
+  );
+  $items['admin/mc/import/transactions'] = array(
+    'title' => 'Import transactions',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('import_transactions_form'),
+    'access arguments' => array('configure currencies'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => -10
+  );
+  return $items;
+}
+
+function mcapi_import_exchange_type_info() {
+  return array(
+    'mcapi_import' => array(
+      'title' => 'imported',
+      'edit' => 'mc_edit_form'
+    )
+  );
+}
+
+/*
+ * form called by menu
+ */
+function import_transactions_form() {
+  $form['#prefix'] = '<p>' . t(
+    "This page allows you to import transactions for users already on the system.",
+    array('!import_user'=>l('import_user', 'http://drupal.org/project/import_user'))
+  ) .'</p>';
+
+  $form['#prefix'] .= "\n<p>".t("This tool assumes there is only one currency in the system." ) . '</p>';
+  $form['#prefix'] .= "\n<p>".t("The first line of the field should read: !code", array('!code' => '<blockquote>"time","payer","payee","description","quantity"</blockquote>"')) . '</p>';
+
+  
+  $types = module_invoke_all('exchange_type_info');
+  foreach ($types as $type => $info) {
+    $options[$type] = $info['title'];
+  }
+  $form['exchange_type'] = array(
+    '#title' => t('Exchange type'),
+    '#description' => t('This is mostly a hidden property, but useful for filtering transactions with.') .' '.
+       t("Views will not be able to filter by this type if the mcapi_import module is disabled."),
+    '#type' => 'select',
+    '#options' => $options
+  );
+  $form['data'] = array (
+    '#type' => 'textarea',
+    '#title' => 'paste data',
+    '#default_value' => $form_state['values']['data'],
+    '#required' => TRUE
+  );
+  $form['import_transactions'] = array (
+    '#type' => 'submit',
+    '#value' => 'import',
+  );
+  $form['#redirect'] = 'user/1';
+  return $form;
+}
+
+function import_transactions_form_validate($form, &$form_state) {
+  $form_state['values']['data'] .= "\n";
+  $rows = parse_getcsv($form_state['values']['data']);
+  check_users($rows, 'payer');
+  check_users($rows, 'payee');
+  foreach ($rows as $rownum => $row) {
+    //check all the transactions are postive numbmers
+    if (!is_numeric($row['quantity']) || $row['quantity'] == 0) {
+      form_set_error('data', t("quantity on row @num is not a positive number", array('@num'=> $rownum + 1)));
+    }
+    //make sure the time is well formatted
+    $row['time'] = strtotime($row['time']); {
+      if (!is_integer($row['time']) || $row['time'] == 0) drupal_set_message($row['time']);
+    }
+    if (!strlen($row['description'])) {
+      form_set_error('data', t("description required on row @num", array('@num'=> $rownum + 1)));
+    }
+  }
+}
+
+function import_transactions_form_submit($form, &$form_state) {
+  $rows = parse_getcsv($form_state['values']['data']);
+  foreach ($rows as $row) {
+    $time = strtotime($row['time']) + 1;//extra second to nudge it into the intended day
+    $result = mcapi_add_node(
+      $row['payer'],
+      $row['payee'], 
+      $row['quantity'],
+      array(
+        'created' => $time,
+        'changed' => $time,
+        'title' => $row['description'],
+        'exchange_type' => $form_state['values']['exchange_type'],
+      )
+    );
+    $earliest[$row['payer']][] = $time;
+    $earliest[$row['payee']][] = $time;
+    $nids[] = $result->node->nid;
+  }
+  //we also want to ensure the user created dates are before the earliest transaction
+  foreach ($earliest as $uid => $unixtimes) {
+    $unixtimes[] = db_result(db_query("SELECT created from {users} WHERE uid = $uid")) - 3600*24;
+    db_query("UPDATE {users} SET created = %d WHERE uid = $uid", min($unixtimes));
+  }
+  //hack the changed time for each node
+  db_query("UPDATE {node} SET changed = created WHERE nid IN (%s)", implode(',', $nids));
+  module_load_include('install', 'mcapi');
+  mc_balances_refresh();
+  mcapi_import_finish('done');
+}
+
+
+function import_balances_form(&$form_state) {
+  $form['#prefix'] = '<p>' . t("This page allows you to import users' balances and gross incomes for users already on the system. To import users, see the !import_user module.",
+    array(
+      '!import_user'=>l('import_user', 'http://drupal.org/project/import_user')
+    )
+  ) .'</p>';
+  $form['#prefix'] .= "\n<p>".t("Paste paste 2 or 3 comma separated columns into the field below, the first column should be the uid or username, the second column the current balance, and optionally the third column should be the user's gross income until now (turnover).");
+  $form['#prefix'] .= "\n<p>".t("This tools assumes there is only one currency in the system. The second column SHOULD add up to 0 for LETS and other zero balance systems, but this will not be checked." ) . '</p>';
+  $form['#prefix'] .= "\n<p>".t("The first line of the field should read (third column is optional): !code", array('!code' => '<blockquote>"UserID","Balance","GrossIncome"</blockquote>"')) . '</p>';
+  
+  $form['data'] = array (
+    '#type' => 'textarea',
+    '#title' => 'paste data',
+    '#default_value' => $form_state['values']['data'],
+    '#required' => TRUE  
+  );
+  $form['import_balances'] = array (
+    '#type' => 'submit',
+    '#value' => 'import',
+  );
+  $form['#redirect'] = 'user/1';
+  return $form;
+}
+
+function import_balances_form_validate($form, &$form_state) {
+  $form_state['values']['data'] .= "\n";
+  $rows = parse_getcsv($form_state['values']['data']);
+  check_users($rows, 'UserID');
+  foreach ($rows as $rownum => $row) {
+    //check integrity of balances, the second field
+    if (!is_numeric($row['Balance']) && $row['Balance'] != 0) {
+      form_set_error('data', t("balance (second item) on row @num is not numeric", array('@num'=>$rownum +1)));
+    }
+    //check integrity of gross income, the optional third field
+    if (isset($row['GrossIncome'])){
+      if (!is_numeric($row['GrossIncome'])) {
+        form_set_error('data', t("Gross income (third item) on row @rownum is not a number", array('@rownum'=>$rownum+1)));
+      } elseif ($row['GrossIncome'] < 0) {
+        form_set_error('data', t("gross income (third item) on row @rownum cannot be less than 0", array('@rownum'=>$rownum+1)));
+      }
+    }
+  }
+}
+
+function import_balances_form_submit($form, &$form_state) {
+  $rows = parse_getcsv($form_state['values']['data']);
+  foreach ($rows as $key=>$stats) {
+    mcapi_import_balances_member($stats['UserID'], $stats['Balance'], $stats['GrossIncome']);
+  }
+  module_load_include('install', 'mcapi');
+  mc_balances_refresh();
+}
+
+
+function mcapi_import_balances_member($uid, $balance, $gross_income = NULL) {
+  $account = user_load($uid);
+  $bal_acc = BALANCING_ACCOUNT;
+  $options = array(
+    'exchange_type' => 'mcapi_import',
+  );
+  if ($gross_income) {
+    $options['title'] = t("Gross income");
+    mcapi_add_node($bal_acc, $uid, $gross_income, $options);
+    $options['title'] = t("Gross expenditure");
+    mcapi_add_node($uid, $bal_acc, $gross_income-$balance, $options);
+  }
+  else {//if there is only balance, we do one exchange, which is simply + balance
+    $options['title'] = t("Carried Forward");
+    if ($balance > 0) {
+      $tokens = array('@user' => $account->name, '@balance' => $balance);
+      $result = mcapi_add_node($bal_acc, $uid, $balance, $options);
+      $message = t("Initial payment to @user of @balance", $tokens);
+    } elseif ($balance < 0) {
+      $result = mcapi_add_node($uid, $bal_acc, -$balance, $options);
+      $message = t("Initial payment from @user of @balance", $tokens);
+    }
+  }
+  mcapi_import_finish($message);
+}
+
+function mcapi_import_finish($message) {
+  module_load_include('inc', 'mcapi');
+  $cid = db_result(db_query("SELECT nid from {node} WHERE type = 'currency'"));
+  _refresh_mc_cache(BALANCING_ACCOUNT, $cid);
+  if ($result->success) drupal_set_message($message);
+}
+
+
+//check that the user ids or names actually correspond to a user on the system
+//coming from the csv all keys and values will be strings, surrounded by quotes
+function check_users(&$rows, $key) {
+  $skipped = array();
+  foreach ($rows as $rownum => $row){
+    $uid = $row[$key];
+    if (is_numeric($uid)){
+      if (!is_object(user_load($uid))) {
+        $skipped[] = $uid;
+        $unsets[] = $rownum;
+      }
+    }
+  }
+  if (count($skipped)) {
+    form_set_error(NULL, 'The following users were skipped, because they do not exist:'. implode(',', $skipped) );
+  }
+}
+
+
+function parse_getcsv($input, $delimiter = ",", $enclosure = '"', $escape = "\\") {
+  $rows = explode("\n", $input);
+  $headers = csv2array(array_shift($rows));
+  $all = array();
+  while ($row = array_shift($rows)){
+    $values = explode($delimiter, $row);
+    $data[] = array_combine($headers, csv2array($row));
+  };
+  return $data;
+}
+
+
+function csv2array($input, $delimiter = ",", $enclosure = '"', $escape = "\\") {
+  $input = trim($input);
+  $fields=explode($enclosure.$delimiter.$enclosure, substr($input, 1, -1));
+  foreach ($fields as $key => $value) {
+    $fields[$key]=str_replace($escape.$enclosure, $enclosure, $value);
+  }
+  return($fields);
+} 
+
+/*
+ * Fields for user_import module NEARLY WORKS!!
+*/
+function mcapi_import_user_import_form_field_match() {
+  $options = array();
+  $options['mutual_credit']['cleared_balance'] = t('Balance');
+  $options['mutual_credit']['gross_income'] = t('Gross Income');
+  return $options;
+}
+
+function mcapi_import_user_import_data($settings, $update_setting, $column_settings, $type, $field_id, $data, $column_id) {
+  $field_match = $type .'-'. $field_id;
+  foreach ($settings['field_match'] as $key => $val) {
+    if ($val['field_match'] == $field_match) {
+      return $data[$key];
+    }
+  }
+}
+function mcapi_import_user_import_after_save($settings, $account, $password, $fields, $updated, $update_setting_per_module) {
+  if ($fields['mutual_credit']['cleared_balance'][0]) {
+    mcapi_import_balances_member($account->uid, $fields['mutual_credit']['cleared_balance'][0], $fields['mutual_credit']['gross_income'][0]);
+  }
+  elseif ($fields['uid_login']['uid_login']) {
+    db_query("UPDATE {mc_cache} SET uid = %d WHERE uid = %d",
+      array(
+        ':uid_new' => $fields['uid_login']['uid_login'][0],
+        ':uid_old' => $account->uid
+      )
+    );
+  }
+}
+
+function mcapi_delete_menu_link() {
+  $result = db_query("SELECT mlid FROM {menu_links} WHERE module = 'mcapi_import'");
+  $mlid = db_result($result);
+  menu_link_delete($mlid);
+}

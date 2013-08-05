@@ -1,0 +1,12 @@
+; $Id: emptyparagraphkiller.info,v 1.1 2010/11/26 10:01:29 siliconmeadow Exp $
+name = Empty paragraph killer
+description = Filters out pesky empty paragraphs.
+package = Input filters
+core = 6.x
+
+; Information added by drupal.org packaging script on 2010-11-26
+version = "6.x-1.0-beta1"
+core = "6.x"
+project = "emptyparagraphkiller"
+datestamp = "1290767141"
+

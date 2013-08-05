@@ -1,0 +1,15 @@
+<?php
+// $Id: update_advanced.install,v 1.1 2009/09/26 07:55:26 davereid Exp $
+
+/**
+ * @file
+ * Install, update and uninstall functions for the update_advanced module.
+ */
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function update_advanced_uninstall() {
+  variable_del('update_advanced_check_disabled');
+  variable_del('update_advanced_project_settings');
+}

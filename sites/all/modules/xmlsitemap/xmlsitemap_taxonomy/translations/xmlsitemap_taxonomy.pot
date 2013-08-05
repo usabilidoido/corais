@@ -1,0 +1,41 @@
+# $Id: xmlsitemap_taxonomy.pot,v 1.1.2.8 2009/07/29 21:04:58 hass Exp $
+#
+# LANGUAGE translation of Drupal (xmlsitemap_taxonomy)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  xmlsitemap_taxonomy.module,v 1.1.2.19 2009/07/16 12:56:04 earnie
+#  xmlsitemap_taxonomy.info,v 1.1.2.2 2009/05/07 17:10:35 kiam
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2009-07-29 23:02+0200\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Last-Translator: NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: xmlsitemap_taxonomy/xmlsitemap_taxonomy.module:83
+msgid "This will be the default priority of terms in this vocabulary."
+msgstr ""
+
+#: xmlsitemap_taxonomy/xmlsitemap_taxonomy.module:191 xmlsitemap_taxonomy/xmlsitemap_taxonomy.info:0
+msgid "XML sitemap taxonomy"
+msgstr ""
+
+#: xmlsitemap_taxonomy/xmlsitemap_taxonomy.module:192
+msgid "The module adds <a href=\"@terms\">taxonomy terms</a> (categories) to the sitemap. The term default priority may be changed while adding or editing vocabularies and the term default priority can be overridden while adding or editing terms."
+msgstr ""
+
+#: xmlsitemap_taxonomy/xmlsitemap_taxonomy.module:0
+msgid "xmlsitemap_taxonomy"
+msgstr ""
+
+#: xmlsitemap_taxonomy/xmlsitemap_taxonomy.info:0
+msgid "Add taxonomy term links to the sitemap."
+msgstr ""
+

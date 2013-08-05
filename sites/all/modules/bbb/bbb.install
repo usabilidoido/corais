@@ -1,0 +1,174 @@
+<?php
+
+/**
+ * @file
+ * Big Blue Button - Enables universities and colleges to deliver a high-quality
+ * learning experience.
+ *
+ * @author
+ * Stefan Auditor <stefan.auditor@erdfisch.de>
+ */
+
+/**
+ * Implement hook_schema().
+ */
+function bbb_schema() {
+  $schema['bbb_meetings'] = array(
+    'description' => t('The meeting table'),
+    'fields' => array(
+      'nid' => array(
+        'description' => t('The primary node id'),
+        'type' => 'int',
+        'not null' => TRUE,
+      ),
+      'name' => array(
+        'description' => t('A name for the meeting'),
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+      ),
+      'meetingID' => array(
+        'description' => t('A meeting ID that can be used to identify this meeting by the third party application'),
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+      ),
+      'attendeePW' => array(
+        'description' => t('The password that will be required for attendees to join the meeting'),
+        'type' => 'varchar',
+        'length' => '32',
+        'not null' => TRUE,
+      ),
+      'moderatorPW' => array(
+        'description' => t('The password that will be required for moderators to join the meeting or for certain administrative actions'),
+        'type' => 'varchar',
+        'length' => '32',
+        'not null' => TRUE,
+      ),
+      'welcome' => array(
+        'description' => t('A welcome message that gets displayed on the chat window when the participant joins'),
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+      ),
+      'dialNumber' => array(
+        'description' => t('The dial access number that participants can call in using regular phone'),
+        'type' => 'varchar',
+        'length' => '32',
+        'not null' => TRUE,
+      ),
+      'voiceBridge' => array(
+        'description' => t('Voice conference number that participants enter to join the voice conference.'),
+        'type' => 'int',
+        'not null' => TRUE,
+      ),
+      'logoutURL' => array(
+        'description' => t('The URL that the BigBlueButton client will go to after users logged out'),
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+      ),
+      'initialized' => array(
+        'description' => t('Initialization timestamp'),
+        'type' => 'int',
+        'not null' => TRUE,
+      ),
+      'created' => array(
+        'description' => t('Meeting created timestamp'),
+        'type' => 'int',
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('nid'),
+  );
+  return $schema;
+}
+
+/**
+ * Implement hook_install().
+ */
+function bbb_install() {
+  drupal_install_schema('bbb');
+}
+
+/**
+ * Implement hook_uninstall().
+ */
+function bbb_uninstall() {
+  // Remove variables
+  db_query("DELETE FROM {variable} WHERE name LIKE 'bbb_%'");
+  // Remove tables
+  drupal_uninstall_schema('bbb');
+}
+
+/**
+ * Implement hook_update_N().
+ */
+function bbb_update_6100() {
+  $ret = array();
+
+  // Update database schema API v0.64
+  db_drop_field($ret, 'bbb_meetings', 'meetingToken');
+  db_drop_field($ret, 'bbb_meetings', 'voiceBridge');
+  db_add_field($ret, 'bbb_meetings', 'initialized', array(
+    'type' => 'int',
+    'not null' => TRUE,
+    'description' => t('TODO: please describe this field!'),
+  ));
+
+  // Update API url
+  if ($bbb_base_url = variable_get('bbb_base_url', FALSE)) {
+    $new_bbb_base_url = $bbb_base_url . 'api/';
+    variable_set('bbb_base_url', $new_bbb_base_url);
+    $ret[] = array(
+      'success' => TRUE,
+      'query' => t('The API url has been updated from %url to %new_url successfully.',
+        array(
+          '%url' => $bbb_base_url,
+          '%new_url' => $new_bbb_base_url
+        )
+      )
+    );
+  }
+  return $ret;
+}
+
+/**
+ * Implement hook_update_N().
+ */
+function bbb_update_6101() {
+  $ret = array();
+
+  // Update database schema API v0.7
+  db_add_field($ret, 'bbb_meetings', 'voiceBridge', array(
+    'type' => 'int',
+    'not null' => TRUE,
+    'description' => t('Voice conference number that participants enter to join the voice conference.'),
+  ));
+  return $ret;
+}
+
+/**
+ * Implement hook_update_N().
+ */
+function bbb_update_6102() {
+  $ret = array();
+
+  db_drop_table($ret, 'bbb_stats');
+
+  include_once(drupal_get_path('modules', 'bbb') . 'includes/pages.bbb.inc');
+  $request = variable_get('bbb_base_url', '');
+  $security_salt = variable_get('bbb_security_salt', '');
+  $version = bbb_test_connection($request, $security_salt);
+  $ret[] = array(
+    'success' => is_numeric($version) ? TRUE : FALSE,
+    'query' => t('Big Blue Button API version set to @version', array('@version' => ($version ? $version : t('none')))),
+  );
+
+  variable_set('bbb_local_tasks', 1);
+  $ret[] = array(
+    'success' => TRUE,
+    'query' => t('The local tasks display can now be disabled on the !page', array('!page' => l(t('administration page'), 'admin/settings/bigbluebutton'))),
+  );
+  return $ret;
+}

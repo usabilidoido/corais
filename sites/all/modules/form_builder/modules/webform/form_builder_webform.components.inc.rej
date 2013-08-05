@@ -1,0 +1,257 @@
+***************
+*** 377,397 ****
+   * Configuration form for the "webform_file_filtering" property.
+   */
+  function form_builder_webform_property_webform_file_filtering_form(&$form_state, $form_type, $element) {
+-   return _form_builder_webform_build_edit_form('file', $element, 'webform_file_filtering', 'validation', array('validation', 'filtering'), array('extra', 'filtering'));
+  }
+  
+  /**
+   * Configuration form for the "webform_file_savelocation" property.
+   */
+  function form_builder_webform_property_webform_file_savelocation_form(&$form_state, $form_type, $element) {
+-   return _form_builder_webform_build_edit_form('file', $element, 'webform_file_savelocation', 'default', array('extra', 'savelocation'), array('extra', 'savelocation'));
+  }
+  
+  /**
+   * Configuration form for the "webform_file_width" property.
+   */
+  function form_builder_webform_property_webform_file_width_form(&$form_state, $form_type, $element) {
+-   return _form_builder_webform_build_edit_form('file', $element, 'webform_file_width', 'display', array('display', 'width'), array('extra', 'width'));
+  }
+  
+  /**
+--- 257,377 ----
+   * Configuration form for the "webform_file_filtering" property.
+   */
+  function form_builder_webform_property_webform_file_filtering_form(&$form_state, $form_type, $element) {
++   return _form_builder_webform_build_file_edit_form($element, 'webform_file_filtering', 'validation', array('validation', 'filtering'), array('extra', 'filtering'));
+  }
+  
+  /**
+   * Configuration form for the "webform_file_savelocation" property.
+   */
+  function form_builder_webform_property_webform_file_savelocation_form(&$form_state, $form_type, $element) {
++   return _form_builder_webform_build_file_edit_form($element, 'webform_file_savelocation', 'default', array('extra', 'savelocation'), array('extra', 'savelocation'));
+  }
+  
+  /**
+   * Configuration form for the "webform_file_width" property.
+   */
+  function form_builder_webform_property_webform_file_width_form(&$form_state, $form_type, $element) {
++   return _form_builder_webform_build_file_edit_form($element, 'webform_file_width', 'display', array('display', 'width'), array('extra', 'width'));
++ }
++ 
++ /**
++  * Helper function; builds a form for editing part of a webform file component.
++  *
++  * The returned form is derived from a subcomponent of the _webform_edit_file()
++  * form provided by the Webform module.
++  *
++  * @param $element
++  *   A form array representing the file element whose configuration form we are
++  *   building.
++  * @param $property
++  *   The property of $element which stores the state of portions of the webform
++  *   component that this form is responsible for configuring. The property
++  *   should be passed in without the leading "#".
++  * @param $form_builder_property_group
++  *   The Form Builder property group in which this configuration form should be
++  *   displayed.
++  * @param $form_nested_keys
++  *   An array of nested keys representing the location of the subcomponent of
++  *   the _webform_edit_file() form that this configuration form will be taken
++  *   from. For example, if the part of the configuration form we are interested
++  *   in is located in $form['display']['width'], where $form is the output of
++  *   _webform_edit_file(), we would pass array('display', 'width') in for this
++  *   parameter.
++  * @param $component_nested_keys
++  *   An array of nested keys representing the location of the portions of the
++  *   webform component that this form is responsible for configuring. For
++  *   example, if this form configures the data that is stored in
++  *   $component['extra']['filtering'], where $component has the structure of
++  *   the array returned by _webform_defaults_file(), we would pass
++  *   array('extra', 'filtering') in for this parameter.
++  *
++  * @return
++  *   A form array that can be used to edit the specified part of the webform
++  *   file component represented by $element.
++  *
++  * @see _webform_edit_file()
++  * @see _webform_defaults_file()
++  */
++ function _form_builder_webform_build_file_edit_form($element, $property, $form_builder_property_group, $form_nested_keys, $component_nested_keys) {
++   // The Webform module stores existing component data as part of the passed-in
++   // element. If the component doesn't exist yet, initialize a default
++   // component.
++   $component = isset($element['#webform_component']) ? $element['#webform_component'] : _webform_defaults_file();
++ 
++   // The most up-to-date configuration data stored by Form Builder for the
++   // part of the component we are editing is also stored in the passed-in
++   // element, and should always take precedence.
++   if (isset($element["#$property"])) {
++     // This code is based on drupal_array_set_nested_value() in Drupal 7 and
++     // sets the part of the $component array specified by the provided keys.
++     $ref = &$component;
++     foreach ($component_nested_keys as $key) {
++       $ref = &$ref[$key];
++     }
++     $ref = $element["#$property"];
++   }
++ 
++   // Build the entire _webform_edit_file() form based on the current state of
++   // the component, and obtain the slice of it that we want.
++   $form = _webform_edit_file($component);
++   // Obtain the slice using code based on drupal_array_set_nested_value() in
++   // Drupal 7.
++   $ref = &$form;
++   foreach ($form_nested_keys as $key) {
++     $ref = &$ref[$key];
++   }
++   $form = $ref;
++ 
++   // Force the form to have a consistent #tree structure so it will appear in
++   // $form_state['values'] the way we want.
++   _form_builder_webform_force_tree($form);
++ 
++   // Indicate the Form Builder property group that this form will be displayed
++   // in.
++   $form['#form_builder'] = array('property_group' => $form_builder_property_group);
++ 
++   // Return the form, keyed by the name of the property that is being
++   // configured.
++   return array($property => $form);
++ }
++ 
++ /**
++  * Helper function; replaces custom form #parents with a #tree structure.
++  *
++  * This is a helper function to force #tree = TRUE on all parts of a form,
++  * regardless of any custom #parents that were originally defined as part of
++  * the form. It is used to ensure a consistent structure within
++  * $form_state['values'] when the form is submitted.
++  *
++  * @param $form
++  *   The form array to modify.
++  */
++ function _form_builder_webform_force_tree(&$form) {
++   unset($form['#parents']); 
++   $form['#tree'] = TRUE; 
++   foreach (element_children($form) as $key) {
++     _form_builder_webform_force_tree($form[$key]);
++   }
+  }
+  
+  /**
+***************
+*** 789,894 ****
+  /**
+   * @} End of "defgroup form-builder-webform-textfield-callbacks"
+   */
+- 
+- /**
+-  * Helper function; builds a form for editing part of a webform component.
+-  *
+-  * The returned form is derived from a subcomponent of the component form
+-  * provided by the Webform module.
+-  *
+-  * @param $type
+-  *   The webform component type to be edited.
+-  * @param $element
+-  *   A form array representing the element whose configuration form we are
+-  *   building.
+-  * @param $property
+-  *   The property of $element which stores the state of portions of the webform
+-  *   component that this form is responsible for configuring. The property
+-  *   should be passed in without the leading "#".
+-  * @param $form_builder_property_group
+-  *   The Form Builder property group in which this configuration form should be
+-  *   displayed.
+-  * @param $form_nested_keys
+-  *   An array of nested keys representing the location of the subcomponent of
+-  *   the _webform_edit_[component]() form that this configuration form will be
+-  *   taken from. For example, if the part of the configuration form we are
+-  *   interested in is located in $form['display']['width'], where $form is the
+-  *   output of _webform_edit_[component](), we would pass
+-  *   array('display', 'width') in for this parameter.
+-  * @param $component_nested_keys
+-  *   An array of nested keys representing the location of the portions of the
+-  *   webform component that this form is responsible for configuring. For
+-  *   example, if this form configures the data that is stored in
+-  *   $component['extra']['filtering'], where $component has the structure of
+-  *   the array returned by _webform_defaults_[component](), we would pass
+-  *   array('extra', 'filtering') in for this parameter.
+-  *
+-  * @return
+-  *   A form array that can be used to edit the specified part of the webform
+-  *   component represented by $element.
+-  */
+- function _form_builder_webform_build_edit_form($type, $element, $property, $form_builder_property_group, $form_nested_keys, $component_nested_keys) {
+-   // The Webform module stores existing component data as part of the passed-in
+-   // element. If the component doesn't exist yet, initialize a default
+-   // component.
+-   $defaults_function = '_webform_defaults_' . $type;
+-   $component = isset($element['#webform_component']) ? $element['#webform_component'] : $defaults_function();
+- 
+-   // The most up-to-date configuration data stored by Form Builder for the
+-   // part of the component we are editing is also stored in the passed-in
+-   // element, and should always take precedence.
+-   if (isset($element["#$property"])) {
+-     // This code is based on drupal_array_set_nested_value() in Drupal 7 and
+-     // sets the part of the $component array specified by the provided keys.
+-     $ref = &$component;
+-     foreach ($component_nested_keys as $key) {
+-       $ref = &$ref[$key];
+-     }
+-     $ref = $element["#$property"];
+-   }
+- 
+-   // Build the entire _webform_edit_file() form based on the current state of
+-   // the component, and obtain the slice of it that we want.
+-   $edit_function = '_webform_edit_' . $type;
+-   $form = $edit_function($component);
+-   // Obtain the slice using code based on drupal_array_set_nested_value() in
+-   // Drupal 7.
+-   $ref = &$form;
+-   foreach ($form_nested_keys as $key) {
+-     $ref = &$ref[$key];
+-   }
+-   $form = $ref;
+- 
+-   // Force the form to have a consistent #tree structure so it will appear in
+-   // $form_state['values'] the way we want.
+-   _form_builder_webform_force_tree($form);
+- 
+-   // Indicate the Form Builder property group that this form will be displayed
+-   // in.
+-   if ($form_builder_property_group) {
+-     $form['#form_builder']['property_group'] = $form_builder_property_group;
+-   }
+- 
+-   // Return the form, keyed by the name of the property that is being
+-   // configured.
+-   return array($property => $form);
+- }
+- 
+- /**
+-  * Helper function; replaces custom form #parents with a #tree structure.
+-  *
+-  * This is a helper function to force #tree = TRUE on all parts of a form,
+-  * regardless of any custom #parents that were originally defined as part of
+-  * the form. It is used to ensure a consistent structure within
+-  * $form_state['values'] when the form is submitted.
+-  *
+-  * @param $form
+-  *   The form array to modify.
+-  */
+- function _form_builder_webform_force_tree(&$form) {
+-   unset($form['#parents']); 
+-   $form['#tree'] = TRUE; 
+-   foreach (element_children($form) as $key) {
+-     _form_builder_webform_force_tree($form[$key]);
+-   }
+- }
+--- 769,771 ----
+  /**
+   * @} End of "defgroup form-builder-webform-textfield-callbacks"
+   */

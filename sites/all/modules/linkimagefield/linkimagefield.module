@@ -1,0 +1,399 @@
+<?php
+// $Id: linkimagefield.module,v 1.7 2009/08/27 19:50:30 johnfyoung Exp $
+
+/**
+ * @file
+ * Defines a link image field type.
+ *
+ * 6.x Port - Mainly wraps the ImageField CCK Type, adding a URL field 
+ * The URL is stored (like the image alt and title tags) in the filefield's data element
+ * 
+ * TODO:
+ * - for some reason the display formatter is not being set as the default
+ * - 
+ */
+
+/**
+ * Implementation of hook_init().
+ *
+ * Load required includes.
+ */
+function linkimagefield_init() {
+  // If Content, FileField, or ImageField is not available, immediately disable Link Image Field.
+  $disable = FALSE;
+  $message = '';  
+
+  if (!module_exists('content')) {
+    $disable = TRUE;
+    $message = t('The <a href="http://drupal.org/project/cck">Content Creation Kit</a> needs to be installed for it to work properly.');
+  }
+  
+  if (!module_exists('filefield')) {
+    $disable = TRUE;
+    $message = (!empty($message) ? '<br />' : '') . t('The <a href="http://drupal.org/project/filefield">FileField module</a> needs to be installed for it to work properly.');
+  }
+  
+  if (!module_exists('imagefield')) {
+    $disable = TRUE;
+    $message = (!empty($message) ? '<br />' : '') . t('The <a href="http://drupal.org/project/imagefield">ImageField module</a> needs to be installed for it to work properly.');
+  }
+
+  if ($disable) {
+    module_disable(array('linkimagefield'));
+    drupal_set_message(t('The Link Image Field module has been disabled.<br />') . $message);
+    return;
+  }
+  
+  // Load include code
+  module_load_include('inc', 'linkimagefield', 'linkimagefield_widget');
+}
+
+
+/**
+ * Implementation of hook_elements().
+ */
+function linkimagefield_elements() {
+  $elements = array();
+
+  // An LinkImageField is really just a ImageField with a URL.
+  $imagefield_elements = imagefield_elements();
+  $elements['linkimagefield_widget'] = $imagefield_elements['imagefield_widget'];
+  $elements['linkimagefield_widget']['#process'][] = 'linkimagefield_widget_process';
+  $elements['linkimagefield_widget']['#element_validate'][] = 'linkimagefield_widget_validate';
+
+  // ImageField needs a separate value callback to save its alt, title and URL texts.
+  $elements['linkimagefield_widget']['#value_callback'] = 'linkimagefield_widget_value';
+
+  return $elements;
+}
+
+function linkimagefield_theme() {
+  $theme =  array(
+    'linkimagefield_image' => array(
+      'arguments' => array('file' => NULL, 'alt' => '', 'title' => '', 'attributes' => NULL, 'getsize' => TRUE, 'url' => '', 'target' => '_self'),
+    ),
+    'linkimagefield_justlink' => array(
+      'arguments' => array('url' => '', 'target' => '_self', 'title' => '', 'class' => ''),
+    ),
+
+    // Theme a Link Image Field field item. It calls linkimagefied_image with the proper
+    // item properties as arguments.
+    'linkimagefield_item' => array(
+      'arguments' => array('item' => NULL),
+    ),
+    // linkimagefield_widget form element type theme function.
+    'linkimagefield_widget' => array(
+      'arguments' => array('element' => NULL),
+      'file' => 'linkimagefield_widget.inc',
+    ),
+    // Use to generate a preview (admin view) of an linkimagefield item for use in
+    // field item forms and filefield widgets. Invoked by filefield_widget_process.
+    'linkimagefield_widget_preview' => array(
+      'arguments' => array('item' => NULL),
+    ),
+    // Theme function for the field item elements. allows you to place children
+    // within the context of the parent.
+    'linkimagefield_widget_item' => array(
+      'arguments' => array('element' => NULL),
+    ),
+    // Generates and img tag to the admin thumbnail of an LinkImageField upload.
+    'linkimagefield_admin_thumbnail' => array(
+      'arguments' => array('item' => NULL),
+    ),
+    'linkimagefield_formatter_linkimage' => array(
+      'arguments' => array('element' => NULL),
+      'file' => 'linkimagefield_formatter.inc',
+    ),
+    'linkimagefield_formatter_linkimage_justlink' => array(
+      'arguments' => array('element' => NULL),
+      'file' => 'linkimagefield_formatter.inc',
+    ),
+  );
+  
+  /**
+   * to override these themes the function call would look like:
+   * 
+   * mytheme_linkimagefield_formatter_imagecachepresetname_linkimage
+   * 
+   * where the imagecachepresetname is the name of the desired imagecache preset
+   */
+  if(module_exists('imagecache')) {
+    $imagecache_presets = module_invoke('imagecache', 'presets');
+    foreach ($imagecache_presets as $preset) {
+      $theme['linkimagefield_formatter_'. $preset['presetname'] .'_linkimage'] = array(
+        'arguments' => array('element' => NULL),
+        'function' => 'theme_linkimagefield_imagecache',
+      );
+    }
+  }
+  
+  return $theme;
+}
+
+/**
+ * Implementation of hook_views_api().
+ */
+// TODO: get views data to work
+/*
+function linkimagefield_views_api() {
+  return array(
+    'api' => 2.0,
+    'path' => drupal_get_path('module', 'linkimagefield') . '/views',
+  );
+}*/
+
+/**
+ * Implementation of hook_file_download.
+ *
+ * @param string $filepath
+ */
+function linkimagefield_file_download($filepath) {
+  // Delegate to ImageField
+  imagefield_file_download($filepath);
+}
+
+/**
+ * Implementation of CCK's hook_widget_info().
+ *
+ * @return array
+ */
+function linkimagefield_widget_info() {
+  $module_path = drupal_get_path('module', 'linkimagefield');
+  return array(
+    'linkimagefield_widget' => array(
+      'label' => t('Link Image'),
+      'field types' => array('filefield'),
+      'multiple values' => CONTENT_HANDLE_CORE,
+      'callbacks' => array('default value' => CONTENT_CALLBACK_CUSTOM),
+      'description' => t('An edit widget for image files that display as a link, including a preview of the image.'),
+    ),
+  );
+}
+
+/**
+ * Implementation of CCK's hook_widget_settings().
+ *
+ * @param string $op
+ * @param array $widget
+ * @return array
+ */
+function linkimagefield_widget_settings($op, $widget) {
+  switch ($op) {
+    case 'form':
+      return linkimagefield_widget_settings_form($widget);
+    case 'validate':
+      return linkimagefield_widget_settings_validate($widget);
+    case 'save':
+      return linkimagefield_widget_settings_save($widget);
+  }
+}
+
+/**
+ * Implementation of CCK's hook_widget
+ *
+ * @param array $form
+ * @param array $form_state
+ * @param array $field
+ * @param array $items
+ * @param integer $delta
+ * @return array
+ */
+function linkimagefield_widget(&$form, &$form_state, $field, $items, $delta = 0) {
+  if (empty($items[$delta])) {
+    $items[$delta] = array('url' => '');
+  }
+  
+  // Delegate to ImageField
+  $element = imagefield_widget($form, $form_state, $field, $items, $delta);
+
+  return $element;
+}
+
+/**
+ * Implementation of hook_field_formatter_info
+ *
+ * @return array
+ */
+function linkimagefield_field_formatter_info() {
+  $formatters['linkimage'] = array(
+      'label' => t('Link Image'),
+      'field types' => array('filefield'),
+      'description' => t('Displays image files as link to provided URL.'),
+  );
+  
+  $formatters['linkimage_justlink'] = array(
+      'label' => t('Link Image - Just Link'),
+      'field types' => array('filefield'),
+      'description' => t('Displays just the link supplied for a Link Image Field.'),
+  );
+  
+  if(module_exists('imagecache')) {
+    $imagecache_presets = module_invoke('imagecache', 'presets');
+    
+    foreach ($imagecache_presets as $preset) {
+      $formatters[$preset['presetname'] .'_linkimage'] = array(
+        'label' => t('@preset Link Image', array('@preset' => $preset['presetname'])),
+        'field types' => array('image', 'filefield'),
+      );
+    }
+  }
+
+  return $formatters;
+}
+
+/**
+ * Implementation of hook_form_[form_id]_alter().
+ *
+ * Modify the add new field form to make "LinkImage" the default formatter.
+ */
+function linkimagefield_form_content_field_overview_form_alter(&$form, &$form_state) {
+  $form['#submit'][] = 'linkimagefield_form_content_field_overview_submit';
+}
+
+/**
+ * Submit handler to set a new field's formatter to "linkimage_urllink".
+ */
+function linkimagefield_form_content_field_overview_submit(&$form, &$form_state) {
+  if (isset($form_state['fields_added']['_add_new_field']) && isset($form['#type_name'])) {
+    $new_field = $form_state['fields_added']['_add_new_field'];
+    $node_type = $form['#type_name'];
+    $field = content_fields($new_field, $node_type);
+    if ($field['widget']['module'] == 'linkimagefield') {
+      foreach ($field['display_settings'] as $display_type => $display_settings) {
+        if ($field['display_settings'][$display_type]['format'] == 'default') {
+          $field['display_settings'][$display_type]['format'] = 'linkimage_urllink';
+        }
+      }
+      content_field_instance_update($field);
+    }
+  }
+}
+
+/**
+ * Implementation of CCK's hook_default_value().
+ */
+function linkimagefield_default_value(&$form, &$form_state, $field, $delta) {
+  return imagefield_default_value($form, $form_state, $field, $delta);
+}
+
+/**
+ * determine whether an attribute for the link should be the default or the custom
+ * 
+ * works for a url, alt or title attribute
+ *
+ * @param string $attr
+ * @param array $item
+ * @param array $field
+ * @return string
+ */
+function _linkimagefield_format_set_attribute($attr, $item, $field) {
+  $attr_value = '';
+  
+  // if custom values are allowed, use the user supplied value or default if one's not supplied
+  // else since no custom values are allowed, just use the default if supplied
+  // (URL is a special case - doesn't have a check for use custom value) 
+  if(($field['widget']['custom_'.$attr]) || $attr == 'url' || $attr == 'target') {
+    if($attr == 'target' && $item['data'][$attr] == 'default') {
+      $item['data'][$attr] = $field['widget'][$attr];
+    }
+    $attr_value = !empty($item['data'][$attr]) ? $item['data'][$attr] : (!empty($field['widget'][$attr]) ? $field['widget'][$attr] : '');      
+  } else {
+    $attr_value = !empty($field['widget'][$attr]) ? $field['widget'][$attr] : ($attr == 'target' ? '_self' : '');
+  }
+  
+  return $attr_value;
+}
+
+function theme_linkimagefield_formatter($element) {
+  if (isset($element['#item']['nid']) && $node = node_load($element['#item']['nid'])) {
+    return linkimagefield_field_formatter($element['#field_name'], $element['#item'], $element['#formatter'], $node);
+  }
+}
+
+function theme_linkimagefield_image($file, $alt = '', $title = '', $attributes = NULL, $getsize = TRUE, $url = '', $target = '_self', $nofollow = FALSE) {
+  $url_attributes = array('title' => $title);
+  if($target != '_self') {
+    $url_attributes['target'] = $target;
+  }
+  if($nofollow) {
+    $url_attributes['rel'] = 'nofollow';
+  }
+  $imagetag = theme('imagefield_image', $file, $alt, $title, $attributes, $getsize);
+  if(empty($url)) {
+    return $imagetag;
+  }
+  return l($imagetag, $url, array('attributes' => $url_attributes, 'html' => TRUE));
+}
+
+function theme_linkimagefield_justlink($url = '', $target = '_self', $title = '', $class = '', $nofollow = FALSE) {
+  $url_attributes = array('class' => $class, 'title' => $title);
+  if($target != '_self') {
+    $url_attributes['target'] = $target;
+  }
+  if($nofollow) {
+    $url_attributes['rel'] = 'nofollow';
+  }
+  return l($url, $url, array('attributes' => $url_attributes, 'html' => TRUE));
+}
+
+function theme_linkimagefield_imagecache($element) {
+  $field = content_fields($element['#field_name']);
+  $item = $element['#item'];
+  $formatter = $element['#formatter'];
+  
+  if (empty($item['fid']) && $field['use_default_image']) {
+    $item = $field['default_image'];
+  } else if (empty($item['fid'])) {  // mod by eric
+    return '';
+  }
+  // Views does not load the file for us, while CCK display fields does.
+  if (empty($item['filepath'])) {
+    $item = array_merge($item, field_file_load($item['fid']));
+  }
+  if (is_string($item['data'])) {
+    $item['data'] = unserialize($item['data']);
+  }
+  
+  $alt = _linkimagefield_format_set_attribute('alt', $item, $field);
+  $title = _linkimagefield_format_set_attribute('title', $item, $field);
+  $url = _linkimagefield_format_set_attribute('url', $item, $field);
+  $target = _linkimagefield_format_set_attribute('target', $item, $field);
+  $nofollow = $item['data']['nofollow'];
+  $parts =  explode('_', $formatter);
+  $style = array_pop($parts);
+  $presetname = implode('_', $parts);
+
+  $class = "linkimagefield imagecache imagecache-$presetname imagecache-$style imagecache-$formatter";
+  if ($preset = imagecache_preset_by_name($presetname)) {
+    $item['filepath'] = $item['fid'] == 'upload' ? $item['preview'] : $item['filepath'];
+    $imagetag = theme('imagecache', $presetname, $item['filepath'], $alt, $title);
+    $attributes = array('class' => $class, 'title' => $title);
+    if($target != '_self') {
+      $attributes['target'] = $target;
+    }
+    if($nofollow) {
+      $attributes['rel'] = 'nofollow';
+    }
+    if(empty($url)) {
+      return $imagetag;
+    }
+    return l($imagetag, $url, array('attributes' => $attributes, 'html' => TRUE));
+  }
+  return '<!-- linkimagefield formatter imagecache preset('. $presetname .') not found! -->';
+}
+
+function theme_linkimagefield_item($item) {
+  return theme('linkimagefield_image', $item, $item['alt'], $item['title'], TRUE, $item[$url], $item[$target]);
+}
+
+function theme_linkimagefield_widget_item($element) {
+  return theme('imagefield_widget_item', $element);
+}
+
+function theme_linkimagefield_widget_preview($item = NULL) {
+  return '<div class="imagefield-preview">'. theme('imagefield_admin_thumbnail', $item) .'</div>';
+}
+
+function theme_linkimagefield_admin_thumbnail($item = NULL) {
+  return theme_imagefield_admin_thumbnail($item);
+}

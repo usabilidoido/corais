@@ -1,0 +1,173 @@
+<?php
+// $Id: purl.test,v 1.1.2.4 2010/02/05 19:36:02 yhahn Exp $
+
+class PURLPathAliasTest extends DrupalWebTestCase {
+  /**
+   * Test info.
+   */
+  public function getInfo() {
+    return array(
+      'name' => t('Path alias'),
+      'description' => t('Path alias tests for PURL.') ,
+      'group' => t('PURL'),
+    );
+  }
+
+  /**
+   * Set up test.
+   */
+  public function setUp() {
+    parent::setUp(
+      'ctools',
+      'locale',
+      'path',
+      'purl',
+      'purl_test'
+    );
+    $admin_user = $this->drupalCreateUser(array('create page content', 'create url aliases', 'administer languages', 'administer site configuration'));
+    $this->drupalLogin($admin_user);
+
+    // Set up Spanish as second language.
+    $this->drupalPost('admin/settings/language/add', array('langcode' => 'es'), t('Add language'));
+    $this->drupalPost('admin/settings/language/configure', array('language_negotiation' => 1), t('Save settings'));
+
+    // Add a node with path alias.
+    $this->drupalPost('node/add/page', array('title' => 'purlTest', 'path' => 'purlTest'), t('Save'));
+  }
+
+  /**
+   * Run test.
+   */
+  public function test() {
+    variable_set('purl_types', array(
+      'path' => 'path',
+      'pair' => 'pair',
+      'extension' => 'extension',
+      'querystring' => 'querystring'
+    ));
+    variable_set('purl_method_purl_test', 'path');
+
+    $this->drupalGet('purlTest');
+    $this->assertText('purlTest', t('Node page found.'));
+
+    $this->drupalGet('sweden/purlTest');
+    $this->assertText('purlTest', t('Node page found.'));
+
+    // This will not pass. The behavior in Drupal core is to ignore path
+    // aliases that are not registered under the current language.
+    // $this->drupalGet('es/sweden/purlTest');
+    // $this->assertText('purlTest', t('Node page found.'));
+  }
+}
+
+/**
+ * Basic tests for PURL.
+ */
+class PURLBasicTest extends DrupalWebTestCase {
+  /**
+   * Test info.
+   */
+  public function getInfo() {
+    return array(
+      'name' => t('Basic'),
+      'description' => t('Basic tests for PURL.') ,
+      'group' => t('PURL'),
+    );
+  }
+
+  /**
+   * Set up test.
+   */
+  public function setUp() {
+    parent::setUp(
+      'ctools',
+      'locale',
+      'purl',
+      'purl_test'
+    );
+    $admin_user = $this->drupalCreateUser(array('administer languages', 'administer site configuration'));
+    $this->drupalLogin($admin_user);
+
+    // Set up Spanish as second language.
+    $this->drupalPost('admin/settings/language/add', array('langcode' => 'es'), t('Add language'));
+    $this->drupalPost('admin/settings/language/configure', array('language_negotiation' => 1), t('Save settings'));
+  }
+
+  /**
+   * Run test.
+   */
+  public function test() {
+    // API aspects to test
+    // - PURL activation
+    // - URL rewriting
+    // - PURL disabling
+    // - PURL provider removal
+    // - PURL provider addition
+
+    variable_set('purl_types', array(
+      'path' => 'path',
+      'pair' => 'pair',
+      'extension' => 'extension',
+      'querystring' => 'querystring'
+    ));
+
+    foreach (array("", "es/") as $langcode) {
+      // Test with both providers set to path.
+      variable_set('purl_method_purl_test', 'path');
+      variable_set('purl_method_purl_alt', 'path');
+      $testname = t('Path + Path');
+
+      $output = $this->drupalGet("{$langcode}admin/build/testing/purl");
+      $this->assertNoText('PURL test ID', t('@test: Modifier not present.', array('@test' => $testname)));
+      $this->assertText("Rewrite: /{$langcode}node", t('@test: Link not rewritten.', array('@test' => $testname)));
+      $this->assertText("Disable providers: /{$langcode}node", t('@test: Provider disabled.', array('@test' => $testname)));
+      $this->assertText("Remove provider: /{$langcode}node", t('@test: Provider removed.', array('@test' => $testname)));
+      $this->assertText("Add provider: /{$langcode}sweden/node", t('@test: Provider added.', array('@test' => $testname)));
+
+      $output = $this->drupalGet("{$langcode}foo/admin/build/testing/purl");
+      $this->assertText('PURL test ID: foo', t('@test: Modifier parsed.', array('@test' => $testname)));
+      $this->assertText("Rewrite: /{$langcode}foo/node", t('@test: Link rewritten.', array('@test' => $testname)));
+      $this->assertText("Disable providers: /{$langcode}node", t('@test: Provider disabled.', array('@test' => $testname)));
+      $this->assertText("Remove provider: /{$langcode}node", t('@test: Provider removed.', array('@test' => $testname)));
+      $this->assertText("Add provider: /{$langcode}sweden/foo/node", t('@test: Provider added.', array('@test' => $testname)));
+
+      // Test path + pair.
+      variable_set('purl_method_purl_alt', 'pair');
+      variable_set('purl_method_purl_alt_key', 'altkey');
+      $testname = t('Path + Pair');
+
+      $output = $this->drupalGet("{$langcode}admin/build/testing/purl");
+      $this->assertNoText('PURL test ID', t('@test: Modifier not present.', array('@test' => $testname)));
+      $this->assertText("Rewrite: /{$langcode}node", t('@test: Link not rewritten.', array('@test' => $testname)));
+      $this->assertText("Disable providers: /{$langcode}node", t('@test: Provider disabled.', array('@test' => $testname)));
+      $this->assertText("Remove provider: /{$langcode}node", t('@test: Provider removed.', array('@test' => $testname)));
+      $this->assertText("Add provider: /{$langcode}altkey/sweden/node", t('@test: Provider added.', array('@test' => $testname)));
+
+      $output = $this->drupalGet("{$langcode}foo/admin/build/testing/purl");
+      $this->assertText('PURL test ID: foo', t('@test: Modifier parsed.', array('@test' => $testname)));
+      $this->assertText("Rewrite: /{$langcode}foo/node", t('@test: Link rewritten.', array('@test' => $testname)));
+      $this->assertText("Disable providers: /{$langcode}node", t('@test: Provider disabled.', array('@test' => $testname)));
+      $this->assertText("Remove provider: /{$langcode}node", t('@test: Provider removed.', array('@test' => $testname)));
+      $this->assertText("Add provider: /{$langcode}altkey/sweden/foo/node", t('@test: Provider added.', array('@test' => $testname)));
+
+      // Test path + querystring.
+      variable_set('purl_method_purl_alt', 'querystring');
+      variable_set('purl_method_purl_alt_key', 'altkey');
+      $testname = t('Path + Querystring');
+
+      $output = $this->drupalGet("{$langcode}admin/build/testing/purl");
+      $this->assertNoText('PURL test ID', t('@test: Modifier not present.', array('@test' => $testname)));
+      $this->assertText("Rewrite: /{$langcode}node", t('@test: Link not rewritten.', array('@test' => $testname)));
+      $this->assertText("Disable providers: /{$langcode}node", t('@test: Provider disabled.', array('@test' => $testname)));
+      $this->assertText("Remove provider: /{$langcode}node", t('@test: Provider removed.', array('@test' => $testname)));
+      $this->assertText("Add provider: /{$langcode}node?altkey=sweden", t('@test: Provider added.', array('@test' => $testname)));
+
+      $output = $this->drupalGet("{$langcode}foo/admin/build/testing/purl");
+      $this->assertText('PURL test ID: foo', t('@test: Modifier parsed.', array('@test' => $testname)));
+      $this->assertText("Rewrite: /{$langcode}foo/node", t('@test: Link rewritten.', array('@test' => $testname)));
+      $this->assertText("Disable providers: /{$langcode}node", t('@test: Provider disabled.', array('@test' => $testname)));
+      $this->assertText("Remove provider: /{$langcode}node", t('@test: Provider removed.', array('@test' => $testname)));
+      $this->assertText("Add provider: /{$langcode}foo/node?altkey=sweden", t('@test: Provider added.', array('@test' => $testname)));
+    }
+  }
+}

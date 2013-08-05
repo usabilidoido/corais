@@ -1,0 +1,261 @@
+<?php
+
+/**
+ * Implementation of hook_views_api().
+ */
+function sheetnode_phpexcel_views_api() {
+  return array(
+    'api' => 2,
+  );
+}
+
+/**
+ * Implementation of hook_sheetnode_phpexcel_plugins().
+ */
+function sheetnode_phpexcel_sheetnode_phpexcel_plugins() {
+  return array(
+    'xls' => array(
+      'content-type' => 'application/vnd.ms-excel',
+      'php-excel-type' => 'Excel5',
+      'input' => TRUE,
+      'output' => TRUE,
+      'short-name' => t('XLS'),
+      'long-name' => t('Microsoft Excel 5 (XLS)'),
+      'format' => 'xls',
+    ),
+    'xlsx' => array(
+      'content-type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'php-excel-type' => 'Excel2007',
+      'input' => TRUE,
+      'output' => TRUE,
+      'short-name' => t('XLSX'),
+      'long-name' => t('Microsoft Excel 2007 (XLSX)'),
+      'format' => 'xlsx',
+    ),
+    'ods' => array(
+      'content-type' => 'application/vnd.oasis.opendocument.spreadsheet',
+      'php-excel-type' => 'OOCalc',
+      'input' => TRUE,
+      'output' => FALSE,
+      'short-name' => t('ODS'),
+      'long-name' => t('OpenOffice.org Calc (ODS)'),
+      'format' => 'ods',
+    ),
+    'pdf' => array(
+      'content-type' => 'application/pdf',
+      'php-excel-type' => 'PDF',
+      'input' => FALSE,
+      'output' => TRUE,
+      'short-name' => t('PDF'),
+      'long-name' => t('Adobe Acrobat (PDF)'),
+      'format' => 'pdf',
+    ),
+  );
+}
+
+/**
+ * API function to fetch existing PHPExcel plugins.
+ */
+function sheetnode_phpexcel_get_plugins($dir = 'all') {
+  $plugins = module_invoke_all('sheetnode_phpexcel_plugins');
+  drupal_alter('sheetnode_phpexcel_plugins', $plugins);
+  if ($dir != 'all') {
+    foreach ($plugins as $format => $plugin) {
+      if (empty($plugin[$dir])) {
+        unset($plugins[$format]);
+      }
+    }
+  }
+  return $plugins;
+}
+
+/**
+ * API function to batch import several files using Batch API.
+ */
+function sheetnode_phpexcel_batch_import($files, $destination = NULL, $callback = NULL, $params = array(), $batch = array()) {
+  $batch += array(
+    'finished' => '_sheetnode_phpexcel_batch_import_finished',
+    'title' => t('Importing spreadsheets'),
+    'init_message' => t('Import process is starting.'),
+    'progress_message' => t('Imported @current out of @total files.'),
+    'error_message' => t('Import process has encountered an error.'),
+    'file' => drupal_get_path('module', 'sheetnode_phpexcel') . '/sheetnode_phpexcel.import.inc',
+  );
+  foreach ($files as $filename) {
+    $batch['operations'][] = array('_sheetnode_phpexcel_batch_import_file', array($filename, $callback, $params));
+  }
+  batch_set($batch);
+  batch_process($destination);
+}
+
+/**
+ * API function to batch export several sheets using Batch API.
+ */
+function sheetnode_phpexcel_batch_export($sheets, $filename, $format, $destination = NULL, $batch = array()) {
+  $batch += array(
+    'finished' => '_sheetnode_phpexcel_batch_export_finished',
+    'title' => t('Exporting spreadsheets'),
+    'init_message' => t('Export process is in progress. This can take a long time for large sheets...'),
+    'progress_message' => t('Exported @current out of @total sheets.'),
+    'error_message' => t('Export process has encountered an error.'),
+    'file' => drupal_get_path('module', 'sheetnode_phpexcel') . '/sheetnode_phpexcel.export.inc',
+  );
+  foreach ($sheets as $title => $socialcalc) {
+    $batch['operations'][] = array('_sheetnode_phpexcel_batch_export_sheet', array($title, $socialcalc, $filename, $format, $destination ? $destination : referer_uri()));
+  }
+  batch_set($batch);
+  batch_process('sheetnode/export/ready');
+}
+
+/**
+ * Implementation of hook_init().
+ */
+function sheetnode_phpexcel_init() {
+  $path = variable_get('sheetnode_phpexcel_library_path', '');
+  if (is_dir($path)) {
+    spl_autoload_register('_sheetnode_phpexcel_autoload');
+  }
+}
+
+/**
+ * Autoload callback.
+ */
+function _sheetnode_phpexcel_autoload($classname) {
+  include_once(variable_get('sheetnode_phpexcel_library_path', '') . '/Classes/PHPExcel.php');
+  include_once(variable_get('sheetnode_phpexcel_library_path', '') . '/Classes/PHPExcel/Shared/PDF/tcpdf.php');
+}
+
+/**
+ * Implementation of hook_link().
+ */
+function sheetnode_phpexcel_link($type, $node = NULL, $teaser = FALSE) {
+  if ($type != 'node' || ($node->type != 'sheetnode' && !sheetnode_get_sheetfields($node->type)) || !variable_get('sheetnode_phpexcel_export_links', TRUE)) return array();
+
+  foreach (sheetnode_phpexcel_get_plugins('output') as $format => $plugin) {
+    $links[$format] = array(
+      'title' => t('Save as !format', array('!format' => $plugin['short-name'])),
+      'href' => "sheetnode/$format/{$node->nid}",
+    );
+  }
+
+  return $links;
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function sheetnode_phpexcel_menu() {
+  $items = array();
+  
+  foreach (sheetnode_phpexcel_get_plugins('output') as $format => $plugin) {
+    $items["sheetnode/$format/%node"] = array(
+      'title' => 'Save as !format',
+      'title arguments' => array('!format' => $plugin['short-name']),
+      'access arguments' => array('access content'),
+      'page callback' => '_sheetnode_phpexcel_export',
+      'page arguments' => array($format, 2),
+      'type' => MENU_CALLBACK,
+      'file' => 'sheetnode_phpexcel.export.inc',
+    );
+  }
+  $items['sheetnode/export/ready'] = array(
+    'title' => 'Spreadsheet exported',
+    'access callback' => '_sheetnode_phpexcel_export_access',
+    'page callback' => 'theme',
+    'page arguments' => array('sheetnode_phpexcel_export_ready'),
+    'type' => MENU_CALLBACK,
+    'file' => 'sheetnode_phpexcel.export.inc',
+  );
+  $items['sheetnode/export/download'] = array(
+    'title' => 'Download spreadsheet file',
+    'access callback' => '_sheetnode_phpexcel_export_access',
+    'page callback' => '_sheetnode_phpexcel_export_download',
+    'type' => MENU_CALLBACK,
+    'file' => 'sheetnode_phpexcel.export.inc',
+  );
+
+  foreach (sheetnode_phpexcel_get_plugins('input') as $format => $plugin) {
+    $items["node/add/$format"] = array(
+      'title' => 'Sheetnode import from !format',
+      'title arguments' => array('!format' => $plugin['short-name']),
+      'access arguments' => array('create sheetnode'),
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('_sheetnode_phpexcel_import_form', $format),
+      'description' => 'Create a new sheetnode with content from an existing spreadsheet.',
+      'file' => 'sheetnode_phpexcel.import.inc',
+    );
+  }
+
+  $items['admin/settings/sheetnode/phpexcel'] = array(
+    'title' => 'PHPExcel',
+    'access arguments' => array('administer site configuration'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('_sheetnode_phpexcel_settings'),
+    'description' => 'Administer settings for Sheetnode PHPExcel.',
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+/**
+ * Access function for download ready page.
+ */
+function _sheetnode_phpexcel_export_access() {
+  return !empty($_SESSION['sheetnode_phpexcel_download']);
+}
+
+/**
+ * Implementation of hook_theme.
+ */
+function sheetnode_phpexcel_theme() {
+  return array(
+    'sheetnode_phpexcel_export_ready' => array(
+      'arguments' => array(),
+      'file' => 'sheetnode_phpexcel.export.inc',
+      'template' => 'sheetnode_phpexcel_export_ready',
+    ),
+  );
+}
+
+/**
+ * Form function for admin/settings/sheetnode/phpexcel.
+ */
+function _sheetnode_phpexcel_settings() {
+  $form['sheetnode_phpexcel_library_path'] = array(
+    '#type' => 'textfield',
+    '#title' => t('PHPExcel path'),
+    '#description' => t('Enter the full path of the extracted PHPExcel package.'),
+    '#default_value' => variable_get('sheetnode_phpexcel_library_path', ''),
+  );
+  $form['sheetnode_phpexcel_export_links'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Display export links'),
+    '#description' => t('Check this ON to display "Save as ..." links on every sheetnode page.'),
+    '#default_value' => variable_get('sheetnode_phpexcel_export_links', TRUE),
+  );
+  $form['#validate'][] = '_sheetnode_phpexcel_settings_validate';
+  return system_settings_form($form);
+}
+
+/**
+ * Validate function for _sheetnode_phpexcel_settings form.
+ */
+function _sheetnode_phpexcel_settings_validate($form, $form_state) {
+  $path = rtrim($form_state['values']['sheetnode_phpexcel_library_path'], '/');
+  if (!is_dir($path) || !is_file($path . '/Classes/PHPExcel.php')) {
+    form_set_error('sheetnode_phpexcel_library_path', t('The path you entered does not point to a valid location. Please enter the location of the extracted PHPExcel package.'));
+    return;
+  }
+}
+
+/**
+ * Helper function to sanitize a filename.
+ */
+function _sheetnode_phpexcel_sanitize_filename($string) {
+  $string = htmlentities($string, ENT_QUOTES, 'UTF-8');
+  $string = preg_replace('/&([a-z]{1,2})(acute|cedil|circ|grave|lig|orn|ring|slash|th|tilde|uml);/i', '$1', $string);
+  $string = preg_replace('/[^0-9a-z-_]/i', '-', $string);
+  return trim($string, '-');
+}
+

@@ -1,0 +1,10 @@
+<?php
+// $Id: views_field_view.install,v 1.1.2.1 2010/08/03 05:25:11 dereine Exp $
+
+/**
+ * views_field_view.install
+ *
+ * @author
+ * Daniel Wehner <daniel.wehner@erdfisch.de>
+ */
+

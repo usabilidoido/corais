@@ -1,0 +1,83 @@
+Module Filter 6.x-1.7, 2011-09-15
+---------------------------------
+#1202170 by greenSkin: Added Module Filter to package "Administration".
+#1090826 by greenSkin: Fixed update.php warning when updating to 6.x-1.6.
+by greenSkin: Fixed deleting set variables when module is uninstalled.
+by greenSkin: When dynamic positioning is enabled, the 'Save configuration'
+  button gets fixed to the top of the browser when scrolled below the tabs.
+by greenSkin: Left scrolling gets applied to the dynamic positioning of the
+  'Save configuration'.
+
+
+Module Filter 6.x-1.6, 2011-03-12
+---------------------------------
+#904984 by greenSkin: Fixed sorting of modules/tabs. Uncapitalized modules/tabs
+  now correctly sort into capitalized modules/tabs rather than sorting
+  independently below the capitalized modules/tabs.
+#1033012 by greenSkin: Hide incompatible module rows when the 'Unavailable'
+  checkbox is unchecked.
+#1050182 by greenSkin: Fixed filtering rows where <strong> is used in the
+  module description.
+#1032996 by greenSkin: Added visual aids functionality.
+#1085792 by greenSkin: Removed autocomplete functionality.
+by greenSkin: The count of enabled modules is no longer built via JavaScript
+  but in PHP. The count reflects the number of currently enabled modules,
+  meaning checking a module's checkbox without saving will not change the
+  number of enabled modules until the form is saved.
+by greenSkin: Simplifying displayRows() method.
+#883262 by greenSkin: Removed call to Drupal.ModuleFilter.setSpacerHeight().
+by greenSkin: Added number of enabled of total number of modules to the active 
+  tab.
+by greenSkin: Added some JavaScript code to help position the 'Save 
+  configuration' button for instances with lots of tabs.
+by greenSkin: Enabled modules count and dynamic save position can be 
+  enabled/disabled via the Module Filter's settings page.
+
+
+Module Filter 6.x-1.5, 2010-08-08
+---------------------------------
+by greenSkin: Fixed a minor syntax issue.
+#837846 by Sweetchack, greenSkin: Code Optimization - truncate the module code
+  and move appropriate code to separate files.
+#840324 by greenSkin: Resolved issue with two modules sharing the same name not
+  showing correctly in tabbed version of module page.
+
+
+Module Filter 6.x-1.4, 2010-05-20
+---------------------------------
+by greenSkin: Fixed issue where tabs appears to be enabled on the settings
+  page for a fresh install but is not actually enabled.
+#804650 by greenSkin: Fixed issue where theme('system_modules') is called but 
+  passes the wrong $form['#theme'] callback.
+
+
+Module Filter 6.x-1.3, 2010-04-08
+---------------------------------
+by greenSkin: Moved .js and .css files into appropriate folders.
+by greenSkin: Moved admin callback into module_filter.admin.inc file.
+by greenSkin: Made tabs enabled by default.
+by greenSkin: Put tabs option to the top of admin page.
+#443584 by picardo: Fixed strange behavior with ModuleInfo module.
+#566394 by designerbrent: Replaced deprecated PHP 5.3 function ereg_replace()
+  with preg_replace().
+by greenSkin: Added the use of anchors for tabs.
+by greenSkin: Moved tab anchors to top of #module-filter-tabs.
+by greenSkin: Convert forward slash to dash for ID.
+by greenSkin: Updated preg_replace to return the ID in the needed format.
+by greenSkin: Updated tabs JavaScript code to be more object oriented.
+#535736 by eMPee584, greenSkin: Added enabled, disabled, required, and
+  unavailable options to filter by to the tabbed version.
+by greenSkin: Updated code to define the activeTab as 'All' when no anchor
+  is given and the activeTab is undefined.
+by greenSkin: Moved css used with and without tabs into separate file that
+  will get added to both versions of the module page.
+by greenSkin: Improved js code for non-tabs.
+#535736 by eMPee584, greenSkin: Added enabled, disabled, required, and
+  unavailable options to filter by to the non-tabbed version.
+#378758 by greenSkin: Added description to Module Filter's settings menu item.
+by greenSkin: Updated theming of the tabs layout. Removed spacer div. Declare
+  styling to fix issues with other themes using .form-item:after.
+by greenSkin: Updated js code for tabs. The filter textfield now gets cleared
+  when a tab is set to active and regains focus.
+by greenSkin: Updated table and table row in tabbed style to not use borders
+  on the left or right.

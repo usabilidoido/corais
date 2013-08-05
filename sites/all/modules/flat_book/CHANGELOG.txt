@@ -1,0 +1,35 @@
+// $Id: 
+
+Flat Book 6.x-1.0, 2010-07-09
+-----------------------------
+Initial Release
+
+Flat Book 6.x-1.1, 2010-07-29
+-----------------------------
+node/%node/delete no longer redirects for a flattened book page
+Back to Top link now works irrespective of site theme
+Cache is now properly cleared when the book_outline_form is submitted
+Table of Contents is now a block
+Added wikipedia style edit links for administrators
+Theme function to override "Jump To:" text in block title
+
+Flat Book 6.x-1.2, 2010-08-27
+-----------------------------
+Added outline link
+Don't redirect on node menu tasks that exist
+Removed option to display book navigation
+Moved flatten depth to book settings form
+Added support for sitewide/bookwide/branch flattening
+Remove child links from book navigation on a flattened page
+
+Flat Book 6.x-1.21, 2010-09-23
+------------------------------
+Fixed bugs in caching and flatten logic
+
+Flat Book 6.x-1.23, 2010-09-23
+------------------------------
+Fixed another minor caching bug
+
+Flat Book 6.x-1.24, 2010-09-28
+------------------------------
+Fixed improper redirection for aliased paths

@@ -1,0 +1,188 @@
+<?php
+function rubric_schema() {
+  $schema['rubric_node_category'] = array(
+    'description' => t('Reference table to pair nodes to categories'),
+    'fields' => array(
+      'nid' => array(
+        'description' => t('node id'),
+        'type' => 'int',
+        'not null' => TRUE,
+		'length' => 11),
+	  'category_id' => array(
+        'description' => t('category id'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+		'length' => 11),
+	  'weight' => array(
+        'description' => t('Order of appearance on the interface'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+		'length' => 11),
+	  )
+  );
+  $schema['rubric_category'] = array(
+    'description' => t('This stores all of the category components to the rubrics'),
+    'fields' => array(
+      'category_id' => array(
+        'description' => t('The individual category id. PK'),
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE),
+      'title' => array(
+        'description' => t('Category heading'),
+        'type' => 'text',
+		'size' => 'big',
+        'not null' => TRUE),
+	  'description' => array(
+        'description' => t('Category more info information box'),
+        'type' => 'text',
+		'size' => 'big',
+        'not null' => FALSE),
+	  ),
+    'primary key' => array('category_id'),
+  );
+  $schema['rubric_category_criterion'] = array(
+    'description' => t('Reference table to pair categories to criteria.'),
+    'fields' => array(
+      'category_id' => array(
+        'description' => t('category id'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+		'length' => 11),
+	  'criterion_id' => array(
+        'description' => t('criterion id'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+		'length' => 11),
+	  'weight' => array(
+        'description' => t('Order of appearance on the interface'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+		'length' => 11),
+	  )
+  );
+  $schema['rubric_criterion'] = array(
+    'description' => t('This stores all of the criterion components to the rubrics (rows)'),
+    'fields' => array(
+      'criterion_id' => array(
+        'description' => t('The criterion id. PK'),
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE),
+      'title' => array(
+        'description' => t('Criterion heading'),
+        'type' => 'text',
+		'size' => 'big',
+        'not null' => TRUE),
+	  'description' => array(
+        'description' => t('Criterion more info information box'),
+        'type' => 'text',
+		'size' => 'big',
+        'not null' => FALSE),
+	  ),
+    'primary key' => array('criterion_id'),
+  );
+  $schema['rubric_criterion_level'] = array(
+    'description' => t('Reference table to pair criteria to levels.'),
+    'fields' => array(
+      'criterion_id' => array(
+        'description' => t('criterion id'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+		'length' => 11),
+	  'level_id' => array(
+        'description' => t('level id'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+		'length' => 11),
+	  'weight' => array(
+        'description' => t('Order of appearance on the interface, future override use'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+		'length' => 11),
+	  )
+  );
+  $schema['rubric_level'] = array(
+    'description' => t('This stores the level components to the rubrics (cols)'),
+    'fields' => array(
+      'level_id' => array(
+        'description' => t('The individual level id. PK'),
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE),
+      'text' => array(
+        'description' => t('Level heading'),
+        'type' => 'text',
+		'size' => 'big',
+        'not null' => TRUE),
+	  'suggested_points' => array(
+	    'description' => t('Suggested Points for this item'),
+		'type' => 'int',
+		'unsigned' => TRUE,
+		'length' => 11,
+		'default' => 0,
+	    'not null' => TRUE),
+	  'suggested_feedback' => array(
+        'description' => t('Level feedback'),
+        'type' => 'text',
+		'size' => 'big',
+        'not null' => FALSE),
+	  ),
+    'primary key' => array('level_id'),
+  );
+  $schema['rubric_feedback'] = array(
+    'description' => t('This keeps track of actual vs. computed feedback for grades, each record is one selected level from a grading session'),
+    'fields' => array(
+      'feedback_id' => array(
+        'description' => t('The id of a selected level from a grading session.'),
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE),
+	  'level_id' => array(
+        'description' => t('The individual level id. PK'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE),
+	  'points' => array(
+	    'description' => t('Actual points that were awarded'),
+		'type' => 'int',
+		'unsigned' => TRUE,
+		'length' => 11,
+		'default' => 0,
+	    'not null' => TRUE),
+	  'feedback' => array(
+        'description' => t('Actual feedback that was awarded'),
+        'type' => 'text',
+		'size' => 'big',
+        'not null' => FALSE),
+	  ),
+    'primary key' => array('feedback_id'),
+  );
+  return $schema;
+}
+
+function rubric_install() {
+  // Create my tables.
+  drupal_install_schema('rubric');
+  //setup defaults for new rubric creation
+  db_query("INSERT INTO {rubric_category} VALUES(0,'Sample Category','Additional Info')");
+  db_query("UPDATE {rubric_category} SET category_id=0 WHERE category_id=1");
+  db_query("INSERT INTO {rubric_criterion} VALUES(0,'Sample Criterion','Additional Info')");
+  db_query("UPDATE {rubric_criterion} SET criterion_id=0 WHERE criterion_id=1");
+  db_query("INSERT INTO {rubric_level} VALUES(0,'Sample Level',10,'Sample Feedback')");
+  db_query("UPDATE {rubric_level} SET level_id=0 WHERE level_id=1");
+}
+
+function rubric_uninstall() {
+  // Drop my tables.
+  drupal_uninstall_schema('rubric');
+}
+?>

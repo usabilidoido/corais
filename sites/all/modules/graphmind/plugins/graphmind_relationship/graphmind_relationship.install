@@ -1,0 +1,115 @@
+<?php
+// $Id$
+
+
+/**
+ * Implementation of hook_install().
+ */
+function graphmind_relationship_install() {
+  drupal_install_schema('graphmind_relationship');
+
+  module_load_include('module', 'graphmind_relationship');
+  db_query('INSERT INTO {graphmind_relationship_type} (rid, name) VALUES (\'%s\', \'Default\');', GRAPHMIND_RELATIONSHIP_DEFAULT);
+}
+
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function graphmind_relationship_uninstall() {
+  drupal_uninstall_schema('graphmind_relationship');
+}
+
+
+/**
+ * Implementation of hook_schema().
+ *
+ * @return array
+ */
+function graphmind_relationship_schema() {
+  return array(
+    'graphmind_relationship' => array(
+      'description' => 'Relationship storage.',
+      'fields' => array(
+        'source_nid' => array(
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'description' => 'Source node ID.',
+        ),
+        'target_nid' => array(
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'description' => 'Target node ID.',
+        ),
+        'relationship_rid' => array(
+          'type' => 'char',
+          'length' => 255,
+          'not null' => TRUE,
+          'description' => 'Relationship ID.',
+        ),
+      ),
+      'indexes' => array('source_nid' => array('source_nid')),
+      'primary key' => array('source_nid', 'target_nid', 'relationship_rid'),
+    ),
+    'graphmind_relationship_type' => array(
+      'description' => 'Relationship types.',
+      'fields' => array(
+        'rid' => array(
+          'type' => 'char',
+          'length' => 255,
+          'not null' => TRUE,
+          'description' => 'Unique ID',
+        ),
+        'name' => array(
+          'type' => 'char',
+          'length' => 255,
+          'not null' => TRUE,
+          'default' => 'Untitled',
+          'description' => 'Name of the relationship',
+        ),
+      ),
+      'indexes' => array('rid' => array('rid')),
+      'primary key' => array('rid'),
+    ),
+    'graphmind_relationship_node_info' => _graphmind_relationship_graphmind_relationship_node_info_table_definition(),
+  );
+}
+
+
+/**
+ * Implementation of hook_update_N().
+ * Add table for node settings.
+ */
+function graphmind_relationship_update_6000() {
+  $ret = null;
+
+  return db_create_table($ret, 'graphmind_relationship_node_info', _graphmind_relationship_graphmind_relationship_node_info_table_definition());
+}
+
+
+/**
+ * Table definition of the node info table.
+ *
+ * @return array
+ */
+function _graphmind_relationship_graphmind_relationship_node_info_table_definition() {
+  return array(
+    'description' => 'Relationship settings of a node.',
+    'fields' => array(
+      'nid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'Node ID.',
+      ),
+      'setting' => array(
+        'type' => 'text',
+        'description' => 'Settings serialized.',
+      ),
+    ),
+    'indexes' => array('nid' => array('nid')),
+    'primary key' => array('nid'),
+  );
+}

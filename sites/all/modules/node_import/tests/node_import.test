@@ -1,0 +1,237 @@
+<?php
+
+/**
+ * @file
+ * Tests the basic Node import functionality of uploading new
+ * files and the different settings.
+ */
+
+require_once(drupal_get_path('module', 'node_import') . '/tests/NodeImportTestCase.php');
+
+class NodeImportAPITestCase extends NodeImportTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Node import API',
+      'description' => 'Test Node import API functions.',
+      'group' => 'Node import',
+    );
+  }
+
+  public function setUp() {
+    parent::setUp();
+    module_load_include('inc', 'node_import');
+  }
+
+  public function tearDown() {
+    parent::tearDown();
+  }
+
+  /**
+   * Read all data from specified file with given file options.
+   *
+   * @param $filepath
+   *   String. Full path to the file.
+   *
+   * @param $file_offset
+   *   Integer. Starting file offset.
+   *
+   * @param $file_options
+   *   Array of file options. @see node_import_read_from_file().
+   *
+   * @return
+   *   Array of records.
+   */
+  private function readFromFile($filepath, $file_offset, $file_options) {
+    $data = array();
+    $continue = TRUE;
+
+    while ($continue) {
+      $ret = node_import_read_from_file($filepath, $file_offset, $file_options);
+      if ($ret === FALSE) {
+        $continue = FALSE;
+      }
+      else {
+        list($file_offset, $record) = $ret;
+        $data[] = $record;
+      }
+    }
+
+    return $data;
+  }
+
+  /**
+   * Compare data read from file with data that should be read from file.
+   *
+   * @param $file_data
+   *   Array. Data that should be read.
+   *
+   * @param $data
+   *   Array. Data that has been read.
+   *
+   * @return
+   *   Boolean.
+   */
+  private function compareData($file_data, $data) {
+    if (count($data) != count($file_data)) {
+      return $this->fail(t('Number of read rows matches.'));
+    }
+
+    foreach ($file_data as $i => $row_data) {
+      if (count($file_data[$i]) != count($data[$i])) {
+        return $this->fail(t('Number of fields in row %i matches.', array('%i' => $i)));
+      }
+
+      foreach ($row_data as $j => $value) {
+        if (strcmp($file_data[$i][$j], $data[$i][$j])) {
+          return $this->fail(t('Data of field %j in row %i matches.', array('%i' => $i, '%j' => $j)));
+        }
+      }
+    }
+
+    return TRUE;
+  }
+
+  /**
+   * Test reading from CSV files with Unix line endings (\n).
+   */
+  public function testLineEndingsUnix() {
+    $filepath = drupal_get_path('module', 'node_import') . '/tests/line-endings-unix.csv';
+    $file_offset = 0;
+    $file_options = array(
+      'record separator' => '<newline>',
+      'field separator' => ',',
+      'text delimiter' => '"',
+      'escape character' => '\\',
+    );
+    $file_data = array(
+      array('title', 'body'),
+      array('first title', 'first body'),
+      array('second title', 'second body'),
+      array('third title', 'third body'),
+    );
+
+    $data = $this->readFromFile($filepath, $file_offset, $file_options);
+    $this->assertTrue($this->compareData($data, $file_data), t('Correctly read data from file.'));
+  }
+
+  /**
+   * Test reading from CSV files with DOS line endings (\r\n).
+   */
+  public function testLineEndingsDOS() {
+    $filepath = drupal_get_path('module', 'node_import') . '/tests/line-endings-dos.csv';
+    $file_offset = 0;
+    $file_options = array(
+      'record separator' => '<newline>',
+      'field separator' => ',',
+      'text delimiter' => '"',
+      'escape character' => '\\',
+    );
+    $file_data = array(
+      array('title', 'body'),
+      array('first title', 'first body'),
+      array('second title', 'second body'),
+      array('third title', 'third body'),
+    );
+
+    $data = $this->readFromFile($filepath, $file_offset, $file_options);
+    $this->assertTrue($this->compareData($data, $file_data), t('Correctly read data from file.'));
+  }
+
+  /**
+   * Test reading from CSV files with MacIntosh line endings (\r).
+   */
+  public function testLineEndingsMac() {
+    $filepath = drupal_get_path('module', 'node_import') . '/tests/line-endings-mac.csv';
+    $file_offset = 0;
+    $file_options = array(
+      'record separator' => '<newline>',
+      'field separator' => ',',
+      'text delimiter' => '"',
+      'escape character' => '\\',
+    );
+    $file_data = array(
+      array('title', 'body'),
+      array('first title', 'first body'),
+      array('second title', 'second body'),
+      array('third title', 'third body'),
+    );
+
+    $data = $this->readFromFile($filepath, $file_offset, $file_options);
+    $this->assertTrue($this->compareData($data, $file_data), t('Correctly read data from file.'));
+  }
+
+  /**
+   * Test reading from files without an escape character. See #739786.
+   */
+  public function testNoEscapeCharacter() {
+    $filepath = drupal_get_path('module', 'node_import') . '/tests/no-escape.txt';
+    $file_offset = 0;
+    $file_options = array(
+      'record separator' => '<newline>',
+      'field separator' => '|',
+      'text delimiter' => '%',
+      'escape character' => '<none>',
+    );
+    $file_data = array(
+      array('title', 'description'),
+      array('Book', 'Book description goes here...'),
+    );
+
+    $data = $this->readFromFile($filepath, $file_offset, $file_options);
+    $this->assertTrue($this->compareData($data, $file_data), t('Correctly read data from file.'));
+  }
+
+  /**
+   * Test reading from files with multiple lines in quoted field.
+   */
+  public function testMultipleLines() {
+    $filepath = drupal_get_path('module', 'node_import') . '/tests/multiple-lines.csv';
+    $file_offset = 0;
+    $file_options = array(
+      'record separator' => '<newline>',
+      'field separator' => ',',
+      'text delimiter' => '"',
+      'escape character' => '\\',
+    );
+    $file_data = array(
+      array('title', 'body'),
+      array('first title', 'first body'),
+      array('second title', 'second body
+with multiple
+lines'),
+      array('third title', 'third body
+with multiple
+lines
+
+including
+empty line'),
+    );
+
+    $data = $this->readFromFile($filepath, $file_offset, $file_options);
+    $this->assertTrue($this->compareData($data, $file_data), t('Correctly read data from file.'));
+  }
+
+  /**
+   * Test reading from files with empty last column. See #532182.
+   */
+  public function testEmptyLastColumn() {
+    $filepath = drupal_get_path('module', 'node_import') . '/tests/empty-last-column.csv';
+    $file_offset = 0;
+    $file_options = array(
+      'record separator' => '<newline>',
+      'field separator' => ',',
+      'text delimiter' => '"',
+      'escape character' => '\\',
+    );
+    $file_data = array(
+      array('title', 'body'),
+      array('a', ''),
+      array('b', ''),
+      array('c', ''),
+    );
+
+    $data = $this->readFromFile($filepath, $file_offset, $file_options);
+    $this->assertTrue($this->compareData($data, $file_data), t('Correctly read data from file.'));
+  }
+}
+

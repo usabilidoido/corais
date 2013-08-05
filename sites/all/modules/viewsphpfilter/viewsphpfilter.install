@@ -1,0 +1,8 @@
+<?php
+
+/**
+ * Implementation of hook_enable().
+ */
+function viewsphpfilter_enable() {
+  cache_clear_all('views_tables','cache_views',TRUE);
+}

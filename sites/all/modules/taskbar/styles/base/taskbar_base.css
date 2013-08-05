@@ -1,0 +1,117 @@
+#taskbar-container {
+  bottom: 0;
+  height: 25px;
+  position: fixed;
+  width: 100%;
+  z-index: 99;
+}
+
+#taskbar {
+  background-color: #EBEEF4;
+  border-width: 1px;
+  border-color: rgba(29, 49, 91, 0.3);
+  border-style: solid;
+  box-shadow: 0 0 3px #999;
+  height: 25px;
+  margin: 0 5px;
+  color: #333;
+}
+
+#taskbar .taskbar-item-loading {
+  background: url(ajax-loader.gif) no-repeat 50% 50%;
+  height: 30px;
+  line-height: 30px;
+}
+
+#taskbar-inner {
+}
+
+#taskbar-region-left {
+  float: left;
+}
+#taskbar-region-left .taskbar-item {
+  border-width: 0 1px 0 0;
+}
+
+#taskbar-region-center {
+  float: left;
+}
+#taskbar-region-center .taskbar-region-inner {
+  margin-left: 100px;
+}
+
+#taskbar-region-right {
+  float: right;
+}
+#taskbar-region-right .taskbar-item {
+  border-width: 0 0 0 1px;
+}
+
+.taskbar-item {
+  border: 0 solid rgba(29, 49, 91, 0.3);
+  position: relative;
+  float: left;
+  padding: 0 7px;
+}
+.taskbar-item-content {
+  cursor: pointer;
+  line-height: 24px;
+}
+.taskbar-item-titlebar {
+  background: url("close.png") no-repeat 3px 50% #ccc;
+  padding-left: 15px;
+  cursor: pointer;
+}
+
+.taskbar-item-extra {
+  background: #fff;
+  border: 1px solid #333;
+  display: none;
+  position: absolute;
+  bottom: 25px;
+  width: 250px;
+  max-height: 350px;
+  overflow-y: auto;
+}
+#taskbar-region-left .taskbar-item-extra {
+  left: 0;
+}
+#taskbar-region-right .taskbar-item-extra {
+  right: 0;
+}
+
+.taskbar-element {
+  float: left;
+  line-height: 24px;
+  padding-left: 7px;
+}
+.taskbar-item-content .taskbar-element:first-child {
+  padding-left: 0;
+}
+
+.taskbar-item-count {
+  background-color: rgba(255,0,0,.8);
+  border-radius: 2px;
+  color: #fff;
+  font-size: 9px;
+  line-height: 10px;
+  padding: 1px 1px 1px 2px;
+  position: absolute;
+  right: -1px;
+  top: -2px;
+}
+.taskbar-item-seperator {
+}
+
+.taskbar-provider-custom {
+  display: table-cell;
+  height: 24px;
+  vertical-align: middle;
+}
+
+#taskbar .item-list .unread {
+  font-style: italic;
+}
+
+/** Style the page differently if the taskbar is being shown. **/
+.with-taskbar {}

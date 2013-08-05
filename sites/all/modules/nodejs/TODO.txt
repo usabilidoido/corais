@@ -1,0 +1,11 @@
+TODO
+====
+
+This module is in its very early stages, feedback and co-maintainers welcome.
+
+1. Authenticate the backend with a cert.
+2. Make the server process configurable, via a file or command line options, or both.
+3. Figure out API to allow modules to register JS callbacks.
+4. ....
+5. Profit!
+

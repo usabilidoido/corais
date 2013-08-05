@@ -1,0 +1,26 @@
+
+Getting Started
+---------------
+
+1. Upload and enable the following modules:
+    - Embedded Media Field (http://drupal.org/project/emfield)
+    - Embedded Media Video (http://drupal.org/project/emfield)
+    - Content Construction Kit (CCK) (http://drupal.org/project/cck) 
+    - Slideshare module 
+
+2. Go to "Administer" > "Content management" > "Embedded Media Field configuration."
+
+3. Click on the "Video" tab.
+
+4. Expand the "SlideShare configuration" section.
+
+5. "Allow content from Slideshare" should already be checked.
+
+6. Provide an "API Key" and "Shared Secret" from SlideShare. Obtain these at:
+http://www.slideshare.net/developers/applyforapi
+
+7. Edit the fields of a content type and add a new "Embedded Video" field, or configure an existing "Embedded Video" field. In the "Providers Supported" section, check the box next to "SlideShare."
+
+8. While editing this field, you can change the dimensions of the presentation, and enable autoplay, by changing the values of the Embedded Video formats: "Video Display," "Video Preview" and "Thumbnail." You can then use the "Display fields" tab of your content type to choose which format to present on node teasers and full nodes.
+
+9. When creating new nodes of that content type, simply paste the URL or embed code of the SlideShare presentation into the field. The presentation will automatically be formatted and displayed as you've defined it to be.

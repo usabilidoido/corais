@@ -1,0 +1,206 @@
+<?php
+
+/**
+ * @file
+ * Installation code for iTweakUpload.
+ */
+
+/**
+ * Helper function to add a permission to a role.
+ */
+function _itweak_upload_add_permission($rid, $permission) {
+  if ($permission) {
+    $current_perm = db_result(db_query("SELECT perm FROM {permission} WHERE rid = %d", $rid));
+    if ($current_perm != '') {
+      $current_perm .= ', ';
+    }
+    $current_perm .= $permission;
+//    db_query("UPDATE {permission} SET perm = '%s' WHERE rid = %d", $current_perm, $rid);
+    return update_sql("UPDATE {permission} SET perm = '$current_perm' WHERE rid = $rid");
+  }
+}
+
+/*
+ * Install ImageCache presets
+ */
+function _itweak_upload_install_imagecache_presets() {
+  $ret = array();
+  if (!module_exists('imagecache')) {
+    $msg = t('Tried installing ImageCache preset for iTweak Upload module, but ImageCache module is not present. ImageCache presets for iTweak Upload module were not installed.');
+//    drupal_set_message($msg);
+    $ret[] = array('success' => FALSE, 'query' => $msg);
+  }
+  else {
+    $imagecache_presets = array(
+      array(
+        'presetname' => 'AttachmentThumbnail',
+      ),
+    );
+
+    $perms = array();
+    foreach ($imagecache_presets as $preset) {
+      $perms[] = 'view imagecache ' . $preset['presetname'];
+    }
+
+    // Add default permissions to new presets
+    if (count($perms)) {
+      // Which roles ids should be allowed to view the preset by default:
+      $allow_roles = array(1, 2);
+
+      // Get role names
+      $result = db_query('SELECT r.rid, r.name FROM {role} r WHERE r.rid IN (%s)', implode(', ', $allow_roles));
+      $roles = array();
+      while ($role = db_fetch_object($result)) {
+        $roles[$role->rid] = $role->name;
+      }
+      $perms = implode(', ', $perms);
+      foreach ($roles as $rid => $role) {
+        $res = _itweak_upload_add_permission($rid, $perms);
+        if ($res['success']) {
+          $res['query'] = t('Added permissions "%perms" to role %role.', array('%perms' => $perms, '%role' => $role) );
+        }
+        $ret[] = $res;
+      }
+    }
+  }
+  return $ret;
+}
+
+/**
+ * Implementation of hook_install()
+ */
+function itweak_upload_install() {
+  db_query("UPDATE {system} SET weight = -10 WHERE name = 'itweak_upload'");
+  $ret = _itweak_upload_install_imagecache_presets();
+  if (!$ret[0]['success']) drupal_set_message($ret[0]['query']);
+
+//??  cache_clear_all('theme_registry', 'cache', TRUE);
+}
+
+/**
+ * Implementation of hook_update_N()
+ */
+function itweak_upload_update_6000() {
+  $ret = array();
+  $ret += _itweak_upload_install_imagecache_presets();
+  return $ret;
+}
+
+/**
+ * Implementation of hook_update_N()
+ */
+function itweak_upload_update_6001() {
+  $ret = array();
+  $ret[] = update_sql("UPDATE {system} SET weight = 10 WHERE name = 'itweak_upload'");
+  return $ret;
+}
+
+/**
+ * Implementation of hook_update_N()
+ * iTweak Upload now needs to be earliest within all modules, so it can act upon file deletion and clear imagecache.
+ */
+function itweak_upload_update_6002() {
+  $ret = array();
+  $ret[] = update_sql("UPDATE {system} SET weight = -10 WHERE name = 'itweak_upload'");
+  return $ret;
+}
+
+/**
+ * Implementation of hook_requirements()
+ */
+function itweak_upload_requirements($phase) {
+  $requirements = array();
+  // Ensure translations don't break at install time
+  $t = get_t();
+
+  switch ($phase) {
+    case 'install':
+      $error = FALSE;
+//      if (!module_exists('content_copy')) {
+//        $error = TRUE;
+//        $value = $t('Content Copy module to be pre-installed.');
+//        $severity = REQUIREMENT_ERROR;
+//      }
+
+      if (!module_exists('imagecache')) {
+        if ($error) {
+          $value .= ' ';
+        } else {
+          $error = TRUE;
+          $value = '';
+        }
+        $value .= $t('ImageCache module to be pre-installed.');
+        $severity = REQUIREMENT_ERROR;
+      }
+
+//      if ($error) {
+//        $requirements['cck_gallery'] = array(
+//          'title' => $t('CCK Gallery requirements'),
+//          'value' => $value . $t(' If the required modules are now installed, please enable CCK Gallery again.'),
+//          'severity' => $severity,
+//        );
+//      }
+      break;
+
+    // Check progress bar capability
+    case 'runtime':
+      if (!module_exists('filefield')) {
+      // This code copied verbatim from filefield.install
+      // We don't want to repeat axact same message twice
+        $implementation = itweak_upload_progress_implementation();
+        $apache = strpos($_SERVER['SERVER_SOFTWARE'], 'Apache') !== FALSE;
+        $fastcgi = strpos($_SERVER['SERVER_SOFTWARE'], 'mod_fastcgi') !== FALSE || strpos($_SERVER["SERVER_SOFTWARE"], 'mod_fcgi') !== FALSE;
+        $php_52 = version_compare(phpversion(), '5.2.0', '>');
+        $description = NULL;
+        if (!$apache || !$php_52) {
+          $value = $t('Not enabled');
+          $description = $t('Your server is not capable of displaying file upload progress. File upload progress requires PHP 5.2 and an Apache server.');
+          $severity = REQUIREMENT_INFO;
+        }
+        elseif ($fastcgi) {
+          $value = $t('Not enabled');
+          $description = $t('Your server is not capable of displaying file upload progress. File upload progress requires PHP be run with mod_php and not as FastCGI.');
+          $severity = REQUIREMENT_INFO;
+        }
+        elseif (!$implementation && extension_loaded('apc')) {
+          $value = $t('Not enabled');
+          $description = $t('Your server is capable of displaying file upload progress through APC, but it is not enabled. Add <code>apc.rfc1867 = 1</code> to your php.ini configuration. Alternatively, it is recommended to use <a href="http://pecl.php.net/package/uploadprogress">PECL uploadprogress</a>, which supports more than one simultaneous upload.');
+          $severity = REQUIREMENT_WARNING;
+        }
+        elseif (!$implementation) {
+          $value = $t('Not enabled');
+          $description = t('Your server is capable of displaying file upload progress, but does not have the required libraries. It is recommended to install the <a href="http://pecl.php.net/package/uploadprogress">PECL uploadprogress library</a> (preferred) or to install <a href="http://us2.php.net/apc">APC</a>.');
+          $severity = REQUIREMENT_WARNING;
+        }
+        elseif ($implementation == 'apc') {
+          $value = $t('Enabled (<a href="http://php.net/manual/en/apc.configuration.php#ini.apc.rfc1867">APC RFC1867</a>)');
+          $description = t('Your server is capable of displaying file upload progress using APC RFC1867. Note that only one upload at a time is supported. It is recommended to use the <a href="http://pecl.php.net/package/uploadprogress">PECL uploadprogress library</a> if possible.');
+          $severity = REQUIREMENT_OK;
+        }
+        elseif ($implementation == 'uploadprogress') {
+          $value = $t('Enabled (<a href="http://pecl.php.net/package/uploadprogress">PECL uploadprogress</a>)');
+          $severity = REQUIREMENT_OK;
+        }
+        $requirements['itweak_upload_progress'] = array(
+          'title' => $t('Upload progress'),
+          'value' => $value,
+          'severity' => $severity,
+          'description' => $description,
+        );
+      }
+    break;
+
+  }
+
+  return $requirements;
+}
+
+/**
+ * Implementation of hook_uninstall()
+ */
+function itweak_upload_uninstall() {
+  //remove system variables
+  db_query("DELETE FROM {variable} WHERE name LIKE 'itweak_upload_%'");
+  cache_clear_all('variables', 'cache');
+}
+

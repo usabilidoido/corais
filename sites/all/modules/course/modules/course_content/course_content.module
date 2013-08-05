@@ -1,0 +1,70 @@
+<?php
+
+/**
+ * Course context handler callback.
+ */
+function course_content_context() {
+  $node = node_load(arg(1));
+
+  if (isset($node->nid)) {
+    return array(
+      'object_type' => $node->type,
+      'instance' => $node->nid,
+    );
+  }
+}
+
+/**
+ * Implements hook_course_handlers().
+ */
+function course_content_course_handlers() {
+  $handlers = array();
+
+  // Dynamically generate the object handlers.
+  $handlers['object'] = array();
+  $types = node_get_types();
+  foreach ($types as $type => $info) {
+    if (variable_get("course_content_use_$type", 0)) {
+      $handlers['object'][$type] = array(
+        'name' => $info->name,
+        'class' => 'CourseObjectContent',
+        'description' => t('A node to be used in a course workflow.'),
+      );
+    }
+  }
+
+  // Set context handler.
+  $handlers['context'] = array(
+    'content' => array(
+      'callback' => 'course_content_context',
+    ),
+  );
+
+  // Return the handlers array.
+  return $handlers;
+}
+
+/**
+ * Implements hook_nodeapi().
+ */
+function course_content_nodeapi(&$node, $op, $a3, $a4) {
+  if ($op == 'view' && $a4 && variable_get("course_content_use_{$node->type}", 0)) {
+    global $user;
+    if ($courseObject = course_get_course_object('course_content', $node->type, $node->nid, $user)) {
+      $courseObject->getFulfillment()->setComplete()->save();
+    }
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function course_content_form_node_type_form_alter(&$form, &$form_state) {
+  // Alter the node type's configuration form to add our setting.
+  $form['course']['course_content_use'] = array(
+    '#title' => t('Use as course content'),
+    '#type' => 'checkbox',
+    '#default_value' => variable_get("course_content_use_{$form['#node_type']->type}", 0),
+    '#description' => 'Use this type as course content, when fulfillment can be satisifed by viewing.',
+  );
+}

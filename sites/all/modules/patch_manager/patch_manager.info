@@ -1,0 +1,14 @@
+name = Patch manager
+description = Provides developer tools for patch management of core and contributed modules.
+core = 6.x
+dependencies[] = views
+dependencies[] = content
+dependencies[] = text
+dependencies[] = filefield
+package = Development
+; Information added by drupal.org packaging script on 2011-10-15
+version = "6.x-1.3"
+core = "6.x"
+project = "patch_manager"
+datestamp = "1318674705"
+

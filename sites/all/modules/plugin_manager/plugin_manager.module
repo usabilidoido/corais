@@ -1,0 +1,627 @@
+<?php
+
+/**
+ * @file
+ * Several functions needed by the plugin manager.
+ *
+ * The plugin manager allows users to select and install new
+ * themes and modules directly from d.o.
+ */
+
+/**
+ * Implementation of hook_menu().
+ */
+function plugin_manager_menu() {
+  $items['admin/plugin_manager'] = array(
+    'title' => 'Plugin Manager',
+    'description' => 'Automatically install new content.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('plugin_manager_find'),
+    'access arguments' => array('access plugin manager'),
+    'file' => 'plugin_manager.admin.inc',
+    'position' => 'right',
+    'weight' => -7,
+  );
+  $items['admin/plugin_manager/install'] = array(
+    'title' => 'Install',
+    'description' => 'Install the themes and modules that have been selected.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('plugin_manager_install_form'),
+    'access arguments' => array('install plugins'),
+    'file' => 'plugin_manager.admin.inc',
+    'block callback' => 'system_admin_theme_settings',
+  );
+  $items['admin/plugin_manager/settings'] = array(
+    'title' => 'Settings',
+    'description' => 'Control the way that the Plugin Manager operates.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('plugin_manager_settings_form'),
+    'access arguments' => array('plugin manager settings'),
+    'file' => 'plugin_manager.admin.inc',
+    'block callback' => 'system_admin_theme_settings',
+  );
+  $items['admin/plugin_manager/uninstall'] = array(
+    'title' => 'Uninstall',
+    'description' => 'Uninstall themes and plugins that were installed with the Plugin Manager.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('plugin_manager_uninstall_form'),
+    'access arguments' => array('uninstall plugins'),
+    'file' => 'plugin_manager.admin.inc',
+    'block callback' => 'system_admin_theme_settings',
+  );
+  $items['admin/plugin_manager/deps'] = array(
+    'title' => 'Resolve Dependencies',
+    'description' => 'Resolve Dependencies.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('plugin_manager_dependencies_form'),
+    'access arguments' => array('install plugins'),
+    'file' => 'plugin_manager.admin.inc',
+    'block callback' => 'system_admin_theme_settings',
+  );
+  $items['admin/plugin_manager/update'] = array(
+    'title' => 'Update',
+    'description' => 'Update modules that are out of date.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('plugin_manager_update_form'),
+    'access arguments' => array('install modules'),
+    'file' => 'plugin_manager.admin.inc',
+    'block callback' => 'system_admin_theme_settings',
+  );
+  $items['admin/plugin_manager/manual'] = array(
+    'title' => 'Manual Install',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('plugin_manager_manual'),
+    'access arguments' => array('manually install plugins'),
+    'file' => 'plugin_manager.admin.inc',
+    'type' => MENU_CALLBACK,
+  );
+  $items['admin/plugin_manager/reload'] = array(
+    'title' => 'Reload Repository',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('plugin_manager_reload'),
+    'access arguments' => array('install plugins'),
+    'file' => 'plugin_manager.admin.inc',
+    'type' => MENU_CALLBACK,
+  );
+
+  /* The menu items and callbacks for the ajax search form. */
+  $items['admin/plugin_manager/search'] = array(
+    'title' => 'Search',
+    'description' => 'Search for new themes and modules to queue for installation.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('plugin_manager_find'),
+    'access arguments' => array('install plugins'),
+    'file' => 'plugin_manager.admin.inc',
+    'block callback' => 'system_admin_theme_settings',
+  );
+  $items['admin/plugin_manager/search/letter'] = array(
+    'page callback' => 'plugin_manager_ajax_search_letter',
+    'access arguments' => array('install plugins'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['admin/plugin_manager/search/tag'] = array(
+    'page callback' => 'plugin_manager_ajax_search_tag',
+    'access arguments' => array('install plugins'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['admin/plugin_manager/search/term'] = array(
+    'page callback' => 'plugin_manager_ajax_search_term',
+    'access arguments' => array('install plugins'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['admin/plugin_manager/search/queue'] = array(
+    'page callback' => 'plugin_manager_ajax_queue',
+    'access arguments' => array('install plugins'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['admin/plugin_manager/search/queue/add'] = array(
+    'page callback' => 'plugin_manager_ajax_queue_add',
+    'access arguments' => array('install plugins'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['admin/plugin_manager/search/queue/remove'] = array(
+    'page callback' => 'plugin_manager_ajax_queue_remove',
+    'access arguments' => array('install plugins'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['admin/plugin_manager/search/queue/clear'] = array(
+    'page callback' => 'plugin_manager_ajax_queue_clear',
+    'access arguments' => array('install plugins'),
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_help().
+ */
+function plugin_manager_help($path, $arg) {
+  switch ($path) {
+    case 'admin/plugin_manager/find':
+    case 'admin/plugin_manager':
+      return '<p>'. t('This allows users to install new modules and themes much more easily. To use this module, use the search box below to look for modules and themes.  Alternatively, you can just select a category to view.  Add any found modules and themes to the queue.  Finally, click on the Install tab to continue with fetching and installing the modules.') .'</p>';
+    case 'admin/plugin_manager/install':
+      return '<p><strong>'. t('Note: the more items you select, the longer the installation will take, potentially causing it to time out.') .'</strong></p>';
+    case 'admin/plugin_manager/uninstall':
+      return '<p>'. t('This will only show plugins that are currently disabled and are not part of Drupal core.') . l(t('(Disable modules here)'), 'admin/build/modules') .'</p>';
+    case 'admin/plugin_manager/manual':
+      return '<p>'. t('This is for manual installation of plugins') .'</p>';
+  }
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function plugin_manager_perm() {
+  return array('access plugin manager', 'manually install plugins', 'install plugins', 'plugin manager settings', 'uninstall plugins');
+}
+
+/**
+ * Helper function for plugin_manager_dependencies_form
+ */
+function plugin_manager_missing_dependencies(){
+  $files = module_rebuild_cache();
+  foreach($files as $file){
+    if (is_array($file->info['dependencies'])) {
+      foreach ($file->info['dependencies'] as $dependency) {
+        if (!isset($files[$dependency])){
+          $missing[$dependency]['#name'] = $dependency;
+          $missing[$dependency]['#required-by'] = $file->info['name'];
+          $row = db_fetch_array(db_query("SELECT title FROM {plugin_manager_repository} WHERE short_name = '%s'", $dependency));
+          $missing[$dependency]['#in-repository'] = is_array($row);
+          if ($missing[$dependency]['#in-repository'])
+            $missing['#alert'] = TRUE;
+        }
+      }
+    }
+  }
+  return $missing;
+}
+
+/**
+ * Alert the user to outdated plugins, and give them an opporunity to
+ * automatically update them.
+ * @alters the system_modules page (admin/modules)
+ */
+function plugin_manager_form_system_modules_alter(&$form, $form_state) {
+  $reqs = update_requirements('runtime');
+  if (isset($reqs['update_contrib']['reason']) && user_access('install modules')) {
+    drupal_set_message(l(t('It looks like you have some outdated modules.  Go Here to update your site automatically.'), 'admin/plugin_manager/update'));
+  }
+  $missing = plugin_manager_missing_dependencies();
+  if ($missing['#alert']){
+    drupal_set_message(t("You have missing dependencies! ").l(t("Go here"),"admin/plugin_manager/deps").t(" to resolve them."),"error");
+  }
+}
+
+/**
+ * Alert the user to outdated plugins, and give them an opporunity to
+ * automatically update them.
+ * @alters the system_themes page (admin/themes)
+ */
+function plugin_manager_form_system_themes_alter(&$form, $form_state) {
+  $reqs = update_requirements('runtime');
+  if (isset($reqs['update_contrib']['reason']) && user_access('install modules')) {
+    drupal_set_message(l(t('It looks like you have some outdated modules.  Go Here to update your site automatically.'), 'admin/plugin_manager/update'));
+  }
+  $missing = plugin_manager_missing_dependencies();
+  if ($missing['#alert']){
+    drupal_set_message(t("You have missing dependencies! ").l(t("Go here"),"admin/plugin_manager/deps").t(" to resolve them."),"error");
+  }
+}
+
+/**
+ * Get a list of all available backends that can upload files onto our system.
+ *
+ * @return
+ *   Array containing the names of all available frontends.
+ */
+function plugin_manager_backends() {
+  $backend = array();
+  // Open that directory to view the contained files / folders
+  if ($handle = opendir(dirname(__FILE__))) {
+    // Look through the modules of that folder
+    while ($current = readdir($handle)) {
+      // If the file is a backend file then load it.
+      if (strstr($current, ".backend.inc") == ".backend.inc") {
+        include_once($current);
+        // If there is a backend hook, then run it.
+        $name = str_replace('.backend.inc', '', $current);
+        if (function_exists($name .'_plugin_manager_backend')) {
+          $output = call_user_func($name .'_plugin_manager_backend');
+          // If the backend is available, note it.
+          if (!empty($output)) {
+            $backend[$output] = $output;
+          }
+        }
+      }
+    }
+  }
+
+  sort($backend);
+  return $backend;
+}
+
+/**
+ * Attempts to get a file using drupal_http_request and to store it locally.
+ *
+ * @param $path
+ *   The URL of the file to grab.
+ * @return
+ *   On success the address the files was saved to, FALSE on failure.
+ */
+function plugin_manager_get($path) {
+  // Get each of the specified files.
+  $parsed_url = parse_url($path);
+  $local = file_directory_path() ."/plugin_manager_cache/". basename($parsed_url['path']);
+  $todir = file_directory_path() ."/plugin_manager_cache/";
+  if (!file_check_directory($todir)){
+    drupal_set_message(t("The directory @path either does not exist or is not writeable. Please create it manually.",array('@path'=>$todir)),'error');
+    return FALSE;
+  }
+  // Check the cache and download the file if needed
+  if (!file_exists($local)) {
+
+    // $result->data is the actual contents of the downloaded file.  This saves it
+    // into a local file, whose path is stored in $local.  $local is stored relative
+    // to the drupal installation.
+    $result = drupal_http_request($path);
+    if ($result->code != 200 OR !file_save_data($result->data, $local)) {
+      drupal_set_message(t('@remote could not be saved.', array('@remote' => $path)), 'error');
+      return FALSE;
+    }
+  }
+  return $local;
+}
+
+/**
+ * Untars a file.
+ *
+ * @param $file
+ *   The file to untar.
+ * @return
+ *   An array containing the locations of the extracted files.
+ */
+function plugin_manager_untar($file) {
+  $dir = file_directory_path() .'/plugin_manager_extraction/';
+  $file_safe = escapeshellarg($file);
+  $dir_safe  = escapeshellarg($dir);
+  $file_list = array();
+
+  // Try to use tar to extract the files.
+  if (function_exists('popen')) {
+    $handle = popen("tar -zvxf $file_safe -C $dir_safe", "r");
+    while ($line = fgets($handle)) {
+      $file_list[] = trim($line);
+    }
+    pclose($handle);
+  }
+
+  // If tar returned something (a.k.a, is present) then return it
+  if (!empty($file_list)) {
+    return $file_list;
+  }
+
+  // If we get this far then tar failed.  Attempt to extract using PEAR's Archive/Tar.
+  // This should still be GPL safe since this modules does not depend on PEAR.
+  @include_once("Archive/Tar.php");
+
+  // If it doesn't exist either, then we can't explode the files.
+  if (!class_exists("Archive_Tar")) {
+    drupal_set_message(t('Neither the tar executable nor the Archive/Tar package could be located.'), "error");
+    return FALSE;
+  }
+
+  // Attempt to explode the file with PEAR.
+  $tar = new Archive_Tar($file);
+  $tar->extract($dir);
+
+  // Get a list of the extracted files.
+  foreach ($tar->listcontent() AS $file) {
+    $file_list[] = trim($file['filename']);
+  }
+
+  // Return the list
+  return $file_list;
+}
+
+/**
+ * Downloads the list of available themes/modules.
+ * 
+ * @return
+ *  An form array to be displayed.
+ */
+function plugin_manager_reload() {
+  // Download a new copy of the project-list.
+  $file = plugin_manager_get("http://updates.drupal.org/release-history/project-list/all");
+  if ($file === FALSE) {
+    drupal_set_message(t("An error occurred while downloading the repository."), 'error');
+    return array();
+  }
+
+  // Clear the current cache.
+  db_query("DELETE FROM {plugin_manager_repository}");
+  db_query("DELETE FROM {plugin_manager_taxonomy}");
+
+  // Parse it.
+  $reader = new XMLReader();
+  $reader->open($file);
+
+  // Look at each project node.
+  $drupal_version = constant("DRUPAL_CORE_COMPATIBILITY");
+  $project = array();
+  while ($reader->read()) {
+    // When we close a project tag, add it to the database.
+    if ($reader->nodeType == XMLReader::END_ELEMENT && $reader->name == "project") {
+      // If it isn't a type we know how to process, then skip it.
+      if (isset($project['value'])
+          AND (in_array('Modules', $project['value']) OR in_array('Themes', $project['value']))
+          AND isset($project['api_version'])
+          AND in_array($drupal_version, $project['api_version'])) {
+
+        // Insert all the terms if it is one we know how to work with.
+        $project['value'] = array_combine($project['value'], $project['name']);
+        foreach ($project['value'] AS $term => $type) {
+          if ($type == 'Projects') {
+            db_query("INSERT INTO {plugin_manager_taxonomy} (short_name, tag)
+                      VALUES('%s', '%s')", $project['short_name'], $term);
+          }
+        }
+        // Put it in the database if it has a term.
+        db_query("INSERT INTO {plugin_manager_repository} (title, short_name, links)
+                  VALUES('%s', '%s', '%s')", $project['title'], $project['short_name'], $project['link']);
+      }
+      $project = array();
+    }
+    if ($reader->nodeType == XMLReader::ELEMENT && in_array($reader->name, array('title', 'short_name', 'link'))) {
+      $name = $reader->name;
+      $reader->read();
+      $project[$name] = $reader->value;
+    }
+    if ($reader->nodeType == XMLReader::ELEMENT && in_array($reader->name, array('api_version', 'value', 'name'))) {
+      $name = $reader->name;
+      $reader->read();
+      $project[$name][] = $reader->value;
+    }
+  }
+
+  drupal_set_message(t("The repository was updated successfully."), "status");
+  unlink($file);
+  variable_set("plugin_manager_last_reload", date('U'));
+  drupal_goto('admin/plugin_manager');
+  return array();
+}
+
+/**
+ * Get the information about each plugin.
+ *
+ * @param $projects
+ *  The project or projects on which information is desired.
+ * @return
+ *  An array containing info on the supplied projects.
+ */
+function plugin_manager_get_release_history($projects) {
+  $version = constant("DRUPAL_CORE_COMPATIBILITY");
+  $results = array();
+
+  // If projects isn't an array, turn it into one.
+  if (!is_array($projects)) {
+    $projects = array($projects);
+  }
+
+  // Look up the data for every project requested.
+  foreach ($projects AS $project) {
+    $file = drupal_http_request("http://updates.drupal.org/release-history/$project/$version");
+    $xml = simplexml_load_string($file->data);
+
+    // If it can't find the info for this project, skip to the next one.
+    if ($xml == FALSE || !isset($xml->releases->release)){
+      drupal_set_message(t("Downloading the release history failed for @project.", array('@project' => $project)), "error");
+      continue;
+    }
+
+    // Get the information about every release
+    foreach ($xml->releases->release AS $release) {
+      if ((string)$release->status != 'published') {
+        continue;
+      }
+
+      // Get the title, release_link and download_link.
+      $results[$project]['title'] = (string)$xml->title;
+
+      $release_version = (string)$release->version;
+      $results[$project]['release'][] = array(
+        'release_link' => (string)$release->release_link,
+        'download_link' => (string)$release->download_link,
+        'date' => (string)$release->date,
+        'version' => $release_version,
+      );
+      $results[$project]['version'][] = $release_version;
+    }
+  }
+
+  // Order them and then return the results.
+  ksort($results);
+  return $results;
+}
+
+/**
+ * See if everything that is needed to use the plugin manager is available.
+ *
+ * @return
+ *  TRUE if all of the required dependencies are available, FALSE otherwise.
+ */
+function plugin_manager_runnable() {
+  // See if we have a way to untar the files.
+  @include_once("Archive/Tar.php");
+
+  $tar = FALSE;
+  if (function_exists('popen')) {
+    $handle = @popen("tar --version", "r");
+    $tar = @fgets($handle);
+    @pclose($handle);
+  }
+  if (!$tar AND !class_exists("Archive_Tar")) {
+    drupal_set_message(t('The plugin manager cannot run because neither the tar executable nor the Archive/Tar package could be located.'), "error");
+    return FALSE;
+  }
+
+  // See if we have any available backends.
+  $backends = plugin_manager_backends();
+  if (empty($backends)) {
+    drupal_set_message(t('No backends are usable.'), 'error');
+    return FALSE;
+  }
+
+  return TRUE;
+}
+
+function plugin_manager_add_to_queue($plugin) {
+  // Make sure a package by this name exists.  If it doesn't exist, don't add it.
+  if (!($row = db_fetch_array(db_query("SELECT title FROM {plugin_manager_repository} WHERE short_name = '%s'", $plugin)))) {
+    return FALSE;
+  }
+
+  // If it's not in the queue, add it.
+  if (!db_fetch_array(db_query("SELECT short_name FROM {plugin_manager_queue} WHERE short_name = '%s'", $plugin))) {
+    db_query("INSERT INTO {plugin_manager_queue}(short_name) VALUES('%s')", $plugin);
+  }
+
+  return $row['title'];
+}
+
+function plugin_manager_remove_from_queue($plugin) {
+  db_query("DELETE FROM {plugin_manager_queue}
+            WHERE short_name = '%s'", $plugin);
+}
+
+function plugin_manager_get_queue() {
+  $result = db_query("SELECT short_name FROM {plugin_manager_queue}");
+  $queue = array();
+  while ($row = db_fetch_array($result)) {
+    $queue[$row['short_name']] = $row['short_name'];
+  }
+  return $queue;
+}
+
+function plugin_manager_clear_queue() {
+  db_query("DELETE FROM {plugin_manager_queue}");
+}
+
+function plugin_manager_ajax_queue() {
+  $queue = array();
+  $result = db_query("SELECT pmt.short_name, title, tag, links FROM {plugin_manager_queue} pmq LEFT JOIN {plugin_manager_repository} pmr ON pmq.short_name = pmr.short_name LEFT JOIN {plugin_manager_taxonomy} pmt ON pmr.short_name = pmt.short_name ORDER BY title, tag");
+  while ($row = db_fetch_array($result)) {
+    if (!$row['short_name'])continue;
+    $queue[$row['short_name']]['title'] = $row['title'];
+    $queue[$row['short_name']]['link'] = l(t("Project Page"), $row['links']);
+    $queue[$row['short_name']]['tag'] .= (isset($queue[$row['short_name']]['tag']) ? ', ' : '') . $row['tag'];
+  }
+  print drupal_to_js($queue);
+  exit(0);
+}
+
+function plugin_manager_ajax_queue_add() {
+  // Set the name of the plugin from post.  Otherwise die.
+  if (isset($_POST['plugin'])) {
+    $plugin = $_POST['plugin'];
+  }
+  else {
+    exit(0);
+  }
+
+  plugin_manager_add_to_queue($plugin);
+  plugin_manager_ajax_queue();
+  exit(0);
+}
+
+function plugin_manager_ajax_queue_remove() {
+  // Set the name of the plugin from post.  Otherwise die.
+  if (isset($_POST['plugin'])) {
+    $plugin = $_POST['plugin'];
+  }
+  else {
+    exit(0);
+  }
+
+  plugin_manager_remove_from_queue($plugin);
+  $queue = plugin_manager_get_queue();
+  echo count($queue);
+  exit(0);
+}
+
+function plugin_manager_ajax_queue_clear() {
+  // If it wasn't confirmed, then don't do it.
+  if (!isset($_POST['confirm'])) {
+    exit(0);
+  }
+
+  plugin_manager_clear_queue();
+  print drupal_to_js(array());
+  exit(0);
+}
+
+function plugin_manager_ajax_search_term($type = '', $term = '') {
+  // Make sure input was given.
+  if (empty($type) OR empty($term)) {
+    print drupal_to_js(array());
+    exit(0);
+  }
+
+  if (drupal_strtolower($type) == 'themes') {
+    $type = "AND tag = 'Themes'";
+  }
+  elseif (drupal_strtolower($type) == 'modules') {
+    $type = "AND tag != 'Themes'";
+  }
+  else {
+    $type = "";
+  }
+
+  $queue = array();
+  $result = db_query("SELECT pmr.short_name, title, tag, links FROM {plugin_manager_repository} pmr LEFT JOIN {plugin_manager_taxonomy} pmt ON pmr.short_name = pmt.short_name WHERE (pmr.short_name LIKE '%%%s%%' OR title LIKE '%%%s%%') $type ORDER BY title, tag", $term, $term);
+  while ($row = db_fetch_array($result)) {
+    $queue[$row['short_name']]['title'] = $row['title'];
+    $queue[$row['short_name']]['link'] = l(t("Project Page"), $row['links'], array('attributes'=>array('target'=>'_blank')));
+    if ($queue[$row['short_name']]['tag']!=$row['tag'])
+        $queue[$row['short_name']]['tag'] .= (isset($queue[$row['short_name']]['tag']) ? ', ' : '') . $row['tag'];
+  }
+  print drupal_to_js($queue);
+  exit(0);
+}
+
+function plugin_manager_ajax_search_tag($tag) {
+  // Make sure input was given.
+  if (empty($tag)) {
+    print drupal_to_js(array());
+    exit(0);
+  }
+
+  $queue = array();
+  $result = db_query("SELECT pmr.short_name, title, tag, links FROM {plugin_manager_repository} pmr LEFT JOIN {plugin_manager_taxonomy} pmt ON pmr.short_name = pmt.short_name WHERE tag LIKE '%s%%' ORDER BY title, tag", $tag);
+  while ($row = db_fetch_array($result)) {
+    $queue[$row['short_name']]['title'] = $row['title'];
+    $queue[$row['short_name']]['link'] = l(t("Project Page"), $row['links'], array('attributes'=>array('target'=>'_blank')));
+    $queue[$row['short_name']]['tag'] .= (isset($queue[$row['short_name']]['tag']) ? ', ' : '') . $row['tag'];
+  }
+  print drupal_to_js($queue);
+  exit(0);
+}
+
+function plugin_manager_ajax_search_letter($letter) {
+  // Make sure input was given.
+  if (empty($letter)) {
+    print drupal_to_js(array());
+    exit(0);
+  }
+
+  $queue = array();
+  $result = db_query("SELECT pmr.short_name, title, tag, links FROM {plugin_manager_repository} pmr LEFT JOIN {plugin_manager_taxonomy} pmt ON pmr.short_name = pmt.short_name WHERE title LIKE '%s%%' ORDER BY title, tag", $letter);
+  while ($row = db_fetch_array($result)) {
+    $queue[$row['short_name']]['title'] = $row['title'];
+    $queue[$row['short_name']]['link'] = l(t("Project Page"), $row['links'], array('attributes'=>array('target'=>'_blank')));
+    $queue[$row['short_name']]['tag'] .= (isset($queue[$row['short_name']]['tag']) ? ', ' : '') . $row['tag'];
+  }
+  print drupal_to_js($queue);
+  exit(0);
+}

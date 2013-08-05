@@ -1,0 +1,15 @@
+name = "Gitosis"
+description = "Automates gitosis configuration to manage user access to git repositories"
+core = 6.x
+package = Administration
+dependencies[] = content
+dependencies[] = text
+dependencies[] = og
+dependencies[] = sshkey
+
+; Information added by drupal.org packaging script on 2011-09-09
+version = "6.x-1.2"
+core = "6.x"
+project = "Gitosis"
+datestamp = "1315606903"
+

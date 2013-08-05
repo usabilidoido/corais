@@ -1,0 +1,208 @@
+<?php
+// $Id: comment_delete.module,v 1.1.2.2 2010/04/20 16:10:59 robphillips Exp $ 
+
+/**
+ * Implementation of hook_perm().
+ */
+function comment_delete_perm() {
+  return array(
+    'delete own comments',
+    'delete own comments at anytime',
+    'delete any comment',
+    'delete any comments at anytime',
+    'delete all comment replies',
+    'move all replies up',
+  );
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function comment_delete_menu() {
+  $items['admin/content/comment/deletion'] = array(
+    'title' => 'Deletion settings',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('comment_delete_settings_form'),
+    'access arguments' => array('administer comments'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'comment_delete.admin.inc',
+  );
+  
+  return $items;
+}
+
+/**
+ * Implementation of hook_menu_alter().
+ */
+function comment_delete_menu_alter(&$items) {
+  $items['comment/delete']['page callback'] = 'drupal_get_form';
+  $items['comment/delete']['page arguments'] = array('comment_delete_form');
+  $items['comment/delete']['access callback'] = 'comment_delete_access_check';
+  $items['comment/delete']['access arguments'] = array(2);
+  unset($items['comment/delete']['file']);
+}
+
+/**
+ * Checks if a user has access to delete a specific comment.
+ */
+function comment_delete_access_check($cid) {
+  if (empty($cid)) return FALSE;
+
+  global $user;
+  $comment = _comment_load($cid);
+  
+  // Determine if the deletion clock should be used.
+  $clock_expired = FALSE;
+  if ($clock = variable_get('comment_delete_clock', 0)) {
+    $clock_expired = (time() - $comment->timestamp) > $clock;
+  }
+  
+  // Check if user has permission to delete any comment.
+  if ((user_access('delete any comment') && !$clock_expired) || user_access('delete any comments at anytime')) {
+    return TRUE;
+  }
+  
+  // User must have delete own comments permission.
+  if ((user_access('delete own comments', $user) && !$clock_expired) || user_access('delete own comments at anytime')) {
+    if ($user->uid == $comment->uid) {
+      return TRUE;
+    }
+  }
+  
+  return FALSE;
+}
+
+/**
+ * Determin what reply actions the current user can take.
+ */
+function comment_delete_reply_actions() {
+  if (user_access('delete all comment replies')) {
+    $actions[0] = t('Delete all replies of the comment');
+  }
+  if (user_access('move all replies up')) {
+    $actions[1] = t('Move all replies up one level');
+  }  
+  $actions[2] = t('Delete only the comment, or it\'s text and the subject if it has replies');
+
+  return $actions;
+}
+
+/**
+ * Confirmation form for deleting a comment.
+ */
+function comment_delete_form($form_state, $cid) {  
+  $comment = _comment_load($cid);
+  
+  if ($comment->cid) { 
+    // Store the comment ID for the submit processor.
+    $form['cid'] = array(
+      '#type' => 'hidden',
+      '#value' => $cid,
+    );
+    
+    // Allow permissible users to determine how replies of this comment should be handled when
+    // it is deleted. Users without permissions to change this will use the default setting.
+    if ($actions = comment_delete_reply_actions()) {
+      $form['replies'] = array(
+        '#type' => 'select',
+        '#title' => t('Action for replies'),
+        '#description' => t('Specify how replies should be handled when deleting a comment.'),
+        '#options' => $actions,
+        '#required' => TRUE,
+        '#default_value' => variable_get('comment_delete_replies', 0),
+      );
+    }
+    else {
+      $form['replies'] = array(
+        '#type' => 'hidden',
+        '#value' => variable_get('comment_delete_replies', 0),
+      );
+    }
+
+    // Return the form as a confirmation.
+    $msg = t("Are you sure you want to delete the comment %title?", array('%title' => $comment->subject));
+    return confirm_form($form, $msg, "node/{$comment->nid}", NULL, t('Delete'));
+  }
+  
+  // Comment doesn't exist, could be due to a faulty link or someone beat them to the punch.
+  // Lets get them off this page and let them know the comment wasn't found.
+  else {
+    drupal_set_message(t('This comment no longer exists.'));
+    drupal_goto('');
+  }
+}
+
+/**
+ * Delete the comment and manage the replies using the appropiate action.
+ */
+function comment_delete_form_submit($form, &$form_state) {  
+  include_once(drupal_get_path('module', 'comment') .'/comment.admin.inc');
+  $comment = _comment_load($form_state['values']['cid']);
+  
+  // Delete the comment and all of it's replies.
+  if (!$form_state['values']['replies']) {
+    _comment_delete_thread($comment);
+    _comment_update_node_statistics($comment->nid);
+    drupal_set_message(t('The comment and all its replies have been deleted.'));
+  }
+  
+  // Delete the comment and move the replies up one level.
+  elseif ($form_state['values']['replies'] == 1) {
+    comment_delete_move_replies($comment);
+    _comment_delete_thread($comment);
+    _comment_update_node_statistics($comment->nid);
+    drupal_set_message(t("The comment has been deleted and it's replies have been moved up one level."));
+  }
+  
+  // Delete only this comment, or replace the subject/body of replies with a notice.
+  elseif ($form_state['values']['replies'] == 2) {
+    if (comment_num_replies($comment->cid)) {
+      db_query("UPDATE {comments} SET subject = '', comment = '%s' WHERE cid = %d", t('This comment has been deleted.'), $comment->cid);
+      drupal_set_message(t('The comment subject/body has been deleted, all replies will remain.'));
+    }
+    else {
+      _comment_delete_thread($comment);
+      _comment_update_node_statistics($comment->nid);
+      drupal_set_message(t('The comment has been deleted.'));
+    }
+  }
+  
+  cache_clear_all();
+  $form_state['redirect'] = "node/$comment->nid";
+}
+
+/**
+ * Moves replies of a comment up one level.
+ */
+function comment_delete_move_replies($comment, $old_cid = 0) {
+  $parent_id = $comment->pid;
+  $results = db_query("SELECT * FROM {comments} WHERE pid = %d", ($old_cid ? $old_cid : $comment->cid));
+  while ($edit = db_fetch_array($results)) {
+    $old_cid = $edit['cid'];
+    unset($edit['cid']);
+    $edit['pid'] = $parent_id;    
+    $new_cid = comment_save($edit);
+    $new_comment = _comment_load($new_cid);
+    comment_delete_move_replies($new_comment, $old_cid);
+  }
+}
+
+/**
+ * Implementation of hook_link().
+ */
+function comment_delete_link($type, $comment = NULL, $teaser = FALSE) {
+  $links = array();
+
+  if ($type == 'comment' && !user_access('administer comments')) {
+    if (node_comment_mode($comment->nid) == COMMENT_NODE_READ_WRITE) {
+      if (comment_delete_access_check($comment->cid)) {
+        $links['comment_delete'] = array(
+          'title' => t('delete'),
+          'href' => "comment/delete/$comment->cid"
+        );
+      }
+    }
+  }
+
+  return $links;
+}

@@ -1,0 +1,60 @@
+<?php
+/**
+ * Helper class to provide a functor as callback.
+ */
+class DataViewsBulkOperationsHelper {
+  var $table_name;
+  function __construct($table_name) {
+    $this->table_name = $table_name;
+  }
+  function load($oid) {
+    $handler = data_get_handler($this->table_name);
+    if (!$handler) return NULL;
+    $table = data_get_table($this->table_name);
+    if (!$table) return NULL;
+    $schema = $table->get('table_schema');
+    $objects = $handler->load(array($schema['primary key'][0] => $oid));
+    return (object)$objects[0];
+  }
+};
+
+/**
+ * Implementation of hook_views_bulk_operations_object_info().
+ */
+function data_vbo_views_bulk_operations_object_info() {
+  $object_info = array();
+  foreach (data_get_all_tables() as $table_name => $table) {
+    $schema = $table->get('table_schema');
+    $object_info[$table_name] = array(
+      'type' => 'data',
+      'base_table' => $table_name,
+      'load' => array(new DataViewsBulkOperationsHelper($table_name), 'load'),
+      'oid' => $schema['primary key'][0], // TODO handle more than one PK in VBO
+      'title' => $schema['primary key'][0], // TODO find a more suitable title
+    );
+  }
+  return $object_info;
+}
+
+/**
+ * Implementation of hook_action_info().
+ */
+function data_vbo_action_info() {
+  return array(
+    'data_delete_action' => array(
+      'type' => 'data',
+      'description' => t('Delete data record'),
+      'configurable' => FALSE,
+      'behavior' => array('deletes_node_property'),
+    ),
+  );
+}
+
+function data_delete_action($datum, $context) {
+  if (!isset($context['object_info'])) return;
+  $object_info = $context['object_info'];
+  $handler = data_get_handler($object_info['base_table']);
+  if (!$handler) return;
+  $handler->delete(array($object_info['oid'] => $datum->{$object_info['oid']})); 
+}
+

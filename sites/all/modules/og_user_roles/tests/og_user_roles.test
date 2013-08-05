@@ -1,0 +1,334 @@
+<?php
+
+/**
+ * @file
+ * OG User Roles tests.
+ */
+
+include_once drupal_get_path('module', 'og') .'/tests/og_testcase.php';
+
+class OgUserRolesTestCase extends OgTestCase {
+  function setUp() {
+    parent::setUp('views', 'og', 'og_views', 'og_user_roles');
+
+    // Create an administrative user to configure permissions, users, content
+    // types, nodes, and groups.
+    $this->admin_user = $this->drupalCreateUser(array(
+      'administer permissions',
+      'administer users',
+      'administer content types',
+      'administer nodes',
+      'administer organic groups',
+      // Required for our OGUR privilege escalation test block.
+      'administer blocks',
+      // And our own. Only use $this->admin_user in setUp().
+      'configure member roles',
+      'override group default role',
+    ));
+    $this->drupalLogin($this->admin_user);
+
+    // Create content types for group nodes and group posts.
+    $this->og_group_type = $this->drupalCreateContentType();
+    variable_set('og_content_type_usage_' . $this->og_group_type->name, 'group');
+    $this->og_post_type = $this->drupalCreateContentType();
+    variable_set('og_content_type_usage_' . $this->og_post_type->name, 'group_post');
+
+    // Create two groups and one post in each.
+    $this->gid1 = $this->addOgGroup($this->og_group_type->name);
+    $this->gid2 = $this->addOgGroup($this->og_group_type->name);
+    $this->nid1 = $this->addOgPost($this->og_post_type->name, array($this->gid1));
+    $this->nid2 = $this->addOgPost($this->og_post_type->name, array($this->gid2));
+
+    // Rebuild the menu so the new content types will appear in the menu.
+    // @todo Analyze why this is required and fix the cause.
+    menu_rebuild();
+
+    // Enable group details block.
+    // @todo
+
+    // Add and enable a custom block for trivial access checking.
+    $edit = array(
+      'info' => 'OGUR privilege escalation',
+      'title' => 'OGUR privilege escalation',
+      'body' => 'OGUR privilege escalation',
+    );
+    $this->drupalPost('admin/build/block/add', $edit, t('Save block'));
+    $this->block = db_result(db_query("SELECT bid FROM {boxes} WHERE info = '%s'", $edit['info']));
+    $edit = array(
+      "block_$this->block[region]" => 'right',
+    );
+    $this->drupalPost('admin/build/block', $edit, t('Save blocks'));
+  }
+
+  /**
+   * Create a user role and return the new role id.
+   *
+   * @param $name
+   *   The name of the user role to create.
+   */
+  protected function drupalCreateUserRole($name) {
+    $edit = array(
+      'name' => $name,
+    );
+    $this->drupalPost('admin/user/roles', $edit, 'Add role');
+    $this->assertText($name, t('New role %name found.', array('%name' => $name)));
+    $rid = db_result(db_query("SELECT rid FROM {role} WHERE name = '%s'", $edit['name']));
+    $this->assertTrue($rid > 0, t('New role %name exists in database.', array('%name' => $name)));
+    return $rid;
+  }
+
+  /**
+   * Assign global user roles to a user account.
+   *
+   * @param $account
+   *   The user account to assign user roles to.
+   * @param $roles
+   *   A list of user role IDs to assign.
+   */
+  protected function drupalAssignUserRoles($account, $roles) {
+    $edit = array();
+    foreach ($roles as $rid) {
+      $edit["roles[$rid]"] = 1;
+    }
+    $this->drupalPost('user/' . $account->uid . '/edit', $edit, t('Save'));
+    $this->drupalGet('user/' . $account->uid . '/edit');
+    foreach ($edit as $field => $value) {
+      $this->assertFieldByName($field, $value);
+    }
+  }
+}
+
+/**
+ * Tests run-time privilege escalation with OG User Roles.
+ */
+class OgUserRolesGroupMemberTestCase extends OgUserRolesTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Group member functionality',
+      'description' => 'Tests privilege escalation for group members.',
+      'group' => 'Organic groups user roles',
+    );
+  }
+
+  function setUp() {
+    parent::setUp('views', 'og', 'og_views', 'og_user_roles');
+
+    // Enable revisions for group post content type.
+    $edit = array(
+      'node_options[revision]' => 1,
+    );
+    $type_url_str = str_replace('_', '-', $this->og_post_type->name);
+    $this->drupalPost('admin/content/node-type/' . $type_url_str, $edit, t('Save content type'));
+
+    // Create a web user.
+    $this->web_user = $this->drupalCreateUser(array('access comments', 'access content'));
+
+    // Subscribe web user to first group.
+    $result = module_invoke('og', 'subscribe_user', $this->gid1, $this->web_user);
+    $this->assertTrue(isset($result['type']) && $result['type'] == 'subscribed', 'Web user subscribed to organic group.');
+
+    // Create role for privilege escalation.
+    $this->role_ogur = $this->drupalCreateUserRole('ogur');
+
+    // Allow group admins to assign 'ogur' role.
+    $edit = array(
+      'og_user_roles_roles_' . $this->og_group_type->name . '[' . $this->role_ogur . ']' => 1,
+    );
+    $this->drupalPost('admin/og/og_user_roles', $edit, 'Save configuration');
+
+    // Allow users in role 'ogur' to create/edit/delete stories, view revisions,
+    // and post comments.
+    $edit = array(
+      $this->role_ogur . '[create ' . $this->og_post_type->name . ' content]' => 1,
+      $this->role_ogur . '[delete any ' . $this->og_post_type->name . ' content]' => 1,
+      $this->role_ogur . '[edit any ' . $this->og_post_type->name . ' content]' => 1,
+      $this->role_ogur . '[view revisions]' => 1,
+      $this->role_ogur . '[post comments]' => 1,
+      $this->role_ogur . '[post comments without approval]' => 1,
+    );
+    $this->drupalPost('admin/user/permissions', $edit, t('Save permissions'));
+  }
+
+  /**
+   * Test user role escalation.
+   */
+  function testUserRoleEscalation() {
+    // Assign role 'ogur' to web user in first group.
+    $edit = array(
+      'user_roles[' . $this->web_user->uid . '][' . $this->role_ogur . ']' => 1,
+    );
+    $this->drupalPost('og/users/' . $this->gid1 . '/roles', $edit, 'Save');
+    $this->assertText('The changes have been saved.', 'Role ogur was assigned to user.');
+
+    // Load group posts.
+    $node1 = node_load($this->nid1);
+    $node2 = node_load($this->nid2);
+
+    // Verify that group posts are displayed on front page.
+    $this->drupalGet('');
+    $this->assertText($node1->title, 'First group post found on front page.');
+    $this->assertText($node2->title, 'Second group post found on front page.');
+
+    // Log in web user.
+    $this->drupalLogin($this->web_user);
+
+    // Verify that user is not permitted to create content.
+    $this->assertNoLink('Create content');
+    // Verify that user can access both group posts.
+    $this->drupalGet('');
+    $this->assertText($node1->title, 'User can access first group post.');
+    $this->assertText($node2->title, 'User can access second group post.');
+
+    // Verify that user can NOT edit group post belonging to second group.
+    $this->drupalGet('node/' . $node2->nid);
+    $this->assertNoLink('Edit');
+    $this->assertNoLink('Revisions');
+
+    // Verify that user can edit group post belonging to first group.
+    $this->drupalGet('node/' . $node1->nid);
+    $this->clickLink('Edit');
+    $this->drupalPost(NULL, array(), 'Save');
+    $t_args = array('@type' => $this->og_post_type->name, '%title' => $node1->title);
+    $this->assertRaw(t('@type %title has been updated.', $t_args), 'User can update post in group.');
+
+    // Verify that user can access revisions for first group post.
+    $this->clickLink('Revisions');
+  }
+
+  /**
+   * Test default user role for new members per group.
+   */
+  function testGroupDefaultUserRole() {
+    // Create and log in a group administrative user with content permissions.
+    $group_user = $this->drupalCreateUser(array(
+      'access content',
+      'administer nodes',
+    ));
+    $this->drupalLogin($group_user);
+
+    // Create a new group and verify group admin user can not modify default
+    // role for new members setting.
+    $this->drupalGet('node/' . $this->gid1 . '/edit');
+    $this->assertNoText(t('Default role for new members:'), 'Group admin user can not override group default role.');
+
+    // Log in admin user.
+    $this->drupalLogin($this->admin_user);
+
+    // Edit group gid2 and configure the group default role for new members.
+    $edit = array();
+    $edit['og_user_roles_default_role'] = $this->role_ogur;
+    $this->drupalPost('node/' . $this->gid2 . '/edit', $edit, t('Save'));
+
+    // Create another web user.
+    $this->web_user = $this->drupalCreateUser(array('access comments', 'access content'));
+
+    // Subscribe web user to group gid1 which has group-wide default user role.
+    $result = module_invoke('og', 'subscribe_user', $this->gid1, $this->web_user);
+    $this->assertTrue(isset($result['type']) && $result['type'] == 'subscribed', 'Web user subscribed to organic group.');
+
+    // Subscribe web user to group gid2 which has group specific default user role.
+    $result = module_invoke('og', 'subscribe_user', $this->gid2, $this->web_user);
+    $this->assertTrue(isset($result['type']) && $result['type'] == 'subscribed', 'Web user subscribed to organic group.');
+
+    // Load group posts.
+    $node2 = node_load($this->nid2);
+
+    // Log in web user.
+    $this->drupalLogin($this->web_user);
+
+    // Verify that user cannot edit group post belonging to group gid1.
+    $this->drupalGet('node/' . $this->nid1);
+    $this->assertNoLink('Edit');
+
+    // Verify that user can edit group post belonging to group gid2.
+    $this->drupalGet('node/' . $this->nid2);
+    $this->assertLink('Edit');
+    $this->clickLink('Edit');
+    $this->drupalPost(NULL, array(), 'Save');
+    $t_args = array('@type' => $this->og_post_type->name, '%title' => $node2->title);
+    $this->assertRaw(t('@type %title has been updated.', $t_args), 'User can update post in group.');
+  }
+}
+
+/**
+ * Tests group administrator functionality.
+ */
+class OgUserRolesGroupAdminTestCase extends OgUserRolesTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Group administrator functionality',
+      'description' => 'Tests privilege escalation for group administrators.',
+      'group' => 'Organic groups user roles',
+    );
+  }
+
+  /**
+   * Tests assignment of default group admin roles.
+   */
+  function testGlobalDefaultGroupRoles() {
+    // Create a default group admin role.
+    $this->default_admin_role = $this->drupalCreateUserRole('default_admin_role');
+    // Enable our privilege escalation test block for default admin role.
+    $edit = array(
+      "roles[$this->default_admin_role]" => 1,
+    );
+    $this->drupalPost("admin/build/block/configure/block/$this->block", $edit, t('Save block'));
+
+    // Create a role assignable to group members.
+    $this->member_role = $this->drupalCreateUserRole('member_role');
+
+    // Assign default group admin role and make both roles assignable.
+    // @todo Also add a default member role here.
+    $edit = array(
+      "og_user_roles_roles_{$this->og_group_type->type}[$this->member_role]" => 1,
+      'og_user_roles_default_admin_role' => $this->default_admin_role,
+    );
+    $this->drupalPost('admin/og/og_user_roles', $edit, t('Save configuration'));
+
+    // Add a user and subscribe it to the group.
+    $this->group_admin = $this->drupalCreateUser();
+    $this->drupalLogin($this->group_admin);
+    $this->assertNoText('OGUR privilege escalation');
+    $this->drupalGet("node/$this->gid1");
+    $this->assertNoText('OGUR privilege escalation');
+    $this->drupalPost("og/subscribe/$this->gid1", array(), t('Join'));
+    $this->drupalGet("og/users/$this->gid1");
+    // @todo err. OG should throw a 403 here?!?
+    $this->assertResponse(404);
+    $this->drupalGet("og/users/$this->gid1/roles");
+    $this->assertResponse(403);
+
+    // Make the new member group admin.
+    $this->drupalLogin($this->admin_user);
+    $this->drupalPost("og/create_admin/$this->gid1/{$this->group_admin->uid}", array(), t('Confirm'));
+
+    // Verify group admin's permissions.
+    $this->drupalLogin($this->group_admin);
+    $this->assertNoText('OGUR privilege escalation');
+    $this->drupalGet("node/$this->gid1");
+    $this->assertText('OGUR privilege escalation');
+
+    // Assign an additional role to group admin.
+    $this->drupalLogin($this->admin_user);
+    $edit = array(
+      "user_roles[{$this->group_admin->uid}][$this->member_role]" => 1,
+    );
+    $this->drupalPost("og/users/$this->gid1/roles", $edit, t('Save'));
+    $this->assertFieldByName("user_roles[{$this->group_admin->uid}][$this->member_role]", TRUE);
+
+    // Verify that assigning an additional role does not remove default roles.
+    $this->drupalLogin($this->group_admin);
+    $this->assertNoText('OGUR privilege escalation');
+    $this->drupalGet("node/$this->gid1");
+    $this->assertText('OGUR privilege escalation');
+
+    // Unassign an additional role from group admin.
+    $this->drupalLogin($this->admin_user);
+    $edit = array(
+      "user_roles[{$this->group_admin->uid}][$this->member_role]" => FALSE,
+    );
+    $this->drupalPost("og/users/$this->gid1/roles", $edit, t('Save'));
+    $this->assertFieldByName("user_roles[{$this->group_admin->uid}][$this->member_role]", FALSE);
+  }
+}
+

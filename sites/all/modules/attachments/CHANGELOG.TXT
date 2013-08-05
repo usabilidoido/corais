@@ -1,0 +1,38 @@
+// $Id: CHANGELOG.TXT,v 1.4 2010/06/26 14:02:15 adaddinsane Exp $
+
+File Attachments Utilities 6.x-1.4, 2010-06-21
+----------------------------------------------
+#832770 by adaddinsane: Added the Stylistics dependency to the .info file (bug fix)
+#834700 by adaddinsane: Added the ability to switch the Javascript replacement
+                        on and off, also change the main descriptive text. (feature)
+#827840 by adaddinsane: Allow the title of the attachments to be changed. (feature)
+#799716 by adaddinsane: Generalise the display styles to allow other modules to implement. (feature)
+
+by adaddinsane: Separate the settings pages because there's more on them (feature)
+by adaddinsane: Minor spelling and punctuation issues (bug fix)
+
+
+File Attachments Utilities 6.x-1.3, 2010-06-20
+----------------------------------------------
+#832236 by adaddinsane: Fixed bug where JS files not reloaded on form error by adding dependency on Stylistics module. (Bug fix)
+#807538 by adaddinsane: Allow different numbers of files attached to different node types. (feature)
+
+by adaddinsane: Add dependency on file uploads modules. (bug fix)
+by adaddinsane: Add DIV wrapper around file extensions to prevent jumping when loading file. (UI)
+
+File Attachments Utilities 6.x-1.1, 2010-05-31
+----------------------------------------------
+#807538 by adaddinsane: File attachment limit by content type
+by adaddinsane: In attachments.info added dependency on upload module
+by adaddinsane: Added "maxfiles" information in improved upload help text
+by adaddinsane: Added "maxfiles" information to limit reached message
+by adaddinsane: Improved node form recognition code in hook_form_alter interception
+=======
+Attachments 6.x-1.1, 2010-05-31
+-------------------------------
+#807538 by adaddinsane: File attachment limit by content type
+by adaddinsane: In attachments.info added dependency on upload module
+by adaddinsane: Added "maxfiles" information in improved upload help text
+by adaddinsane: Added "maxfiles" information to limit reached message
+by adaddinsane: Improved node form recognition code in hook_form_alter interception
+>>>>>>> 1.3

@@ -1,0 +1,200 @@
+
+Spaces 3.x API
+--------------
+The following is an overview of using the Spaces API.
+
+
+Basic usage & concepts
+----------------------
+This section is for developers who are using Spaces simply in the context of
+site building and don't plan to create any new space types or controllers
+(...yet).
+
+
+### The active space
+
+On a single page load, only one space (or no space) may be active. Spaces can
+be activated through a variety of means, e.g. PURL callback or `hook_init()`,
+but they generally must happen early enough in the Drupal bootstrap to be before
+the main page callback is executed.
+
+What a space activation looks like in code:
+
+    // Loads space class for user uid = 5.
+    $space = spaces_load('user', 5);
+
+    // Makes this the active space for the page.
+    $space->activate();
+
+You can retrieve the active space later in the page load at any point:
+
+    // Retrieve the active space, and use it to set the page title.
+    $space = spaces_get_space();
+    drupal_set_title($space->title());
+
+
+### Spaces that use PURL
+
+Two of the space types included in Spaces make use of PURL for their activation
+(OG, taxonomy). When working with these spaces, you will want to be familiar
+with the PURL API for doing things like redirecting between spaces, creating
+links that leave or enter a space, and so forth. Please consult the PURL
+`README.txt`.
+
+
+### Checking access
+
+Each space can have a different configuration for how features and settings can
+be accessed. For example, group spaces for private groups (`og_private`) require
+that a user is a member of that group before she may access any of its features.
+
+You can check for feature access on a specific space:
+
+    // Check that the current user can view the spaces_blog feature for this
+    // space
+    $space->access_feature('view', 'space_blog');
+
+    // Check that the current user can create a node type associated with
+    // spaces_blog feature for this space
+    $space->access_feature('create', 'spaces_blog');
+
+    // Function wrapper around performing equivalent checks for the current
+    // active space, useful for menu access callbacks
+    spaces_access_feature('view', 'spaces_blog');
+
+Other methods for similar checks can be provided by each space type. In each
+pair, the first can be run against any space object while the
+equivalent will call the equivalent method for only the current active space.
+
+- `$space->access_space()` and `spaces_access_space()`: Can the current user
+  access view this space at all when it is active?
+- `$space->access_admin()` and `spaces_access_admin()`: Can the current user
+  administer this space, e.g. enable or disable features.
+- `$space->access_user()` and `spaces_access_user()`: Can the current user view
+  the specified user account in this space?
+
+
+### Using controllers
+
+Much of Spaces overrides are handled transparently in Drupal UI elements and API
+functions. However, some times you need to get at a specific value or check
+whether, for example, the value you got from `variable_get()` originated from
+the space, its preset, or the site. Controllers provides methods for doing this.
+
+The space object will have all of the available controller plugins available
+under `$space->controllers`. Each controller provides three methods:
+
+
+`$controller->get($id = NULL, $environment = NULL)`
+
+- `$id` refers to the name of the object you're getting. Example:
+  `site_frontpage`.
+- `$environment` may be either `original`, `preset`, or `space` or `NULL`. If an
+  environment is specified, the value for that specific environment will
+  be used. If no environment is provided, the controller will perform a
+  cascade (e.g. if there is no space value, preset will be checked, if there is
+  no preset value, original will be checked.)
+
+Examples:
+
+    // Get an inherited value for the 'site_frontpage' variable.
+    $space->controllers->variable->get('site_frontpage');
+
+    // Get this space's override value for 'site_frontpage'.
+    $space->controllers->variable->get('site_frontpage', 'space');
+
+    // Get all contexts in this space's preset.
+    $space->controllers->context->get(NULL, 'preset');
+
+
+`$controller->set($id, $value)`
+
+- `$id` refers to the name of the object you'd like to override for this space.
+  Example: `site_frontpage`.
+- `$value` is the value that you would like to set for this object. Example:
+ `node`.
+
+
+Examples:
+
+    // Set the site frontpage to 'dashboard' for this space.
+    $space->controllers->variable->set('site_frontpage', 'dashboard');
+
+    // Set a context override for this space.
+    $context = context_load('foo');
+    $space->controllers->context->set('bar', $context);
+
+
+`$controller->del($id)`
+
+- `$id` refers to the name of the override you'd like to remove in this space.
+  Example: `site_frontpage`.
+
+Examples:
+
+    // Clear out the site frontpage override for this space.
+    $space->controllers->variable->del('site_frontpage');
+
+
+Adding a space type or controller plugin
+----------------------------------------
+Both space types and controllers utilize the CTools plugins API. In order
+to add a new plugin fro your module, follow these steps:
+
+1. Implement `hook_ctools_plugin_api()` in your module. This declares that your
+  module is API compatible with Spaces 3.
+
+        function mymodule_ctools_plugin_api($module, $api) {
+          if ($module == 'spaces' && $api == 'plugins') {
+            return array('version' => 3);
+          }
+        }
+
+2. Implement `hook_spaces_plugins()` to define your plugins, classes, and class
+  hierarchy.
+
+        function mymodule_spaces_plugins() {
+          $plugins = array();
+          $plugins['mymodule_space_foo'] = array(
+            'handler' => array(
+              'path' => drupal_get_path('module', 'mymodule') .'/plugins',
+              'file' => 'mymodule_space_foo.inc',
+              'class' => 'mymodule_space_foo',
+              'parent' => 'space',
+            ),
+          );
+          return $plugins;
+        }
+
+3. Implement `hook_spaces_registry()` to define your space types and/or
+  controllers and map them to plugins.
+
+        function mymodule_spaces_registry() {
+          return array(
+            'types' => array(
+              'foo' => array(
+                'title' => t('The foo space'),
+                'plugin' => 'mymodule_space_foo',
+              ),
+            ),
+          );
+        }
+
+4. Write your space type or controller plugin class. It's best to look at one of
+  the included plugins as a starting point.
+
+
+Replacing or extending existing plugins
+---------------------------------------
+You can replace a space or controller plugin with your own plugin class using
+`hook_spaces_registry_alter()`:
+
+    function mymodule_spaces_registry_alter(&$registry) {
+      if (!empty($registry['types']['og'])) {
+        $registry['type']['og']['plugin'] = 'mymodule_space_og_improved';
+      }
+    }
+
+This entry would swap out the default og space type plugin for a custom one
+provided by `mymodule`. Note that any replacement plugins must have an entry in
+`hook_spaces_plugins()`.

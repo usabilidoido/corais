@@ -1,0 +1,468 @@
+<?php
+// $Id: imagepicker_postlet.module,v 1.1.2.6 2010/10/06 12:03:49 hutch Exp $
+// $Name: DRUPAL-6--2-10 $
+// for D6. Version 2
+/**
+ * @file
+ * Enables upload of images using Postlet java applet.
+ * http://www.postlet.com/
+ * http://sourceforge.net/projects/postlet/
+ */
+
+/**
+ * Implementation of hook_help().
+ */
+function imagepicker_postlet_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#imagepicker':
+      $output = '<p>'. t('Adds an advanced image upload form using java.') .'</p>';
+      return $output;
+  }
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function imagepicker_postlet_menu() {
+  $items = array();
+  // admin
+  $items[IMAGEPICKER_ADMIN_PATH .'/images/user/%imagepicker_id/upload_postlet'] = array(
+    'title'            => 'Multi Upload',
+    'description'      => 'Browse user images.',
+    'access arguments' => array('administer imagepicker'),
+    'page callback'    => 'imagepicker_postlet_admin_page',
+    'page arguments'   => array(5),
+    'type'             => MENU_LOCAL_TASK,
+    'weight'           => -5
+  );
+  //callback from postlet in admin
+  $items['imagepicker_postlet/admin/%imagepicker_id/process'] = array(
+    'title'            => 'Multi Upload process',
+    'page callback'    => 'imagepicker_postlet_process',
+    'page arguments'   => array(1, 2),
+    'access arguments' => array('administer imagepicker'),
+    'type'             => MENU_CALLBACK,
+  );
+
+  // My imagepicker and iframe
+  $postlet_ok = imagepicker_postlet_check_ok();
+  if ($postlet_ok) {
+    if (variable_get('imagepicker_account_enabled', 1)) {
+      $items['user/%imagepicker_uid/imagepicker/upload_postlet'] = array(
+        'title'            => 'Multi Upload',
+        'description'      => 'Upload images with java applet.',
+        'page callback'    => 'imagepicker_postlet_user_page',
+        'access arguments' => array('access own imagepicker'),
+        'type'             => MENU_LOCAL_TASK,
+        'weight'           => -8
+      );
+      //callback from postlet in user
+      $items['imagepicker_postlet/user/%imagepicker_uid/process'] = array(
+        'title'            => 'Multi Upload process',
+        'page callback'    => 'imagepicker_postlet_process',
+        'page arguments'   => array(1, 2),
+        'access arguments' => array('access own imagepicker'),
+        'type'             => MENU_CALLBACK,
+      );
+    }
+    // iframe
+    $items['imagepicker/upload_postlet'] = array(
+      'title'            => 'Multi Upload',
+      #'page callback'    => 'imagepicker_postlet_page',
+      'page callback'    => 'imagepicker_box',
+      'access arguments' => array('use imagepicker'),
+      'type'             => MENU_LOCAL_TASK,
+      'weight'           => 1,
+    );
+    //callback from postlet in iframe
+    $items['imagepicker_postlet/iframe/%imagepicker_uid/process'] = array(
+      'title'            => 'Multi Upload process',
+      'page callback'    => 'imagepicker_postlet_process',
+      'page arguments'   => array(1, 2),
+      'access arguments' => array('use imagepicker'),
+      'type'             => MENU_CALLBACK,
+      );
+  }
+  return $items;
+}
+
+/**
+ * callback from My imagepicker
+ */
+function imagepicker_postlet_user_page() {
+  $content = imagepicker_postlet_upload('user');
+  return $content;
+}
+
+/**
+ * callback from iframe
+ */
+function imagepicker_postlet_page() {
+  $content = theme('imagepicker_iframe', imagepicker_postlet_upload('iframe'));
+  return $content;
+}
+
+/**
+ * callback from admin/settings/imagepicker
+ */
+function imagepicker_postlet_admin_page($account) {
+  if ($account) {
+    $user = user_load(array('uid' => $account));
+  }
+  module_load_include('inc', 'imagepicker', 'imagepicker.admin');
+  $content .= drupal_get_form('imagepicker_user_search_form', 'images');
+  $content .= '<p>'. t('Managing images for ') . ($user->name ? l($user->name, "user/". $user->uid) : 'All') .'</p>';
+  $content .= imagepicker_postlet_upload('admin', $user);
+  return $content;
+}
+
+/**
+ * Function to display the postlet applet
+ *
+ * @param $path
+ *   admin, user or iframe
+ * @param $account
+ *   Optional, used by admin
+ * @return
+ *   Returns the themed applet.
+ */
+function imagepicker_postlet_upload($path, $account = FALSE) {
+  global $base_url;
+  $label = "";
+  $help = "";
+  switch ($path) {
+    case 'admin':
+      if ($account) {
+        $user = $account;
+      }
+      else {
+        global $user;
+      }
+      $endpage = "$base_url/". IMAGEPICKER_ADMIN_PATH ."/images/user/". $user->uid ."/browse";
+      $destination = "$base_url/imagepicker_postlet/admin/". $user->uid ."/process";
+      $label = t('Upload files for %name', array('%name' => $user->name));
+      break;
+    case 'user':
+      global $user;
+      $endpage = "$base_url/user/". $user->uid ."/imagepicker/images/browse";
+      $destination = "$base_url/imagepicker_postlet/user/". $user->uid ."/process";
+      break;
+    case 'iframe':
+      global $user;
+      $endpage = "";
+      $destination = "$base_url/imagepicker_postlet/iframe/". $user->uid ."/process";
+      break;
+  }
+
+  $ret = _imagepicker_quota_check($path, $account);
+  $quota_ok = $ret[0];
+  $message1 = $ret[1];
+  $message2 = $ret[2];
+  $form = '';
+
+  if ($quota_ok) {
+    // get some defaults
+    $maxthumbsize = variable_get('imagepicker_default_thumbnail_size', 100);
+    $scaleto = variable_get('imagepicker_default_scale', FALSE);
+    $watermark = FALSE;
+    if ( imagepicker_image_check_functions(TRUE) && variable_get('imagepicker_watermark_enable', 0)) {
+      if ( variable_get('imagepicker_watermark_image', '')) {
+        $watermark = TRUE;
+      }
+      elseif ($user->imagepicker_watermark_enable && ($user->imagepicker_watermark_image ? $user->imagepicker_watermark_image : FALSE) ) {
+        $watermark = TRUE;
+      }
+    }
+    $width = variable_get('imagepicker_postlet_width', "600");
+    $height = variable_get('imagepicker_postlet_height', "175");
+    $url = url(drupal_get_path('module', 'imagepicker_postlet') .'/postlet/postlet.jar', array('absolute' => TRUE));
+    drupal_add_css(IMAGEPICKER_PATH .'/imagepicker.css');
+    drupal_add_css(drupal_get_path('module', 'imagepicker_postlet') .'/imagepicker_postlet.css');
+    $form = theme('imagepicker_postlet_view', $url, $destination, $endpage, $maxthumbsize, $scaleto, $watermark, $width, $height);
+  }
+  return theme('imagepicker_quota_message', $message1, $message2, $form, $label, $help);
+}
+
+/**
+ * Function to process the postlet applet callbacks
+ *
+ * @param $path
+ *   Can be admin, user or iframe.
+ * @param $account
+ *   Optional, used by admin.
+ * @return
+ *   None.
+ */
+function imagepicker_postlet_process($path, $account = FALSE) {
+  if ($path == 'admin' && $account) {
+    $user = user_load(array('uid' => $account));
+    $userdir = array('uid' => $user->uid, 'name' => $user->name);
+  }
+  else {
+    global $user;
+    $userdir = TRUE;
+  }
+  module_load_include('inc', 'imagepicker', 'imagepicker.upload');
+
+  $destdir = imagepicker_get_path(FALSE, $userdir);
+  $thumbsdir = $destdir . IMAGEPICKER_THUMBS_DIR;
+  $browserdir = $destdir . IMAGEPICKER_BROWSER_DIR;
+  $origdir = $destdir . IMAGEPICKER_ORIG_DIR;
+
+  if (file_check_directory($destdir, TRUE)
+    && file_check_directory($thumbsdir, TRUE)
+    && file_check_directory($browserdir, TRUE)
+    && file_check_directory($origdir, TRUE)
+    ) {
+
+    // clear out the noisy 'created' messages
+    drupal_get_messages('status', TRUE);
+    // Add DIRECTORY_SEPARATORS here because drupals' functions remove trailing slashes
+    $destdir .= DIRECTORY_SEPARATOR;
+    $thumbsdir = $thumbsdir . DIRECTORY_SEPARATOR;
+    $browserdir = $browserdir . DIRECTORY_SEPARATOR;
+    $origdir = $origdir . DIRECTORY_SEPARATOR;
+    $maxthumbsize = variable_get('imagepicker_default_thumbnail_size', 100);
+    $scaleto = variable_get('imagepicker_default_scale', FALSE);
+    $watermark = FALSE;
+    if ( imagepicker_image_check_functions(TRUE) && variable_get('imagepicker_watermark_enable', 0)) {
+      if ( variable_get('imagepicker_watermark_image', '')) {
+        $watermark = TRUE;
+      }
+      elseif ($user->imagepicker_watermark_enable && ($user->imagepicker_watermark_image ? $user->imagepicker_watermark_image : FALSE) ) {
+        $watermark = TRUE;
+        }
+    }
+
+    // $destination gets altered in imagepicker_copy_uploaded_file to give us the final path + name
+    $file = basename($_FILES['userfile']['name']);
+    $destination = $origdir;
+
+    // save the original and use that from here on
+    $imagemoved = imagepicker_postlet_copy_uploaded_file($destination);
+    if ( $imagemoved ) {
+      // $destination has been changed in imagepicker_copy_uploaded_file()
+      // to point to the new file
+      $file = basename($destination);
+      $source = $origdir . $file;
+      if ($scaleto) {
+        $imagescaled = imagepicker_scale_image($source, $destdir . $file, $scaleto);
+      }
+      else {
+        // no scaling, save direct from $origdir to $destdir
+        $res = file_copy($source, $destdir, FILE_EXISTS_RENAME);
+      }
+    }
+
+    // if watermark is enabled just apply to destdir image, not orig or the thumbs
+    if ($watermark && ! imagepicker_watermark_process($destdir . $file, $user)) {
+      watchdog('imagepicker_postlet', 'Error while watermarking an uploaded image.', WATCHDOG_ERROR);
+    }
+
+    if (!$scaleto && $imagemoved || $scaleto && $imagescaled) {
+
+      // not sure why this has to be restated, but if not done the thumbs
+      // get wmarked too when not scaling image above
+      $source = $origdir . $file;
+      if (imagepicker_scale_image($source, $thumbsdir . $file, $maxthumbsize)) {
+        imagepicker_scale_image($source, $browserdir . $file, variable_get('imagepicker_default_browser_thumbnail_size', 100));
+        $title = '';
+        $description = '';
+        $nextimgid = imagepicker_insert_image($user->uid, $file, $title, $description);
+        if ($nextimgid) {
+          #drupal_set_message(t('Image was successfully uploaded.'));
+        }
+        else {
+          file_delete($thumbsdir . $file);
+          file_delete($browserdir . $file);
+          file_delete($origdir . $file);
+          file_delete($destdir . $file);
+          watchdog('imagepicker_postlet', 'Error while saving information to database for uploaded image.', WATCHDOG_ERROR);
+        }
+      }
+      else {
+        watchdog('imagepicker_postlet', 'Error while creating a thumbnail for uploaded image.', WATCHDOG_ERROR);
+      }
+    }
+    else {
+      if (!$scaleto && !$imagemoved) {
+        watchdog('imagepicker_postlet', 'Error while moving uploaded file to its destination.', WATCHDOG_ERROR);
+
+      }
+      else {
+        watchdog('imagepicker_postlet', 'Error while scaling uploaded file.', WATCHDOG_ERROR);
+      }
+    }
+  }
+  else {
+    watchdog('imagepicker_postlet', 'Unable to create a directory structure for your images.', WATCHDOG_ERROR);
+  }
+
+  // we exit as this is a json call
+  exit;
+
+}
+
+function imagepicker_postlet_copy_uploaded_file(&$destination) {
+  $source = $_FILES['userfile']['tmp_name'];
+
+  if (file_copy($source, $destination, FILE_EXISTS_RENAME)) {
+    // Fix bug in drupal's file_copy function which uses '/' instead of
+    // DIRECTORY_SEPARATOR for making directories. This causes problems on
+    // Windows mashines.
+    $source = str_replace('/', DIRECTORY_SEPARATOR, $source);
+
+    $file = imagepicker_postlet_get_uploaded_file_name($destination);
+    $destination = $destination . $file;
+
+    return @rename($source, $destination);
+  }
+  return FALSE;
+}
+
+function imagepicker_postlet_get_uploaded_file_name($destination) {
+
+  $file = $_FILES['userfile']['name'];
+  $fileext = imagepicker_postlet_get_uploaded_file_extension($file);
+
+  if (FALSE !== strpos($file, '.')) {
+    $filename = drupal_substr($file, 0, strrpos($file, '.'));
+  }
+  else {
+    $filename = $_FILES['userfile']['name'];
+  }
+
+  $file = $filename . $fileext;
+  $i = 0;
+  while (file_exists($destination . $file)) {
+    $i++;
+    $file = $filename .'_'. $i . $fileext;
+  }
+  return $file;
+}
+
+function imagepicker_postlet_get_uploaded_file_extension($file) {
+  // postlet sends application/octet-stream so no mimetypes
+  $fileext = "";
+  if (strrpos($file, '.')) {
+    $fileext = drupal_substr($file, strrpos($file, '.'), strlen($file));
+  }
+  return $fileext;
+}
+
+/**
+ * Implementation of hook_form_alter().
+ * Adds imagepicker_postlet settings to the imagepicker settings form.
+ */
+function imagepicker_postlet_form_alter(&$form, $form_state, $form_id) {
+  if ($form_id == 'imagepicker_settings_form') {
+    drupal_add_js(drupal_get_path('module', 'imagepicker_postlet') .'/imagepicker_postlet.js');
+    $form['imagepicker_postlet'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Imagepicker Multi Upload'),
+      '#description' => t("Configure Multiple upload of images using 'postlet' java applet."),
+      '#collapsible' => TRUE,
+      '#collapsed' => (variable_get('imagepicker_postlet_enabled', 0) ? TRUE : FALSE),
+      '#weight' => -12,
+    );
+    $form['imagepicker_postlet']['imagepicker_postlet_width'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Postlet width'),
+      '#description' => t('Configure the postlet width. This can be a number or a percentage, eg 400 or 100%'),
+      '#size' => 10,
+      '#required' => TRUE,
+      '#default_value' => variable_get('imagepicker_postlet_width', "600"),
+    );
+    $form['imagepicker_postlet']['imagepicker_postlet_height'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Postlet height'),
+      '#description' => t('Configure the postlet height. This must be a number, eg 200'),
+      '#size' => 10,
+      '#required' => TRUE,
+      '#default_value' => variable_get('imagepicker_postlet_height', "175"),
+    );
+
+    $form['imagepicker_postlet']['imagepicker_postlet_byrole'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Enable Imagepicker Multi Upload by Role'),
+      '#description' => t("Setting this option will enable 'Multi Upload by Role' instead of 'Per User'."),
+      '#return_value' => 1,
+      '#default_value' => variable_get('imagepicker_postlet_byrole', 0),
+    );
+    $form['imagepicker_postlet']['imagepicker_postlet_role'] = array(
+      '#type' => 'radios',
+      '#title' => t('Available Roles'),
+      '#description' => t("Select which Role for 'Multi Upload by Role'."),
+      '#options' => user_roles(TRUE),
+      '#default_value' => variable_get('imagepicker_postlet_role', 2),
+      '#prefix' => '<div id="wrap_imagepicker_postlet_role">',
+      '#suffix' => '</div>',
+    );
+  }
+}
+
+function imagepicker_postlet_check_ok() {
+  $postlet_ok = TRUE;
+  if (variable_get('imagepicker_postlet_byrole', 0)) {
+    global $user;
+    $roleid = variable_get('imagepicker_postlet_role', 2);
+    if (imagepicker_user_has_role($roleid, $user) && $user->uid > 1) {
+      $postlet_ok = TRUE;
+    }
+    else {
+      $postlet_ok = FALSE;
+    }
+  }
+  return $postlet_ok;
+}
+
+/**
+ * theme registry
+ */
+function imagepicker_postlet_theme() {
+  return array(
+    'imagepicker_postlet_view' => array(
+      'arguments' => array(
+        'url' => "",
+        'destination' => "",
+        'endpage' => "",
+        'maxthumbsize' => "",
+        'scaleto' => "",
+        'watermark' => "",
+        'width' => "",
+        'height' => "",
+      ),
+    ),
+  );
+}
+
+function theme_imagepicker_postlet_view($url, $destination, $endpage = "", $maxthumbsize = 100, $scaleto = FALSE, $watermark = FALSE, $width = 600, $height = 200) {
+
+    $output = '<div class="imgp_help">'. t('Click the "Add" button and select the images you\'d like to upload') .'</div>';
+    $output .= '<div class="imgp_help">'. t('Default thumbnail size of %thm px, scaling %scm%wm', array('%thm' => $maxthumbsize, '%scm' => ($scaleto ? $scaleto .' px' : 'none'), '%wm' => ($watermark ? t(', Watermarking enabled') : ''))) .'</div>';
+    $output .= '<div class="imagex postlet">
+    <applet name="postlet" code="Main.class" archive="'. $url .'" width="'. $width .'" height="'. $height .'" mayscript>
+      <param name = "maxthreads" value = "5" />
+      <param name = "language" value = "EN" />
+      <param name = "type" value = "application/x-java-applet;version=1.3.1" />
+      <param name = "destination" value = "'. $destination .'" />';
+      if ($endpage) {
+        $output .= '
+      <param name = "endpage" value ="'. $endpage .'" />';
+      }
+      $output .= '
+      <param name = "backgroundcolour" value = "16777215" />
+      <param name = "tableheaderbackgroundcolour" value = "14079989" />
+      <param name = "tableheadercolour" value = "0" />
+      <param name = "warnmessage" value = "false" />
+      <param name = "autoupload" value = "false"/>
+      <param name = "helpbutton" value = "false"/>
+      <param name = "removebutton" value = "true" />
+      <param name = "addbutton" value = "true"/>
+      <param name = "uploadbutton" value = "true" />
+      <param name = "fileextensions" value = "Image Files,jpg,gif,jpeg,png" />
+    </applet>
+    </div>';
+  return $output;
+}
+

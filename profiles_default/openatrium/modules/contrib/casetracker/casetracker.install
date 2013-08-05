@@ -1,0 +1,218 @@
+<?php
+// $Id: casetracker.install,v 1.35.2.2 2009/10/21 00:23:32 jmiccolis Exp $
+
+/**
+ * Implementation of hook_schema().
+ */
+function casetracker_schema() {
+  $schema['casetracker_case'] = array(
+    'fields' => array(
+      'nid' => array(
+        'description' => 'The {node} the case relates to.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'vid' => array(
+        'description' => 'The {node_revision} for the case.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'pid' => array(
+        'description' => 'The project {node} the case is related to.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'case_number' => array(
+        'description' => 'the case number of this node (namespaced per projects). Deprecated.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'assign_to' => array(
+        'description' => 'The {user} that the case is assigned to.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'case_priority_id' => array(
+        'description' => 'The {casetracker_case_states} that describes the case priority.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'case_type_id' => array(
+        'description' => 'The {casetracker_case_states} that describes the case type.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'case_status_id' => array(
+        'description' => 'Store the {casetracker_case_states} that describes the case status.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'indexes' => array(
+      'nid' => array('nid'),
+      'p_id' => array('pid'),
+    ),
+    'primary key' => array('vid'),
+  );
+
+  $schema['casetracker_case_states'] = array(
+    'fields' => array(
+      'csid' => array(
+        'description' => 'unique ID of this case state.',
+        'type' => 'serial',
+        'size' => 'tiny',
+        'not null' => TRUE,
+      ),
+      'case_state_name' => array(
+        'description' => 'name of this case state.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'case_state_realm' => array(
+        'description' => 'the realm ("priority", etc.) of this state.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'weight' => array(
+        'description' => 'The weight of an case state.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'indexes' => array(
+      'weight' => array('weight'),
+    ),
+    'primary key' => array('csid'),
+  );
+
+  $schema['casetracker_comment_status'] = array(
+    'fields' => array(
+      'cid' => array(
+        'description' => 'Store the {comment} that the record relates to.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'pid' => array(
+        'description' => 'Store the {project} that the record relates to.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'title' => array(
+        'description' => 'Title of the case.',
+        'type' => 'varchar',
+        'length' => 250,
+        'not null' => FALSE,
+      ),
+      'assign_to' => array(
+        'description' => 'The {user} too whom the case is assigned.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'case_priority_id' => array(
+        'description' => 'The {casetracker_case_states} that describes the case priority.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'case_type_id' => array(
+        'description' => 'The {casetracker_case_states} that describes the case type.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'case_status_id' => array(
+        'description' => 'Store the {casetracker_case_states} that describes the case status.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'state' => array(
+        'description' => 'Record whether the row is for the "before" the comment (0) or "after" (1).',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'indexes' => array(
+      'cid' => array('cid'),
+    ),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function casetracker_install() {
+  // Create tables.
+  drupal_install_schema('casetracker');
+
+  // Create default case states.
+  db_query("INSERT INTO {casetracker_case_states} (case_state_name, case_state_realm, weight) VALUES ('High', 'priority', -1)");
+  db_query("INSERT INTO {casetracker_case_states} (case_state_name, case_state_realm, weight) VALUES ('Normal', 'priority', 0)");
+  db_query("INSERT INTO {casetracker_case_states} (case_state_name, case_state_realm, weight) VALUES ('Low', 'priority', 1)");
+  db_query("INSERT INTO {casetracker_case_states} (case_state_name, case_state_realm, weight) VALUES ('Open', 'status', 0)");
+  db_query("INSERT INTO {casetracker_case_states} (case_state_name, case_state_realm, weight) VALUES ('Resolved', 'status', 1)");
+  db_query("INSERT INTO {casetracker_case_states} (case_state_name, case_state_realm, weight) VALUES ('Deferred', 'status', 2)");
+  db_query("INSERT INTO {casetracker_case_states} (case_state_name, case_state_realm, weight) VALUES ('Duplicate', 'status', 3)");
+  db_query("INSERT INTO {casetracker_case_states} (case_state_name, case_state_realm, weight) VALUES ('Closed', 'status', 4)");
+  db_query("INSERT INTO {casetracker_case_states} (case_state_name, case_state_realm, weight) VALUES ('Bug', 'type', 0)");
+  db_query("INSERT INTO {casetracker_case_states} (case_state_name, case_state_realm, weight) VALUES ('Feature Request', 'type', 1)");
+  db_query("INSERT INTO {casetracker_case_states} (case_state_name, case_state_realm, weight) VALUES ('General Task', 'type', 2)");
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function casetracker_uninstall() {
+  // Remove tables.
+  drupal_uninstall_schema('casetracker');
+
+  // Delete variables
+  variable_del('casetracker_default_assign_to');
+  variable_del('casetracker_default_case_priority');
+  variable_del('casetracker_default_case_status');
+  variable_del('casetracker_default_case_type');
+  variable_del('casetracker_project_node_types');
+  variable_del('casetracker_case_node_types');
+
+  // ...and also delete variables from old versions.
+  variable_del('casetracker_default_case_state');
+  variable_del('casetracker_current_case_numbers');
+  variable_del('casetracker_current_project_number');
+}
+
+/**
+ * Implementation of hook_update_N
+ */
+function casetracker_update_6001() {
+  variable_del('casetracker_current_project_number');
+  variable_del('casetracker_current_case_numbers');
+}
+
+/**
+ * Add an index to the casetracker_comment_status table;
+ */
+function casetracker_update_6002() {
+  $ret = array();
+  $ret[] = update_sql("ALTER TABLE {casetracker_comment_status} ADD INDEX cid (cid)");
+  return $ret;
+}

@@ -1,0 +1,72 @@
+<?php
+
+require_once drupal_get_path('module', 'course') . '/tests/CourseTestCase.test';
+
+/**
+ * Description of CourseObjectTestCase
+ */
+class CourseObjectTestCase extends CourseTestCase {
+
+  public static function getInfo() {
+    // Note that getInfo() strings are not translated with t().
+    return array(
+      'name' => 'Course objects',
+      'description' => 'Ensure that Course objects function properly.',
+      'group' => 'Course',
+    );
+  }
+
+  /**
+   * Test basic save/load of CourseObjects.
+   */
+  function testCourseObjectBasicCrud() {
+    $courseNode = $this->createCourseNode();
+
+    // Create the course object
+    $courseObject = $this->createCourseObject($courseNode);
+
+    // Make sure the object saved.
+    $this->assertTrue($courseObject->getId() > 0, 'Course object received ID.');
+
+    $id = $courseObject->getId();
+
+    // Load by coid
+    $courseObject = course_get_course_object_by_id($id);
+    $this->assertTrue($courseObject->getId() == $id, 'Loaded course object by ID.');
+
+    // Delete
+    course_outline_delete_object($courseObject->getOptions());
+    $courseObject = course_get_course_object_by_id($id);
+    $this->assertFalse($courseObject, 'Check that deleted object no longer exists.');
+  }
+
+  /**
+   * Test CourseObject configurations.
+   */
+  function testCourseObjectConfigurations() {
+    $courseNode = $this->createCourseNode();
+    $co1 = $this->createCourseObject($courseNode);
+
+    $co1->setOption('test_option', 'FIND_ME');
+    $co1->save();
+    $id = $co1->getId();
+
+    $co2 = course_get_course_object_by_id($id);
+    $this->assertEqual($co2->getOption('test_option'), 'FIND_ME', 'Check that options save and load successfully.');
+  }
+
+  /**
+   * Test the construction of CourseObjects.
+   */
+  function testCourseObjectConstruction() {
+    $courseNode = $this->createCourseNode();
+    $this->createCourseObject($courseNode);
+
+    $course = course_get_course($courseNode);
+    $courseObject = reset($course->getObjects());
+    $getCourse = $courseObject->getCourse();
+
+    $this->assertEqual(spl_object_hash($course), spl_object_hash($getCourse), 'Check that Courses inside of CourseObjects inside of Course are the same.');
+  }
+
+}

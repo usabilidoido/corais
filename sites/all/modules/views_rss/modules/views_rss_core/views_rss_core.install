@@ -1,0 +1,70 @@
+<?php
+
+/**
+ * @file
+ * (Un)installation functions for Views RSS: Core Elements module.
+ */
+
+/**
+ * Implementation of hook_install().
+ */
+function views_rss_core_install() {
+  cache_clear_all('views_rss:', 'cache_views', TRUE);
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function views_rss_core_uninstall() {
+  if (db_table_exists('cache_views')) {
+    cache_clear_all('views_rss:', 'cache_views', TRUE);
+  }
+}
+
+/**
+ * Migrate feed core elements settings from Views RSS 6.x-1.0-beta5 format.
+ */
+function views_rss_core_update_6200() {
+  $sql = "SELECT vd.*, vv.name FROM {views_display} vd JOIN {views_view} vv USING(vid) WHERE vd.display_plugin = 'feed'";
+  $result = db_query($sql);
+  while ($row = db_fetch_array($result)) {
+    $updated = FALSE;
+    $display_options = unserialize($row['display_options']);
+    if ($display_options['style_plugin'] == 'rss_fields') {
+      // Get list of feed item elements defined by this module.
+      $defined_elements = views_rss_core_views_rss_item_elements();
+      // Channel description.
+      if (isset($display_options['style_options']['description']['feed_description'])) {
+        $display_options['style_options']['channel']['core']['views_rss_core']['description'] = $display_options['style_options']['description']['feed_description'];
+        unset($display_options['style_options']['description']);
+        $updated = TRUE;
+      }
+      // Process old elements.
+      if (!empty($display_options['style_options']['fields'])) {
+        foreach ($display_options['style_options']['fields'] as $full_name => $value) {
+          $field_elements = explode(':', $full_name);
+          $field_name = array_pop($field_elements);
+          if (in_array($full_name, array_keys($defined_elements))) {
+            $display_options['style_options']['item']['core']['views_rss_core'][$field_name] = $value;
+            unset($display_options['style_options']['fields'][$field_name]);
+            $updated = TRUE;
+            // Check if old "fields" array is empty and unset it if so.
+            if (empty($display_options['style_options']['fields'])) {
+              unset($display_options['style_options']['fields']);
+            }
+          }
+        }
+      }
+    }
+    if ($updated) {
+      $sql = "UPDATE {views_display} SET display_options = '%s' WHERE vid = %d AND id = '%s'";
+      db_query($sql, serialize($display_options), $row['vid'], $row['id']);
+      drupal_set_message(t('%type feed elements have been updated in %view_name.', array(
+        '%type' => 'Core',
+        '%view_name' => $row['name'],
+      )));
+    }
+  }
+  cache_clear_all('*', 'cache_views');
+  return array();
+}

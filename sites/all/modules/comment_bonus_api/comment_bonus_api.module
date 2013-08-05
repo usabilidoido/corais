@@ -1,0 +1,263 @@
+<?php
+
+/**
+ * @file
+ * Main module file for comment_bonus_api.
+ *
+ * Primary module for comment_bonus_api, which hijacks the Drupal core comment
+ * functions to enable additional code to be added. This includes new developer
+ * hooks to enable further changes to comments.
+ */
+
+/**
+ * Implements hook_menu_alter().
+ *
+ * This is very tricky way to get rid of standard comment_render() function.
+ * We will define our own node_show() which will call flexible 
+ * ajax_comments_render().
+ */
+function comment_bonus_api_menu_alter(&$items) {
+  $items['node/%node'] = array(
+    'title callback' => 'node_page_title',
+    'title arguments' => array(1),
+    'page callback' => 'comment_bonus_api_node_page_view',
+    'page arguments' => array(1),
+    'access callback' => 'node_access',
+    'access arguments' => array('view', 1),
+    'type' => MENU_CALLBACK
+  );
+  return $items;
+}
+
+/**
+ * Page callback: View a single node.
+ * 
+ * Emulates the functionality of the node_page_view() function from the Drupal
+ * core node.module. The difference is it loads the ajax_comments include if
+ * available and uses a custom node_show() function.
+ *
+ * @see node_page_view()
+ */
+function comment_bonus_api_node_page_view($node, $cid = NULL) {
+  if (function_exists('ajax_comments_submit')) {
+    module_load_include('pages.inc', 'ajax_comments');
+  }
+  drupal_set_title(check_plain($node->title));
+  return comment_bonus_api_node_show($node, $cid);
+}
+
+/**
+ * Implements hook_theme_registry_alter().
+ */
+function comment_bonus_api_theme_registry_alter(&$items) {
+  if (isset($items['comment_wrapper']['template']) && $items['comment_wrapper']['template'] == 'modules/comment/comment-wrapper') {
+    $items['comment_wrapper']['theme path'] = drupal_get_path('module', 'comment_bonus_api');
+    $items['comment_wrapper']['template'] = $items['comment_wrapper']['theme path'] .'/comment-wrapper';
+  }
+  $items['comment_wrapper']['arguments']['comments'] = NULL;
+  $items['comment_wrapper']['arguments']['pager'] = NULL;
+  $items['comment_wrapper']['arguments']['comment_form'] = NULL;
+  $items['comment_wrapper']['arguments']['controls'] = NULL;
+}
+
+/**
+ * Generates a page displaying a single node, along with its comments.
+ *
+ * This function is essentially a mirror of the node_show() function from the
+ * Drupal core node.module. The difference is it uses our own comment rendering
+ * function comment_bonus_api_comment_render() instead of the default function
+ * comment_render().
+ *
+ * @see node_show()
+ */
+function comment_bonus_api_node_show($node, $cid, $message = FALSE) {
+  if ($message) {
+    drupal_set_title(t('Revision of %title from %date', array('%title' => $node->title, '%date' => format_date($node->revision_timestamp))));
+  }
+  $output = node_view($node, FALSE, TRUE);
+
+  if ($node->comment) {
+    $output .= comment_bonus_api_comment_render($node, $cid);
+  }
+
+  // Update the history table, stating that this user viewed this node.
+  node_tag_new($node->nid);
+
+  return $output;
+}
+
+/**
+ * Renders comment(s).
+ *
+ * This function is a modified version of the Drupal core comment_render()
+ * function from the Drupal core comment.module.
+ *
+ * @see comment_render()
+ */
+function comment_bonus_api_comment_render($node, $cid = 0) {
+  global $user;
+
+  $output = '';
+
+  if (user_access('access comments')) {
+    // Pre-process variables.
+    $nid = $node->nid;
+    if (empty($nid)) {
+      $nid = 0;
+    }
+
+    $mode = _comment_get_display_setting('mode', $node);
+    $order = _comment_get_display_setting('sort', $node);
+    $comments_per_page = _comment_get_display_setting('comments_per_page', $node);
+
+    if ($cid && is_numeric($cid)) {
+      // Single comment view.
+      $query = 'SELECT c.cid, c.pid, c.nid, c.subject, c.comment, c.format, c.timestamp, c.name, c.mail, c.homepage, u.uid, u.name AS registered_name, u.signature, u.picture, u.data, c.status FROM {comments} c INNER JOIN {users} u ON c.uid = u.uid WHERE c.cid = %d';
+      $query_args = array($cid);
+      if (!user_access('administer comments')) {
+        $query .= ' AND c.status = %d';
+        $query_args[] = COMMENT_PUBLISHED;
+      }
+
+      $query = db_rewrite_sql($query, 'c', 'cid');
+      $result = db_query($query, $query_args);
+
+      if ($comment = db_fetch_object($result)) {
+        $comment->name = $comment->uid ? $comment->registered_name : $comment->name;
+        $links = module_invoke_all('link', 'comment', $comment, 1);
+        drupal_alter('link', $links, $node, $comment);
+
+        $output .= theme('comment_view', $comment, $node, $links);
+      }
+    }
+    else {
+      // Multiple comment view
+      $query_count = 'SELECT COUNT(*) FROM {comments} c WHERE c.nid = %d';
+      $query = 'SELECT c.cid as cid, c.pid, c.nid, c.subject, c.comment, c.format, c.timestamp, c.name, c.mail, c.homepage, u.uid, u.name AS registered_name, u.signature, u.picture, u.data, c.thread, c.status FROM {comments} c INNER JOIN {users} u ON c.uid = u.uid WHERE c.nid = %d';
+
+      if (variable_get('comment_bonus_api_fold_comments', FALSE)) {
+        $query_thread = ' AND thread NOT LIKE "%%.%%"';
+        $query_count_thread = ' AND thread NOT LIKE "%%.%%"';
+      }
+
+      $query_args = array($nid);
+      if (!user_access('administer comments')) {
+        $query_add .= ' AND c.status = %d';
+        $query_count_add .= ' AND c.status = %d';
+        $query_args[] = COMMENT_PUBLISHED;
+      }
+
+      if ($order == COMMENT_ORDER_NEWEST_FIRST) {
+        if ($mode == COMMENT_MODE_FLAT_COLLAPSED || $mode == COMMENT_MODE_FLAT_EXPANDED) {
+          $query_add .= ' ORDER BY c.cid DESC';
+        }
+        else {
+          $query_add .= ' ORDER BY c.thread DESC';
+        }
+      }
+      elseif ($order == COMMENT_ORDER_OLDEST_FIRST) {
+        if ($mode == COMMENT_MODE_FLAT_COLLAPSED || $mode == COMMENT_MODE_FLAT_EXPANDED) {
+          $query_add .= ' ORDER BY c.cid';
+        }
+        else {
+          // See comment above. Analysis reveals that this doesn't cost too
+          // much. It scales much much better than having the whole comment
+          // structure.
+          $query_add .= ' ORDER BY SUBSTRING(c.thread, 1, (LENGTH(c.thread) - 1))';
+        }
+      }
+      $query = db_rewrite_sql($query . $query_thread . $query_add, 'c', 'cid');
+      $query_count = db_rewrite_sql($query_count . $query_count_thread . $query_add, 'c', 'cid');
+
+      // Start a form, for use with comment control.
+      $result = pager_query($query, $comments_per_page, 0, $query_count, $query_args);
+
+      if (variable_get('comment_bonus_api_fold_comments', FALSE)) {
+        while ($comment = db_fetch_object($result)) {
+          $cids[] = $comment->cid;
+          $threads[] = '"'. drupal_substr($comment->thread, 0, strpos($comment->thread, '/')) .'"';
+        }
+        if (!empty($cids)) {
+          $query = db_rewrite_sql('SELECT c.cid as cid, c.pid, c.nid, c.subject, c.comment, c.format, c.timestamp, c.name, c.mail, c.homepage, u.uid, u.name AS registered_name, u.signature, u.picture, u.data, c.thread, c.status FROM {comments} c INNER JOIN {users} u ON c.uid = u.uid WHERE c.nid = %d AND ((cid IN ('. implode(', ', $cids) .')) OR (SUBSTRING(c.thread, 1, (LOCATE(".", c.thread) - 1)) IN ('. implode(', ', $threads) .')))', 'c', 'cid');
+
+          // Start a form, for use with comment control.
+          $result = db_query($query . $query_add, $query_args);
+        }
+      }
+
+      $divs = 0;
+      $num_rows = FALSE;
+      $comments = '';
+      drupal_add_css(drupal_get_path('module', 'comment') .'/comment.css');
+      while ($comment = db_fetch_object($result)) {
+        $comment = drupal_unpack($comment);
+        $comment->name = $comment->uid ? $comment->registered_name : $comment->name;
+        $comment->depth = count(explode('.', $comment->thread)) - 1;
+
+        if ($mode == COMMENT_MODE_THREADED_COLLAPSED || $mode == COMMENT_MODE_THREADED_EXPANDED) {
+          if ($comment->depth > $divs) {
+            $divs++;
+            $comments .= '<div class="indented">';
+          }
+          else {
+            while ($comment->depth < $divs) {
+              $divs--;
+              $comments .= '</div>';
+            }
+          }
+        }
+
+        if ($mode == COMMENT_MODE_FLAT_COLLAPSED) {
+          $comments .= theme('comment_flat_collapsed', $comment, $node);
+        }
+        elseif ($mode == COMMENT_MODE_FLAT_EXPANDED) {
+          $comments .= theme('comment_flat_expanded', $comment, $node);
+        }
+        elseif ($mode == COMMENT_MODE_THREADED_COLLAPSED) {
+          $comments .= theme('comment_thread_collapsed', $comment, $node);
+        }
+        elseif ($mode == COMMENT_MODE_THREADED_EXPANDED) {
+          $comments .= theme('comment_thread_expanded', $comment, $node);
+        }
+
+        $num_rows = TRUE;
+      }
+      while ($divs-- > 0) {
+        $comments .= '</div>';
+      }
+
+      $comment_controls = variable_get('comment_controls_'. $node->type, COMMENT_CONTROLS_HIDDEN);
+      if ($num_rows && ($comment_controls == COMMENT_CONTROLS_ABOVE || $comment_controls == COMMENT_CONTROLS_ABOVE_BELOW)) {
+        $controls = drupal_get_form('comment_controls', $mode, $order, $comments_per_page);
+        $output .= $controls;
+      }
+
+      $pager = theme('pager', NULL, $comments_per_page, 0);
+      $output .= $comments . $pager;
+
+      if ($num_rows && ($comment_controls == COMMENT_CONTROLS_BELOW || $comment_controls == COMMENT_CONTROLS_ABOVE_BELOW)) {
+        $controls = drupal_get_form('comment_controls', $mode, $order, $comments_per_page);
+        $output .= $controls;
+      }
+    }
+
+    // If enabled, show new comment form if it's not already being displayed.
+    $reply = arg(0) == 'comment' && arg(1) == 'reply';
+    if (user_access('post comments') && node_comment_mode($nid) == COMMENT_NODE_READ_WRITE && (variable_get('comment_form_location_'. $node->type, COMMENT_FORM_SEPARATE_PAGE) == COMMENT_FORM_BELOW) && !$reply) {
+      $comment_form .= drupal_get_form('comment_form', array('nid' => $nid));
+      $output .= theme('box', t('Post new comment'), $comment_form);
+    }
+    $output = theme('comment_wrapper', $output, $node, $comments, $pager, $comment_form, $controls);
+  }
+
+  // This is a new comment_bonus_api hook to enable changes to comments
+  module_invoke_all('post_comment_render', $node, $cid);
+
+  return $output;
+}
+
+/**
+ * Process variables for comment.tpl.php.
+ */
+function comment_bonus_api_preprocess_comment(&$variables) {
+}

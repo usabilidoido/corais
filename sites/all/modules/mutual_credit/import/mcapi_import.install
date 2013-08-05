@@ -1,0 +1,16 @@
+<?php
+
+function mcapi_import_enable() {
+  $link = array(
+    'link_path' => 'admin/mc/import/launch',
+    'link_title' => 'Launch',
+    'module' => 'mcapi_import',
+    'menu_name' => 'setup',
+    'weight' => '50',
+  );
+  menu_link_save($link);
+}
+
+function mcapi_import_disable() {
+  mcapi_delete_menu_link();
+}

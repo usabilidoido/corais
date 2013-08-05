@@ -1,0 +1,10 @@
+name = "Litecal"
+description = "A lite clean calendar UI."
+core = "6.x"
+
+; Information added by drupal.org packaging script on 2011-07-14
+version = "6.x-1.0"
+core = "6.x"
+project = "litecal"
+datestamp = "1310654520"
+

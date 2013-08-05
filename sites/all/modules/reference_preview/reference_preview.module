@@ -1,0 +1,210 @@
+<?php
+
+/**
+ * Implementation of hook_menu().
+ */
+function reference_preview_menu() {
+  $items = array();
+
+  $items['reference_preview_ahah/%node/%'] = array(
+    'title' => 'blogs',
+    'description' => 'AHAH callback for reference preview',
+    'page callback' => 'reference_preview_ahah',
+    'page arguments' => array(1, 2),
+    'access arguments' => array('view', 1),
+    'access callback' => 'node_access',
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function reference_preview_form_alter(&$form, $form_state, $form_id) {
+  if ($form['#id'] == 'node-form' && !empty($form['#field_info'])) {
+    $reference_preview_js = array(
+      'reference_preview' => array(),
+    );
+
+    foreach ($form['#field_info'] as $field_name => $field_info) {
+      if (!empty($field_info['reference_preview']['enable']) && !empty($field_info['reference_preview']['type']) && in_array($field_info['widget']['type'], reference_preview_supported_widgets())) {
+        $reference_preview_js['reference_preview'][strtr($field_name, '_', '-')] = $field_info['reference_preview']['type'];
+      }
+    }
+    if (count($reference_preview_js['reference_preview'])) {
+      $form['#reference_preview_js'] = $reference_preview_js;
+      $form['#pre_render'] = isset($form['#pre_render']) ? $form['#pre_render'] : array();
+      $form['#pre_render'][] = 'reference_preview_add_js';
+    }
+  }
+}
+
+/**
+ * Add JS needed by reference preview.
+ */
+function reference_preview_add_js($form) {
+  static $added = 0;
+  if ($added) {
+    return $form;
+  }
+  drupal_add_js(drupal_get_path('module', 'reference_preview') . '/reference_preview.js');
+  drupal_add_js($form['#reference_preview_js'], 'setting');
+  return $form;
+}
+
+/**
+ * Gather what type of widgets module supports
+ */
+function reference_preview_supported_widgets($reset = FALSE) {
+  // The JS is so centered around looking at the dom, custom widgets
+  // are unlikely to be usuable so hard coded widgets for now.
+  // However use a variable in case someone can just work.
+  return variable_get('reference_preview_supported_widgets', array(
+    'nodereference_autocomplete',
+    'nodereference_buttons',
+    'nodereference_select',
+  ));
+}
+
+/**
+ * Implementation of hook_field_settings_alter().
+ */
+function reference_preview_field_settings_alter(&$settings, $op, $field) {
+  switch ($op) {
+    case 'form':
+      if (!in_array($field['widget']['type'], reference_preview_supported_widgets())) {
+        return;
+      }
+
+      // Load our default reference-preview types
+      $modes = content_build_modes();
+      // Make teaser/full at top to make easier to find.
+      $type_options = array(
+        'node-teaser' => $modes['teaser']['title'],
+        'node-full' => $modes['full']['title'],
+      );
+      foreach ($modes as $key => $value) {
+        $type_options['node-' . $key] = $value['title'];
+      }
+
+      // If we have mini-panels, load em up
+      if (module_exists('panels_mini')) {
+        $panels = panels_mini_load_all();
+        foreach ($panels as $panel) {
+          // Only if requiredcontexts is not FALSE
+          if ($panel->requiredcontexts) {
+            // Node is a required context - only use panels with this context
+            $use_this_panel = FALSE;
+            foreach ($panel->requiredcontexts as $context) {
+              if ($context['name'] == 'node') {
+                $use_this_panel = TRUE;
+                break;
+              }
+            }
+
+            if ($use_this_panel) {
+              $type_options['panel-' . $panel->name] = 'Mini-Panel: ' . $panel->title;
+            }
+          }
+        }
+      }
+
+      $settings['reference_preview'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Reference Preview'),
+        '#tree' => TRUE,
+        '#collapsible' => TRUE,
+        '#collapsed' => FALSE,
+      );
+
+      $settings['reference_preview']['enable'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Enable Reference Preview for this field'),
+        '#default_value' => !empty($field['reference_preview']['enable']),
+        '#attributes'  => array('onclick' => "Drupal.behaviors.reference_preview_hide_unhide();"),
+      );
+      $settings['reference_preview']['reference_preview_start_div'] = array(
+        '#value' => "<div id='reference_preview_form_div'>",
+      );
+
+      $settings['reference_preview']['type'] = array(
+        '#type' => 'select',
+        '#title' => t('Reference Preview Display'),
+        '#default_value' => !empty($field['reference_preview']['type']) ? $field['reference_preview']['type'] : 'node-full',
+        '#options' => $type_options,
+      );
+
+      $settings['reference_preview']['links'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Display links (when using node view)'),
+        '#default_value' => !isset($field['reference_preview']['links']) || !empty($field['reference_preview']['links']),
+      );
+
+      $settings['reference_preview']['end_div'] = array(
+        '#value' => "</div>",
+      );
+
+      // Add hide / show javascript;
+      drupal_add_js(drupal_get_path('module', 'reference_preview') . '/reference_preview.admin.js');
+
+      break;
+    case 'save':
+      $settings[] = 'reference_preview';
+      break;
+  }
+}
+
+/**
+ * AHAH call-back for preview
+ */
+function reference_preview_ahah($node, $field_id) {
+
+  $field_name = str_replace('-', '_', $field_id);
+  $field = content_fields($field_name);
+  $type = !empty($field['reference_preview']['type']) ? $field['reference_preview']['type'] : 'node-full';
+
+  $pos = strpos($type, '-');
+  $type_category = substr($type, 0, $pos); // Either 'node' or 'panel'
+  $type_instance = substr($type, ($pos + 1)); // Either 'full', of 'preview' or name of mini-panel
+
+  // Print node page or teaser
+  if ($type_category == 'node') {
+    $teaser = ($type_instance == 'teaser') ? TRUE : FALSE;
+    $links = !isset($field['reference_preview']['links']) || !empty($field['reference_preview']['links']);
+    $node->build_mode = $type_instance;
+    // Allow other modules/themes to know where this node is being viewed.
+    $node->reference_preview_field_settings = $field;
+    print node_view($node, $teaser, FALSE, $links);
+  }
+
+  // Print a mini-panel
+  if ($type_category == 'panel' && module_exists('panels_mini')) {
+    ctools_include('context');
+    ctools_include('display-render', 'panels');
+    ctools_include('plugins', 'panels');
+
+    $mini = panels_mini_load($type_instance);
+
+    $context = ctools_context_create('node', $node);
+    $context->identifier = t('This node');
+    $context->keyword = 'node';
+
+    $contexts['node-row'] = $context;
+
+    $context = ctools_context_match_required_contexts($mini->requiredcontexts, $contexts);
+    $mini->context = $mini->display->context = ctools_context_load_contexts($mini, FALSE, $context);
+
+    $layout = panels_get_layout($mini->display->layout);
+
+    // @@TODO: This most likely isn't the best place for this. Likely better would be to pre-print css of all candidate mini-panels
+    // on the page load, instead of in AHAH
+    print "<link rel='stylesheet' type='text/css' href='" . base_path() . $layout['path'] . '/' . $layout['css'] . "' />";
+
+    print panels_render_display($mini->display);
+  }
+
+  exit();
+}

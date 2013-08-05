@@ -1,0 +1,17 @@
+name = "Theater"
+description = "Theater Observation theme"
+core = "6.x"
+engine = "phptemplate"
+
+stylesheets[all][] = "css/style.css"
+stylesheets[all][] = "css/accessibility.css"
+
+;scripts
+scripts[] = "js/script.js"
+
+; Information added by drupal.org packaging script on 2012-06-21
+version = "6.x-1.0"
+core = "6.x"
+project = "elms_themes"
+datestamp = "1340301979"
+

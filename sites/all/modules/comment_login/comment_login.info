@@ -1,0 +1,10 @@
+name = Comment Login
+description = Embeds a user login form into the comment form
+core = 6.x
+dependencies[] = comment
+; Information added by drupal.org packaging script on 2009-02-19
+version = "6.x-1.0"
+core = "6.x"
+project = "comment_login"
+datestamp = "1235079611"
+

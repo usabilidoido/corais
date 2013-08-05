@@ -1,0 +1,10 @@
+***************
+*** 3,6 ****
+  package = Nodejs
+  version = VERSION
+  core = 6.x
+- 
+--- 3,5 ----
+  package = Nodejs
+  version = VERSION
+  core = 6.x

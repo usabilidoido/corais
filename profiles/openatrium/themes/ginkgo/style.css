@@ -1,0 +1,688 @@
+/**
+ * Override of style.css of Rubik. Contains styles for major page wrapping
+ * elements. For core/canvas elements, see ginkgo.css.
+ */
+
+body.tao,
+input,
+textarea,
+select { font-family:Arial,Helvetica,sans-serif; }
+
+body.tao {
+  background:#fff;
+  color:#222;
+  }
+
+a {
+  color:#48a;
+  text-decoration:none;
+  }
+
+.block-title { font-weight:bold; }
+
+.limiter { padding:0px 20px; }
+
+#page .limiter { max-width:1280px; }
+
+/**
+ * Skinnable elements =================================================
+ */
+#global,
+#global a.logo,
+#global .breadcrumb span.link-0 a,
+#global .breadcrumb span.divider,
+#global .breadcrumb span.space a,
+#navigation,
+#features-menu li,
+#features-menu li a { background-image:url(images/sprite_skin.png); }
+
+/**
+ * Default designkit colors ===========================================
+ */
+.atrium-welcome-links a:hover,
+.atrium-welcome-links a:focus,
+.dropdown-blocks .block-toggle ul.links li a:hover,
+.dropdown-blocks .block-toggle ul.links li a:focus,
+.dropdown-blocks .block-toggle .item-list li a:hover,
+.dropdown-blocks .block-toggle .item-list li a:focus,
+.pager li.pager-current,
+.more-link a:hover,
+#global,
+#navigation { background-color:#44aa55; }
+
+body #space-tools .block-title { background-color:#2f773b; }
+
+body #header .block-widget .block-content,
+body #header .block .block-title { background-color:#399048; }
+
+body .page-region .block .block-title {
+  background-color:#cce0cf;
+  border-color:#bed2c1;
+  border-bottom-color:#b0c5b4;
+  }
+
+.decay-10 .comment-title { border-color:#eeeeee; }
+.decay-9 .comment-title { border-color:#dde7de; }
+.decay-8 .comment-title { border-color:#cce0cf; }
+.decay-7 .comment-title { border-color:#bbd9c0; }
+.decay-6 .comment-title { border-color:#aad2b0; }
+.decay-5 .comment-title { border-color:#99cca1; }
+.decay-4 .comment-title { border-color:#88c592; }
+.decay-3 .comment-title { border-color:#77be82; }
+.decay-2 .comment-title { border-color:#66b773; }
+.decay-1 .comment-title { border-color:#55b064; }
+.decay-0 .comment-title { border-color:#44aa55; }
+
+/**
+ * "Rounded" elements =================================================
+ */
+.block,
+.item-list,
+.help-items ul,
+.fieldset,
+.form-item,
+.admin-list,
+.node-type-list,
+.admin-panel,
+.box-title,
+.compact-link a,
+.confirmation ul,
+form .buttons,
+input.teaser-button,
+input.form-submit {
+  -moz-border-radius:3px;
+  -webkit-border-radius:3px;
+  }
+
+.item-list h3,
+.block .block-title,
+.admin-panel h3,
+.fieldset-title,
+.collapsible .fieldset-title a {
+  -moz-border-radius:2px 2px 0px 0px;
+  -webkit-border-radius-top-left:2px;
+  -webkit-border-radius-top-right:2px;
+  }
+
+.collapsible .fieldset-title {
+  -moz-border-radius:0px;
+  -webkit-border-radius:0px;
+  }
+
+.collapsed .fieldset-title a {
+  -moz-border-radius:2px;
+  -webkit-border-radius:2px;
+  }
+
+.block .block-content,
+.fieldset-content {
+  -moz-border-radius:0px 0px 2px 2px;
+  -webkit-border-radius-bottom-left:2px;
+  -webkit-border-radius-bottom-right:2px;
+  }
+
+/**
+ * "Popped" elements ==================================================
+ */
+input.teaser-button,
+input.form-submit {
+  -moz-box-shadow:#ddd 0px 1px 1px;
+  -webkit-box-shadow:#ddd 0px 1px 1px;
+  }
+
+/**
+ * "Embossed" elements ================================================
+ */
+table th { text-shadow:#fff 0px 1px 0px; }
+
+/**
+ * Global navbar  =====================================================
+ */
+#global {
+  background-position:0px 0px;
+  background-repeat:repeat-x;
+  height:40px;
+  position:relative;
+  /* IE7 z-index stacking: #global 3, #navigation 2, #page-tools 1, all others 0. */
+  z-index:3;
+  }
+
+#global a.logo {
+  text-indent:-999px;
+  overflow:hidden;
+
+  position:absolute;
+  right:20px;
+  height:40px;
+  width:300px;
+  background-repeat:no-repeat;
+  background-position:100% -440px;
+  }
+
+/**
+ * Header blocks ======================================================
+ */
+#header {
+  padding:5px 0px;
+  float:left;
+  }
+
+#header .block { padding:0px 5px 0px 0px; }
+
+#header .block-widget .block-content,
+#header .block-title {
+  background:transparent;
+  color:#fff;
+  font-size:11px;
+  height:30px;
+  line-height:30px;
+  margin:0px;
+  padding:0px 10px;
+  }
+
+  #header .block-widget a,
+  #header .block-title a { color:#fff; }
+
+  #header .block-widget a { font-weight:bold; }
+
+  #header .block-widget .block-content,
+  #header .block-toggle .block-title {
+    -moz-border-radius:3px;
+    -webkit-border-radius:3px;
+    background:transparent;
+    }
+
+  #header .block-toggle .toggle-active {
+    background-color:#fff !important;
+    color:#333 !important;
+    -moz-border-radius:3px 3px 0px 0px;
+    -webkit-border-radius:3px 3px 0px 0px;
+    }
+
+  #header .block-toggle .block-content {
+    left:0px;
+    right:auto;
+    -moz-border-radius:0px 5px 5px 5px;
+    -webkit-border-radius:0px 5px 5px 5px;
+    }
+
+/* Account block */
+body.logged-in #block-atrium-account .block-title {
+  position:relative;
+  padding-left:35px;
+  }
+
+#block-atrium-account .block-title div.picture {
+  -moz-border-radius:3px 0px 0px 3px;
+  -webkit-border-radius:3px 0px 0px 3px;
+  position:absolute;
+  left:0px;
+  top:0px;
+  }
+
+  #block-atrium-account .toggle-active div.picture {
+    -moz-border-radius:3px 0px 0px 0px;
+    -webkit-border-radius:3px 0px 0px 0px;
+    }
+
+/* Breadcrumb */
+#global .breadcrumb {
+  float:left;
+  padding:5px;
+  height:30px;
+  line-height:30px;
+  font-size:20px;
+  font-weight:normal;
+  overflow:hidden;
+  }
+
+  #global .breadcrumb span,
+  #global .breadcrumb span a {
+    color:#fff;
+    height:30px;
+    float:left;
+    }
+
+  #global .breadcrumb span.space a,
+  #global .breadcrumb span.link-0 a,
+  #global .breadcrumb span.divider {
+    background-position:-20px -265px;
+    background-repeat:no-repeat;
+    text-indent:-999px;
+    overflow:hidden;
+    width:20px;
+    }
+
+  #global .breadcrumb span.link-0 a { background-position:0px -265px; }
+
+  #global .breadcrumb span.space { padding-left:5px; }
+  #global .breadcrumb span.space a.private { background-position:-40px -265px; }
+  #global .breadcrumb span.space a.public { background-position:-60px -265px; }
+
+
+/**
+ * Footer ==============================================================
+ */
+#footer {
+  border-top:1px solid #ccc;
+  font-weight:normal;
+  font-size:11px;
+  padding:19px 0px 20px;
+  color:#999;
+  }
+
+  #footer a { color:#666; }
+
+#footer .footer-message { float:left; }
+
+#footer ul.links { float:right; }
+
+#footer ul.links a {
+  -moz-border-radius:10px;
+  -webkit-border-radius:10px;
+  padding:0px 10px;
+  }
+
+  #footer ul.links a:hover { background:#fff; }
+
+/**
+ * Navigation =========================================================
+ */
+#navigation {
+  background-position:0px -40px;
+  background-repeat:repeat-x;
+  position:relative;
+  z-index:2;
+  }
+
+  #navigation .limiter {
+    padding-top:20px;
+    height:50px;
+    }
+
+#space-tools {
+  position:absolute;
+  right:20px;
+  top:20px;
+  }
+
+#space-tools .block-widget,
+#space-tools .block-widget a {
+  font-size:11px;
+  color:#fff;
+  }
+
+  #space-tools .block-widget a { font-weight:bold; }
+
+#space-tools .block-title { color:#fff; }
+
+  #space-tools .toggle-active {
+    background-color:#fff !important;
+    color:#333;
+    }
+
+/**
+ * Features menu ======================================================
+ * Arguably the most complex portion of the theme.
+ */
+#features-menu {
+  position:absolute;
+  left:20px;
+  height:50px;
+  }
+
+#features-menu li {
+  background-position:0px 50px;
+  background-repeat:no-repeat;
+  }
+
+#features-menu li.active {
+  border:1px solid #fff;
+  border-bottom:0px;
+  height:49px;
+
+  background-position:0px -210px;
+  background-repeat:repeat-x;
+
+  -moz-border-radius-topleft:3px;
+  -moz-border-radius-topright:3px;
+  -webkit-border-top-left-radius:3px;
+  -webkit-border-top-right-radius:3px;
+  }
+
+#features-menu li a {
+  color:#fff;
+  position:relative;
+  line-height:40px;
+  width:40px;
+  height:40px;
+  padding:5px 10px;
+  overflow:hidden;
+
+  background-position:0px -110px;
+  background-repeat:no-repeat;
+
+  -moz-border-radius-topleft:3px;
+  -moz-border-radius-topright:3px;
+  -webkit-border-top-left-radius:3px;
+  -webkit-border-top-right-radius:3px;
+  }
+
+  #features-menu li a:hover {
+    overflow:visible;
+    background-position:0px -160px;
+    background-repeat:no-repeat;
+    }
+
+  #features-menu li.active a,
+  #features-menu li.active a.active {
+    padding:4px 9px 5px;
+    width:auto;
+    }
+
+  #features-menu li a span.label {
+    width:100px;
+    position:absolute;
+    top:-20px;
+    left:-20px;
+    line-height:20px;
+
+    white-space:nowrap;
+    text-align:center;
+
+    font-size:11px;
+    font-weight:bold;
+    display:block;
+    }
+
+    #features-menu li a span.label span.count {
+      display:block;
+      position:absolute;
+      left:25px;
+      top:25px;
+
+      background:#d42;
+      padding:0px 5px;
+      line-height:15px;
+
+      font-size:9px;
+      font-weight:bold;
+      color:#fff;
+      text-shadow:none;
+
+      -moz-border-radius:5px;
+      -webkit-border-radius:5px;
+      }
+
+  #features-menu li.active a span.label,
+  #features-menu li.active a:hover span.label {
+    display:block;
+    width:auto;
+    padding:0px 5px 0px 10px;
+    line-height:40px;
+    position:static;
+    float:left;
+
+    font-weight:normal;
+    font-size:16px;
+    color:#333;
+    text-shadow:#fff 0px 1px 0px;
+    }
+
+    #features-menu li.active a span.label span.count { left:5px; top:5px; }
+
+  #features-menu li a span.icon {
+    background:url(images/sprite_icons.png) 0px 0px no-repeat;
+    display:block;
+    height:40px;
+    width:40px;
+    float:left;
+    }
+
+  #features-menu li a.icon-blog span.icon { background-position: 0px -40px; }
+  #features-menu li a.icon-notebook span.icon { background-position: -40px -40px; }
+  #features-menu li a.icon-calendar span.icon { background-position: -80px -40px; }
+  #features-menu li a.icon-casetracker span.icon { background-position: -120px -40px; }
+  #features-menu li a.icon-dashboard span.icon { background-position: -160px -40px; }
+  #features-menu li a.icon-og span.icon { background-position: -200px -40px; }
+  #features-menu li a.icon-home span.icon { background-position: -240px -40px; }
+  #features-menu li a.icon-members span.icon { background-position: -280px -40px; }
+  #features-menu li a.icon-profile span.icon { background-position: -280px -40px; }
+  #features-menu li a.icon-shoutbox span.icon { background-position: -320px -40px; }
+
+/**
+ * Feature mini-icons =================================================
+ */
+span.spaces-feature {
+  width:20px;
+  height:20px;
+  display:block;
+
+  text-indent: -999px;
+  overflow:hidden;
+
+  background:url(images/sprite_icons.png) 20px 20px no-repeat;
+  }
+
+span.feature-atrium_blog { background-position:0px 100%; }
+span.feature-atrium_book { background-position:-20px 100%; }
+span.feature-atrium_calendar { background-position:-40px 100%; }
+span.feature-atrium_casetracker { background-position:-60px 100%; }
+span.feature-atrium_dashboard { background-position:-80px 100%; }
+span.feature-atrium_groups { background-position:-100px 100%; }
+span.feature-atrium_home { background-position:-120px 100%; }
+span.feature-atrium_members { background-position:-140px 100%; }
+span.feature-atrium_shoutbox { background-position:-160px 100%; }
+
+#block-atrium-admin_links span.icon { background:url(images/sprite_icons.png) -20px -400px no-repeat; }
+#block-atrium-admin_links .toggle-active span.icon { background-position:-20px -420px; }
+#block-atrium-create span.icon { background:url(images/sprite_icons.png) 0px -400px no-repeat; }
+#block-atrium-create .toggle-active span.icon { background-position:0px -420px; }
+#block-atrium-search span.icon { background:url(images/sprite_icons.png) -40px -400px no-repeat; }
+#block-atrium-search .toggle-active span.icon { background-position:-40px -420px; }
+
+/**
+ * Error pages ========================================================
+ */
+body.page-access-denied #page-header .limiter,
+body.page-not-found #page-header .limiter { display:none; }
+
+body.page-access-denied .access-denied,
+body.page-not-found .not-found {
+  font-size:32px;
+  font-weight:300;
+
+  padding:140px 480px 140px 50px;
+  letter-spacing:-1px;
+  line-height:40px;
+  min-height:80px;
+
+  background:url(images/404.png) 100% 50% no-repeat;
+  }
+
+body.page-access-denied .access-denied { background-image:url(images/403.png); }
+
+/**
+ * Page tools ========================================================
+ */
+#page-tools {
+  background:#eee url(images/sprite_bleeds.png) 0px -360px repeat-x;
+  height:39px;
+  border-bottom:1px solid #ccc;
+  position:relative;
+  z-index:1;
+  }
+
+  #page-tools .page-title,
+  #page-tools .tabs {
+    padding-top:5px;
+    position:absolute;
+    left:20px;
+    }
+
+  #page-tools .context-links,
+  #page-tools .dropdown-blocks { float:right; }
+
+#page-tools .page-title {
+  font-size:16px;
+  font-weight:normal;
+  line-height:30px;
+  text-shadow:#fff 0px 1px 0px;
+  }
+
+  #page-tools .page-title-hidden {
+    text-indent:-999px;
+    overflow:hidden;
+    }
+
+  #page-tools .page-title a.username {
+    color:inherit;
+    font-size:inherit;
+    text-transform:none;
+    }
+
+#page-tools .dropdown-blocks { height:39px; }
+
+  #page-tools .dropdown-blocks .block { padding:0px; }
+
+  #page-tools .dropdown-blocks .block-toggle .block-title {
+    -moz-border-radius:0px;
+    -webkit-border-radius:0px;
+
+    border:0px;
+    border-left:1px solid #ccc;
+
+    text-shadow:#fff 0px 1px 0px;
+    padding:5px 10px;
+    line-height:30px;
+    background:transparent;
+    }
+
+    #page-tools .dropdown-blocks .block-toggle .toggle-active {
+      color:#fff;
+      text-shadow:#444 0px 1px 0px;
+      background:#666 url(images/sprite_bleeds.png) 0px 100% repeat-x;
+      }
+
+#page-tools .context-links {
+  border-left:1px solid #ccc;
+  padding:7px 0px 7px 5px;
+  height:25px;
+  line-height:15px;
+  overflow:hidden;
+  }
+
+  .buttons a,
+  #page-tools .context-links a {
+    font-size:11px;
+    font-weight:bold;
+    color:#fff;
+    background:#666 url(images/sprite_bleeds.png) 0px -400px repeat-x;
+    text-shadow:#444 0px 1px 0px;
+
+    border:1px solid #555;
+    border-color:#555 #555 #333;
+
+    margin-left:5px;
+    padding:4px 9px;
+    -moz-border-radius:5px;
+    -webkit-border-radius:5px;
+    }
+
+    .buttons a { margin-right:5px; }
+
+    .buttons a:active,
+    #page-tools .context-links a:active { background-position:0px 100%; }
+
+#page-tools #help-toggler {
+  background:url(images/sprite_base.png) 0px -30px no-repeat;
+  height:20px;
+  width:20px;
+
+  text-indent:-999px;
+  overflow:hidden;
+
+  margin: 10px 0px 0px 10px;
+  position:static;
+  float:right;
+  }
+
+  #page-tools #help-toggler.toggle-active { background-position:-20px -30px; }
+
+/**
+ * Tabs ===============================================================
+ */
+#page-tools .tabs ul.links {
+  height:35px;
+  float:none;
+  position:static;
+  }
+
+#page-tools .tabs li a,
+#page-tools .tabs li a:hover,
+#page-tools .tabs li.active a,
+#page-tools .tabs li a.active {
+  color:#888;
+  font-weight:bold;
+  font-size:13px;
+  -moz-border-radius:5px;
+  -webkit-border-radius:5px;
+  text-shadow:#fff 0px 1px 0px;
+  padding:5px 10px;
+  margin-right:1px;
+  background:transparent;
+  }
+
+  #page-tools .tabs li a:hover {
+    color:#333;
+    background:#ddd;
+    padding:4px 9px;
+    border:1px solid #ccc;
+    border-color:#ccc #ddd #fff;
+    }
+
+    #page-tools .tabs li a:active {
+      background:#ccc;
+      border-color:#bbb #ccc #eee;
+      }
+
+  #page-tools .tabs li.active a,
+  #page-tools .tabs li a.active {
+    background:#fff;
+    color:#333;
+    -moz-border-radius:5px 5px 0px 0px;
+    -webkit-border-radius:5px 5px 0px 0px;
+
+    padding:4px 9px 10px;
+    border-width:1px 1px 0px;
+    border-color:#ccc #ddd;
+    border-style:solid;
+    }
+
+/**
+ * Secondary tabs =====================================================
+ */
+#secondary-tabs {
+  background:#fff url(images/sprite_bleeds.png) 0px -360px repeat-x;
+  padding:5px 0px 4px;
+  height:20px;
+  border-bottom:1px solid #ccc;
+  }
+
+  #secondary-tabs a {
+    -moz-border-radius:10px;
+    -webkit-border-radius:10px;
+    color:#999;
+    padding:0px 10px;
+    }
+
+  #secondary-tabs a:hover {
+    color:#333;
+    background:#ddd url(images/sprite_bleeds.png) 0px -360px repeat-x;
+    }
+
+  #secondary-tabs li.active a,
+  #secondary-tabs a.active {
+    color:#fff;
+    background:#999 url(images/sprite_bleeds.png) 0px -360px repeat-x;
+    }

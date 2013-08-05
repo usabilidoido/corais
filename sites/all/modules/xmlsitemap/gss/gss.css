@@ -1,0 +1,89 @@
+/* $Id: gss.css,v 1.1.6.3 2009/06/12 14:34:45 earnie Exp $ */
+
+body {
+  margin-top: 0;
+  background-color: #fff;
+}
+
+body, td, th {
+  font-family: arial,sans-serif;
+  font-size: 13px;
+}
+
+h1 {
+  font-size: 1.2em;
+  margin-bottom: 1em;
+  margin-top: 0;
+}
+
+h1 a {
+  font-size: 0.8em;
+  font-weight: normal;
+}
+
+h2 {
+  font-weight: bold;
+  font-size: 1.0em;
+  color: #707070;
+  padding-bottom: .5em;
+  padding-top: 0px;
+  margin: 1.5em 0 .5em 0;
+}
+
+h2 a {
+  font-size: 1.0em;
+  font-weight: normal;
+}
+
+p.sml {
+  font-size: 0.8em;
+  margin-top: 0;
+}
+
+a {
+  color: #0000cc;
+  text-decoration: none;
+}
+
+a:visited {
+  color: #551a8b;
+}
+
+.header {
+  font-weight: bold;
+  font-size: 1.3em;
+  margin-top: 30px;
+  padding-left: 4px;
+  border-bottom: 1px solid #dbe6de;
+}
+
+.data {
+  border-collapse: collapse;
+  border: 1px solid #BFC7D9;
+  margin-top: 3px;
+  width: 100%;
+  _word-wrap: break-word;
+}
+
+.data td {
+  border-bottom: 1px solid #BFC7D9;
+  text-align: left;
+  padding: 3px;
+}
+
+.sortup {
+  background-position: right center;
+  background-image: url(/misc/arrow-asc.png);
+  background-repeat: no-repeat;
+  font-style: italic;
+  white-space: pre;
+}
+
+.sortdown {
+  background-position: right center;
+  background-image: url(/misc/arrow-desc.png);
+  background-repeat: no-repeat;
+  font-style: italic;
+  white-space: pre;
+}
+

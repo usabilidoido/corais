@@ -1,0 +1,449 @@
+<?php
+
+/**
+ * @file
+ * Main module functions for the uuid module.
+ */
+
+/**
+ * Implementation of hook_menu().
+ */
+function uuid_menu() {
+  $items = array();
+
+  $items['admin/settings/uuid'] = array(
+    'title' => 'Universally Unique IDentifier',
+    'description' => 'Configure automatically UUID generation settings.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('uuid_admin'),
+    'access arguments' => array('administer content types'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'uuid.admin.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Implementation of hook_nodeapi().
+ */
+function uuid_nodeapi(&$node, $op, $teaser, $page) {
+  $automatic_types = variable_get('uuid_automatic_for_nodes', array());
+
+  // Return early if we don't automatically generate UUIDs for this type.
+  if (empty($automatic_types[$node->type])) {
+    return;
+  }
+
+  switch ($op) {
+    case 'load':
+      return uuid_node_load($node);
+    case 'insert':
+      // Handle the case where automatic UUID generation is turned OFF but a
+      // node is created, node_save(), intentionally with the $node->uuid
+      // attribute.
+      if (isset($node->uuid) && uuid_is_valid($node->uuid)) {
+        db_query("INSERT INTO {uuid_node} (nid, uuid) VALUES (%d, '%s')", $node->nid, $node->uuid);
+
+        if (isset($node->revision_uuid) && uuid_is_valid($node->revision_uuid)) {
+          db_query("INSERT INTO {uuid_node_revisions} (vid, uuid, nid) VALUES (%d, '%s', %d)", $node->vid, $node->revision_uuid, $node->nid);
+        }
+        else {
+          // Attach new revision uuid to node, don't just insert it.
+          $node->revision_uuid = uuid_uuid();
+          db_query("INSERT INTO {uuid_node_revisions} (vid, uuid, nid) VALUES (%d, '%s', %d)", $node->vid, $node->revision_uuid, $node->nid);
+        }
+      }
+      elseif (in_array($node->type, $automatic_types, TRUE)) {
+        $node->uuid = uuid_uuid();
+        $node->revision_uuid = uuid_uuid();
+        db_query("INSERT INTO {uuid_node} (nid, uuid) VALUES (%d, '%s')", $node->nid, $node->uuid);
+        db_query("INSERT INTO {uuid_node_revisions} (vid, uuid, nid) VALUES (%d, '%s', %d)", $node->vid, $node->revision_uuid, $node->nid);
+      }
+      break;
+    case 'update':
+      // Get existing UUID info from the DB.
+      $uuid_information = uuid_node_load($node);
+      // If the $node object is not fully loaded, set any existing UUID properties.
+      // http://drupal.org/node/1065364
+      if (!empty($uuid_information['uuid']) && empty($node->uuid)) {
+        $node->uuid = $uuid_information['uuid'];
+      }
+      if (!empty($uuid_information['revision_uuid']) && empty($node->revision_uuid)) {
+        $node->revision_uuid = $uuid_information['revision_uuid'];
+      }
+      $auto_create = in_array($node->type, $automatic_types, TRUE);
+      $uuid_exists = isset($node->uuid) && uuid_is_valid($node->uuid);
+
+      // Create a UUID if this is an automatic type but no UUID exists. Save the
+      // UUID if it's valid but is not in the database.
+      if ($uuid_exists || $auto_create) {
+        $node->uuid = $uuid_exists ? $node->uuid : uuid_uuid();
+        // Update the existing UUID.
+        if ($uuid_information['uuid']===FALSE) {
+          db_query("INSERT INTO {uuid_node} (nid, uuid) VALUES (%d, '%s')", $node->nid, $node->uuid);
+        }
+        elseif ($uuid_information['uuid'] != $node->uuid) {
+          db_query("UPDATE {uuid_node} SET uuid = '%s' WHERE nid = %d", $node->uuid, $node->nid);
+        }
+        $uuid_exists = TRUE;
+      }
+
+      $rev_uuid_exists = isset($node->revision_uuid) && uuid_is_valid($node->revision_uuid);
+      $rev_uuid_in_db = $rev_uuid_exists ? db_result(db_query("SELECT 1 FROM {uuid_node_revisions} WHERE uuid = '%s'", $node->revision_uuid)) : FALSE;
+      $rev_uuid_needs_saved = $rev_uuid_exists && !$rev_uuid_in_db;
+
+      // If a UUID exists, save a revision UUID if none exists or this is a new
+      // revision, or there's a programmatic revision set.
+      if ($uuid_exists && (empty($uuid_information['revision_uuid']) || !empty($node->revision) || $rev_uuid_needs_saved)) {
+        // We need to determine when to generate a new revision UUID. This
+        // should only happen if this is a new revision and if the existing
+        // revision uuid already exists in the database or doesn't exist at all.
+        $generate_new = !empty($node->revision) && ($rev_uuid_in_db || !$rev_uuid_exists);
+        $node->revision_uuid = $generate_new ? uuid_uuid() : $node->revision_uuid;
+
+        // Be sure to consider the case where the revision_uuid may be changing
+        // programmatically, so try updating first.
+        db_query("UPDATE {uuid_node_revisions} SET uuid = '%s' WHERE vid = %d", $node->revision_uuid, $node->vid);
+        if (!db_affected_rows()) {
+          db_query("INSERT INTO {uuid_node_revisions} (vid, uuid, nid) VALUES (%d, '%s', %d)", $node->vid, $node->revision_uuid, $node->nid);
+        }
+      }
+      break;
+    case 'delete':
+      db_query('DELETE FROM {uuid_node} WHERE nid = %d', $node->nid);
+      // Delete the revision uuids for the node.
+      db_query('DELETE FROM {uuid_node_revisions} WHERE nid = %d', $node->nid);
+      break;
+    case 'delete revision':
+      db_query('DELETE FROM {uuid_node_revisions} WHERE vid = %d', $node->vid);
+      break;
+  }
+}
+
+/**
+ * Load the UUID information for a node.
+ *
+ * @param $node
+ *   Node object to load UUID information for.
+ *
+ * @return
+ *   Array with UUID information.
+ */
+function uuid_node_load($node) {
+  if ($arr = db_fetch_array(db_query('SELECT un.uuid AS uuid, unr.uuid AS revision_uuid FROM {uuid_node} un LEFT JOIN {uuid_node_revisions} unr ON unr.vid=%d WHERE un.nid=%d', $node->vid, $node->nid))) {
+    return $arr;
+  }
+  else {
+   return array('uuid' => FALSE, 'revision_uuid' => FALSE);
+  }
+}
+
+/**
+ * Implementation of hook_views_api().
+ */
+function uuid_views_api() {
+  return array(
+    'api' => 2,
+    'path' => drupal_get_path('module', 'uuid'),
+  );
+}
+
+/**
+ * Returns the node associated with a UUID. Uses db_rewrite_sql() to ensure
+ * node_access rules are preserved.
+ *
+ * @return
+ *   Either the $node object, or FALSE on failure.
+ */
+function node_get_by_uuid($uuid) {
+  $nid = db_result(db_query(db_rewrite_sql(
+    "SELECT n.nid
+     FROM {node} AS n
+     INNER JOIN {uuid_node} AS un ON n.nid = un.nid
+     WHERE un.uuid = '%s'"),
+    $uuid
+  ));
+
+  if ($nid) {
+    return node_load($nid);
+  }
+  else {
+    return FALSE;
+  }
+}
+
+/**
+ * Returns the node associated with a revision UUID.
+ *
+ * @param $revision_uuid
+ *   The uuid to use for the node lookup.
+ *
+ * @return
+ *   Either the $node object, or FALSE on failure.
+ */
+function node_get_by_revision_uuid($revision_uuid) {
+  $node = db_fetch_object(db_query(db_rewrite_sql(
+    "SELECT n.nid, n.vid
+     FROM {node} AS n
+     INNER JOIN {uuid_node_revisions} AS unr ON n.vid = unr.vid
+     WHERE unr.uuid = '%s'"),
+    $revision_uuid
+  ));
+
+  if ($node->nid && $node->vid) {
+    return node_load($node->nid, $node->vid);
+  }
+  else {
+    return FALSE;
+  }
+}
+
+/**
+ * Implementation of hook_user().
+ */
+function uuid_user($op, &$edit, &$user, $category = NULL) {
+  switch ($op) {
+    case 'load':
+      $user->uuid = db_result(db_query('SELECT uuid FROM {uuid_users} WHERE uid = %d', $user->uid));
+      break;
+    case 'insert':
+      $insert = NULL;
+      if (isset($user->uuid) && uuid_is_valid($user->uuid)) {
+        $insert = $user->uuid;
+      }
+      else if (isset($edit['uuid']) && uuid_is_valid($edit['uuid'])) {
+        $insert = $user->uuid = $edit['uuid'];
+      }
+      else if (variable_get('uuid_automatic_for_users', FALSE)) {
+        $insert = $user->uuid = uuid_uuid();
+      }
+      if ($insert) {
+        db_query("INSERT INTO {uuid_users} (uid, uuid) VALUES (%d, '%s')", $user->uid, $user->uuid);
+      }
+      break;
+    case 'update':
+      if (isset($user->uuid) && uuid_is_valid($user->uuid)) {
+        $exists = db_result(db_query('SELECT 1 FROM {uuid_users} WHERE uid = %d', $user->uid));
+
+        if (!$exists) {
+          db_query("INSERT INTO {uuid_users} (uid, uuid) VALUES (%d, '%s')", $user->uid, $user->uuid);
+        }
+      }
+      break;
+    case 'delete':
+      db_query('DELETE FROM {uuid_users} WHERE uid = %d', $user->uid);
+      break;
+  }
+}
+
+/**
+ * Returns the user associated with a UUID.
+ *
+ * @return
+ *   Either the $account object, or FALSE on failure.
+ */
+function user_get_by_uuid($uuid) {
+  $uid = db_result(db_query("SELECT uid FROM {uuid_users} WHERE uuid = '%s'", $uuid));
+
+  if ($uid) {
+    return user_load(array('uid' => $uid));
+  }
+  else {
+    return FALSE;
+  }
+}
+
+/**
+ * Implementation of hook_taxonomy().
+ */
+function uuid_taxonomy($op, $type, $array = NULL) {
+  if (!isset($array['vid']) || (!in_array($array['vid'], variable_get('uuid_automatic_for_taxonomy', array())) && !isset($array['uuid']))) {
+    // Nothing to do.
+    return;
+  }
+
+  switch ($type) {
+    case 'term':
+      $keyfield = 'tid';
+      $table = 'uuid_term_data';
+      $key = $array['tid'];
+      break;
+    case 'vocabulary':
+      $keyfield = 'vid';
+      $table = 'uuid_vocabulary';
+      $key = $array['vid'];
+      break;
+    default:
+      // Nothing to do.
+      return;
+      break;
+  }
+
+  switch ($op) {
+    case 'insert':
+      if (empty($array['uuid']) || !uuid_is_valid($array['uuid'])) {
+        $array['uuid'] = uuid_uuid();
+      }
+      db_query("INSERT INTO {$table} ($keyfield, uuid) VALUES (%d, '%s')",
+        $key, $array['uuid']);
+      break;
+    case 'update':
+      $existing_uuid = db_result(db_query("SELECT uuid FROM {$table} WHERE $keyfield = %d", $key));
+      if ($existing_uuid) {
+        // If there is an existing uuid, but no new one, remove the existing one.
+        if (!isset($array['uuid']) || empty($array['uuid'])) {
+          uuid_taxonomy('delete', $type, $array);
+        }
+        // If the new uuid is not the same, update it.
+        elseif ($array['uuid'] != $existing_uuid) {
+          db_query("UPDATE {$table} SET uuid = '%s' WHERE $keyfield = %d", $array['uuid'], $key);
+        }
+        // Otherwise, don't do anything. No update necessary.
+      }
+      else {
+        uuid_taxonomy('insert', $type, $array);
+      }
+      break;
+    case 'delete':
+      db_query("DELETE FROM {$table} WHERE $keyfield = %d", $keyfield, $key);
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_comment().
+ */
+function uuid_comment(&$a1, $op) {
+  switch ($op) {
+    // Make sure that a new entry gets made in the comments_uuid table when new content
+    // is added.
+    case 'insert':
+      if (!empty($a1['uuid']) && uuid_is_valid($a1['uuid'])) {
+        db_query("INSERT INTO {uuid_comments} (cid, uuid) VALUES (%d, '%s')", $a1['cid'], $a1['uuid']);
+      }
+      else if (variable_get('uuid_automatic_for_comments', FALSE)) {
+        db_query("INSERT INTO {uuid_comments} (cid, uuid) VALUES (%d, '%s')", $a1['cid'], uuid_uuid());
+      }
+      break;
+
+    case 'update':
+      if (isset($a1['uuid']) && uuid_is_valid($a1['uuid'])) {
+        $exists = db_result(db_query('SELECT 1 FROM {uuid_comments} WHERE cid = %d', $a1['cid']));
+
+        if (!$exists && variable_get('uuid_automatic_for_comments', FALSE)) {
+          db_query("INSERT INTO {uuid_comments} (cid, uuid) VALUES (%d, '%s')", $a1['cid'], uuid_uuid());
+        }
+      }
+      break;
+
+    // Clean up comments_uuid table when content is deleted.
+    case 'delete':
+      db_query("DELETE FROM {uuid_comments} WHERE cid = %d", $a1->cid);
+      break;
+  }
+}
+
+/**
+ * Determines if a UUID is valid.
+ */
+function uuid_is_valid($uuid) {
+  return (boolean) preg_match('/^[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$/', $uuid);
+}
+
+/**
+ * Generate and return an Universally Unique IDentifier (UUID).
+ *
+ * @see http://www.ietf.org/rfc/rfc4122.txt
+ * @see http://php.net/manual/en/function.uniqid.php#65879
+ *
+ * @return
+ *   An UUID, made up of 32 hex digits and 4 hyphens.
+ */
+function uuid_uuid() {
+  // If we're not using postgres, the database will give us a UUID.
+  if ($GLOBALS['db_type'] != 'pgsql') {
+    return db_result(db_query('SELECT UUID()'));
+  }
+
+  // If the function provided by the uuid pecl extension is available, use that.
+  if(function_exists('uuid_create')) {
+    return uuid_create(UUID_TYPE_DEFAULT);
+  }
+
+  // Fall back to generating a Universally Unique IDentifier version 4.
+  // Base on http://php.net/manual/en/function.uniqid.php#65879
+  // The field names refer to RFC 4122 section 4.1.2.
+  return sprintf('%04x%04x-%04x-%03x4-%04x-%04x%04x%04x',
+    // 32 bits for "time_low".
+    mt_rand(0, 65535), mt_rand(0, 65535),
+    // 16 bits for "time_mid".
+    mt_rand(0, 65535),
+    // 12 bits before the 0100 of (version) 4 for "time_hi_and_version".
+    mt_rand(0, 4095),
+    bindec(substr_replace(sprintf('%016b', mt_rand(0, 65535)), '01', 6, 2)),
+    // 8 bits, the last two of which (positions 6 and 7) are 01, for "clk_seq_hi_res"
+    // (hence, the 2nd hex digit after the 3rd hyphen can only be 1, 5, 9 or d)
+    // 8 bits for "clk_seq_low" 48 bits for "node".
+    mt_rand(0, 65535), mt_rand(0, 65535), mt_rand(0, 65535)
+  );
+}
+
+/**
+ * Token integration. UUID module provides the following tokens to be used on
+ * the node, user, comment and taxonomy contexts.
+ *   - Global:
+ *     - uuid: an arbitrary uuid generated on demand not linked with any object.
+ *   - Node:
+ *     - uuid: the node's uuid.
+ *     - revision-uuid: the node revision's uuid
+ *     - author-uuid: the node author's uuid
+ *   - User:
+ *     - uuid: the user's uuid.
+ *
+ * @todo Still to complete taxonomy and comment tokens.
+ */
+
+/**
+ * Implementation of hook_token_values().
+ */
+function uuid_token_values($type, $object = NULL, $options = array()) {
+  $tokens = array();
+
+  switch ($type) {
+    case 'global':
+      $tokens['uuid'] = uuid_uuid();
+      break;
+    case 'user':
+      $tokens['uuid'] = isset($object->uuid) ? $object->uuid : NULL;
+      break;
+    case 'node':
+      $tokens['uuid'] = isset($object->uuid) ? $object->uuid : NULL;
+      $tokens['revision-uuid'] = isset($object->revision_uuid) ? $object->revision_uuid : NULL;
+      $tokens['author-uuid'] = db_result(db_query("SELECT uuid FROM {uuid_users} WHERE uid = %d", $object->uid));
+      break;
+  }
+
+  return $tokens;
+}
+
+/**
+ * Implementation of hook_token_list().
+ */
+function uuid_token_list($type = 'all') {
+  $tokens = array();
+
+  if ($type == 'global' || $type == 'all') {
+    $tokens['global']['uuid'] = t("An arbitrary UUID value");
+  }
+  if ($type == 'node' || $type == 'all') {
+    $tokens['node']['uuid'] = t("The node UUID value");
+    $tokens['node']['revision_uuid'] = t("The node revision UUID value");
+    $tokens['node']['author-uuid'] = t("The node author UUID value");
+  }
+  if ($type == 'user' || $type == 'all') {
+    $tokens['user']['uuid'] = t("The user UUID value");
+  }
+
+  return $tokens;
+}

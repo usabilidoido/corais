@@ -1,0 +1,535 @@
+<?php
+
+/**
+ * @file
+ * Hooks and API functions for Data Node module.
+ */
+
+/**
+ * Implementation of hook_views_api().
+ */
+function data_taxonomy_views_api() {
+  return array(
+    'api' => '2.0',
+    'path' => drupal_get_path('module', 'data_taxonomy') .'/views',
+  );
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function data_taxonomy_menu() {
+  $items = array();
+  $items['data-taxonomy/ajax-save'] = array(
+    'page callback' => 'data_taxonomy_ajax_save',
+    'page arguments' => array(),
+    'access arguments' => array('edit data taxonomy relations'),
+    'type' => MENU_CALLBACK,
+  );
+  $items['admin/build/data/edit/%data_ui_table/taxonomy'] = array(
+    'title' => 'Relate to taxonomy',
+    'description' => 'Administer data tables.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('data_taxonomy_settings_form', 4),
+    'file' => 'data_taxonomy.admin.inc',
+    'access arguments' => array('administer data tables'),
+    'type' => MENU_LOCAL_TASK,
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function data_taxonomy_theme() {
+  return array(
+    'data_taxonomy_tagging_form' => array(
+      'arguments' => array('form' => array()),
+      'path' => drupal_get_path('module', 'data_taxonomy') . '/theme',
+      'template' => 'data-taxonomy-tagging-form',
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function data_taxonomy_perm() {
+  return array('edit data taxonomy relations');
+}
+
+/**
+ * Implementation of hook_feeds_data_processor_targets_alter().
+ */
+function data_taxonomy_feeds_data_processor_targets_alter(&$fields, $table_name) {
+  if ($info = data_taxonomy_get_info($table_name)) {
+    foreach ($info['vocabularies'] as $vid) {
+      $vocabulary = data_taxonomy_get_vocabulary($vid);
+      $fields['data_taxonomy:'. $vid] = array(
+        'name' => t('Taxonomy: @vocabulary', array("@vocabulary" => $vocabulary->name)),
+        'description' => t('Map to taxonomy terms of @vocabulary vocabulary.', array("@vocabulary" => $vocabulary->name)),
+      );
+    }
+  }
+}
+
+/**
+ * Implementation of hook_data_insert().
+ */
+function data_taxonomy_data_insert($record, $table_name) {
+  if ($info = data_taxonomy_get_info($table_name)) {
+    $id = $record[$info['id']];
+    foreach ($info['vocabularies'] as $vid) {
+      if (isset($record['data_taxonomy:'. $vid])) {
+        _data_taxonomy_save_terms($table_name, $id, $record['data_taxonomy:'. $vid], data_taxonomy_get_vocabulary($vid));
+      }
+    }
+  }
+}
+
+/**
+ * Implementation of hook_data_update().
+ */
+function data_taxonomy_data_update($record, $table_name) {
+  if ($info = data_taxonomy_get_info($table_name)) {
+    $id = $record[$info['id']];
+    foreach ($info['vocabularies'] as $vid) {
+      if (isset($record['data_taxonomy:'. $vid])) {
+        $vocabulary = data_taxonomy_get_vocabulary($vid);
+        _data_taxonomy_save_terms($table_name, $id, $record['data_taxonomy:'. $vid], $vocabulary);
+      }
+    }
+  }
+}
+
+/**
+ * Implementation of hook_taxonomy().
+ */
+function data_taxonomy_taxonomy($op = NULL, $type = NULL, $term = NULL) {
+  if ($type =='term' && $term['tid'] && $op == 'delete') {
+    db_query("DELETE FROM {data_taxonomy} WHERE tid = %d", $term['tid']);
+  }
+}
+
+/**
+ * Helper function, saves a series of taxonomy terms for a record.
+ *
+ * Creates new taxonomy terms on the fly for vocabularies that are tags.
+ *
+ * @param $table_name
+ *   Table name of the record.
+ * @param $id
+ *   Record identifier.
+ * @param $terms
+ *   An array of terms. Can be an array of tids, term names, term arrays or
+ *   objects that can be casted into a term array. If the target vocabulary is
+ *   a tag vocabulary, non-existing terms will be created on the fly.
+ * @param $vocabulary
+ *   A vocuabulary object.
+ */
+function _data_taxonomy_save_terms($table_name, $id, $terms, $vocabulary) {
+  if (!is_array($terms)) {
+    $terms = array($terms);
+  }
+  $tids = array();
+  foreach ($terms as $term) {
+    if (is_string($term)) {
+      $term = data_taxonomy_sanitize($term, $vocabulary->vid);
+      $term = data_taxonomy_save_term_name($term, $vocabulary->vid, $vocabulary->tags);
+    }
+    else {
+      if (is_object($term)) {
+        $term = (array)$term;
+      }
+      if (is_array($term)) {
+        $term['name'] = data_taxonomy_sanitize($term['name'], $vocabulary->vid);
+        $term = data_taxonomy_save_term_array($term, $vocabulary->vid, $vocabulary->tags);
+      }
+    }
+    if (is_array($term)) {
+      $term = isset($term['tid']) ? $term['tid'] : FALSE;
+    }
+    if (is_numeric($term) && !isset($tids[$term])) {
+      $tids[$term] = $term;
+    }
+  }
+  _data_taxonomy_save_relations($vocabulary->vid, $id, $table_name, $tids);
+}
+
+/**
+ * Implementation of hook_data_delete_query_alter().
+ */
+function data_taxonomy_data_delete_query_alter($query, $table_name) {
+  if ($info = data_taxonomy_get_info($table_name)) {
+    $table_name = db_escape_table($table_name);
+    $query->addSubject('data_taxonomy');
+    $query->addJoin('data_taxonomy', "$table_name.{$info['id']} = data_taxonomy.id AND data_taxonomy.data_table_name = '$table_name'", 'LEFT JOIN');
+  }
+}
+
+/**
+ * Get data_taxonomy information for a given data table.
+ */
+function data_taxonomy_get_info($table_name) {
+  static $info = array();
+  if (!isset($info[$table_name])) {
+    $info[$table_name] = FALSE;
+    $meta = data_get_table($table_name)->get('meta');
+    if (is_array($meta['data_taxonomy'])) {
+      $info[$table_name] = $meta['data_taxonomy'];
+    }
+  }
+  return $info[$table_name];
+}
+
+/**
+ * Form callback for tagging.
+ */
+function data_taxonomy_tagging_form(&$form_state, $vid, $id, $table_name, $path, $args) {
+  $access = user_access('edit data taxonomy relations');
+  $form = array('#theme' => 'data_taxonomy_tagging_form');
+  $form['vid'] = array(
+    '#type' => 'hidden',
+    '#value' => $vid,
+    '#access' => $access,
+  );
+  $form['id'] = array(
+    '#type' => 'hidden',
+    '#value' => $id,
+    '#access' => $access,
+  );
+  $form['table_name'] = array(
+    '#type' => 'hidden',
+    '#value' => $table_name,
+    '#access' => $access,
+  );
+  $form['path'] = array(
+    '#type' => 'hidden',
+    '#value' => $path,
+    '#access' => $access,
+  );
+  $form['args'] = array(
+    '#type' => 'hidden',
+    '#value' => implode('&', $args),
+    '#access' => $access,
+  );
+  $result = db_query('SELECT td.tid, td.name, td.vid FROM {term_data} td JOIN {data_taxonomy} dt ON td.tid = dt.tid WHERE dt.data_table_name = "%s" AND dt.id = %d AND td.vid = %d', $table_name, $id, $vid);
+  $tags = $terms = array();
+  while ($term = db_fetch_object($result)) {
+    $tags[$term->tid] = $term->name;
+    $terms[$term->tid] = $term;
+  }
+  $form['tags'] = array(
+    '#type' => 'textfield',
+    '#default_value' => implode(', ', $tags),
+    '#autocomplete_path' => 'taxonomy/autocomplete/'. $vid,
+    '#id' => "edit-tags-data-taxonomy-{$vid}-{$id}",
+    '#access' => $access,
+  );
+
+  // Ensure our path gets rewritten. We don't use url() here because we're
+  // not interested in rewrites to parts of the request other than $_GET['q'].
+  $ajax_path = 'data-taxonomy/ajax-save';
+  if (function_exists('custom_url_rewrite_outbound')) {
+    $original_path = $ajax_path;
+    $options = array();
+    custom_url_rewrite_outbound($ajax_path, $options, $original_path);
+  }
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save'),
+    '#access' => $access,
+
+    // AHAH stack: We need to assign our submit button its own ID as auto
+    // assignment will quickly lead to a situation where our AJAX form button
+    // has a different ID from the original.
+    '#id' => "edit-submit-data-taxonomy-{$vid}-{$id}",
+    '#ahah' => array(
+      'path' => $ajax_path,
+      'wrapper' => "data-taxonomy-tags-{$vid}-{$id}",
+      'method' => 'replace',
+      'effect' => 'none',
+    ),
+  );
+
+  // Pass on key elements for theming.
+  $form['#terms'] = $terms;
+  $form['#path'] = $path;
+  $form['#args'] = $args;
+  if ($access) {
+    $form['#edit'] = l(t('Edit'), $_GET['q'], array('fragment' => 'data-taxonomy-edit', 'attributes' => array('class' => 'data-taxonomy-edit')));
+  }
+  $form['#vocab'] = taxonomy_vocabulary_load($vid);
+  return $form;
+}
+
+/**
+ * Submit handler.
+ */
+function data_taxonomy_tagging_form_submit($form, &$form_state) {
+  // Using clicked_button allows us to use more than one of the same form on
+  // a screen.
+  $post = $form_state['clicked_button']['#post'];
+  $tids = data_taxonomy_save_tags($form_state['values']['tags'], $post['vid']);
+  _data_taxonomy_save_relations($post['vid'], $post['id'], $post['table_name'], $tids);
+}
+
+/**
+ * Save term_data - data table relationships in data_taxonomy table.
+ */
+function _data_taxonomy_save_relations($vid, $id, $table_name, $tids) {
+  db_query("DELETE dt FROM {data_taxonomy} dt JOIN {term_data} td ON dt.tid = td.tid WHERE dt.id = %d AND dt.data_table_name = '%s' AND td.vid = %d", $id, $table_name, $vid);
+  foreach ($tids as $tid) {
+    db_query('INSERT INTO {data_taxonomy} (id, data_table_name, tid) VALUES (%d, "%s", %d)', $id, $table_name, $tid);
+  }
+}
+
+/**
+ * Save a term, create a new one if it does not exist yet.
+ *
+ * @param $name
+ *   A taxonomy term name to look up and save.
+ * @param $vid
+ *   A <em>numeric</em> vocabulary id (vid).
+ *
+ * @return
+ *   A taxonomy term array.
+ */
+function data_taxonomy_save_term_name($name, $vid) {
+  if ($term = data_taxonomy_lookup_term($name, $vid)) {
+    return $term;
+  }
+  $term = array(
+    'vid' => $vid,
+    'name' => $name,
+  );
+  taxonomy_save_term($term);
+  return $term;
+}
+
+/**
+ * Save a term array, create a new one if it does not exist yet.
+ *
+ * @param $term
+ *   A taxonomy term array to look up and save.
+ * @param $vid
+ *   A <em>numeric</em> vocabulary id (vid).
+ *
+ * @return
+ *   A taxonomy term array.
+ */
+function data_taxonomy_save_term_array($term, $vid) {
+  if (!isset($term[$vid])) {
+    $term['vid'] = $vid;
+  }
+  if (!isset($term['tid']) || $term['vid'] != $vid) {
+    if ($lookup = data_taxonomy_lookup_term($term['name'], $vid)) {
+      $term = $term + $lookup;
+    }
+  }
+  taxonomy_save_term($term);
+  return $term;
+}
+
+/**
+ * Sanitize a term name depending on its vocabulary settings.
+ */
+function data_taxonomy_sanitize($name, $vid) {
+  $vocabulary = taxonomy_vocabulary_load($vid);
+  if ($vocabulary->tags) {
+    // Make sure there aren't any terms with a comma (=tag delimiter) in it.
+    return preg_replace('/\s*,\s*/', ' ', $name);
+  }
+  return $name;
+}
+
+/**
+ * Look up a term by name and vid.
+ *
+ * @param $name
+ *   Term name.
+ * @param $vid
+ *   A <em>numeric</em> vocabulary id (vid).
+ *
+ * @return
+ *   A taxonomy term array if there is a term for $name/$vid, NULL otherwise.
+ */
+function data_taxonomy_lookup_term($name, $vid) {
+  static $terms;
+  if (!isset($terms[$vid][$name])) {
+    foreach (data_taxonomy_get_term_by_name_vid($name, $vid) as $term) {
+      if ($term->vid == $vid) {
+        $terms[$vid][$name] = (array)$term;
+      }
+    }
+  }
+  return isset($terms[$vid][$name]) ? $terms[$vid][$name] : NULL;
+}
+
+/**
+ * Look up a term by name and vocabulary id.
+ *
+ * @see taxonomy_get_term_by_name().
+ */
+function data_taxonomy_get_term_by_name_vid($name, $vid) {
+  $db_result = db_query(db_rewrite_sql("SELECT t.tid, t.* FROM {term_data} t WHERE t.vid = %d AND LOWER(t.name) = LOWER('%s')", 't', 'tid'), $vid, trim($name));
+  $result = array();
+  while ($term = db_fetch_object($db_result)) {
+    $result[] = $term;
+  }
+  return $result;
+}
+
+/**
+ * Explode terms from typed input, create new terms.
+ *
+ * @param $typed_input
+ *   A comma separated list of terms.
+ * @param $vid
+ *   A <em>numeric</em> vocabulary id (vid).
+ *
+ * @todo: This should actually live in taxonomy module.
+ *
+ * @return
+ *   Array of tids corresponding to the terms in typed_input.
+ */
+function data_taxonomy_save_tags($typed_input, $vid) {
+  $tids = array();
+  foreach (drupal_explode_tags($typed_input) as $typed_term) {
+    $term = data_taxonomy_save_term_name($typed_term, $vid);
+    // Cast the edit as an object as though it were retrieved from the DB.
+    $tids[$term['tid']] = (object) $term;
+  }
+  return $tids;
+}
+
+/**
+ * AHAH callback for saving terms.
+ *
+ * @todo: Verify form token.
+ */
+function data_taxonomy_ajax_save() {
+  $cached_form_state = array();
+  $files = array();
+  $cached_form = form_get_cache($_POST['form_build_id'], $cached_form_state);
+  if ($cached_form['form_token']['#default_value'] == $_POST['form_token']) {
+    // Rebuild $form_state['values'].
+    $form_state = array('values' => $_POST);
+    foreach (element_children($cached_form) as $elem) {
+      if ($cached_form[$elem]['#type'] === 'value' && isset($cached_form[$elem]['#value'])) {
+        $form_state['values'][$elem] = $cached_form[$elem]['#value'];
+      }
+    }
+
+    // Process and save terms & relations.
+    $values = $form_state['values'];
+    $terms = data_taxonomy_save_tags($values['tags'], $values['vid']);
+    _data_taxonomy_save_relations($values['vid'], $values['id'], $values['table_name'], array_keys($terms));
+    drupal_json(array('status' => 1, 'data' => theme('links', data_taxonomy_tag_links($terms, $_POST['path'], explode('&', $_POST['args'])), array('class' => 'links data-taxonomy-tags'))));
+    exit;
+  }
+  drupal_json(array('status' => 1, 'data' => 'Error submitting form'));
+  exit;
+}
+
+/**
+ * Generate a links array suitable for use with theme('links') from an array of
+ * taxonomy terms.
+ *
+ * @param $terms
+ *   An array of terms.
+ * @param $path
+ *   The path template to use (e. g. path/%/!tid/%)
+ * @param $args
+ *   The arguments to use in the path template, used to replace %'s in $path.
+ */
+function data_taxonomy_tag_links($terms, $path, $args) {
+  $tags = array();
+  $path = _data_taxonomy_replace_tokens($path, $args);
+  foreach ($terms as $tid => $term) {
+    $tags[] = array(
+      'title' => $term->name,
+      'href' => str_replace('!term', $term->name, str_replace('!tid', $term->tid, $path)),
+    );
+  }
+  return $tags;
+}
+
+/**
+ * Replaces % in $path with arguments.
+ *
+ * @todo: Replace missing % not with 'all' but with value depending on argument
+ * setting.
+ *
+ * @param $path
+ *   A path template like path/%/!tid/%
+ * @param $args
+ *   An array of arguments used to replace % characters in path.
+ * @return
+ *   A path with replaced tokens like path/arg1/!tid/arg2
+ */
+function _data_taxonomy_replace_tokens($path, $args) {
+  if (is_array($args)) {
+    $args = array_filter($args);
+    $pos = strpos($path, '%');
+    while ($pos !== FALSE && count($args)) {
+      $path = substr_replace($path, array_shift($args), $pos, 1);
+      $pos = strpos($path, '%');
+    }
+  }
+  $path = str_replace('%', 'all', $path);
+  return $path;
+}
+
+/**
+ * Preprocessor for theme('data_taxonomy_tagging_form').
+ */
+function template_preprocess_data_taxonomy_tagging_form(&$vars) {
+  drupal_add_js(drupal_get_path('module', 'data_taxonomy') .'/theme/data_taxonomy.js');
+  drupal_add_css(drupal_get_path('module', 'data_taxonomy') .'/theme/data_taxonomy.css');
+  $vars['label'] = $vars['form']['#vocab']->name;
+  if ($vars['form']['#edit']) {
+    $vars['edit'] = $vars['form']['#edit'];
+  }
+  $vars['tags'] = theme('links', data_taxonomy_tag_links($vars['form']['#terms'], $vars['form']['#path'], $vars['form']['#args']), array('class' => 'links data-taxonomy-tags'));
+}
+
+/**
+ * Get a vocabulary by vid or module name.
+ *
+ * @param $id
+ *   A module name or a numeric vocabulary id.
+ *
+ * @return
+ *   An object of type stdClass that represents a vocabulary.
+ */
+function data_taxonomy_get_vocabulary($id) {
+  static $vocabularies;
+  if (!isset($vocabularies[$id])) {
+    foreach (taxonomy_get_vocabularies() as $vocabulary) {
+      if ($vocabulary->vid == $id) {
+        $vocabularies[$id] = $vocabulary;
+        break;
+      }
+      elseif ($vocabulary->module == $id) {
+        $vocabularies[$id] = $vocabulary;
+        break;
+      }
+    }
+  }
+  return $vocabularies[$id];
+}
+
+/**
+ * Return the vocabulary identifier, the vocabulary's vid or module.
+ *
+ * @return
+ *   Vocabulary's module name if it is a features vocabulary (= exportable),
+ *   vocabulary's vid otherwise.
+ */
+function data_taxonomy_vocabulary_id($vocabulary) {
+  if (strpos($vocabulary->module, 'features_') === 0) {
+    return $vocabulary->module;
+  }
+  return $vocabulary->vid;
+}

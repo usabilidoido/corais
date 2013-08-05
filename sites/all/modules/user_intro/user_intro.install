@@ -1,0 +1,39 @@
+<?php
+
+/*************************************************************
+        DRUPAL HOOKS
+*************************************************************/
+
+/**
+ * Implementation of hook_install();
+ */
+function user_intro_install() {
+  drupal_install_schema('user_intro');
+}
+
+/**
+ * Implementation of hook_uninstall();
+ */
+function user_intro_uninstall() {
+  drupal_uninstall_schema('user_intro');
+}
+
+/**
+ * Implementation of hook_schema();
+ */
+function user_intro_schema() {
+  $schema['user_intro'] = array(
+    'description' => t('Logs users who have disabled the user intro.'),
+    'fields' => array(
+      'uid' => array(
+        'description' => t('user id'),
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('uid'),
+  );
+
+  return $schema; 
+}

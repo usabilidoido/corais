@@ -1,0 +1,16 @@
+core = "6.x"
+dependencies[] = "og"
+dependencies[] = "og_access"
+dependencies[] = "og_views"
+dependencies[] = "spaces"
+dependencies[] = "purl"
+description = "Provides integration between Spaces and OG."
+name = "Spaces OG"
+package = "Spaces"
+
+; Information added by drupal.org packaging script on 2012-07-25
+version = "6.x-3.6"
+core = "6.x"
+project = "spaces"
+datestamp = "1343253485"
+

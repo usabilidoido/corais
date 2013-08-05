@@ -1,0 +1,98 @@
+<?php
+
+class SpacesDashboardTestCase extends DrupalWebTestCase {
+  /**
+   * Test info.
+   */
+  public function getInfo() {
+    return array(
+      'name' => t('Spaces Dashboard'),
+      'description' => t('Test dashboard settings.') ,
+      'group' => t('Spaces'),
+    );
+  }
+
+  /**
+   * Set up test.
+   */
+  public function setUp() {
+    parent::setUp(
+      'context',
+      'context_ui',
+      'ctools',
+      'features',
+      'jquery_ui',
+      'spaces',
+      'spaces_dashboard'
+    );
+
+    // Use context to ensure the Dashboard editor block is visible for our tests.
+    ctools_include('export');
+    $context = ctools_export_new_object('context');
+    $context->name = 'testcontext';
+    $context->conditions = array('sitewide' => array('values' => array(1)));
+    $context->reactions = array('block' => array('blocks' => array(
+      'spaces_dashboard-editor' => array(
+        'module' => 'spaces_dashboard',
+        'delta' => 'editor',
+        'region' => 'right',
+        'weight' => 0,
+      ),
+    )));
+    $saved = context_save($context);
+    $this->assertTrue($saved, "Context 'testcontext' saved.");
+
+    $admin_user = $this->drupalCreateUser(array(
+      'administer site configuration',
+      'administer dashboards',
+    ));
+    $this->drupalLogin($admin_user);
+  }
+
+  /**
+   * Test that block accessibility settings work properly.
+   */
+  public function testSettings() {
+    // Enable dashboard feature
+    $edit = array('spaces_features[spaces_dashboard]' => 1);
+    $this->drupalPost('features', $edit, t('Save configuration'));
+    $this->assertText('The configuration options have been saved.');
+
+    // Enable core blocks for use with dashboard
+    $enabled = array(
+      'node-0' => t('Syndicate'),
+      'user-0' => t('User login'),
+    );
+    $disabled = array(
+      'user-1' => t('Navigation'),
+    );
+    $edit = array();
+    foreach (array_keys($enabled) as $bid) {
+      $edit["spaces_dashboard_blocks[{$bid}]"] = 1;
+    }
+    $this->drupalPost('features/spaces_dashboard', $edit, t('Save configuration'));
+
+    // Check that the variable was saved correctly.
+    $dashboard_blocks = variable_get('spaces_dashboard_blocks', array());
+    foreach (array_keys($enabled) as $bid) {
+      $this->assertTrue($dashboard_blocks[$bid], t('Block settings saved correctly for @bid', array('@bid' => $bid)));
+    }
+    foreach (array_keys($disabled) as $bid) {
+      $this->assertFalse($dashboard_blocks[$bid], t('Block settings saved correctly for @bid', array('@bid' => $bid)));
+    }
+
+    // Check that only the enabled blocks are available on the dashboard editor block.
+    $output = $this->drupalGet('dashboard');
+    $this->pass($output);
+    $this->assertText('Dashboard', t('Dashboard'));
+    foreach ($enabled as $label) {
+      $this->assertRaw($label, t('Block @label found.', array('@label' => $label)));
+    }
+    foreach ($disabled as $label) {
+      $this->assertNoRaw($label, t('Block @label not usable.', array('@label' => $label)));
+    }
+    // @TODO: This XPath check does not work for some reason. Hard to tell why...
+    // $active = $this->xpath('//*[@id = "block-spaces_dashboard-editor"]//div[text() = "Syndicate"]');
+    // $this->assertTrue(!empty($active), t('Block Syndicate found.'));
+  }
+}

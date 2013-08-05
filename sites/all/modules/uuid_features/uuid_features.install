@@ -1,0 +1,17 @@
+<?php
+
+/**
+ * Implementation of hook_enable().
+ */
+function uuid_features_enable() {
+  db_query("UPDATE {system} SET weight = -50 WHERE name = 'uuid_features' AND type = 'module'");
+}
+
+/**
+ * Update uuid_features module weight per http://drupal.org/node/1004478.
+ */
+function uuid_features_update_6100() {
+  $ret = array();
+  $ret[] = update_sql("UPDATE {system} SET weight = -50 WHERE name = 'uuid_features' AND type = 'module'");
+  return $ret;
+}

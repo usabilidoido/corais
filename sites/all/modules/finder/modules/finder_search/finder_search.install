@@ -1,0 +1,15 @@
+<?php
+
+/**
+ * @file
+ * Finder search module install file.
+ */
+
+/**
+ * Implementation of hook_uninstall().
+ *
+ * @see hook_uninstall()
+ */
+function finder_search_uninstall() {
+  variable_del('finder_search_finder_results_theme');
+}

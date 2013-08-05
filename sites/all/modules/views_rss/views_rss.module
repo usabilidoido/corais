@@ -1,0 +1,212 @@
+<?php
+
+/**
+ * @file
+ * Module providing fields-based views style plugin for RSS feed generation.
+ */
+
+/**
+ * Module build version.
+ */
+define('VIEWS_RSS_BUILD', '6.x-2.x-dev-20120413');
+
+/**
+ * Module installation path.
+ */
+define('VIEWS_RSS_PATH', drupal_get_path('module', 'views_rss'));
+
+/**
+ * Implementation of hook_views_api().
+ */
+function views_rss_views_api() {
+  return array(
+    'api' => 2,
+    'path' => VIEWS_RSS_PATH . '/views',
+  );
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function views_rss_theme() {
+  return array(
+    'views_view_views_rss_fields' => array(
+      'template' => 'views-view-views-rss-fields',
+      'file' => 'theme.inc',
+      'path' => VIEWS_RSS_PATH . '/theme',
+      'pattern' => 'views-view-views-rss-fields__',
+      'arguments' => array(
+        'row' => NULL,
+        'view' => NULL,
+      ),
+    ),
+    'views_view_views_rss_field' => array(
+      'template' => 'views-view-views-rss-field',
+      'file' => 'theme.inc',
+      'path' => VIEWS_RSS_PATH . '/theme',
+      'pattern' => 'views-view-views-rss-field__',
+      'arguments' => array(
+        'elements' => NULL,
+        'element' => NULL,
+        'arguments' => NULL,
+        'value' => NULL,
+        'markup' => NULL,
+        'subelements' => NULL,
+        'item' => NULL,
+        'view' => NULL,
+      ),
+    ),
+  );
+}
+
+/**
+ * Returns an array of item elements defined by other modules
+ * with hook_views_rss_item_elements() and optionally altered with
+ * hook_views_rss_item_elements_alter() implementations.
+ */
+function views_rss_get($key, $rebuild = FALSE) {
+  static $data = array();
+  if (!isset($data[$key]) || empty($data[$key]) || $rebuild === TRUE) {
+    $cid = 'views_rss:' . $key;
+    $cached = cache_get($cid, 'cache_views');
+    if (is_object($cached) && isset($cached->data) && $rebuild === FALSE) {
+      $data[$key] = $cached->data;
+    }
+    else {
+      // Fetch item elements provided by other modules. We need to manually call
+      // each module so that we can know which module a given item came from.
+      $data[$key] = array();
+      $hook_name = 'views_rss_' . $key;
+      foreach (module_implements($hook_name) as $module) {
+        $module_data = call_user_func($module . '_' . $hook_name);
+        if (isset($module_data) && is_array($module_data)) {
+          $data[$key][$module] = $module_data;
+        }
+      }
+      // Add namespaces not defined by any hook_views_rss_namespaces(),
+      // but used in any of defined <channel> or <item> elements.
+      // Let's also add "xmlns" prefix by default to such namespaces.
+      $function = '_views_rss_process_' . $key;
+      if (function_exists($function)) {
+        $data[$key] = $function($data[$key]);
+      }
+      // Allow other modules to alter obtained item elements.
+      drupal_alter($hook_name, $data[$key]);
+      // Store it infinitely in cache (rebuild only on cache clear).
+      cache_set($cid, $data[$key], 'cache_views');
+    }
+  }
+  return $data[$key];
+}
+
+/**
+ * Add namespaces not defined by any hook_views_rss_namespaces(),
+ * but used in any of defined <channel> or <item> elements.
+ * Let's also add "xmlns" prefix by default to such namespaces.
+ */
+function _views_rss_process_namespaces($namespaces) {
+  foreach (views_rss_get('channel_elements') as $module => $elements) {
+    foreach (array_keys($elements) as $element) {
+      list($namespace, $element_name) = views_rss_extract_element_names($element);
+      if ($namespace && !isset($namespaces[$module][$namespace])) {
+        $namespaces[$module][$namespace] = array('prefix' => 'xmlns', 'uri' => NULL);
+      }
+    }
+  }
+  foreach (views_rss_get('item_elements') as $module => $elements) {
+    foreach (array_keys($elements) as $element) {
+      list($namespace, $element_name) = views_rss_extract_element_names($element);
+      if ($namespace && !isset($namespaces[$module][$namespace])) {
+        $namespaces[$module][$namespace] = array('prefix' => 'xmlns', 'uri' => NULL);
+      }
+    }
+  }
+  return $namespaces;
+}
+
+/**
+ * Add table aliases for additional fields used for altering view query.
+ */
+function _views_rss_process_date_sources($date_sources) {
+  foreach ($date_sources as $module => $module_date_sources) {
+    foreach ($module_date_sources as $base_table => $elements) {
+      foreach ($elements as $element_name => $definition) {
+        if (!isset($definition['alias'])) {
+          $date_sources[$module][$base_table][$element_name]['alias'] = $element_name;
+        }
+      }
+    }
+  }
+  return $date_sources;
+}
+
+/**
+ * Extracts and returns an array containing element namespace and name.
+ */
+function views_rss_extract_element_names($element, $core_namespace = '') {
+  if (!strstr($element, ':')) {
+    $element = $core_namespace . ':' . $element;
+  }
+  return explode(':', $element);
+}
+
+/**
+ * Preprocess callback.
+ * Replaces relative paths in element value with absolute URLs.
+ * Based on preg_match from rel_to_abs module by lourenzo,
+ * with added patch from issue #1335734 by joelstein.
+ * @see http://drupal.org/project/rel_to_abs
+ * @see http://drupal.org/node/1335734
+ */
+function views_rss_rewrite_relative_paths(&$element) {
+  // Rewriting relative paths should be enabled by default,
+  // so rewrite relative paths even if option value is not set.
+  if (
+    !isset($element['view']->style_plugin->options['feed_settings']['absolute_paths'])
+    || !empty($element['view']->style_plugin->options['feed_settings']['absolute_paths'])
+  ) {
+    global $base_path;
+    $pattern = '/(src|href)=(\'|")' . preg_quote($base_path, '/') . '/';
+    $replacement = '$1=$2' . url('<front>', array('absolute' => TRUE));
+    $element['value'] = preg_replace($pattern, $replacement, $element['value']);
+  }
+}
+
+/**
+ * Forms associative array from linear array,
+ * or returns original array if already associative.
+ */
+function views_rss_map_assoc($array) {
+  if (!(array_keys($array) !== range(0, count($array) - 1))) {
+    $array = drupal_map_assoc($array);
+  }
+  return $array;
+}
+
+/**
+ * Preprocess callback.
+ * Converts XML special characters to HTML entities.
+ */
+function views_rss_htmlspecialchars(&$element) {
+  if (isset($element['value']) && !is_array($element['value'])) {
+    $element['value'] = check_plain(htmlspecialchars_decode($element['value'], ENT_QUOTES));
+  }
+}
+
+/**
+ * Wrapper to theme() function imitating the way it works in D7
+ * (with passing arguments as an array instead of a list).
+ */
+function views_rss_theme7($callback, $variables) {
+  static $hooks = NULL;
+  if (!isset($hooks)) {
+    init_theme();
+    $hooks = theme_get_registry();
+  }
+  $parameters = array($callback);
+  $arguments = !empty($hooks[$callback]['arguments']) ? $hooks[$callback]['arguments'] : array();
+  foreach (array_keys($arguments) as $argument) {
+    $parameters[] = !empty($variables[$argument]) ? $variables[$argument] : $hooks[$callback]['arguments'][$argument];
+  }
+  return call_user_func_array('theme', $parameters);
+}

@@ -1,0 +1,188 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function nodejs_config_menu() {
+  return array(
+    'admin/settings/nodejs/js' => array(
+      'title' => t('Node.js server configuration'),
+      'description' => t('Adjust Node.js server configuration.'),
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('nodejs_config_form'),
+      'access arguments' => array('administer site configuration'),
+    ),
+  );
+}
+
+/**
+ * Node.js server configuration form.
+ * 
+ * @param mixed $form 
+ * @param mixed $form_state 
+ * @return array
+ */
+function nodejs_config_form() {
+  $form['config'] = array(
+    '#type' => 'fieldset',
+    '#title' => 'Settings',
+  );
+  $form['config']['nodejs_config_host'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Host',
+    '#required' => TRUE,
+    '#description' => t('Specify the host name or IP address that the node.js server should listen on. 
+                       Leave blank to listen for any host name. Otherwise, the server will only respond 
+                       to names that match the IP address given (or resolved from the given name).'),
+    '#default_value' => variable_get('nodejs_config_host', 'localhost'),
+  );
+  $form['config']['nodejs_config_port'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Port',
+    '#required' => TRUE,
+    '#description' => t('Specify the TCP port that the node.js server should listen on.'),
+    '#default_value' => variable_get('nodejs_config_port', '8080'),
+  );
+
+  $scheme = variable_get('nodejs_server_scheme', 'http');
+  $form['config']['nodejs_config_key'] = array(
+    '#type' => $scheme == 'https' ? 'textfield' : 'hidden',
+    '#title' => 'Key',
+    '#required' => TRUE,
+    '#description' => t('File system path to a key used for https communication with the server and clients.'),
+    '#default_value' => variable_get('nodejs_config_key', '/path/to/key/file'),
+  );  
+  $form['config']['nodejs_config_cert'] = array(
+    '#type' => $scheme == 'https' ? 'textfield' : 'hidden',
+    '#title' => 'Cert',
+    '#required' => TRUE,
+    '#description' => t('File system path to a certificate used for https communication with the server and clients.'),
+    '#default_value' => variable_get('nodejs_config_cert', '/path/to/cert/file'),
+  );
+
+  $form['config']['nodejs_config_resource'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Resource',
+    '#required' => TRUE,
+    '#description' => t('http path that the node.js server should respond to. 
+                       This value needs to match the Drupal node.js configuration.'),
+    '#default_value' => variable_get('nodejs_config_resource', '/socket.io'),
+  );
+  $form['config']['nodejs_config_publishUrl'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Publish URL',
+    '#required' => TRUE,
+    '#description' => t('http path on which the node.js server should accept messages from the Drupal site.'),
+    '#default_value' => variable_get('nodejs_config_publishUrl', base_path() . 'nodejs/publish'),
+  );
+  $form['config']['nodejs_config_serviceKey'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Service Key',
+    '#description' => t('An arbitrary string used as a secret between the node.js server and the Drupal site.'),
+    '#default_value' => variable_get('nodejs_config_serviceKey', ''),
+  );
+  $form['config']['nodejs_config_write_channels'] = array(
+    '#type' => 'checkbox',
+    '#title' => 'Client write to channels',
+    '#description' => t('Global flag that allows all channels to be written to by client sockets without 
+                       going via the backend. defaults to false'),
+    '#default_value' => variable_get('nodejs_config_write_channels', FALSE),
+  );
+  $form['config']['nodejs_config_write_clients'] = array(
+    '#type' => 'checkbox',
+    '#title' => 'Client write to clients',
+    '#description' => t('Global flag that allows all clients to be written to by client sockets 
+                       without going via the backend. defaults to false'),
+    '#default_value' => variable_get('nodejs_config_write_clients', FALSE),
+  );
+
+  $form['config']['backend'] = array(
+    '#type' => 'fieldset',
+    '#title' => 'Backend',
+  );
+  $form['config']['backend']['nodejs_config_backend_host'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Host',
+    '#required' => TRUE,
+    '#description' => t('Host name of the Drupal site.'),
+    '#default_value' => variable_get('nodejs_config_backend_host', 'localhost'),
+  );
+  $form['config']['backend']['nodejs_config_backend_port'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Port',
+    '#required' => TRUE,
+    '#description' => t('TCP port of the server running the Drupal site. Usually 80.'),
+    '#default_value' => variable_get('nodejs_config_backend_port', '80'),
+  );
+  $form['config']['backend']['nodejs_config_backend_authPath'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Auth Path',
+    '#description' => t('http path on which the Drupal node.js module listens for authentication check 
+                       requests. Must end with /.'),
+    '#default_value' => variable_get('nodejs_config_backend_authPath', '/nodejs/auth/'),
+  );
+  $form['config']['backend']['nodejs_config_debug'] = array(
+    '#type' => 'checkbox',
+    '#title' => 'Debug',
+    '#description' => t('Show debug information from the node.js process.'),
+    '#default_value' => variable_get('nodejs_config_debug', FALSE),
+  );
+
+  $form['ext'] = array(
+    '#type' => 'fieldset',
+    '#title' => 'Extensions',
+    '#description' => t('An array of names of node.js modules that should be loaded as extensions to the 
+                       node.js server.'),
+  );
+  $form['ext']['nodejs_config_extensions'] = array(
+    '#type' => 'textarea',
+    '#title' => 'Extension file paths',
+    '#description' => t('A list of node.js extension files paths, one per line'),
+    '#default_value' => variable_get('nodejs_config_extensions', ''),
+  );
+
+  $form['#submit'][] = 'nodejs_config_form_submit';
+  return system_settings_form($form);
+}
+
+/**
+ * Node.js server configuration form submit handler.
+ * 
+ * @param mixed $form 
+ * @param mixed $form_state 
+ */
+function nodejs_config_form_submit($form, &$form_state) {
+  $values = $form_state['values'];
+  $ext = $values['nodejs_config_extensions'];
+  $ext = explode("\n", str_replace("\r", '', $ext));
+  $array = array(
+    'scheme' => variable_get('nodejs_server_scheme', 'http'),
+    'host' => check_plain($values['nodejs_config_host']),
+    'port' => check_plain($values['nodejs_config_port']),
+    'key' => check_plain($values['nodejs_config_key']),
+    'cert' => check_plain($values['nodejs_config_cert']),
+    'resource' => check_plain($values['nodejs_config_resource']),
+    'publishUrl' => check_plain($values['nodejs_config_publishUrl']),
+    'serviceKey' => check_plain($values['nodejs_config_serviceKey']),
+    'backend' => array(
+      'port' => check_plain($values['nodejs_config_backend_port']),
+      'host' => check_plain($values['nodejs_config_backend_host']),
+      'authPath' => check_plain($values['nodejs_config_backend_authPath']),
+    ),
+    'clientsCanWriteToChannels' => (bool) $values['nodejs_config_write_channels'],
+    'clientsCanWriteToClients' => (bool) $values['nodejs_config_write_clients'],
+    'extensions' => array($ext),
+    'debug' => (bool) $values['nodejs_config_debug'],
+  );
+  $output = 'backendSettings = ' . json_encode($array);
+  $output = str_replace(array('= {', ',', '}}', ':{', '\/'), array("= {\n  ", ",\n  ", "\n  }\n}", ":{\n  ",  '/'), $output);
+
+  $file_path = drupal_get_path('module', 'nodejs') . '/nodejs.config.js';
+  if (!is_writable($file_path)) {
+    drupal_set_message(t('It was not possible to write the below lines to <b>!file</b>, you need to do it manually.', array('!file' => $file_path)));
+    drupal_set_message('<pre>' . $output . '</pre>');
+  } 
+  else {
+    file_put_contents($file_path, $output);
+  }
+}

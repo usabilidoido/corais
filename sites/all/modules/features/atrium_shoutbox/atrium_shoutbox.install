@@ -1,0 +1,39 @@
+<?php
+
+/**
+ * Update for Kit compliance
+ */
+function atrium_shoutbox_update_6001() {
+  $components = array(
+    'views' => array(
+      'atrium_shoutbox' => array(
+        'shoutbox_shoutboxes' => array(),
+       ),
+       'atrium_shoutbox_shouts' => array(
+         'shoutbox_shouts' => array(),
+       ),
+       'atrium_shoutbox_users' => array(
+         'shoutbox_users' => array(
+           'block_1' => array(
+             'module' => 'views',
+             'delta' => 'block_1',
+           ),
+         ),
+       ),
+       'atrium_shoutbox_shouts:page_1' => array(
+         'shoutbox_shouts:page_1' => array(),
+       ),
+    ),
+    'contexts' => array(
+      'atrium-shoutbox' => 'shoutbox_sitewide',
+      'atrium-shoutbox-og' => 'shoutbox_og',
+    ),
+  );
+
+  module_load_include('inc', 'atrium', 'includes/atrium_update_kit');
+  atrium_kit_comply_presets($components);
+  atrium_kit_comply_overrides($components);
+  atrium_kit_comply_contexts($components);
+
+  return array(array('success' => true, 'query' => 'Atrium Shoutbox updated for Kit compliance.'));
+}

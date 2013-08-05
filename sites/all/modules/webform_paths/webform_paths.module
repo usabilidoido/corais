@@ -1,0 +1,107 @@
+<?php
+/** 
+ * @file webform_paths.module
+ * Allows assigning multiple paths and destinations to a single webform.
+ *  
+ * @author Omar Abdel-Wahab <owahab@owhab.com>
+ * @copyright: KnowledgeTree Inc
+ * @license: GPL 2 or any later version.
+ * @date 2009-01-01
+ */
+
+
+/**
+ * Implementation of hook_menu().
+ */
+function webform_paths_menu() {
+  $items = array();
+
+  $items['node/%webform_menu/path/%webform_paths'] = array(
+    'title' => 'Paths',
+    'page callback' => 'webform_paths_view_webform',
+    'page arguments' => array(1, 3),
+    'access callback' => 'node_access',
+    'access arguments' => array('view', 1),
+    'type' => MENU_CALLBACK,
+  );
+  $items['node/%webform_menu/edit/webform_paths'] = array(
+    'title' => 'Paths',
+    'page callback' => 'webform_paths_edit_node_settings',
+    'page arguments' => array(1, 4),
+    'access callback' => 'node_access',
+    'access arguments' => array('update', 1),
+    'weight' => 9,
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'webform_paths.admin.inc',
+  );
+  $items['webform_paths/delete'] = array(
+    'title' => 'Delete path',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('webform_paths_delete_path_confirm'),
+    'access arguments' => array('administer webform paths'),
+    'type' => MENU_CALLBACK,
+    'file' => 'webform_paths.admin.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Implementation of hook_load().
+ */
+function webform_paths_load($pathid) {
+  return db_fetch_object(db_query('SELECT * FROM {webform_paths} WHERE pathid = %d', $pathid));
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function webform_paths_perm() {
+  return array('administer webform paths');
+}
+
+/**
+ * Returns a node view page for a given webform path.
+ */
+function webform_paths_view_webform($node, $path) {
+  if (!empty($path->title)) {
+    drupal_set_title($path->title);
+    drupal_set_message($path->message);
+  }
+  return node_view($node, FALSE, TRUE);
+}
+
+/**
+ * Retrieves a list of paths created for a given webform node.
+ */
+function webform_paths_get_node_paths($node) {
+  $paths = array();
+  $query = db_query('SELECT * FROM {webform_paths} WHERE nid = %d', $node->nid);
+  while ($rs = db_fetch_array($query)) {
+    $pathid = $rs['pathid'];
+    $paths[$pathid] = $rs;
+  }
+  return $paths;
+}
+
+/**
+ * Creates or updates a webform path.
+ */
+function webform_paths_path_save($path) {
+  // In case of updating
+  if ($path['pathid'] > 0) {
+    // Specify the schema key
+    $key = array('pathid');
+    // Load the old path
+    $old_path = webform_paths_load($path['pathid']);
+    path_set_alias(NULL, $old_path->path);
+  }
+
+  // Save the path to our table:
+  drupal_write_record('webform_paths', $path, $key);
+
+  // Update necessary aliases
+  $real_path = 'node/' . $path['nid'] . '/path/' . $path['pathid'];
+  path_set_alias($real_path, $path['path']);
+  return $path;
+}

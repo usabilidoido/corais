@@ -1,0 +1,5 @@
+name = OG Spaces Frontpage
+description = Redirects group nodes to their space frontpage
+core = 6.x
+dependencies[] = spaces
+dependencies[] = og

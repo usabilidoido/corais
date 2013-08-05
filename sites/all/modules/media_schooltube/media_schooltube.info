@@ -1,0 +1,13 @@
+
+name = Media: Schooltube
+description = Embedded Video Field provider file for Schooltube.com.
+core = 6.x
+dependencies[] = emvideo
+package = Media
+
+; Information added by drupal.org packaging script on 2011-11-02
+version = "6.x-1.2"
+core = "6.x"
+project = "media_schooltube"
+datestamp = "1320227736"
+

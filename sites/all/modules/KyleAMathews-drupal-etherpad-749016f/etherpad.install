@@ -1,0 +1,63 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Defines simple etherpad field types.
+ *  based on the cck-module "link" by quicksketch
+ * Functions for install and uninstall AND Migrations
+ */
+
+function etherpad_requirements($phase) {
+  $requirements = array();
+  // Ensure translations don't break at install time
+  $t = get_t();
+  if (!module_exists('content') || !function_exists('content_notify')) {
+    $requirements['etherpad'] = array(
+      'title' => $t('CCK needed'),
+      'description' => $t("CCK module \"content\" required."),
+      'severity' => REQUIREMENT_ERROR,
+    );
+  }
+  return $requirements;
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function etherpad_install() {
+  if (!module_exists('content') || !function_exists('content_notify')) {
+    $ret['#abort'] = array('success' => FALSE, 'query' => t('Required module "content" (cck) not found!'));
+    return $ret;
+  }
+  content_notify('install', 'etherpad');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function etherpad_uninstall() {
+  if (module_exists('content') && function_exists('content_notify')) {
+    content_notify('uninstall', 'etherpad');
+  }
+}
+
+/**
+ * Implementation of hook_enable().
+ */
+function etherpad_enable() {
+  if (!module_exists('content') || !function_exists('content_notify')) {
+    $ret['#abort'] = array('success' => FALSE, 'query' => t('Required module "content" (cck) not found!'));
+    return $ret;
+  }
+  content_notify('enable', 'etherpad');
+}
+
+/**
+ * Implementation of hook_disable().
+ */
+function etherpad_disable() {
+  if (module_exists('content') && function_exists('content_notify')) {
+    content_notify('disable', 'etherpad');
+  }
+}

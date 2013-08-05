@@ -1,0 +1,93 @@
+<?php
+
+/**
+ * Implementation of hook_book_outline_builder_template().
+ */
+function book_outline_builder_book_outline_builder_template() {
+  $outline['default'] = array(
+    'title' => 'Default book outline',
+    array(
+      'type' => 'page',
+      'title' => 'Chapter @i',
+      'duplicate' => 6,
+      'children' => array(
+        array(
+          'type' => 'page',
+          'title' => 'Introduction',
+        ),
+        array(
+          'type' => 'page',
+          'title' => 'Content',
+        ),
+      ),
+    ),
+  );
+  return $outline;
+}
+
+/**
+ * Build a listing of all site outline templates
+ */
+function _book_outline_builder_get_site_template($template = 'list') {
+  $ary = module_invoke_all('book_outline_builder_template');
+  // allow modules to alter the template list
+  drupal_alter('book_outline_builder_template', $ary);
+  if ($template == 'list') {
+    $list = array();
+    foreach ($ary as $key => $params) {
+    $list[$key] = $params['title'];
+    }
+    return $list;
+  }
+  unset($ary[$template]['title']);
+  return $ary[$template];
+}
+
+// recursive function for deep copying of children in an instructional outline
+function _book_outline_builder_build_node_structure($outline, $bid, $parent, $additional_parms = array()) {
+  global $user;
+  foreach ($outline as $key => $book_item) {
+    // if this is a duplicate, run this loop many times
+    if (isset($book_item['duplicate'])) {
+      $loop = $book_item['duplicate'];
+      // allow other modules to alter the loop method
+      drupal_alter('book_outline_builder_loop', $loop, $book_item, $additional_parms);
+    }
+    // if this isnt a duplication only run once
+    else {
+      $loop = 1;
+    }
+    for ($i=0; $i< $loop; $i++) {
+    $bookpage = new stdClass();
+    $bookpage->uid = $user->uid;
+    // if we receive a duplication request, utilize the outline designer style duplicate function
+    // alter the array to have the correct values
+    $bookpage->type = $book_item['type'];
+    $bookpage->title = str_replace('@i', ($i+1), $book_item['title']);
+    // if the optional content field is populated, add it
+    if (isset($book_item['content'])) {
+      $bookpage->body = $book_item['content'];
+    }
+    // if the optional format field is populated, add it
+    if (isset($book_item['format'])) {
+      $bookpage->format = $book_item['format'];
+    }
+    $bookpage->status = 1;
+    $bookpage->revision = 1;
+    $bookpage->log = 'Template '. $template .' used to create outline page automatically';
+    // place it in the book correctly
+    $bookpage->book['bid'] = $bid;
+    $bookpage->book['weight'] = $key-15;
+    $bookpage->book['module'] = 'book';
+    $bookpage->book['plid'] = $parent;
+    // allow other modules to add in specific changes here
+    drupal_alter('book_outline_builder_node', $bookpage, $book_item, $additional_parms);
+    node_save($bookpage);
+    // we've defined a hierarchy in the template for nested nodes
+    if (isset($book_item['children'])) {
+      _book_outline_builder_build_node_structure($book_item['children'], $bid, $bookpage->book['mlid'], $additional_parms);
+    }
+  }
+  }
+  return 1;
+}

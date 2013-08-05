@@ -1,0 +1,116 @@
+<?php
+// $Id: block.test,v 1.1.2.1.2.2 2009/04/23 05:39:52 boombatower Exp $
+/**
+ * @file
+ * Backport of Drupal 7 block.test with modifications, see BACKPORT.txt.
+ *
+ * Copyright 2008-2009 by Jimmy Berry ("boombatower", http://drupal.org/user/214218)
+ */
+
+require_once drupal_get_path('module', 'atrium_test') . '/atrium_web_test_case.php';
+
+class AtriumBasicTestCase extends AtriumWebTestCase {
+  /**
+   * Implementation of getInfo().
+   */
+  public static function getInfo() {
+    return array(
+      'name' => 'Atrium basics',
+      'description' => 'Install Atrium and do the initial set up.',
+      'group' => 'Atrium',
+    );
+  }
+
+  /**
+   * Implementation of setUp().
+   */
+  function setUp() {
+    parent::setUp();
+  }
+
+  function testWelcomePage() {
+    // Create and login admin user
+    $admin_user = $this->atriumCreateUser('administrator');
+    $this->drupalLogin($admin_user);
+
+    // Check initial texts
+    $this->drupalGet('<front>');
+
+    // @TODO: For whatever reason, refreshVariables() is not workign correctly
+    // for the installed site. We test against the default, unset site
+    // frontpage variable for now.
+    // $this->assertText(t('Welcome to !sitename', array('!sitename' => variable_get('site_name', 'Drupal'))));
+    // @TODO welcome block is not showing up.  
+    $this->assertText(t('Welcome to !sitename', array('!sitename' => 'Drupal')));
+    $this->assertText(t('!type', array('!type' => node_get_types('name', 'group'))));
+    
+    // Check some initial paths. More than checking the page is properly built
+    // we just do some page loading to check for errors.
+    $this->drupalGet('og');
+    $this->assertText(t('Please add your first !type to get started.', array('!type' => node_get_types('name', 'group'))));
+
+    $this->drupalGet('og/my');
+    $this->assertText(t('No groups found.'));
+
+    $this->drupalGet('og/archived');
+    $this->assertText(t('No archived groups found.'));
+
+    $this->drupalGet('members');
+    $this->assertNoUniqueText($admin_user->name); // In menu and directory
+
+    $this->drupalGet('members/all');
+    $this->assertText($admin_user->name); // Display user name
+
+    $this->drupalGet('members/blocked');
+    $this->assertText(t('Anonymous')); // Anonymous user is blocked
+
+    // Check the user space and account pages
+    $this->drupalGet('user/' . $admin_user->uid . '/dashboard');
+    $this->assertText(t('No recent activity found'));
+    
+    $this->drupalGet('user/' . $admin_user->uid);
+    $this->assertText(t($admin_user->name));
+    
+    $path = 'user/' . $admin_user->uid;
+    foreach (array('edit', 'edit/profile', 'edit/picture', 'dashboard', 'notifications', 'openid', 'features') as $page) {
+      $this->drupalGet("$path/$page");
+    }
+
+    // Create public and private group using the form
+    foreach (array('atrium_groups_private', 'atrium_groups_public') as $preset) {
+      $group = $this->atriumCreateGroup($preset);
+      $this->drupalGet($group->path);
+      $this->assertText($group->title);
+      foreach (array('dashboard') as $page) {
+        $this->drupalGet("$group->path/$page");
+        $this->assertText(t('No recent activity found.'));
+      }
+
+      $content = array();
+
+      // Check blog
+      $this->drupalGet("$group->path/blog");
+      $this->assertText(t('Please add your first !type to get started.', array('!type' => node_get_types('name', 'blog'))));
+      $blog = $this->atriumCreateGroupContent($group, 'blog');
+      $content[] = $blog;
+      $this->drupalGet("$group->path/blog");
+      $this->assertText($blog->title);
+
+      // Check notebook
+      $this->drupalGet("$group->path/notebook");
+      $this->assertText(t('No recent updates found.'));
+      $this->drupalGet("$group->path/notebook/archived");
+      $this->assertText(t('No archived books found.'));
+      $book = $this->atriumCreateGroupContent($group, 'book');
+      $content[] = $book;
+      $this->drupalGet("$group->path/notebook");
+      $this->assertText($book->title);
+
+      // These should show up in dashboard
+      $this->drupalGet("$group->path/dashboard");
+      foreach ($content as $node) {
+        $this->assertText($node->title);
+      }
+    }
+  }  
+}

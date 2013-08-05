@@ -1,0 +1,358 @@
+<?php
+
+/**
+ * @file
+ * Defines a field type for displaying markup on the node/edit form.
+ */
+
+/**
+ * Implementation of hook_field_info().
+ */
+function markup_field_info() {
+  return array(
+    'markup' => array('label' => 'Markup'),
+  );
+}
+
+/**
+ * Implementation of hook_field_settings().
+ */
+function markup_field_settings($op, $field) {
+  switch ($op) {
+    case 'form':
+      $form = array();
+      $form['instructions'] = array(
+        '#type' => 'markup',
+        '#value' => t('This is a special field. It will output the markup below, unfiltered by the system, on the node/edit form for this content type.'),
+        '#weight' => -1,
+      );
+      $form['markup'] = array(
+        '#type' => 'textarea',
+        '#title' => t('Markup'),
+        '#default_value' => isset($field['markup']) ? $field['markup'] : '',
+        '#rows' => 15,
+        '#description' => t('The markup to be displayed. Any HTML is legal here, so be careful not to break your page layout.'),
+      );
+      $form['advanced_options'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('PHP code'),
+        '#collapsible' => TRUE,
+        '#collapsed' => empty($field['markup_php']),
+      );
+      if (user_access('Use PHP input for field settings (dangerous - grant with care)')) {
+        $form['advanced_options']['markup_php'] = array(
+          '#type' => 'textarea',
+          '#title' => t('Code'),
+          '#default_value' => !empty($field['markup_php']) ? $field['markup_php'] : '',
+          '#rows' => 8,
+          '#description' => t('Advanced usage only: PHP code to replace HTML in the Markup field above. Should include &lt;?php ?&gt; delimiters. You can access the current node object using $node. Use print or echo to output the text to display.'),
+        );
+      }
+      else {
+        $form['advanced_options']['markup_php'] = array(
+          '#type' => 'item',
+          '#title' => t('Code'),
+          '#value' => !empty($field['markup_php']) ? '<code>'. check_plain($field['markup_php']) .'</code>' : t('&lt;none&gt;'),
+          '#description' => empty($field['markup_php']) ? t("You're not allowed to input PHP code.") : t('This PHP code was set by an administrator and will override the markup field above.'),
+        );
+      }
+
+      return $form;
+
+    case 'validate':
+      break;
+
+    case 'save':
+      return array('markup', 'markup_php');
+    
+    case 'database columns':
+      return array();
+  }
+}
+
+/**
+ * Implementation of hook_widget_info().
+ */
+function markup_widget_info() {
+  return array(
+    'markup' => array(
+      'label' => 'Markup',
+      'field types' => array('markup'),
+      'multiple values' => CONTENT_HANDLE_MODULE,
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_widget_settings().
+ */
+function markup_widget_settings($op, $widget) {
+  switch ($op) {
+    case 'form':
+      $form = array();
+
+      $form['display_style'] = array(
+        '#type' => 'radios',
+        '#title' => t('Display Style'),
+        '#default_value' => !empty($widget['display_style']) ? $widget['display_style'] : '',
+        '#options' => array(
+          'none' => t('Hide Field Wrapper & Label'),
+          'wrapper' => t('Display Field Wrapper & Hide Label'),
+          'all' => t('Display Field Wrapper & Label'),
+        ),
+        '#required' => TRUE,
+        '#description' => 
+          t('Choose how the markup field should be displayed on the node form.') .
+          '<br />' .
+          htmlentities(t('A field wrapper consists of a <div class="form-item"></div> wrapper around the markup to follow form standards.')),
+      );
+
+      return $form;
+
+    case 'save':
+      return array('display_style');
+  }
+}
+
+/**
+ * Implementation of FAPI hook_elements().
+ *
+ * Any FAPI callbacks needed for individual widgets can be declared here,
+ * and the element will be passed to those callbacks for processing.
+ *
+ * Drupal will automatically theme the element using a theme with
+ * the same name as the hook_elements key.
+ */
+function markup_elements() {
+  return array(
+    'markup_widget' => array(
+      '#input' => TRUE,
+      '#process' => array('markup_widget_process'),
+    ),
+    'markup_element' => array(
+      '#input' => TRUE,
+      '#process' => array('markup_element_process'),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function markup_theme() {
+  return array(
+    'markup_widget' => array(
+      'arguments' => array('element' => NULL),
+    ),
+    'markup_element' => array(
+      'arguments' => array('element' => NULL),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_content_multigroup_allowed_widgets().
+ */
+function markup_content_multigroup_allowed_widgets() {
+  return array('markup');
+}
+
+/**
+ * Implementation of hook_content_multigroup_no_remove_widgets().
+ */
+function markup_content_multigroup_no_remove_widgets() {
+  return array('markup');
+}
+
+/**
+ * Implementation of hook_widget().
+ */
+function markup_widget(&$form, &$form_state, $field, $items, $delta = 0) {
+  $element = array(
+    '#type' => 'markup_widget',
+    '#markup' => $field['markup'],
+    '#markup_php' => $field['markup_php'],
+    '#value' => array(),
+  );
+  
+  return $element;
+}
+
+/**
+ * Process the markup_widget element.
+ *
+ * Build the form element. When creating a form using FAPI #process,
+ * note that $element['#value'] is already set.
+ *
+ * The $fields array is in $form['#field_info'][$element['#field_name']].
+ */
+function markup_widget_process($element, $edit, $form_state, $form) {
+  $field = $form['#field_info'][$element['#field_name']];
+  $markup = '';
+
+  $valid_callback = FALSE;
+  
+  // Check to see if we have a markup callback, if so execute it.
+  if (!empty($element['#markup_callback'])) {
+    $callback = $element['#markup_callback'];
+
+    if (function_exists($callback)) {
+      $valid_callback = TRUE;
+      $markup = $callback($element, $field, $form_state, $form);
+    }
+  }
+
+  if (!$valid_callback) {
+    // Check to see if there is a php value set, if so evaluate the code.
+    if (!empty($element['#markup_php'])) {
+      $node = array();
+      // Check we are on a node edit form.
+      if ($form['#id'] == 'node-form') {
+        // Build a node element from the $form_state
+        $node = markup_build_node($form, $form_state);
+      }
+      // Evaluate the php code, and pass in the $node object.
+      $markup = markup_eval($field['markup_php'], array('node' => $node));
+    }
+    else if (!empty($element['#markup'])) {
+      $markup = $element['#markup'];
+    }
+    else {
+      // Check to see if the markup is empty, if so return element.
+      return $element;
+    }
+  }
+
+  $element['element'] = array(
+    '#type' => 'markup_element',
+    '#title' => $element['#title'],
+    '#markup' => $markup,
+    '#display_style' => $field['widget']['display_style'],
+    '#value' => array(),
+  );
+
+  return $element;
+}
+
+/**
+ * Process the markup_element element.
+ *
+ * Build the form element. When creating a form using FAPI #process,
+ * note that $element['#value'] is already set.
+ *
+ * The $fields array is in $form['#field_info'][$element['#field_name']].
+ */
+function markup_element_process($element, $edit, $form_state, $form) {
+  $output = '';
+  // Find out which display_style we are using and whether we need to hide the
+  // title and/or wrapper.
+  switch ($element['#display_style']) {
+    case 'all':
+      break;
+
+    case 'wrapper':
+      unset ($element['#title']);
+      break;
+
+    case 'none':
+    default:
+      unset ($element['#title']);
+      $element['#hide_wrapper'] = 1;
+      break;
+  }
+
+  
+  return $element;
+}
+
+/**
+ * Prepare and evaluate of a string of PHP code.
+ *
+ * This method is mostly a copy of drupal_eval().
+ *
+ * @param string $code
+ * @param array $arguments
+ * @return string
+ */
+function markup_eval($code, $arguments = array()) {
+  global $theme_path, $theme_info, $conf;
+
+  // Extract the arguments and make available.
+  extract($arguments);
+
+  // Store current theme path.
+  $old_theme_path = $theme_path;
+
+  // Restore theme_path to the theme, as long as drupal_eval() executes,
+  // so code evaluted will not see the caller module as the current theme.
+  // If theme info is not initialized get the path from theme_default.
+  if (!isset($theme_info)) {
+    $theme_path = drupal_get_path('theme', $conf['theme_default']);
+  }
+  else {
+    $theme_path = dirname($theme_info->filename);
+  }
+
+  // Evaluate the php code
+  ob_start();
+  print eval('?>'. $code);
+  $output = ob_get_clean();
+
+  // Recover original theme path.
+  $theme_path = $old_theme_path;
+
+  return $output;
+}
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function markup_form_alter(&$form, $form_state, $form_id) {
+  if ($form_id == 'content_field_edit_form' && $form['module']['#value'] == 'markup') {
+    // Remove non-applicable fields on the widget settings form.
+    unset($form['widget']['description']);
+    unset($form['widget']['default_value_fieldset']['advanced_options']);
+    unset($form['field']['required']);
+    unset($form['field']['multiple']);
+    unset($form['field']['#description']);
+  }
+}
+
+/**
+ * Implementation of cck hook_content_is_empty().
+ */
+function markup_content_is_empty($item, $field) {
+  return TRUE;
+}
+
+/**
+ * FAPI theme for an individual elements.
+ *
+ */
+
+function theme_markup_widget($element) {
+  return $element['#children'];
+}
+
+function theme_markup_element($element) {
+  $value = (isset($element['#markup']) ? $element['#markup'] : '') . (isset($element['#children']) ? $element['#children'] : '');
+
+  if ($element['#hide_wrapper']) {
+    return $value;
+  }
+  else {
+    return theme('form_element', $element,  $value);
+  }
+}
+
+/**
+ * Build a node by processing submitted form values.
+ */
+function markup_build_node($form, $form_state) {
+  // Unset any button-level handlers, execute all the form-level submit
+  // functions to process the form values into an updated node.
+  unset($form_state['submit_handlers']);
+  form_execute_handlers('submit', $form, $form_state);
+  $node = node_submit($form_state['values']);
+  return $node;
+}

@@ -1,0 +1,80 @@
+<?php
+include_once('reldate.features.inc');
+
+/**
+ * Implementation of hook_views_api().
+ */
+function reldate_views_api() {
+  return array('api' => 2);
+}
+
+/**
+ * Implementations of hook_date_format_types().
+ */
+function reldate_date_format_types() {
+  return array(
+    'day' => t('Day'),
+    'time' => t('Time'),
+    'month_within' => t('Within current month'),
+    'month_after' => t('After current month'),
+  );
+}
+
+/**
+ * Implementation of hook_date_formats().
+ */
+function reldate_date_formats() {
+  $condensed = array(
+    'day' => array('l, M j', 'l, j M'),
+    'time' => array('g:ia', 'H:i'),
+    'month_within' => array('g:ia D M j', 'H:i D M j', 'g:ia D j M', 'H:i D j M'),
+    'month_after' => array('g:ia M j, Y', 'H:i M j, Y', 'g:ia j M, Y', 'H:i j M, Y'),
+  );
+  $formats = array();
+  foreach ($condensed as $type => $f) {
+    foreach ($f as $format) {
+      $formats[] = array(
+        'type' => $type,
+        'format' => $format,
+        'locales' => array(),
+      );
+    }
+  }
+  return $formats;
+}
+
+/**
+ * Custom date formatter that provides the most easily understood date format
+ * given the date's proximity to the current time.
+ */
+function reldate_format_date($timestamp) {
+  static $slots, $formats;
+  // Static cache formats, slots. These aren't expensive calls, but when we
+  // are called many times on a page load it becomes costly to repeat this logic.
+  if (!isset($slots)) {
+    $now = time();
+    $slots = array(
+      'today' => format_date($now, 'custom', 'MjY'),
+      'yesterday' => format_date($now - (24*60*60), 'custom', 'MjY'),
+      'month_within' => $now - 3600 * 24 * 30,
+    );
+    $formats = array(
+      'time' => variable_get('date_format_time', 'g:ia'),
+      'month_within' => variable_get('date_format_month_within', 'g:ia D M j'),
+      'month_after' => variable_get('date_format_month_after', 'g:ia M j, Y'),
+    );
+  }
+  $day = format_date($timestamp, 'custom', 'MjY');
+  if ($day == $slots['today']) {
+    return t('!time Today', array('!time' => format_date($timestamp, 'custom', $formats['time'])));
+  }
+  else if ($day == $slots['yesterday']) {
+    return t('!time Yesterday', array('!time' => format_date($timestamp, 'custom', $formats['time'])));
+  }
+  else if ($timestamp > $slots['month_within'] ) {
+    return format_date($timestamp, 'custom', $formats['month_within']);
+  }
+  else {
+    return format_date($timestamp, 'custom', $formats['month_after']);
+  }
+}

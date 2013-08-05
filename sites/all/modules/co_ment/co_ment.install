@@ -1,0 +1,63 @@
+<?php
+/**
+ * @file
+ * Manage database table and variables.
+ */
+
+function co_ment_schema() {
+  $schema['co_ment'] = array(
+    'description' => 'The table for storing association between Drupal node ids and co-ment text ids.',
+    'fields' => array(
+      'nid' => array(
+        'description' => 'The primary identifier of a node in Drupal.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'vid' => array(
+        'description' => 'The {node_revisions}.vid version identifier of a node in Drupal.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'co_ment_key' => array(
+        'description' => 'The identifier of a text in co-ment®.',
+        'type' => 'char',
+        'length' => 20,
+        'not null' => TRUE,
+      ),
+      'co_ment_version' => array(
+        'description' => 'The identifier of a version in co-ment®.',
+        'type' => 'char',
+        'length' => 20,
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array(
+      'nid',
+      'vid',
+    ),
+  );
+
+  return $schema;
+}
+
+function co_ment_install() {
+  drupal_install_schema('co_ment');
+
+  // Options for new nodetype
+  variable_set('node_options_co_ment_text', array('status', 'revision'));
+  variable_set('upload_co_ment_text', 0);
+  variable_set('comment_co_ment_text', 0);
+}
+
+function co_ment_uninstall() {
+  // Drop database table.
+  drupal_uninstall_schema('co_ment');
+
+  // Delete variables.
+  foreach (array('co_ment_url', 'co_ment_editor_login', 'co_ment_editor_passwd', 'co_ment_commentator_login', 'co_ment_commentator_passwd', 'co_ment_observer_login', 'co_ment_observer_passwd', 'node_options_co_ment_text', 'upload_co_ment_text', 'comment_co_ment_text') as $module_variable) {
+    variable_del($module_variable);
+  }
+}

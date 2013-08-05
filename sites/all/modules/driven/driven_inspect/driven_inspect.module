@@ -1,0 +1,422 @@
+<?php
+// $Id: driven_inspect.module,v 1.3 2010/04/03 23:18:07 arhak Exp $
+
+// helper function for modules intending to inspect tables of installed modules
+// but module_exists won't help for disabled modules
+function driven_inspect_module_installed($module) {
+  include_once './includes/install.inc';
+  $schema_version = drupal_get_installed_schema_version($module);
+  return (isset($schema_version) && $schema_version != SCHEMA_UNINSTALLED);
+}
+
+function driven_inspect_diff_vids($old_vid, $new_vid, &$errors = array(), &$node_type = NULL) {
+  // we receive $node_type by ref to be used as an optional output
+  // so the caller be aware of what content type was matched (if there weren't fatal errors) 
+  //
+  // nids might differ if desired/intended, it will be supported
+  // but $old_vid and $new_vid MUST belong to the same content type
+  $query = 'SELECT n.nid AS nid, n.type AS type, nrev.vid AS vid'
+    . ' FROM {node_revisions} nrev'
+    . ' LEFT JOIN {node} n'
+    . ' ON nrev.nid = n.nid'
+    . ' WHERE nrev.vid = %d';
+  foreach (array($old_vid, $new_vid) as $vid) {
+    $result = db_query($query, $vid);
+    $row = db_fetch_array($result);
+    if ($row) {
+      $nids[$vid] = $row['nid'];
+      $node_types[$vid] = $row['type'];
+    }
+    else {
+      $errors[] = t('Could not fetch revision:') . ' ' . $vid;
+      // fatal error, can't proceed with any kind of comparison
+      return FALSE;
+    }
+  }
+  if ($node_types[$old_vid] != $node_types[$new_vid]) {
+    $errors[] = t('Revisions belong to different content types:') . ' ' . $node_types[$old_vid] . ' vs ' . $node_types[$new_vid];
+    // fatal error, can't proceed with any kind of comparison
+    return FALSE;
+  }
+  
+  // following checks are non fatal errors
+  // since we can perform the comparison
+  if ($nids[$old_vid] != $nids[$new_vid]) {
+    $errors[] = t('Compared revisions belong to DIFFERENT nodes:') . ' ' . $nids[$old_vid] . ' vs ' . $nids[$new_vid];
+  }
+  elseif ($old_vid == $new_vid) {
+    $errors[] = t('Comparing a revision to ITSELF.');
+  }
+  elseif ($old_vid > $new_vid) {
+    $errors[] = t('Compared revisions are in REVERSE chronological order.');
+  }
+
+  // both content types matched on previous validation
+  // (received $node_type as optional param to be used as an optional output)
+  $node_type = $node_types[$old_vid];
+  // retrieve all available properties
+  $driven_props = driven_properties_available($node_type);
+  
+  $old_node = node_load($nids[$old_vid], $old_vid);
+  $new_node = node_load($nids[$new_vid], $new_vid);
+  
+  $changes = driven_inspect_diff_nodes($old_node, $new_node, $driven_props);
+
+  return $changes;
+}
+
+function driven_inspect_build_node_form($node) {
+  $node_type = $node->type;
+  // include required files to manually guide a node_form flow
+  module_load_include('inc', 'node', 'node.pages');
+  if (module_exists('content')) {
+    module_load_include('inc', 'content', 'includes/content.node_form');
+  }
+
+  // we are about to prepare a node_form which might be modified
+  // by 3rd party modules, such form contains terms (and other entities/data)
+  // that might be statically cached and shared between different nodes
+  // this function is intended to be invoked with different node revisions
+  // (two of them at least) during the process of a single form
+  // therefore, form_alter acting on the first node_form might provoke
+  // entity changes that will be picked up by subsequent forms
+  // a simple way to test this pitfall would be requesting live comparison
+  // of the same revision for a node with taxonomy_single_tag
+  // then the second time the form is processed the term will be double escaped
+  // and, while both old_node and new_node will be affected
+  // only new_node_form will reflect the double processing
+  // since old_node_form was the first one
+  // and was affected for the process only one time as intended
+  // therefore, we perform a deep clone
+  $node = driven_inspect_deep_clone($node);
+  
+  // 'ned' prefix stands for 'node edit'
+  $ned_form_id = $node_type . '_node_form';
+  $ned_form_state = array();
+  $ned_form = drupal_retrieve_form($ned_form_id, $ned_form_state, $node);
+  // kindly request driven_nep to step out of the way
+  // otherwise default values won't be loaded for those elements with #access=FALSE
+  $ned_form['#driven_nep:disable'] = TRUE;
+  drupal_prepare_form($ned_form_id, $ned_form, $ned_form_state);
+
+  // we are not in a form_alter,
+  // therefore this form still needs to be processed
+  drupal_process_form($ned_form_id, $ned_form, $ned_form_state);
+
+  // deliberately NOT applying any Access Control Policy
+  // to perform an accurate comparison
+  // this will only benefit those who reached this point
+  // (which should be guarded by proper permissions)
+  // and it's going to be used ONLY to READ values (i.e. inspect)
+  
+  return $ned_form;
+}
+
+function driven_inspect_diff_nodes($old_node, $new_node, $driven_props) {
+  // pretty much mimic comment_driven_diff_node_state
+  // but for two forms instead of a $form vs $form_values
+  // also, this version won't take into account any access control
+  
+  $old_node_form = driven_inspect_build_node_form($old_node, $driven_props); 
+  $new_node_form = driven_inspect_build_node_form($new_node, $driven_props);
+
+  // ignoring #access flags
+  // Access Control Policies were NOT applied in driven_inspect_build_node_form
+  
+  $changes = array();
+  $bundled_equal = array();
+  // both forms must be of the same content type
+  // but one of them might have children the other one doesn't have
+  // therefore it is required to navigate synchronized,
+  // but taking into account they might mismatch
+  // by one of them (or both) missing an element (or deltas within a CCK multiple field)
+  // since it is possible that the content type definition changed in time
+  // and requested nodes belong to a time when this path didn't existed
+  $properties_map = driven_build_properties_map($driven_props, $old_node_form);
+  $properties_map += driven_build_properties_map($driven_props, $new_node_form);
+  foreach ($properties_map as $property_path => $prop) {
+    $realm = $prop['realm'];
+    $target = $prop['target'];
+    $property_id = $realm . ':' . $target;
+    $meta = $prop['meta']; // until now only needed for bundle joint & multigroup
+    
+    // @per-module-discrimination: support content_multigroup
+    // test for group_name first, since it will be at least NULL, while group_type index might not exists
+    // CCK's meta:
+    // $node_type, $realm, $target, $provider,
+    // $group_name/type, $field_name/type/module/multiple, $widget_type/module/handle_multiple_values
+    // $driven_diff (note that driven_diff was added in driven_diff_driven_properties_meta_extension)
+    $multigroup = ($realm == 'cck' && $meta['group_name'] && $meta['group_type'] == 'multigroup');
+    // @per-module-discrimination: support workflow
+    // in passing by, normalize old body_field's wrapper_joint to the more generic bundle joint
+    // (e.g. node:body_field:bundled & workflow:workflow:bundled_schedule)
+    $bundle = $meta['bundle'];
+    $bundled = !empty($bundle);
+    
+    $path_parts = explode(':', $property_path);
+    $old_elem = $old_node_form;
+    $new_elem = $new_node_form;
+    $ancestor_title = '?';
+    foreach ($path_parts as $key) {
+      $old_elem = empty($old_elem[$key]) ? array() : $old_elem[$key];
+      $new_elem = empty($new_elem[$key]) ? array() : $new_elem[$key];
+      
+      // remember that either might not exists
+      if (!empty($old_elem['#title'])) {
+        $ancestor_title = $old_elem['#title'];
+      }
+      elseif (!empty($new_elem['#title'])) {
+        $ancestor_title = $new_elem['#title'];
+      }
+    }
+    
+    // keep track for bundle joint
+    if ($bundled) {
+      if (!isset($bundled_equal[$property_id])) {
+        $bundled_equal[$property_id] = array();
+      }
+      
+      // drop last part, which is only the bundle's holder
+      $prefix = explode(':', $target);
+      array_pop($prefix);
+      $prefix = implode(':', $prefix);
+      
+      $sub_target = substr($property_path, strlen($prefix . ':'));
+      if (strpos($property_path, $prefix . ':') !== 0) driven_assertion_failed('wrong sub-target declaration "' . $property_path . '" bundled under "' . $prefix . '" (property_id: ' . $property_id . ')');
+    }
+    $diff_values = driven_inspect_diff_elems($old_elem, $new_elem, $meta);
+    if (!$diff_values) {
+      if (!$bundled) {
+        continue; // nothing else to do
+      }
+      else {
+        // IMPORTANT: every children has to have known_default_value
+        // (i.e. $element['#default_value'] or a child of #type=radio pointing to it)
+        // otherwise they will be ignored (e.g. format tips, body_field:teaser_js)
+        if (!driven_elem_has_default_value_key($old_elem)) {
+          continue; // nothing else to do (the same as non bundled case)
+        }
+        $old = $new = driven_elem_default_value($old_elem);
+        // flag them as equal for later cleanup
+        $bundled_equal[$property_id][$sub_target] = $sub_target;
+        // fall through as if they were different
+        // they will be cleaned up later if needed
+        $diff_values = array($old, $new);
+      }
+    }
+    
+    list($old, $new) = $diff_values;
+    $label = empty($prop['label']) ? $ancestor_title : $prop['label'];
+    
+    // @per-module-discrimination: support workflow
+    // in passing by, normalize old body_field's wrapper_joint to the more generic bundle joint
+    // (e.g. node:body_field:bundled & workflow:workflow:bundled_schedule)
+    if ($bundled) {
+      $changes[$property_id]['old'][$sub_target] = $old;
+      $changes[$property_id]['new'][$sub_target] = $new;
+      // label will be the same every time,
+      // and it needs to be set at least once
+      $changes[$property_id]['label'] = $label;
+      continue; // nothing else to do
+    }
+    
+    // @per-module-discrimination: support content_multigroup
+    if ($multigroup) {
+      if (isset($changes[$property_id])) {
+        // this is another single delta
+        $changes[$property_id]['old'][] = $old;
+        $changes[$property_id]['new'][] = $new;
+        continue; // nothing else to do
+      }
+      else {
+        // this is a single delta of what should be several items
+        $old = array($old);
+        $new = array($new);
+        // fall through usual case bellow
+      }
+    }
+    
+    $changes[$property_id] = compact('label', 'old', 'new');
+  }
+  
+  // @per-module-discrimination: support workflow
+  // in passing by, normalize old body_field's wrapper_joint to the more generic bundle joint
+  // (e.g. node:body_field:bundled & workflow:workflow:bundled_schedule)
+  //
+  // just right before returning $changes
+  // cleanup $bundled_equal which didn't get any diff
+  foreach ($bundled_equal as $property_id => $sub_targets) {
+    $diff_values = FALSE;
+    foreach ($changes[$property_id]['old'] as $sub_target => $old) {
+      if (!in_array($sub_target, $sub_targets)) {
+        $diff_values = TRUE;
+        break;
+      }
+    }
+    if (!$diff_values) {
+      unset($changes[$property_id]);
+    }
+  }
+  
+  return $changes;
+}
+
+function driven_inspect_diff_elems($old_elem, $new_elem, $meta) {
+  // ignoring #access flags
+  // Access Control Policies were NOT applied in driven_inspect_build_node_form
+  
+  // wrapper detection
+  // if values are not at this level pass through it
+  if (!driven_elem_has_default_value_key($old_elem) && !driven_elem_has_default_value_key($new_elem)) {
+    $old_children_keys = element_children($old_elem); 
+    $new_children_keys = element_children($new_elem); 
+    if (!count($old_children_keys) && !count($new_children_keys)) {
+      // having no children is a dead end (e.g. add_more)
+      return FALSE; // ignore it
+    }
+    
+    // dummy elem to check children_keys that might not be present both sides
+    $non_existent_elem = array('#default_value' => NULL);
+    
+    // while being a wrapper, it can hold expanded radios (e.g. format is a fieldset)
+    // if so, each of its children is expected to be radio (or wrapper, e.g. format tips)  
+    foreach ($old_children_keys as $key) {
+      if ($old_elem[$key]['#type'] === 'radio') {
+        // then either of its children will suffice to pick up the #default_value
+        // and we have one at hand already
+        return driven_inspect_diff_elems($old_elem[$key], $new_elem[$key], $meta);
+      }
+    }
+    // check $new_children_keys that might not be present int $old_children_keys
+    foreach ($new_children_keys as $key) {
+      if ($new_elem[$key]['#type'] === 'radio') {
+        // then either of its children will suffice to pick up the #default_value
+        // and we have one at hand already
+        return driven_inspect_diff_elems($non_existent_elem, $new_elem[$key], $meta);
+      }
+    }
+    
+    foreach ($old_children_keys as $key) {
+      $other_elem = empty($new_elem[$key]) ? $non_existent_elem : $new_elem[$key];
+      $diff_values = driven_inspect_diff_elems($old_elem[$key], $other_elem, $meta);
+      if (!$diff_values) {
+        continue;
+      }
+      
+      list($old, $new) = $diff_values;
+      // on diff_render symmetric_diff will drop the keys
+      // therefore reseted indexes wouldn't harm here
+      // but wouldn't be accurate either (e.g. for debugging)
+      // in addition, content_taxonomy handles the key 'tids'
+      // which this way is persisted into diff_values
+      // and later recognized in diff_render time
+      $olds[$key] = $old;
+      $news[$key] = $new;
+    }
+    // check $new_children_keys that might not be present int $old_children_keys
+    foreach ($new_children_keys as $key) {
+      // avoid in_array, which succeeds comparing string vs zero
+      // i.e. in_array($key, $old_children_keys) when children contain a zero delta
+      if (array_key_exists($key, $old_elem)) {
+        continue; // already considered in the above foreach
+      }
+      // we have no $old_elem[$key] at all
+      // just recursing to preserve keys structure
+      $diff_values = driven_inspect_diff_elems($non_existent_elem, $new_elem[$key], $meta);
+      if (!$diff_values) {
+        continue;
+      }
+      
+      list($old, $new) = $diff_values;
+      // on diff_render symmetric_diff will drop the keys
+      // therefore reseted indexes wouldn't harm here
+      // but wouldn't be accurate either (e.g. for debugging)
+      // in addition, content_taxonomy handles the key 'tids'
+      // which this way is persisted into diff_values
+      // and later recognized in diff_render time
+      $olds[$key] = $old;
+      $news[$key] = $new;
+    }
+    
+    if (empty($olds) && empty($news)) {
+      return FALSE;
+    }
+    return array($olds, $news);
+  }
+  // hitting a non-wrapper beneath the property path
+  
+  // don't try to pick up an unexistent #default_value
+  // when being beneath the property path using $non_existent_elem  
+  $old_default = driven_elem_has_default_value_key($old_elem) ? driven_elem_default_value($old_elem) : NULL;
+  $new_default = driven_elem_has_default_value_key($new_elem) ? driven_elem_default_value($new_elem) : NULL;
+  if (empty($old_default)) {
+    if (empty($new_default)) {
+      return FALSE; // both are empty
+    }
+    // $old_default is empty or wasn't found,
+    // but $new_default isn't empty, therefore it isn't NULL
+    // ensure they match in type
+    $old_default = NULL;
+    settype($old_default, gettype($new_default));
+  }
+  elseif (empty($new_default)) {
+    // $new_default is empty or wasn't found,
+    // but $old_default isn't empty, therefore it isn't NULL
+    // ensure they match in type
+    $new_default = NULL;
+    settype($new_default, gettype($old_default));
+  }
+  else {
+    // neither is empty
+    // perform the comparison
+    if (is_array($old_default)) {
+      // if they are non-keyed it shouldn't be a problem to compare them as being keyed
+      // since they are expected to be exactly the same or not
+      if (driven_equal_keyed_array_in_depth($old_default, $new_default)) {
+        return FALSE; // they are equal
+      }
+      
+      // @TODO: every call to driven_assertion_failed will be removed after alpha/beta stage
+      $certainly_keyed = FALSE; 
+      foreach (array_values($old_default) + array_values($new_default) as $value) { 
+        if (is_array($value)) {
+          $certainly_keyed = TRUE;
+          break;
+        }
+      }
+      if (!$certainly_keyed && driven_equal_array_values($old_default, $new_default)) driven_assertion_failed('inspector assumed as different arrays in a keyed comparison when they seem to be equal compared as non-keyed');
+    }
+    else {
+      if (_driven_equal_non_array($old_default, $new_default)) {
+        return FALSE; // they are equal
+      }
+    }
+  }
+  // if they were equal we continued to next iteration
+  // therefore, reaching this point means they differ 
+  return array($old_default, $new_default);
+}
+
+function driven_inspect_deep_clone($var) {
+  // seek in depth for objects that came from static cache
+  // and should not be shared
+  if (is_object($var)) {
+    $clone = (object)(array)$var; // cloning compatible with PHP4
+    // now seek in depth for possible shared objects
+    foreach ((array)$var as $key => $value) {
+      $clone->$key = driven_inspect_deep_clone($value);
+    }
+  }
+  elseif (is_array($var)) {
+    $clone = $var; // copy
+    // now seek in depth for possible shared objects
+    foreach ($var as $key => $value) {
+      $clone[$key] = driven_inspect_deep_clone($value);
+    }
+  }
+  else {
+    // simple type => nothing to seek in depth
+    $clone = $var;
+  }
+  return $clone;
+}

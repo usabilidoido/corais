@@ -1,0 +1,32 @@
+Upgrading Pageroute from 5.x.x to a 6.x version
+------------------------------------------------
+
+Many things have changed in Pageroute 6.x.
+Most do only concern developers, who should look at the API at the drupal Handbooks for a 
+documentation of the new API, but some things have also changed for users.
+
+This document is about the changes, which are important and visible for users:
+
+ * You can upgrade pageroute like any other module, remove the old files,
+   add all new files and run your drupal's update.php.
+   
+ * There is no conversion for your existing pageroutes yet, if you need that stay
+   tuned and wait for 1.0.
+
+ * Pageroute arguments changed!
+   In 5.x the first pageroute argument was always interpreted as a node id and
+   the second argument as a user id.
+   The argument order for 6.x has been changed, so the first one is the user id and the
+   second one the node id.
+   So to go through the route as another user e.g. as user with the id 5, but without
+   passing a node id just us the URL:
+                                pageroute_url/5/0
+
+ * The Node Managment page is not longer supported. It was to complicated and we had no
+ 	 need for it. You'll have to remove pages from pageroutes that uses this page types.
+
+ * Submit like tabs buttons are also deprecated. They were to buggy and complicated to fix 
+ 	 them and we don't need them anymore.  
+ 	 
+ * API docs for 6.x are not yet finished, but can be expected before the 1.0.
+

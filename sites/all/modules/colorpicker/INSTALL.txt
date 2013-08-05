@@ -1,0 +1,7 @@
+; $Id$
+
+To install this module, navigate to admin/build/modules and enable the module. The 'colorpicker' module does nothing by itself but provide a new form element called a 'colorpicker_textfield'.
+
+See the colorpicker_example.module for example of its use.
+
+The Colorpicker CCK module makes the colorpicker_textfield form element available for use in CCK forms.

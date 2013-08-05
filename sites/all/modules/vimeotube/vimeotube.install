@@ -1,0 +1,10 @@
+<?php
+// $Id
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function vimeotube_uninstall() {
+  variable_del('vimeotube_default_width');
+  variable_del('vimeotube_default_height');
+}

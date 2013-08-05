@@ -1,0 +1,20 @@
+// $Id: CHANGELOG.txt,v 1.9 2009/07/24 01:09:01 deciphered Exp $
+
+Mentions 6.x-1.x-dev, xxxx-xx-xx (development release)
+----------------------------
+
+
+Mentions 6.x-1.0, 2009-07-24
+----------------------------
+
+- #521862: Added customizable input and output patterns.
+- Added support for Facebook-style Statuses (Microblog) module.
+- Added SimpleTest.
+- Added Content and Link fields to Views integration.
+- Added support for Token module.
+- Added default View for tracking mentions.
+- Added Views integration.
+- Added improved handling of deleted mentions.
+- Added database schema and CRUD functions.
+- Initial 6.x release.
+

@@ -1,0 +1,18 @@
+<?php
+// $Id: onbeforeunload.module,v 1.1.2.3 2009/03/31 08:21:47 markuspetrux Exp $
+
+/**
+ * @file
+ * Provides an API to allow other modules use the onBeforeUnload event of the browser window.
+ */
+
+/**
+ * Make the onBeforeUnload API available to javascripts on the page.
+ */
+function onbeforeunload_add_js() {
+  static $ready;
+  if (!isset($ready)) {
+    $ready = TRUE;
+    drupal_add_js(drupal_get_path('module', 'onbeforeunload') .'/onbeforeunload.js');
+  }
+}

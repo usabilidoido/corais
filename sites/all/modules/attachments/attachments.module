@@ -1,0 +1,279 @@
+<?php
+// $Id: attachments.module,v 1.5 2010/06/26 14:02:15 adaddinsane Exp $
+/**
+ * @file
+ * Modify the user interface and the display of file attachments
+ */
+
+/**
+ * Non-extensible class used to define constants and initial values
+ *
+ * A class is a better choice for constants than "define" because it cannot
+ * be redefined. Plus you can do other things like provide untouchable
+ * arrays and complex structures which include calculations.
+ */
+
+final class Attachments {
+  const URL_SETTINGS = 'admin/settings/uploads/extensions';
+  const URL_SETTINGS_UI = 'admin/settings/uploads/extensions/ui';
+  const URL_SETTINGS_FILES = 'admin/settings/uploads/extensions/files';
+  const URL_SETTINGS_STYLE = 'admin/settings/uploads/extensions/style';
+  const URL_SETTINGS_EXTS = 'admin/settings/uploads/extensions/extensions';
+
+  const VAR_EXTENSIONS = 'attachments_extensions';
+  const VAR_EXTENSION_SWITCH = 'attachments_extensions_switch';
+  const VAR_OTHER_EXTS = 'attachments_others';
+  const VAR_STYLE = 'attachments_style';
+  const VAR_TITLE = 'attachments_title';
+  const VAR_TITLE_DEFAULT = 'Attachments';
+  const VAR_MAX_FILES = 'attachments_max_files';
+  const VAR_DESCRIPT = 'attachments_description';
+  const VAR_JS_SWITCH = 'attachments_description_switch';
+
+  const DESCRIPT_DEFAULT = 'Changes made to the attachments are not permanent until you save this post. The first file in the list marked "Show" will be included in RSS feeds.';
+
+  const STYLE_USE_DEFAULT = 0;
+  const STYLE_DEFAULT = 'drupal_default';
+  const STYLE_LIST = 'attachments_list';
+
+  const OTHER_EXTS = 'others';
+
+  static public function exts() {
+    return array(
+      'documents' => array('txt', 'doc', 'docx', 'odt', 'pdf', 'rtf'),
+      'images' => array('gif', 'png', 'jpg', 'jpeg'),
+      'spreadsheets' => array('xls', 'xlsx', 'ods'),
+      'presentations' => array('ppt', 'pps', 'pptx', 'ppsx', 'odp'),
+    );
+  }
+}
+
+/**
+ * Implementation of hook_help().
+ */
+function attachments_help($section) {
+  switch ($section) {
+    case 'admin/help#attachments':
+      // Return a line-break version of the module README
+      return filter_filter('process', 2, NULL, file_get_contents(dirname(__FILE__) . "/README.txt"));
+  }
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function attachments_menu() {
+  $items = array();
+
+  $items[Attachments::URL_SETTINGS] = array(
+    'title' => 'Attachment settings',
+    'description' => 'Control various aspects of how file attachments are uploaded and displayed.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('attachments_settings_ui'),
+    'access arguments' => array('administer files'),
+    'file' => 'attachments.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  $items[Attachments::URL_SETTINGS_UI] = array(
+    'title' => 'User interface',
+    'description' => 'Control the new user interface for uploading and managing file attachments.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('attachments_settings_ui'),
+    'access arguments' => array('administer files'),
+    'file' => 'attachments.admin.inc',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => 0,
+  );
+
+  $items[Attachments::URL_SETTINGS_STYLE] = array(
+    'title' => 'Display style',
+    'description' => 'Control the style for displaying file attachments.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('attachments_settings_style'),
+    'access arguments' => array('administer files'),
+    'file' => 'attachments.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 1,
+  );
+
+  $items[Attachments::URL_SETTINGS_FILES] = array(
+    'title' => 'Limit attachments',
+    'description' => 'Control how many file attachments can be uploaded per node type.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('attachments_settings_files'),
+    'access arguments' => array('administer files'),
+    'file' => 'attachments.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 2,
+  );
+
+  $items[Attachments::URL_SETTINGS_EXTS] = array(
+    'title' => 'Extensions',
+    'description' => 'Control how permitted attachment file extensions are displayed.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('attachments_settings_exts'),
+    'access arguments' => array('administer files'),
+    'file' => 'attachments.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 3,
+  );
+
+  return $items;
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function attachments_theme() {
+  return array(
+    'attachments_allowed' => array(
+      'arguments' => array('maxfiles' => 0, 'account' => NULL),
+      'file' => 'attachments.themes.inc',
+    ),
+    'attachments_extensions' => array(
+      'arguments' => array('extensions' => ''),
+      'file' => 'attachments.themes.inc',
+    ),
+    'attachments_settings_table' => array(
+      'arguments' => array('element' => array()),
+      'file' => 'attachments.themes.inc',
+    ),
+    'attachments_style' => array(
+      'arguments' => array('node' => (object) array()),
+      'file' => 'attachments.themes.inc',
+    ),
+    'attachments_list' => array(
+      'arguments' => array('node' => (object) array(), 'title' => 'Attachments'),
+      'file' => 'attachments.themes.inc',
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_form_alter().
+ *
+ * If the form contains file attachments make the appropriate changes,
+ * to limit the number of files uploaded or add the new extensions
+ * information.
+ *
+ * Note: The upload module does a naughty thing - when doing its AHAH
+ * processing it rebuilds a *different* form, so we check for that.
+ */
+function attachments_form_alter(&$form, $form_state, $form_id) {
+  if ($form['#id'] == 'node-form' && isset($form['attachments'])) {
+    // Initialise the Javascript
+    _attachments_load($form);
+    // Change the main instruction message
+    _attachments_process_message($form['attachments']);
+    // Fix the form to add new description and add the file limit (if any)
+    _attachments_process_upload($form['attachments']['wrapper'], $form['#node']->type);
+  }
+  elseif ($form_id=='upload_js') {
+    // Get the node type from the original form ID
+    $type = $form['#post']['form_id'];
+    $type = drupal_substr($type, 0, drupal_strlen($type)-10);
+    // Fix the form to add new description and add the file limit (if any)
+    _attachments_process_upload($form, $type);
+  }
+}
+
+function _attachments_process_upload(&$element, $type) {
+  if (variable_get(Attachments::VAR_EXTENSION_SWITCH, TRUE)) {
+    // remove the old file extensions description
+    unset($element['new']['upload']['#description']);
+  }
+
+  // check for the limit on files uploaded
+  global $user;
+  $limits = variable_get(Attachments::VAR_MAX_FILES, array());
+
+  $files = count(element_children($element['files']));
+  $maxfiles = ($user->uid==1) ? 0 : (is_array($limits) ? (is_numeric($limits[$type])?$limits[$type]:0) : (is_numeric($limits)?$limits:0));
+  // If we're not allowing uploads so replace the 'new' element with a message
+  if ($maxfiles && ($files>=$maxfiles)) {
+    $element['new'] = array(
+      '#value' => '<div class="warning">' . t('You have reached the limit of !x file attachments for this type of node.', array('!x' => $maxfiles)) . '</div>',
+      '#weight' => $element['new']['#weight'], # keep the old weight
+    );
+  }
+  else {
+    if (variable_get(Attachments::VAR_EXTENSION_SWITCH, TRUE)) {
+      // we are still allowing uploads, so add the new file extensions description
+      // but put it after the attach button.
+      $element['help'] = array(
+        '#type' => 'item',
+        '#description' => theme('attachments_allowed', $maxfiles),
+        '#weight' => $element['new']['#weight'] + 5,
+      );
+    }
+  }
+}
+
+/**
+ * Change the main description
+ */
+function _attachments_process_message(&$form) {
+  if (variable_get(Attachments::VAR_JS_SWITCH, TRUE)) {
+    $form['#description'] = variable_get(Attachments::VAR_DESCRIPT, Attachments::DESCRIPT_DEFAULT);
+  }
+}
+
+/**
+ * Set-up the Javascript code and settings if not already done
+ *
+ * We're using the 'stylistics' module which ensures that any
+ * Javascript and/or CSS gets re-loaded even if there's a form
+ * error. Of course we could set-up a pre_render routine that
+ * does it, but 'stylistics' does it all anyway.
+ */
+function _attachments_load(&$form) {
+  if (!isset($form['#stylistics']['attachments'])) {
+    $path = drupal_get_path('module', 'attachments');
+    $form['#stylistics']['attachments']['js'][] = array($path . '/attachments.js');
+
+    $settings = array(
+      'delete' => t('Action'),
+      'list' => t('Display'),
+      'keep' => t('Keep'),
+      'remove' => t('Remove'),
+      'hide' => t('Hide'),
+      'show' => t('Show'),
+      'togkeep' => t('Toggle whether to keep or remove this file when this node is saved.'),
+      'togshow' => t('Toggle whether this file is hidden or listed when this node is displayed.'),
+    );
+    $form['#stylistics']['attachments']['js'][] = array(array('attachments' => $settings), 'setting');
+  }
+}
+
+
+/**
+ * Implementation of hook_nodeapi().
+ */
+function attachments_nodeapi(&$node, $op) {
+  switch ($op) {
+    case 'view':
+      // Check to see whether we're supposed to re-theme the attachments on this page
+      list(, , $teaser, $page) = func_get_args();
+      if (isset($node->content['files']['#value'])) {
+        $node->content['files']['#value'] = theme('attachments_style', $node);
+      }
+      break;
+  }
+}
+
+
+/**
+ * Implementation of hook_attachments().
+ */
+function attachments_attachments($op) {
+  switch ($op) {
+    case 'style':
+      $results = array(
+        Attachments::STYLE_DEFAULT => t('Use standard Drupal table style.'),
+        Attachments::STYLE_LIST => t('Show files as a list.'),
+      );
+      break ;
+  }
+  return empty($results) ? NULL : array('attachments' => $results);
+}

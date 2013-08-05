@@ -1,0 +1,478 @@
+<?php
+/**
+ * @file signup_webform.module
+ * 
+ * Signup integration with webform module: provides a signup pane for each 
+ * webform node.
+ *
+ * The intention is that if a webform is used for signup, it is *not* also 
+ * used as a standalone webform; rather, we make use of webform for its
+ * convenience in allowing users to use a UI to build a form.
+ *
+ * Also note that parenting, fieldsets, and pagebreaks are untested, unsupported,
+ * and probably won't work! @todo: add some checking for this.
+ *
+ * @todo: use form_alter or nodeapi to disable the webform from the node view
+ *   so it cant be submitted there (but visible for checking)
+ * @todo: figure out why an unpublished webform doesn't render its components
+ *   and spoof this so admins can unpublish a signup webform to hide it.
+ * @todo: hook_nodeapi: delete: delete ALL stuff for this node!
+ * @todo: should we consider the 'access own webform submissions' permission
+ *   when showing signup data that includes webform submissions?
+ */
+
+/**
+ * Implementation of hook_signup_pane_info().
+ *
+ * Define our panes available to insert into the signup form.
+ *
+ * Panes should be provided by callback functions as a FormAPI array.
+ * The callback should have the following signature:
+ *   function my_callback(&$signup_form, &$form_state, $node, $signup, $pane_id, $signup_type = 'auth')
+ * See signup_basic_form_form for an example.
+ * The values submitted to the form elements defined by this form will be 
+ * serialized and stored in the {signup_log} table as 'form_data'.
+ *
+ * @param $node
+ *  (optional) The node being considered for panes.
+ *  Most modules won't need to look at this, but you may need to only return
+ *  panes if the node satisfies certain properties.
+ *
+ * @return
+ *   An array of possible forms, keyed by a unique ID. Each value is itself an 
+ *   array of data, with the following key-value pairs:
+ *     - 'label': (required) The human-readable name of the form.
+ *     - 'description': (required) Extra information about the form.
+ *     - 'callback': (required) The name of a function.
+ *     - 'operations': (optional) A list of links for the user to perform 
+ *        administrative tasks on this pane, either global or per-node settings.
+ *        The format is an unkeyed array of link arrays (suitable for passing
+ *        to theme_links).
+ *        You may use %nid as a token in your link's href property to
+ *        insert the node id of the current signup node. 
+ *        The following optional keys are also available:
+ *        - destination: if set to TRUE, the return destination will be appended
+ *          to the link as a query string with drupal_get_destination, allowing
+ *          the user to return to this page directly. Do not use if your link
+ *          sends the user to a complex series of forms or pages.
+ *        - not_defaults: if set to TRUE, this link will not be shown when 
+ *          default signup settings are being edited at admin/settings/signup.
+ *          Use this when your settings link would be meaningless in this 
+ *          context because it is dependent on the current node.
+ *
+ * @see signup_basic_form_form.
+ */
+function signup_webform_signup_pane_info($node = NULL) {
+  // Get the webform nodes.
+  $result = db_query('SELECT n.title, n.nid FROM {node} n WHERE n.type = "webform" AND n.status = 1');
+  while ($webform = db_fetch_object($result)) {
+    $panes['webform_' . $webform->nid] = array(
+      'label' => 'Webform: ' . $webform->title,
+      'description' => t('Collects data for the webform.'),
+      'callback' => 'signup_webform_form',
+      'operations' => array(
+        array(
+          'href'  => 'node/' . $webform->nid . '/edit',
+          'title' => 'Edit webform',
+          'destination' => TRUE,
+        ),
+        array(
+          'href'  => 'node/' . $webform->nid . '/edit/components',
+          'title' => 'Edit components',
+          'destination' => TRUE,
+        ),
+      ),
+    );
+  }
+  
+  return $panes;
+}
+
+/**
+ * Signup form pane callback.
+ *
+ * @param &$signup_form
+ *   The form array for the whole signup. You should not alter this, but it
+ *   contains useful data depending on circumstances.
+ * @param &$form_state
+ *   Likewise.
+ * @param $node
+ *   The fully loaded node object.
+ * @param $signup
+ *   If this is an existing signup, the fully loaded signup object. If this is a 
+ *   new signup, this is just NULL.
+ * @param $pane_id
+ *   The pane ID being invoked. This allows a module to implement multiple panes
+ *   with one callback.
+ * @param $signup_type
+ *   Determines what kind of signup to generate a form for. Possible values:
+ *    'auth' -- regular authenticated user signup form
+ *    'anon' -- anonymous user signup form (includes required email field).
+ *    'admin' -- admin form to signup another user (includes user selector).
+ * @return
+ *   A form API array for insertion into the signup form. 
+ */
+function signup_webform_form(&$signup_form, &$form_state, $node, $signup, $pane_id, $signup_type = 'auth') {
+  $form = array();
+
+  // Get the real nid from the prefixed pane ID and thence the node.
+  $webform_nid = substr($pane_id, 8);
+  $webform_node = node_load($webform_nid);
+  
+  module_load_include('inc', 'webform', 'webform_components');
+  webform_load_components();
+  
+  // Load the webform submission for existing signups, so the webform API
+  // takes care of putting in existing data.
+  if (isset($signup) && $signup_type != 'anon') {
+    $submission = signup_webform_get_signup_submission($signup, $webform_nid);
+  }  
+  
+  $component_tree = array();
+  $page_count = 1;
+  $page_num = 1;
+  _webform_components_tree_build($webform_node->webform['components'], $component_tree, 0, $page_count);
+  
+  //dsm($component_tree);
+
+  // Recursively add components to the form. Microweights keep things in webform order.
+  // No idea what most of these do; _webform_client_form_add_component() is an undocumented black box!
+  $microweight = 0.001;
+  $enabled = TRUE;
+  foreach ($component_tree['children'] as $cid => $component) {
+    // we have no existing values here ever.
+    $component_value = NULL;
+    _webform_client_form_add_component($cid, $component, $component_value, $form, $form, $submission, $page_num, $enabled);
+  }
+    
+  return $form;
+}
+
+/**
+ * Implementation of hook_signup_data_alter().
+ */
+function signup_webform_signup_data_alter(&$signup, $form_values) {
+  // Act on each pane that is a webform pane.
+  foreach (_signup_webform_pane_ids($signup->form_data) as $pane_id) {
+    // Load the webform API. 
+    // Do this inside the loop so signups that don't use webform don't load this.
+    module_load_include('inc', 'webform', 'webform_submissions');
+    
+    // Get the real nid from the prefixed pane ID and thence the node.
+    $webform_nid = substr($pane_id, 8);
+    $webform_node = node_load($webform_nid);
+          
+    /*
+    So... some missing documentation!
+    webform_submission_insert($node, $submitted)
+    expects this for $submitted, where keys are cids:
+    *   Array
+    *  (
+    *      [1] => Array // Single checkbox TRUE/FALSE
+    *          (
+    *              [1] => 1 
+    *          )
+    *  
+    *      [2] => Abbey Road // Textfield
+    *      [3] => Array // Multiple select: checkboxes
+    *          (
+    *              [John] => John
+    *              [Paul] => Paul
+    *          )
+    *  
+    *  )
+    *
+    */
+    $component_lookup = _signup_webform_translate_cid_form_keys($webform_node);
+    
+    $submitted = array();
+    $webform_data = $signup->form_data[$pane_id];
+    foreach ($webform_data as $form_key => $component_data) {
+      $cid = $component_lookup[$form_key];
+      // Remove 0 values for unselected checkbox items
+      if (is_array($component_data)) {
+        $component_data = array_filter($component_data);
+      }
+      
+      $submitted[$cid] = $component_data;
+    }
+    
+    if (isset($signup->sid)) {
+      // existing signup: update the webform submission with the new data.
+      $submission_sid = db_result(db_query('SELECT submission_sid FROM {signup_webform_submission} WHERE signup_sid = %d AND webform_nid = %d', $signup->sid, $webform_nid));
+      webform_submission_update($webform_node, $submission_sid, $submitted);
+      // We store the sid so hook_signup_form_data_display() has something to work on.
+      $signup->form_data[$pane_id] = array(
+        'sid' => $submission_sid,
+      );
+    }
+    else {
+      // new signup: insert webform submission.
+      $sid = webform_submission_insert($webform_node, $submitted);
+      
+      // Replace our data with just the submission ID; this is retrieved
+      // by signup_webform_signup_insert() once the signup is saved and has 
+      // an ID.
+      $signup->form_data[$pane_id] = array(
+        'sid' => $sid,
+      );
+    }
+  }
+}
+
+/**
+ * Implementation of hook_signup_insert().
+ *
+ * Carries on from signup_webform_signup_data_alter(). Saves the relationship
+ * between the signup and the webform submission into {signup_webform_submission},
+ * which we couldn't do earlier in signup_webform_signup_data_alter() because
+ * at that point there is no signup id.
+ */
+function signup_webform_signup_insert($signup) {
+  foreach (_signup_webform_pane_ids($signup->form_data) as $pane_id) {
+    // Retrieve the Submission id where we put it in the form data.
+    $submission_sid = $signup->form_data[$pane_id]['sid'];
+    $webform_nid = substr($pane_id, 8);
+    db_query("INSERT INTO {signup_webform_submission} (signup_sid, webform_nid, submission_sid) VALUES (%d, %d, %d)", $signup->sid, $webform_nid, $submission_sid);
+  }
+}
+
+/**
+ * Implementation of hook_signup_form_data_display_alter().
+ *
+ * Alter signup form data prior to displaying signup records in, for example,
+ * a node's list of signups.
+ *
+ * We remove the submission ID that is internal data.
+ * Since webform does not yet have view support, we add in the webform 
+ * submission data.
+ * @todo: Change all this when webform gets views support!
+ *
+ * @param $form_data
+ *  The user's signup data to alter.
+ * @param $nid
+ *  The node id for the signup-enabled node.
+ * @param $sid
+ *  The signup record id. WARNING: NOT the submission sid!
+ * @param $uid
+ *  The user id whose signup this is; 0 if this is an anonymous signup.
+ * @param $type
+ *  The type of output being prepared. Possible values are:
+ *    - 'list': The hardcoded admin lists of signups, eg at node/X/signups/admin
+ *    - 'view': The form data field in Views.
+ *    - 'mail': Email output. This is likely the only one that needs special 
+ *      handling; in this case, modules should be more generous about supplying
+ *      data since there's no other place to see it.
+ */
+function signup_webform_signup_form_data_display_alter(&$form_data, $nid, $sid, $uid, $type = 'list') {
+  //dsm($form_data);
+  // Cache any webform components we load, as we are probably coming here 
+  // multiple times to show a set of signups that all involve the same webform.
+  static $components = array();
+  static $webform_loaded;
+
+  foreach (_signup_webform_pane_ids($form_data) as $pane_id) {
+    // Load the webform API.
+    if (!isset($webform_loaded)) {
+      module_load_include('inc', 'webform', 'webform_submissions');
+      module_load_include('inc', 'webform', 'webform_components');
+      webform_load_components();
+      $webform_loaded = TRUE;
+    }
+    
+    // Get the real nid from the prefixed pane ID.
+    $webform_nid = substr($pane_id, 8);
+
+    // Get the submission ID from the signup data and thence the submission.
+    // We could get this from {signup_webform_submission}, but might as well
+    // get it here.
+    // @todo: when signup switches entirely to Views-based output, we could use
+    // hook_views_data_alter() to add {signup_webform_submission}.submission_sid
+    // as an additional field for the ['signup_log']['form_data'] field.
+    $submission_sid = $form_data[$pane_id]['sid'];
+    $submission = webform_get_submission($webform_nid, $submission_sid);
+    
+    // Check there is an actual submission: if no webform fields are compulsory,
+    // a user can sign up and not create a corresponding webform submission.
+    if (isset($submission)) {
+      if (!isset($components[$webform_nid])) {
+        $webform_node = node_load($webform_nid);
+        // Cache the components for this webform node.
+        $components[$webform_nid] = $webform_node->webform['components'];
+      }
+
+      foreach ($submission->data as $cid => $component_data) {
+        $component = $components[$webform_nid][$cid];
+        $label     = $components[$webform_nid][$cid]['name'];
+        // Hijack webform's email output theming: this, as far as I can tell,
+        // is the only way there is of getting a component's data flattened to 
+        // a human-readable string.
+        // @todo: textfields do not render properly here; I am assuming that
+        // all single-values fields need their arrays exploding. Figure out
+        // what is going on with webform and do this the correct way!
+        if  (count($component_data['value']) == 1) {
+          $component_data['value'] = array_shift($component_data['value']); 
+        }
+        $themed_output = theme('webform_mail_' . $component['type'], $component_data['value'], $component);
+        // Use a numeric key rather than $label so the key is not output by 
+        // theme functions -- webform's output already includes the label.
+        $form_data[$pane_id][] = $themed_output;
+      }
+    }
+    // Remove the sid from display: it is internal data.
+    unset($form_data[$pane_id]['sid']);
+  }
+}
+
+/**
+ * Implementation of hook_signup_cancel().
+ *
+ * When a signup is canceled, delete the corresponding webform submission.
+ */
+function signup_webform_signup_cancel($signup, $node) {
+  $form_data = unserialize($signup->form_data);
+  
+  foreach (_signup_webform_pane_ids($form_data) as $pane_id) {
+    // Load the webform API.
+    module_load_include('inc', 'webform', 'webform_submissions');
+    
+    // Get the real nid from the prefixed pane ID and thence the node.
+    $webform_nid = substr($pane_id, 8);
+    $webform_node = node_load($webform_nid);
+    
+    // Get the submission ID from the signup data and thence the submission.
+    $sid = $form_data[$pane_id]['sid'];
+    $submission = webform_get_submission($webform_nid, $sid);
+    
+    // Delete the webform submission.
+    webform_submission_delete($webform_node, $submission);
+    // Delete the signup-webform submission relationship.
+    db_query("DELETE FROM {signup_webform_submission} WHERE signup_sid = %d", $signup->sid);          
+  }
+}
+
+/**
+ * Implementation of hook_nodeapi().
+ *
+ * When a whole signup node is deleted, delete data related to it.
+ */
+/* 
+// needs work.
+function signup_webform_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+  if ($op == 'delete' && isset($node->signup_form_panes)) {
+    $signup_nid = $node->nid;
+    // Act on records pertaining to each webform that this signup is linked to.
+    foreach (_signup_webform_pane_ids($node->signup_form_panes) as $pane_id) {
+      // Load the webform API.
+      module_load_include('inc', 'webform', 'webform_submissions');
+      
+      $webform_nid = substr($pane_id, 8);
+      $webform_node = node_load($webform_nid);
+      
+      // One webform may be used in several signup nodes. So we need to get 
+      // *only* the webform submissions that came from the signup node being deleted.
+      // @todo BUG!!! this doesn't seem to work at all!
+      // do we even have {signup_log} any more at this point?? 
+      // may be module weight issues here -- urgh!
+      $result = db_query('SELECT sws.submission_sid FROM {signup_log} sl INNER JOIN {signup_webform_submission} sws ON sl.sid = sws.signup_sid WHERE sl.nid = %d', $signup_nid);
+      // Act on each submission.
+      while ($submission_data = db_fetch_array($result)) {
+        // Load the submission in order to delete it... 
+        $submission = webform_get_submission($webform_nid, $submission_data['sid']);
+        webform_submission_delete($webform_node, $submission);
+        // Delete the signup-submission link for this submission.
+        // @todo: replace this with a DELETE SELECT query outside this loop, joining
+        // to {signup_log} if possible.
+        db_query('DELETE FROM {signup_webform_submission} WHERE submission_sid = %d', $submission_data['sid']);
+      }
+    }
+  }
+}
+*/
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ *
+ * If a webform node is about to be deleted, and it is being used as a pane
+ * in one or more signup-enabled nodes, prevent deletion and explain why.
+ */
+function signup_webform_form_node_delete_confirm_alter(&$form, $form_state) {
+  $node = $form['#parameters'][2];
+  if ($node->type == 'webform') {
+    $webform_nid = $node->nid;
+    $pane_id = 'webform_' . $node->nid;
+    // Get the signup nodes the pane based on this webform is used in.
+    // A left join gets us the special case where nid is 0 which represents the 
+    // signup defaults.
+    $result = db_query("SELECT n.nid, n.title FROM {signup_panes} sp LEFT JOIN {node} n ON sp.nid = n.nid WHERE sp.pane_id = '%s'", $pane_id);
+    while ($signup_node = db_fetch_object($result)) {
+      if ($signup_node->nid == 0 ) {
+        $text = t('Signup default settings');
+        $items[] = user_access('administer all signups') ? l($text, 'admin/settings/signup') : $text;
+      }
+      else {
+        $items[] = l($signup_node->title, 'node/' . $signup_node->nid);
+      }
+    }
+    if (count($items)) {
+      // Overwrite the description text and append the list of signup nodes.
+      $form['description']['#value'] = t('This webform can not be deleted because it is currently used in the following signup-enabled content:');
+      $form['description']['#suffix'] = theme('item_list', $items);
+      drupal_set_title(t('Unable to delete %title', array('%title' => $node->title)));
+      unset($form['actions']['submit']);
+    }
+  }
+}
+
+/**
+ * Get the webform submission record for a given signup record.
+ *
+ * @param $signup
+ *  The signup record object, as generally swilled around the place. 
+ * @param $webform_nid
+ *  The node ID of the webform node in question.
+ * @return
+ *  A webform submission object, as returned by webform_get_submission().
+ */
+function signup_webform_get_signup_submission($signup, $webform_nid) {
+  // Beware: both pieces of data we care about here are called sid!
+  $submission_sid = db_result(db_query('SELECT submission_sid FROM {signup_webform_submission} WHERE signup_sid = %d AND webform_nid = %d', $signup->sid, $webform_nid));
+  // Load the webform API.
+  module_load_include('inc', 'webform', 'webform_submissions');
+  $submission = webform_get_submission($webform_nid, $submission_sid);
+  return $submission;
+}
+
+/**
+ * Helper function to make a lookup array of form keys => cid.
+ * 
+ * @param $webform_node
+ *  Just feed this the entire webform $node object. 
+ */
+function _signup_webform_translate_cid_form_keys($webform_node) {
+  $components = $webform_node->webform['components'];
+  foreach ($components as $component) {
+    $data[$component['form_key']] = $component['cid'];
+  }
+  return $data;
+}
+
+/**
+ * Helper function to get the webform panes from an array on pane IDs.
+ * 
+ * Same pattern as element_children().
+ *
+ * @param $signup_data
+ *  An array whose keys are pane IDs. Probably $signup->form_data.
+ * @return
+ *  An array of the keys that are IDs for webform panes.
+ */
+function _signup_webform_pane_ids($signup_data) {
+  $return = array();
+  foreach($signup_data as $pane_id => $data) {
+    if (substr($pane_id, 0, 7) == 'webform') {
+      $return[] = $pane_id;
+    }
+  }
+  return $return;
+}

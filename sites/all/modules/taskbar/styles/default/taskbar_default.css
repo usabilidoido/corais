@@ -1,0 +1,19 @@
+#taskbar .taskbar-item-content a,
+#taskbar .taskbar-item-content a:hover,
+#taskbar .taskbar-item-content a:active,
+#taskbar .taskbar-item-content a:visited {
+  color: #000;
+}
+
+.taskbar-item:hover,
+.taskbar-provider-link .taskbar-element:hover {
+  background: inherit;
+}
+
+.taskbar-item.taskbar-provider-link:hover {
+  background: inherit;
+}
+
+.taskbar-item-active {
+  background: #fff!important;
+}

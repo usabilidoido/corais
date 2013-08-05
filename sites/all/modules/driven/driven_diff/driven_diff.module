@@ -1,0 +1,338 @@
+<?php
+// $Id: driven_diff.module,v 1.2 2010/04/03 23:18:07 arhak Exp $
+
+// unequivocal administrative varnames with colon over CSS compliant ids (back-end only)
+define('DRIVEN_DIFF__VAR_WARN_LEVEL_PROP_OR_VAL_GONE', 'driven_diff:warn_level_prop_or_val_gone');
+
+module_load_include('inc', 'driven_diff', 'driven_diff.eq');
+module_load_include('inc', 'driven_diff', 'driven_diff.helper');
+module_load_include('inc', 'driven_diff', 'driven_diff.theme');
+
+/**
+ * Implementats hook_init().
+ */
+function driven_diff_init() {
+  $module_path = drupal_get_path('module', 'driven_diff');
+  // make the styles available even when there is no diff summary
+  // that way themers can rely on it
+  drupal_add_css($module_path . '/driven_diff.css');
+}
+
+/**
+ * Implements hook_driven_global_settings_form().
+ */
+function driven_diff_driven_global_settings_form() {
+  $form['#menu_title'] = 'Driven diff';
+  
+  $form['live_render'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Live render'),
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+  );
+  
+  // lets babysit restless sitebuilders
+  // driven_diff is expected to catch missing property ids
+  // nevertheless, it can't know if values are gone
+  // which would be responsibility of each driven property module
+  $form['live_render'][DRIVEN_DIFF__VAR_WARN_LEVEL_PROP_OR_VAL_GONE] = array(
+    '#type' => 'radios',
+    '#title' => t('Warn on property/value gone'),
+    '#description' => t('Warn whenever live render displays inaccurate changes due to missing properties, values or modules responsible of their handling.'),
+    // @d6
+    '#default_value' => variable_get(DRIVEN_DIFF__VAR_WARN_LEVEL_PROP_OR_VAL_GONE, DRIVEN__REPORT__BOTH),
+    '#options' => array(
+      DRIVEN__REPORT__BOTH => t('Log details and display a vague message'),
+      DRIVEN__REPORT__LOG => t('Log only'),
+      DRIVEN__REPORT__DISPLAY => t('Display a vague message only'),
+      DRIVEN__REPORT__NONE => t('None'),
+    ),
+  );
+  
+  return $form;
+}
+
+/**
+ * Implements hook_driven_properties_meta_extension().
+ */
+function driven_diff_driven_properties_meta_extension($driven_props) {
+  $meta_extensions = array();
+  
+  // @TODO: cleanup this method
+  // provide an API function asking for supported lists
+  // provide a driven_diff default list for every functionality relying on traditional deltas to delegate ot
+  // (i.e. whish also lists custom multiple like noderef/userref, but not date repeats neither hs_content_taxonomy)
+  // then the exposed implementation of driven_diff would use it just adding hs_content_taxonomy
+  
+  // @per-module-discrimination
+  // module => limited widgets modules
+  $supported_modules = array(
+    'userreference' => FALSE,
+    'nodereference' => FALSE, 
+    'number' => FALSE, 
+    'text' => FALSE,
+    'optionwidgets' => FALSE,
+    'filefield' => FALSE,
+    // @TODO: widget_module='date' not fully supported
+    // since the repeat versions of widget types
+    // handle multiple values in a custom fashion (not inspected yet)
+    // if (content_handle('widget', 'multiple values', $field) == CONTENT_HANDLE_CORE)
+    // see date_widget_info
+    // - date_select
+    // - date_text
+    // - date_popup
+    // not limiting the widget_module, because all of them are widget_module='date'
+    'date' => FALSE,
+    // this would be enough to support vanilla content_taxonomy
+    // which uses CCK-related widgets (content_taxonomy_optionwidgets & content_taxonomy_autocomplete)
+    // but it isn't enough to support its taxonomy-related widgets (e.g. hs_content_taxonomy)
+    // moreover, to have same taxonomy theming function diff_render should be delegated for any case
+    'content_taxonomy' => array(
+      'content_taxonomy_options',
+      'hs_content_taxonomy',
+      'content_taxonomy_autocomplete',
+      // not even tested yet
+      // - activeselect
+      // - multiselect
+      // - content_taxonomy_tree (depends on taxonomy_manager)
+    ),
+  );
+  // module => limited widgets types
+  $limited_widget_types = array(
+    'date' => array(
+      'date_select',
+      'date_text',
+      'date_popup',
+    ),
+  );
+  
+  foreach ($driven_props as $property_id => $prop) {
+    $meta = $prop['meta'];
+    if ($meta['realm'] != 'cck') {
+      continue;
+    }
+    // $node_type, $realm, $target, $provider,
+    // $group_name/type, $field_name/type/module/multiple, $widget_type/module/handle_multiple_values
+    extract($meta);
+    
+    $supported_field_type = in_array($field_module, array_keys($supported_modules));
+    $supported_widget = TRUE; // unless limited bellow
+    if ($supported_field_type) {
+      $limited_widget_mods = $supported_modules[$field_module];
+      if (empty($limited_widget_mods)) {
+        // discarding every custom multiple handling not white-listed
+        ///$supported_widget = ($widget_handle_multiple_values == CONTENT_HANDLE_CORE);
+        $supported_widget = (empty($limited_widget_types[$field_module]) || in_array($widget_type, $limited_widget_types[$field_module]));
+      }
+      else {
+        $supported_widget = in_array($widget_module, $limited_widget_mods);
+      }
+    }
+    $supported = ($supported_field_type && $supported_widget);
+    
+    // mark as NULL if processed but nothing added (debug purposes)
+    $meta_ext = NULL;
+    // flag only if unsupported, also provide details about why it isn't supported
+    if ($supported) {
+      // @per-module-discrimination: support advanced content_taxonomy widgets
+      if ($field_module === 'content_taxonomy') {
+        $meta_ext['taxo_meta'] = _driven_diff_content_taxonomy_meta_extension($node_type, $field_name);
+        // it will require both realms: cck & taxo
+        if (!module_exists('driven_taxo')) {
+          $meta_ext['unsupported'] = t('This property requires %module to be enabled, since it is both CCK & Taxonomy related.', array('%module' => 'driven_taxo'));
+        }
+      }
+    }
+    else {
+      // saving the unsupported message (instead of supported flag)
+      // to quick test for empty($unsupported) meaning it is supported
+      // while the other way around empty($supported) doesn't means anything
+      // for other realms besides cck
+      if ($supported_field_type) {
+        // then it is unsupported due to its current widget and/or handling custom multiple
+        $meta_ext['unsupported'] = t('unsupported widget:') . ' ' . $widget_type . ' (' . t('module:') . ' ' . $widget_module . ', ' . t('multiple handling:') . ' ' . (($widget_handle_multiple_values == CONTENT_HANDLE_CORE) ? 'core' : 'custom') . ')';
+      }
+      else {
+        // the field type is not supported (for any widget)
+        $meta_ext['unsupported'] = t('unsupported field type:') . ' ' . $field_type . ' (' . t('module:') . ' ' . $field_module . ')';
+      }
+    }
+    $meta_extensions[$property_id] = $meta_ext;
+  }
+  
+  return $meta_extensions;
+}
+
+// helper function (just splitting code)
+// might return NULL, taxo_meta and also unsupported if driven_taxo is required but disabled
+function _driven_diff_content_taxonomy_meta_extension($node_type, $field_name) {
+  // receiving $field_name, since it will need to load the full $field anyway
+  // since $meta won't come with such details as the vocabulary id when it is content_taxonomy
+  $field = content_fields($field_name, $node_type);
+  
+  // can be handled by cck realm:
+  // - content_taxonomy_options
+  // - content_taxonomy_autocomplete
+  // i.e. don't require delegating to taxo realm
+  // except for theming function on diff_render time
+  
+  // known to be delegated to taxo realm:
+  $non_free_tagging_widgets = array(
+    'hs_content_taxonomy', // delivers 'tids'=>array
+    'content_taxonomy_options', // delivers 'value'=>tid pairs
+    'content_taxonomy_autocomplete', // IMPORTANT: it is non-tags since it delivers 'value'=>tid pairs
+  );
+  // known to be free tagging
+  $free_tagging_widgets = array(
+  );
+  // not yet supported by taxo realm:
+  // - activeselect
+  // - multiselect
+  // - content_taxonomy_tree (depends on taxonomy_manager)
+  
+  $widget_module = $field['widget']['module'];
+  // taxonomy-related widget are gonna be delegated to driven_taxo
+  //$hierarchy = ; // @TODO: how to know whether it should be flagged or not
+  $multiple = $field['multiple'];
+  $tags = in_array($widget_module, $free_tagging_widgets);
+  
+  // @per-module-discrimination: support hs_content_taxonomy
+  if ($widget_module == 'hs_content_taxonomy') {
+    // has its own field configuration
+    module_load_include('inc', 'hierarchical_select', 'modules/' . $widget_module . '.admin');
+    $hs_config_form = hs_content_taxonomy_config_form(array(), $node_type, $field_name);
+    $save_lineage = $hs_config_form['hierarchical_select_config']['save_lineage']['#default_value'];
+    $drop_box = $hs_config_form['hierarchical_select_config']['dropbox']['status']['#default_value'];
+    $multiple = ($save_lineage | $drop_box); 
+  }
+  
+  // additional meta to indicated target vid and voc_override
+  $taxo_meta = array(
+    'vid' => $field['vid'],
+    'voc_override' => array(
+      //'hierarchy' => $hierarchy, // @TODO: how to know whether it should be flagged or not
+      'multiple' => $multiple,
+      'tags' => $tags,
+    ),
+  );
+  return $taxo_meta;
+}
+
+/**
+ * this is not a driver module, therefore, this function is a helper
+ * for those driver modules which want to implement hook_unsupported_driven_props().
+ */
+function driven_diff_unsupported_driven_props($driven_props) {
+  $unsupported = array();
+  foreach ($driven_props as $property_id => $prop) {
+    $meta = $prop['meta'];
+    if ($meta['realm'] != 'cck') {
+      continue;
+    }
+    // $node_type, $realm, $target, $provider,
+    // $group_name/type, $field_name/type/module/multiple, $widget_type/module/handle_multiple_values
+    // $driven_diff (note that driven_diff was added in driven_diff_driven_properties_meta_extension)
+    extract($meta);
+    if (!empty($driven_diff['unsupported'])) {
+      $unsupported[$property_id] = $driven_diff['unsupported'];
+    }
+  }
+  return $unsupported;
+}
+
+// receives the property id and content type of the gone property
+function driven_diff_warn_property_gone($node_type, $property_id, $msg = 'Property gone: %id') {
+  $msg .= '. This property is no longer supported to be driven for content type %type.';
+  $args = array(
+    '%id' => $property_id,
+    '%type' => $node_type,
+  );
+  driven_diff_warn_inaccurate_diff($msg, $args);
+}
+
+// receives a message with technical details about the missing property/value
+// and the array of arguments for translation or NULL if it is already translated
+function driven_diff_warn_inaccurate_diff($msg, $args) {
+  // global setting (not per content type)
+  $warn_level = variable_get(DRIVEN_DIFF__VAR_WARN_LEVEL_PROP_OR_VAL_GONE, DRIVEN__REPORT__BOTH);
+  if ($warn_level & DRIVEN__REPORT__DISPLAY) {
+    // the displayed message is vague, since the visitor user doesn't need to know internal details
+    drupal_set_message(t('Some differences are missing changes of properties and/or values that are no longer available.'), 'warning', FALSE);
+  }
+  if ($warn_level & DRIVEN__REPORT__LOG) {
+    watchdog('driven_diff', $msg, $args, WATCHDOG_WARNING);
+  }
+}
+
+// this is the "live_render" core, how the diff is displayed relies on which diff_render is used 
+// actually just needs $driven_props/$available_props & $changes, but this way is more friendly
+// see comment_driven_token_values for illustration
+function driven_diff_render($node_type, $changes) {
+  // the changed property might be no longer driven
+  // but if it is provided by an enabled module
+  // we should display the diff (we are capable and being requested to do so)
+  // that's why we fetch available properties instead of driven ones
+  //$driven_props = driven_props_get_properties($driver_mod, $node_type);
+  $available_props = driven_properties_available($node_type);
+  
+  $diff_render = array();
+  foreach ($changes as $property_id => $change) {
+    if (empty($available_props[$property_id])) {
+      // unable to find the property
+      // i.e. property gone (e.g. disabling modules)
+      driven_diff_warn_property_gone($node_type, $property_id);
+      continue; // bypass it
+    }
+    $prop = $available_props[$property_id];
+    
+    extract($change); // $label, $old, $new
+    
+    $function = $prop['provider'] . '_diff_render';
+    $meta = $prop['meta'];
+    list($outgoing, $incoming) = $function($old, $new, $meta);
+    if (!is_array($outgoing)) {
+      $outgoing = array($outgoing);
+      $incoming = array($incoming);
+    }
+    $diff_render[] = compact('label', 'outgoing', 'incoming');
+  }
+  return $diff_render;
+}
+
+// actually just needs $rows, but this way is more friendly
+function driven_diff_summary_table($diff_render) {
+  $rows = driven_diff_summary_rows($diff_render);
+  // @d6
+  return theme('table', array(), $rows, array('class' => 'driven_diff'));
+}
+
+function driven_diff_summary_rows($diff_render) {
+  $rows = array();
+  foreach ($diff_render as $render) {
+    extract($render); // $label, $outgoing, $incoming
+    
+    // if modules don't like comma separated lists
+    // they will have to deliver non-array $outgoing/$incoming pair
+    // which they might split to theme independently if desired
+    // (note that non-arrays are converted to single element arrays anyway)
+    $outgoing = implode(', ', $outgoing);
+    $incoming = implode(', ', $incoming);
+    
+    $rows[] = array($label . ': ', $outgoing, '&raquo;', $incoming);
+  }
+  return $rows;
+}
+
+// actually just needs $rows, but this way is more friendly
+function driven_diff_summary_rows_strip_tags($diff_render) {
+  $rows = driven_diff_summary_rows($diff_render);
+  foreach($rows as $r_index => &$row) {
+    foreach ($row as $c_index => &$cell) {
+      // replace &raquo; for its plain text version
+      $cell = str_replace('&raquo;', '>>', $cell);
+      // ignore tags (but preserve the text within them)
+      $cell = strip_tags($cell);
+    }
+  }
+  return $rows;
+}

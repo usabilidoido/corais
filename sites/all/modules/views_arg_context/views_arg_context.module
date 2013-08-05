@@ -1,0 +1,70 @@
+<?php
+// $Id: views_arg_context.module,v 1.1.2.3 2010/10/25 20:27:58 brynbellomy Exp $
+
+/**
+ * Implementation of hook_views_api().
+ */
+function views_arg_context_views_api() {
+  return array(
+    'api' => 2,
+    'path' => drupal_get_path('module', 'views_arg_context'),
+  );
+}
+
+/**
+ * Implementation of hook_views_plugins
+ */
+function views_arg_context_views_plugins() {
+  return array(
+    'module' => 'views_arg_context',
+    'argument default' => array(
+      'context' => array(
+        'title' => t('Active context'),
+        'handler' => 'views_plugin_argument_default_context',
+        'path' => drupal_get_path('module', 'views_arg_context') . '/plugins',
+        'parent' => 'fixed', // so that the parent class is included
+      ),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_nodeapi
+ *
+ * (courtesy of sethcohn)
+ * Provides some out-of-the-box data to Views, and can be used as a template for 
+ * exposing other data to Views via Context
+ */
+function views_arg_context_nodeapi(&$node, $op, $teaser = NULL, $page = NULL) {
+  if ($op == 'view' && $page){
+    context_set('node', 'type', $node->type);
+    context_set('node', 'nid', $node->nid);
+
+    // avoid user 0 (anonymous), to avoid stray appearances during context
+    if ($node->uid) {
+      context_set('node', 'uid', $node->uid);
+      context_set('user', 'uid', $node->uid); // could be useful to allow both namespaces to simply view config on profile pages, etc
+    }
+
+    // less useful text items, more useful for theming than views... might be good for arg title usage though
+    context_set('node', 'name', $node->name);
+    context_set('node', 'title', $node->title);
+    
+    // taxonomy related items
+    $tids = array_keys($node->taxonomy);
+    context_set('taxonomy', 'tids-or', join('+', $tids));
+    context_set('taxonomy', 'tids-and', join(',', $tids));
+  }
+}
+
+/**
+ * Implementation of hook_user
+ */
+function views_arg_context_user($op, &$edit, &$account, $category = NULL) {
+  if($op == 'view') {
+    context_set('user', 'uid', $account->uid);
+    context_set('user', 'name', $account->name);
+    context_set('user', 'email', $account->mail);
+    context_set('user', 'language', $account->language);
+  }
+}

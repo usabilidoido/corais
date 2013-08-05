@@ -1,0 +1,143 @@
+.time_tracker_time_entries .time_entry_time {
+  min-width: 160px;
+}
+
+.time_tracker_time_entries .time_entry_duration {
+  min-width: 55px;
+}
+
+#time-tracker-time-entry-form .time-entry-duration-msg {
+  clear:both;
+}
+
+
+/*
+  For the Time entry form on Nodes
+*/
+
+#edit-time-tracker-start-datepicker-popup-0,
+#edit-time-tracker-end-datepicker-popup-0  {
+  width: 100px;
+}
+
+#edit-time-tracker-start-wrapper,
+#edit-time-tracker-end-wrapper,
+#edit-time-tracker-timestamp-wrapper,
+#edit-time-tracker-start-datepicker-popup-0-wrapper,
+#edit-time-tracker-end-datepicker-popup-0-wrapper,
+#edit-time-tracker-start-timeEntry-popup-1-wrapper,
+#edit-time-tracker-end-timeEntry-popup-1-wrapper,
+#edit-time-tracker-timestamp-datepicker-popup-0-wrapper {
+  padding: 0px;
+}
+
+#edit-time-tracker-username-wrapper,
+#edit-time-tracker-timestamp-wrapper,
+#edit-time-tracker-duration-wrapper,
+#edit-time-tracker-activity-wrapper,
+#edit-time-tracker-deductions-wrapper {
+  float:left;
+}
+
+#edit-time-tracker-duration-wrapper input {
+  width: 60px;
+}
+
+#edit-time-tracker-username-wrapper {
+  /*margin-right: 20px;*/
+/*  width: 200px;*/
+}
+
+#edit-time-tracker-username-wrapper input {
+  /*width: 200px;*/
+}
+
+#edit-time-tracker-activity-wrapper select {
+/*  min-width: 200px;*/
+}
+
+#time-tracker-time-entry-form .time_entry,
+#comment-form .time_entry {
+  clear: both;
+}
+
+#time-tracker-time-entry-form .container-inline-date,
+#comment-form .container-inline-date {
+  float: left;
+  display: inline;
+  clear: none;
+}
+
+#edit-time-tracker-locked-wrapper,
+#edit-time-tracker-billable-wrapper,
+#edit-time-tracker-billed-wrapper {
+  clear:both;
+}
+
+#edit-time-tracker-note-wrapper {
+  clear: both;
+}
+
+#time-tracker-time-entry-form #edit-time-tracker-submit {
+  display: inline;
+  clear: both;
+}
+
+
+/*
+  For the Time entry form on Comments
+  NOTE: Only when tracking time on BOTH the node itself and the comments
+  for a particular node type
+*/
+
+#edit-time-tracker-start-1-datepicker-popup-0,
+#edit-time-tracker-end-1-datepicker-popup-0  {
+  width: 100px;
+}
+
+#edit-time-tracker-start-1-wrapper,
+#edit-time-tracker-end-1-wrapper,
+#edit-time-tracker-timestamp-1-wrapper,
+#edit-time-tracker-start-1-datepicker-popup-0-wrapper,
+#edit-time-tracker-end-1-datepicker-popup-0-wrapper,
+#edit-time-tracker-start-1-timeEntry-popup-1-wrapper,
+#edit-time-tracker-end-1-timeEntry-popup-1-wrapper,
+#edit-time-tracker-timestamp-1-datepicker-popup-0-wrapper {
+  padding: 0px;
+}
+
+#edit-time-tracker-username-1-wrapper,
+#edit-time-tracker-timestamp-1-wrapper,
+#edit-time-tracker-duration-1-wrapper,
+#edit-time-tracker-activity-1-wrapper,
+#edit-time-tracker-deductions-1-wrapper {
+  float:left;
+}
+
+#edit-time-tracker-locked-1-wrapper,
+#edit-time-tracker-billable-1-wrapper,
+#edit-time-tracker-billed-1-wrapper {
+  clear:both;
+}
+
+#edit-time-tracker-duration-1-wrapper input {
+  width: 60px;
+}
+
+#edit-time-tracker-username-1-wrapper {
+  /*margin-right: 20px;*/
+/*  width: 200px;*/
+}
+
+#edit-time-tracker-username-1-wrapper input {
+  /*width: 200px;*/
+}
+
+#edit-time-tracker-activity-1-wrapper select {
+/*  min-width: 200px;*/
+}
+
+#edit-time-tracker-note-1-wrapper {
+  clear: both;
+}
+

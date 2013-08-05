@@ -1,0 +1,363 @@
+<?php
+
+/**
+ * Implementation of hook_requirements().
+ */
+function atrium_requirements($phase) {
+  $requirements = array();
+  if ($phase === 'runtime' && file_exists('profiles/openatrium/VERSION.txt')) {
+    $version = trim(file_get_contents('profiles/openatrium/VERSION.txt'));
+    $requirements['atrium'] = array(
+      'title' => 'Open Atrium',
+      'value' => check_plain($version),
+      'severity' => REQUIREMENT_OK,
+    );
+  }
+  return $requirements;
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function atrium_install() {
+  // Add timestamp index to comments table.
+  if (db_table_exists('comments')) {
+    db_query("ALTER TABLE {comments} ADD INDEX(timestamp)");
+  }
+  // Add type,nid index to node table. Allows for more efficient joins to
+  // og_ancestry when limiting a view by a certain node type.
+  if (db_table_exists('node')) {
+    db_query("ALTER TABLE {node} ADD KEY type_node (type, nid)");
+  }
+}
+
+/**
+ * Update to resolve install profile namespace collision.
+ */
+function atrium_update_6001() {
+  if (variable_get('install_profile', FALSE) == 'atrium') {
+    variable_set('install_profile', 'atrium_installer');
+  }
+  return array();
+}
+
+/**
+ * Update 6002: Enable new modules.
+ */
+function atrium_update_6002() {
+  drupal_install_modules(array(
+    'atrium_groups',
+    'atrium_members',
+  ));
+  return array();
+}
+
+/**
+ * Update 6003: Fix broken schema version for date_timezone.
+ */
+function atrium_update_6003() {
+  $return = array();
+  $status = db_result(db_query("SELECT status FROM {system} WHERE schema_version = -1 AND name = 'date_timezone'"));
+  if ($status) {
+    $return[] = update_sql("UPDATE {system} SET schema_version = 5999 WHERE name = 'date_timezone'");
+  }
+  return $return;
+}
+
+/**
+ * Update 6004: Enable some modules.
+ */
+function atrium_update_6004() {
+  $return = array();
+  drupal_install_modules(array('designkit', 'jquery_ui', 'context_ui', 'context_layouts', 'spaces_dashboard'));
+  $return[] = array(
+    'success' => true,
+    'query' => 'Installed designkit, jquery_ui, context_layouts context_ui and spaces_dashboard modules.'
+  );
+  return $return;
+}
+
+/**
+ * Update 6005: Older, gravlax era, Atrium installations may have erroneous
+ * values in the system table for Atrium's feature modules. This updates
+ * corrects those and runs an update that would otherwise be missed.
+ */
+function atrium_update_6005() {
+  $return = array();
+  $result = db_query("SELECT name, schema_version FROM {system} WHERE type = 'module' AND status = 1 AND schema_version = -1");
+  $atrium_features = array(
+    'atrium_blog' => 0,
+    'atrium_book' => 0,
+    'atrium_calendar' => 0,
+    'atrium_casetracker' => 6002,
+    'atrium_profile' => 0,
+    'atrium_shoutbox' => 0,
+  );
+  while ($row = db_fetch_object($result)) {
+    if (isset($atrium_features[$row->name])) {
+      db_query("UPDATE {system} set schema_version = %d WHERE name = '%s'", $atrium_features[$row->name], $row->name);
+      $return[] = array('success' => true, 'query' => "UPDATE {system} set schema_version = " . $atrium_features[$row->name] . " WHERE name = '" . $row->name . "'");
+
+      if ($row->name == 'atrium_casetracker') {
+        module_load_include('install','atrium_casetracker', 'atrium_casetracker');
+        $return += atrium_casetracker_update_6002();
+      }
+    }
+    else {
+      watchdog('Atrium', 'The module %module appears to have an invalid schema_version entry', array('%module' => $row->name), WATCHDOG_WARNING);
+    }
+  }
+
+  return $return;
+}
+
+/**
+ * Update 6006: Switch from atrium_dashboard to spaces_dashboard.
+ */
+function atrium_update_6006() {
+  $return = array();
+  // We do a flexible update here as Aegir / drush updatedb requires
+  // that all updates complete at once for a migration to be successful.
+  $spaces_schema = drupal_get_installed_schema_version('spaces');
+  if ($spaces_schema < 6301) {
+    $return[] = update_sql("UPDATE {spaces_features} SET id = 'spaces_dashboard' WHERE id = 'atrium_dashboard'");
+  }
+  else {
+    $result = db_query("SELECT type, id, value FROM {spaces_overrides} WHERE object_type = 'variable' and object_id = 'spaces_features'");
+    $cnt = 0;
+    while ($row = db_fetch_object($result)) {
+      $value = unserialize($row->value);
+      if (isset($value['atrium_dashboard'])) {
+        $value['spaces_dashboard'] = $value['atrium_dashboard'];
+        unset($value['atrium_dashboard']);
+        db_query("UPDATE {spaces_overrides} SET value = '%s' WHERE type = '%s' AND id = '%s' AND object_type = 'variable' AND object_id = 'spaces_features'", serialize($value), $row->type, $row->id);
+        $cnt++;
+      }
+    }
+    if ($cnt) {
+      $return[] = array('success' => TRUE, 'query' => "Updated dashboard settings for $cnt spaces.");
+    }
+  }
+  return $return;
+}
+
+/**
+ * Update 6007: Remove old atrium_install variable
+ */
+function atrium_update_6007() {
+  variable_del('atrium_install');
+  return array(array('success' => TRUE, 'query' => "Removed variable: atrium_install."));
+}
+
+/**
+ * Update 6008: Add index to timestamp field on comments table.
+ */
+function atrium_update_6008() {
+  $return = array();
+  if (db_table_exists('comments')) {
+    $return[] = update_sql("ALTER TABLE {comments} ADD INDEX(timestamp)");
+  }
+  return $return;
+}
+
+/**
+ * Update 6009: Enforce the openatrium profile name, clear out OG content type
+ * usage variable for groups.
+ */
+function atrium_update_6009() {
+  $ret = array();
+  variable_del('og_content_type_usage_group');
+  $ret[] = array('success' => TRUE, 'query' => "Reset OG content type usage for groups.");
+  if (variable_get('install_profile', 'default') == 'atrium_installer') {
+    variable_set('install_profile', 'openatrium');
+    $ret[] = array('success' => true, 'query' => "Updated install profile name.");
+  }
+  return $ret;
+}
+
+/**
+ * Update 6010: Update settings from spaces_design to designkit.
+ */
+function atrium_update_6010() {
+  $return = array();
+  if (db_table_exists('spaces_overrides')) {
+    $result = db_query("SELECT * FROM {spaces_settings} WHERE id IN ('color', 'logo')");
+    $cnt = 0;
+    while ($row = db_fetch_object($result)) {
+      $cnt++;
+      if ($row->type == 'site') {
+        if ($row->id == 'color') {
+          variable_set('designkit_color', array('background' => unserialize($row->value)));
+        }
+        elseif ($row->id == 'logo') {
+          $value = unserialize($row->value);
+          variable_set('designkit_image', array('logo' => $value['fid']));
+        }
+      }
+      else {
+      if ($row->id == 'color') {
+          db_query("INSERT INTO {spaces_overrides} (type, id, object_type, object_id, value) VALUES ('%s', '%s', 'variable', 'designkit_color', '%s')",
+            $row->type,
+            $row->sid,
+            serialize(array('background' => unserialize($row->value)))
+          );
+        }
+        elseif ($row->id == 'logo') {
+          $value = unserialize($row->value);
+          if ($value['fid']) {
+            db_query("INSERT INTO {spaces_overrides} (type, id, object_type, object_id, value) VALUES ('%s', '%s', 'variable', 'designkit_image', '%s')",
+              $row->type,
+              $row->sid,
+              serialize(array('logo' => $value['fid']))
+            );
+          }
+        }
+      }
+    }
+    if ($cnt) {
+      $return[] = array('success' => true, 'query' => "Migrated $cnt settings from site spaces_design to designkit.");
+    }
+  }
+  else {
+    $return['#abort'] = array('success' => TRUE, 'query' => 'Spaces 3 update scripts must be run first.');
+  }
+  return $return;
+}
+
+/**
+ * 6011: Remove userspace menu customizations.
+ */
+function atrium_update_6011() {
+  $return = array();
+  if (db_table_exists('spaces_overrides')) {
+    $return[] = update_sql("DELETE FROM {spaces_overrides} WHERE object_type = 'variable' AND object_id = 'space_menu_items' AND type = 'user'");
+  }
+  else {
+    $return['#abort'] = array('success' => TRUE, 'query' => 'Spaces 3 update scripts must be run first.');
+  }
+  return $return;
+}
+
+/**
+ * 6012: Install the Boxes module.
+ */
+function atrium_update_6012() {
+  drupal_install_modules(array('boxes'));
+  return array(array('success' => TRUE, 'query' => 'Installed boxes module'));
+}
+
+/**
+ * 6013: Update for Kit compliance
+ */
+function atrium_update_6013() {
+  $return = array();
+  $components = array(
+    'views' => array(
+      'atrium_intranet' => array(
+        'activity_listing' => array(
+          'block_1' => array(
+            'module' => 'views',
+            'delta' => 'block_1',
+          ),
+          'block_2' => array(
+            'module' => 'views',
+            'delta' => 'block_2',
+          ),
+        ),
+      ),
+      'atrium_search' => array(
+        'search_listing' => array(
+          // No blocks.
+        ),
+      ),
+      'atrium_taxonomy' => array(
+        'taxonomy_listing' => array(
+          'block_1' => array(
+            'module' => 'views',
+            'delta' => 'block_1',
+          ),
+        ),
+      ),
+    ),
+    'contexts' => array(
+      'atrium-intranet-global' => 'global',
+      'atrium-section-taxonomy' => 'taxonomy_listing',
+    ),
+  );
+
+  module_load_include('inc', 'atrium', 'includes/atrium_update_kit');
+  atrium_kit_comply_presets($components);
+  atrium_kit_comply_overrides($components);
+  atrium_kit_comply_contexts($components);
+  
+  // Change role 'admin' to 'administrator'
+  if ($rid = db_result(db_query("SELECT rid FROM {role} WHERE name = '%s'", 'admin'))) {
+    if (db_query("UPDATE {role} SET name = 'administrator' WHERE rid = %d", $rid)) {
+      $return[] = array('success' => TRUE, 'query' => '"admin" role changed to "administrator".');
+    }
+  }
+  // The atrium_update_type_%type variable moved to atrium_activity; Update any overrides to this
+  // effect in the database.
+  $query = db_query("SELECT name FROM {variable} WHERE name like 'atrium_update_type_%%'");
+  while ($result = db_fetch_object($query)) {
+    $type = '';
+    $type = str_replace('atrium_update_type_', '', $result->name);
+    db_query("UPDATE variable SET name = '%s' WHERE name = '%s'", 'atrium_activity_update_type_' . $type, $result->name);
+    $return[] = array('success' => TRUE, 'query' => "Update atrium_update_type variable for node type $type");
+  }
+  // Enable the atrium_activity feature
+  drupal_install_modules(array('atrium_activity'));
+
+  $return[] = array('success' => TRUE, 'query' => 'Atrium updated for Kit compliance.');
+  return $return;
+}
+
+/**
+ * 6014: Migrate the old Keywords vocabulary to have a proper machine name.
+ */
+function atrium_update_6014() {
+  if (function_exists('taxonomy_get_vocabularies')) {
+    $vocabs = taxonomy_get_vocabularies();
+    $legacy = $machine = NULL;
+
+    // Find the legacy vocabulary and the new features-provided vocabulary if
+    // it exists.
+    foreach ($vocabs as $vocab) {
+      if ($vocab->module === 'event' && $vocab->name === 'Keywords') {
+        $legacy = $vocab;
+      }
+      elseif ($vocab->module === 'features_keywords') {
+        $machine = $vocab;
+      }
+    }
+    if (isset($legacy)) {
+      if (isset($machine)) {
+        taxonomy_del_vocabulary($machine->vid);
+      }
+      $legacy->module = 'features_keywords';
+      $legacy = (array) $legacy; // Gross.
+      taxonomy_save_vocabulary($legacy);
+      return array(array('success' => TRUE, 'query' => 'Keywords vocabulary updated for Features management.'));
+    }
+    return array(array('success' => TRUE, 'query' => 'No vocabularies were updated for Features management.  Default Open Atrium vocabulary could not be found.'));
+  }
+  return array(array('success' => TRUE, 'query' => 'No vocabularies were updated for Features management.  Taxonomy module is not enabled.'));
+}
+
+/**
+ * 6015: Install functional replacements for seed module.
+ */
+function atrium_update_6015() {
+  drupal_install_modules(array('crayon', 'imagecache_profiles', 'itweak_upload', 'nodeformcols', 'reldate'));
+  return array(array('success' => TRUE, 'query' => 'Modules enabled: crayon, imagecache_profiles, itweak_upload, nodeformcols, reldate.'));
+}
+
+/**
+ * 6016: Add type,nid index to node table.
+ */
+function atrium_update_6016() {
+  if (db_table_exists('node')) {
+    db_query("ALTER TABLE {node} ADD KEY type_node (type, nid)");
+  }
+  return array(array('success' => TRUE, 'query' => 'Index added to node table.'));
+}

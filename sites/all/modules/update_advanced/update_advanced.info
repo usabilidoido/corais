@@ -1,0 +1,12 @@
+; $Id: update_advanced.info,v 1.1 2007/07/11 16:07:00 dww Exp $
+name = Update status advanced settings
+description = Adds advanced settings and extra functionality to the Update status module in core.
+core = 6.x
+dependencies[] = update
+
+; Information added by drupal.org packaging script on 2009-10-04
+version = "6.x-1.1"
+core = "6.x"
+project = "update_advanced"
+datestamp = "1254623487"
+

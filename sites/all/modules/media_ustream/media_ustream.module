@@ -1,0 +1,37 @@
+<?php
+
+/**
+ *  @file media_vimeo/media_vimeo.module
+ *  Embedded Video Field provider file for Vimeo.com.
+ */
+
+define('MEDIA_USTREAM_MAIN_URL', 'http://www.ustream.tv/');
+define('MEDIA_USTREAM_API_INFO', 'http://developer.ustream.tv/');
+define('MEDIA_USTREAM_API_APPLICATION_URL', 'http://developer.ustream.tv/data_api/docs');
+define('MEDIA_USTREAM_DATA_VERSION', 1);
+
+/* ***************************************** */
+/* INCLUDES                                  */
+/* ***************************************** */
+
+// This is a hack to make sure emvideo_ustreamlive_video() is always defined. I think it can be done better.
+module_load_include('inc', 'media_ustream', 'includes/providers/emvideo/ustreamlive');
+
+/**
+ * Implementation of hook_emfield_providers().
+ */
+function media_ustream_emfield_providers($module, $provider = NULL) {
+  // We know this module only includes the main provider file, avoid needless
+  // PHP warnings.
+  if ($module == 'emvideo' && (!isset($provider) || ($provider == 'ustream') || $provider == 'ustream_live')) {
+    static $path;
+    // Cache the result for later.
+    if (!isset($path)) {
+      $found = drupal_system_listing("$provider\.inc$", drupal_get_path('module', 'media_ustream') ."/includes/providers/$module", 'name', 0);
+      if (is_array($found) && !empty($found)) {
+        $path = $found;
+      }
+    }
+    return $path;
+  }
+}

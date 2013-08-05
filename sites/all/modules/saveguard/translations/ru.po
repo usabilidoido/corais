@@ -1,0 +1,46 @@
+# translation of saveguard-5.x-0.1.po to russian
+# $Id: ru.po,v 1.1 2008/12/12 20:49:15 deekayen Exp $
+# LANGUAGE translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  saveguard.module,v 1.2 2007/11/27 21:30:16 starbow
+#  saveguard.info,v 1.1 2007/11/27 20:48:36 starbow
+#
+# Vlad Savitsky <vs@solti.com.ua>, 2007.
+msgid ""
+msgstr ""
+"Project-Id-Version: saveguard-5.x-0.1\n"
+"POT-Creation-Date: 2007-12-05 22:37+0200\n"
+"PO-Revision-Date: 2007-12-07 13:24+0200\n"
+"Last-Translator: Vlad Savitsky <vs@solti.com.ua>\n"
+"Language-Team: russian <ru@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+"X-Generator: KBabel 1.11.4\n"
+
+#: saveguard.module:20 saveguard.info:0
+msgid "SaveGuard"
+msgstr "Сохранитель"
+
+#: saveguard.module:21
+msgid "Settings for SaveGaurd"
+msgstr "Настройки сохранителя"
+
+#: saveguard.module:39
+msgid "Popup Message"
+msgstr "Сообщение во всплывающем окне"
+
+#: saveguard.module:0
+msgid "saveguard"
+msgstr "saveguard"
+
+#: saveguard.info:0
+msgid "Warn user when they are leaving a page with unsaved changes"
+msgstr "Предупреждает пользователя, когда он уходит со страницы, не сохранив изменения"
+
+#: saveguard.info:0
+msgid "User Interface"
+msgstr "Интерфейс пользователя"
+

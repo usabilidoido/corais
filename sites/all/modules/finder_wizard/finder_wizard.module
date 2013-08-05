@@ -1,0 +1,507 @@
+<?php
+
+/**
+ * @file
+ * Splits Finder elements onto seperate screens.
+ */
+
+/**
+ * Implementation of hook_theme().
+ */
+function finder_wizard_theme() {
+  return array(
+    'finder_wizard_form_button' => array(
+      'arguments' => array(
+        'element' => NULL,
+      ),
+    ),
+    'finder_wizard_responses' => array(
+      'arguments' => array(
+      ),
+    ),
+    'finder_wizard_header' => array(
+      'arguments' => array(
+        'finder' => NULL,
+        'finder_element_id' => NULL,
+      ),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ */
+function finder_wizard_form_finder_admin_edit_alter(&$form, $form_state) {
+  $finder = &$form_state['storage']['finder'];
+  $finder_wizard = (object)$finder->settings['finder_wizard'];
+  $form['settings']['finder_wizard'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Finder wizard'),
+    '#weight' => 50,
+    '#collapsible' => TRUE,
+    '#collapsed' => !$finder_wizard->is_wizard,
+  );
+  $form['settings']['finder_wizard']['is_wizard'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Finder wizard.'),
+    '#weight' => 2,
+    '#default_value' => isset($finder_wizard->is_wizard) ? $finder_wizard->is_wizard : 0,
+    '#description' => t('Turn this Finder into a wizard.'),
+  );
+  $form['settings']['finder_wizard']['settings'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Finder wizard settings'),
+    '#weight' => 50,
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+  );
+  $form['settings']['finder_wizard']['settings']['step_skip'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Skip steps where there are zero or one choices.'),
+    '#weight' => 8,
+    '#default_value' => isset($finder_wizard->settings['step_skip']) ? $finder_wizard->settings['step_skip'] : 1,
+    '#disabled' => TRUE,
+    '#description' => 'Not implemented yet',
+  );
+  $form['settings']['finder_wizard']['settings']['invalid_path'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Path to go to when <em>no valid choices</em> remain'),
+    '#default_value' => isset($finder_wizard->settings['invalid_path']) ? $finder_wizard->settings['invalid_path'] : '',
+    '#description' => t('Leave blank to create a validation error on the previous step.'),
+    '#size' => 30,
+    '#maxlength' => 128,
+    '#weight' => 12,
+    '#disabled' => TRUE,
+    '#description' => 'Not implemented yet',
+  );
+  if ($finder_wizard->is_wizard) {
+    $form['settings']['advanced']['hide_args']['#disabled'] = TRUE;
+    $form['settings']['advanced']['hide_args']['#description'] .= t("  <strong>Always hidden in Finder Wizards.</strong>");
+    $form['settings']['advanced']['cache_finder_find']['#disabled'] = TRUE;
+    $form['settings']['advanced']['cache_finder_find']['#required'] = FALSE;
+    $form['settings']['advanced']['cache_finder_find']['#description'] .= t("  <strong>Not currently compatible with Finder Wizards.</strong>");
+  }
+}
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ */
+function finder_wizard_form_finder_admin_element_edit_alter(&$form, $form_state) {
+  $element = &$form_state['storage']['finder_element_defaults'];
+  $finder = &$form_state['storage']['finder'];
+  $finder_wizard = (object)$finder->settings['finder_wizard'];
+  $step = &$element->settings['finder_wizard_step'];
+
+  if ($finder_wizard->is_wizard) {
+    $form['settings']['finder_wizard_step'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Finder wizard step'),
+      '#weight' => 55,
+      '#collapsible' => TRUE,
+      '#collapsed' => FALSE,
+    );
+    $form['settings']['finder_wizard_step']['question'] = array(
+      '#type' => 'textarea',
+      '#title' => t('Question'),
+      '#default_value' => isset($step['question']) ? $step['question'] : '',
+      '#required' => TRUE,
+      '#size' => 8,
+      '#description' => t("The question to ask of the user in this step."),
+      '#weight' => 4,
+    );
+    $form['settings']['finder_wizard_step']['response'] = array(
+      '#type' => 'textarea',
+      '#title' => t('Response'),
+      '#default_value' => isset($step['response']) ? $step['response'] : 'You have selected !answer',
+      '#required' => TRUE,
+      '#size' => 8,
+      '#description' => t("The message to give the user on the NEXT step.  Use <em>!answer</em> to insert the chosen value."),
+      '#weight' => 8,
+    );
+    /*
+    $form['settings']['finder_wizard_step']['none_above'] = array(
+      '#type' => 'radios',
+      '#title' => t('Include a "&lt;none of the above&gt;" option'),
+      '#weight' => 12,
+      '#options' => array(
+        0 => t('Do not include'),
+        1 => t('Include'),
+      ),
+      '#default_value' => $step['none_above'] ? $step['none_above'] : 0,
+      '#description' => t('For textfields this will be executed when an invalid value is given, rather than giving an error.'),
+    );*/
+    $form['settings']['finder_wizard_step']['empty_path'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Path to go to upon choosing <em>empty</em> choice'),
+      '#default_value' => isset($step['empty_path']) ? $step['empty_path'] : '',
+      '#description' => t('Leave blank to just ignore empty values.'),
+      '#size' => 30,
+      '#maxlength' => 128,
+      '#weight' => 20,
+    );
+  }
+
+}
+
+/**
+ * Implementation of hook_finderapi().
+ */
+function finder_wizard_finderapi(&$object, $op, $a3 = NULL, $a4 = NULL) {
+  switch ($op) {
+    case 'finder_form':
+      if (!$object->settings['finder_wizard']['is_wizard']) {
+        return;
+      }
+      $finder = &$object;
+      $form = &$a3;
+      $form_state = &$a4;
+      // Set or get the current step
+      $step = 0;
+      if (isset($form_state['storage']['step'])) {
+        $step = $form_state['storage']['step'];
+      }
+      // Store a backup of original information
+      $finder->original_elements = $finder->elements;
+      // Reduce elements to just the current step to prevent the others from being built.
+      // Or just give an empty array if there is no such step.
+      $finder->elements = !isset($finder->original_elements[$step]) ? array() : array(
+        $step => $finder->original_elements[$step],
+      );
+      break;
+
+    case 'finder_find':
+      if (!$object->settings['finder_wizard']['is_wizard']) {
+        return;
+      }
+      $finder = &$object;
+      // About to build the query, so reattach original information if not already done so.
+      if (isset($finder->original_elements)) {
+        $finder->elements = $finder->original_elements;
+        unset($finder->original_elements);
+      }
+      break;
+
+    case 'finder_load':
+      if (!$object->settings['finder_wizard']['is_wizard']) {
+        return;
+      }
+      $finder = &$object;
+      $finder->settings['advanced']['hide_args'] = 1;
+      $finder->settings['advanced']['cache_finder_find'] = 0;
+      break;
+
+    case 'finder_results':
+      if (!$object->settings['finder_wizard']['is_wizard']) {
+        return;
+      }
+      $finder = &$object;
+      $finder->elements = $finder->original_elements;
+      unset($finder->original_elements);
+      break;
+  }
+}
+
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ */
+function finder_wizard_form_alter(&$form, &$form_state, $form_id) {
+  if (strpos($form_id, 'finder_form_') === 0) {
+    $finder = finder_load($form['finder_id']['#value']);
+
+    $finder_wizard = (object)$finder->settings['finder_wizard'];
+    if (!$finder_wizard->is_wizard) {
+      return;
+    }
+    // Set or get the current step
+    $step = 0;
+
+    if (isset($form_state['storage']['step'])) {
+      $step = $form_state['storage']['step'];
+    }
+    else {
+      $form_state['storage']['step'] = $step;
+    }
+
+    $finder_element_id = $finder->elements[$step] ? $finder->elements[$step]->finder_element_id : 'results';
+    $weight = 0;
+
+    $weight = $form['finder_form']['submit']['#weight'];
+    unset($form['finder_form']['submit']);
+    unset($form['finder_form']['go']);
+
+    $elements = !empty($finder->elements) ? $finder->elements : $finder->original_elements;
+
+    foreach ($elements as $key => $element) {
+
+      if (intval($key) !== intval($step)/* && isset($form_state['values'][$element->finder_element_id]) && !isset($form['finder_form'][$element->finder_element_id])*/) {
+        $feid = &$element->finder_element_id;
+        $form['finder_form'][$feid] = array(
+          '#type' => 'value',
+          '#value' => $form_state['values'][$feid],
+        );
+      }
+
+      if ($form['finder_form'][$element->finder_element_id]['#options']) {
+
+        $form_state['storage']['answers'][$step] = $form['finder_form'][$element->finder_element_id]['#options'];
+
+      }
+      if ($form['finder_form'][$element->finder_element_id]['#required']) {
+        $form['finder_form'][$element->finder_element_id]['#required'] = FALSE;  // finder wizard sucks with FAPI handling of #required
+        $form['finder_form'][$element->finder_element_id]['#mandatory'] = TRUE;  // we will handle it ourselves
+      }
+    }
+
+    $form['finder_wizard_header'] = array(
+      '#type' => 'markup',
+      '#value' => theme('finder_wizard_header', $finder, $finder_element_id),
+      '#weight' => -815,
+    );
+
+    $form['finder_form']['buttons'] = array(
+      '#prefix' => '<div class="finder-wizard-buttons">',
+      '#suffix' => '<br class="finder-clear" style="clear:both;" /></div>',
+      '#weight' => $weight,
+    );
+    $form['finder_form']['buttons']['back'] = array(
+      '#type' => 'submit',
+      '#finder_wizard_step' => $step,
+      '#finder_element_id' => $finder_element_id,
+      '#value' => t('« Back'),
+      '#theme' => 'finder_wizard_form_button',
+      '#attributes' => array(
+        'class' => 'finder-wizard-back',
+      ),
+    );
+    $form['finder_form']['buttons']['next'] = array(
+      '#type' => 'submit',
+      '#finder_wizard_step' => $step,
+      '#finder_element_id' => $finder_element_id,
+      '#value' => t('Next »'),
+      '#theme' => 'finder_wizard_form_button',
+      '#attributes' => array(
+        'class' => 'finder-wizard-next',
+      ),
+    );
+
+    if ($finder->settings['advanced']['ahah']) {
+      $ahah = array(
+        'path' => 'finder/finder_ahah/'. $finder->finder_id,
+        'wrapper' => $finder->finder_view_build_id,
+        'method' => 'replace',
+        'effect' => $finder->settings['advanced']['ahah_effect'],
+      );
+      $form['finder_form']['buttons']['back']['#ahah'] = $ahah;
+      $form['finder_form']['buttons']['next']['#ahah'] = $ahah;
+    }
+
+    if ($step <= 0) {
+      $form['finder_form']['buttons']['back']['#disabled'] = TRUE;
+      $form['finder_form']['buttons']['back']['#attributes']['class'] .= ' finder-wizard-back-disabled';
+    }
+    else if ($step > count($finder->elements)) {
+      $form['finder_form']['buttons']['next']['#disabled'] = TRUE;
+      $form['finder_form']['buttons']['next']['#attributes']['class'] .= ' finder-wizard-next-disabled';
+    }
+
+    $form['#validate'][] = 'finder_wizard_form_validate';
+  }
+}
+
+/**
+ * Validate function for the form on the wizard page.
+ */
+function finder_wizard_form_validate($form, &$form_state) {
+  $step = &$form_state['storage']['step'];
+  $finder_id = $form_state['values']['finder_id'];
+  $finder = finder_load($finder_id);
+  $element = &$finder->elements[$step];
+  $finder_element_id = &$element->finder_element_id;
+  if ($form_state['clicked_button']['#id'] == 'edit-next' && $form['finder_form'][$finder_element_id]['#mandatory']) {
+    if (!$form_state['values'][$finder_element_id] && $form_state['values'][$finder_element_id] !== '0') {
+      form_set_error($step, t("Please complete the form before continuing to the next step."));
+      return FALSE;
+    }
+  }
+}
+
+/**
+ * Implementation of hook_finder_form_state_alter().
+ */
+function finder_wizard_finder_form_state_alter(&$form_state, $finder_id) {
+  $finder = finder_load($finder_id);
+  if (!$finder->settings['finder_wizard']['is_wizard']) {
+    return;
+  }
+  $finder_wizard = (object)$finder->settings['finder_wizard'];
+
+  $clicked = &$form_state['clicked_button']['#id'];
+  $step = &$form_state['storage']['step'];
+
+  if (isset($finder->elements[$step])) {
+    $element = &$finder->elements[$step];
+    $finder_element_id = &$element->finder_element_id;
+    $step_settings = &$element->settings['finder_wizard_step'];
+    $answer = $form_state['values'][$finder_element_id];
+    if (!empty($form_state['storage']['answers'][$step])) {
+      $answer = $form_state['storage']['answers'][$step][$answer];
+    }
+    if ($clicked == 'edit-next') {
+      finder_wizard_set_response($step_settings['response'], $answer);
+      if ($form_state['values'][$finder_element_id] == '' && $step_settings['empty_path']) {  // to do : add check for invalid value too.
+        drupal_goto($step_settings['empty_path']);
+      }
+      $step++;
+    }
+  }
+  if ($clicked == 'edit-back') {
+    $step--;
+  }
+  $form_state['storage']['finished'] = ($step >= count($finder->elements));
+}
+
+/**
+ * Implementation of hook_finder_find_keywords_alter().
+ */
+function finder_wizard_finder_find_keywords_alter(&$keywords, $finder, $finder_element_id, $mode, $match, $pager) {
+  if (!$finder->settings['finder_wizard']['is_wizard']) {
+    return;
+  }
+
+  if ($mode == 'results') {
+    /*
+    $none_of_the_above = t('<none of the above>');
+    foreach ($keywords as $feid => $keyword_array) {
+      $keywords[$feid] = (array)$keyword_array;
+      foreach ($keywords[$feid] as $key => $string) {
+        $keywords[$feid][$key] = ($string == $none_of_the_above ? NULL : $string);
+      }
+    }*/
+    return;
+  }
+
+  finder_inc('form');
+
+  $lowest_key = current(array_keys($keywords));
+
+  // include all the elements before the lowest key
+  $finder_elements = $finder->original_elements ? $finder->original_elements : $finder->elements;
+  $form_state = finder_form_state($finder->finder_id);
+
+  $new_keywords = array();
+  foreach ($finder_elements as $element) {
+    // if we've hit the lowest key, stop adding elements
+    if ($element->finder_element_id == $lowest_key) {
+      break;
+    }
+    elseif (!isset($keywords[$element->finder_element_id])) {
+      $value = $form_state['values'][$element->finder_element_id];
+      /*$none_of_the_above = t('<none of the above>');
+      if ($value == $none_of_the_above) {
+        $value = NULL;
+      }
+      elseif (is_array($value) && in_array($none_of_the_above, $none_of_the_above)) {
+        foreach ($value as $k => $v) {
+          $value[$k] = ($v == $none_of_the_above) ? NULL : $v;
+        }
+      }*/
+      if ($value !== '' && !is_null($value)) {
+        $new_keywords[$element->finder_element_id] = $value;
+      }
+    }
+  }
+  if (!empty($new_keywords)) {
+    $keywords = $new_keywords + $keywords;
+  }
+
+}
+
+/**
+ * Set the step responses.
+ */
+function finder_wizard_set_response($response, $answer = NULL) {
+  $_SESSION['finder_wizard_responses'][] = str_replace("!answer", check_plain($answer), $response);
+}
+
+/**
+ * Get the step responses.
+ */
+function finder_wizard_get_responses() {
+  $responses = $_SESSION['finder_wizard_responses'];
+  if (!empty($responses)) {
+    unset($_SESSION['finder_wizard_responses']);
+    return $responses;
+  }
+  return FALSE;
+}
+
+/**
+ * Theme function for back/next buttons.
+ */
+function theme_finder_wizard_form_button($element) {
+  // Make sure not to overwrite classes.
+  if (isset($element['#attributes']['class'])) {
+    $element['#attributes']['class'] = 'form-'. $element['#button_type'] .' '. $element['#attributes']['class'];
+  }
+  else {
+    $element['#attributes']['class'] = 'form-'. $element['#button_type'];
+  }
+  return '<input type="submit" '. 
+    (empty($element['#name']) ? '' : 'name="'. $element['#name'] .'" ') .
+    'id="'. $element['#id'] .'" value="'. $element['#value'] .'" '. drupal_attributes($element['#attributes']) ." />\n";
+}
+
+/**
+ * Theme function for response output.
+ */
+function theme_finder_wizard_responses() {
+  $output = '';
+  $responses = finder_wizard_get_responses();
+  if ($responses) {
+    $output .= "<div class=\"finder-wizard-responses\">\n";
+    if (count($responses) > 1) {
+      $output .= " <ul>\n";
+      foreach ($responses as $response) {
+        $output .= '  <li>'. check_markup($response) ."</li>\n";
+      }
+      $output .= " </ul>\n";
+    }
+    else {
+      $output .= $responses[0];
+    }
+    $output .= "</div>\n";
+  }
+  return $output;
+}
+
+/**
+ * Theme function for header output.
+ */
+function theme_finder_wizard_header($finder = NULL, $finder_element_id = NULL) {
+  drupal_add_css(drupal_get_path('module', 'finder_wizard') .'/finder_wizard.css');
+  $responses = theme('finder_wizard_responses');
+  if (is_object($finder) && is_numeric($finder_element_id)) {
+    $element = &$finder->elements[$finder->elements_index[$finder_element_id]];
+    if ($element) {
+      $finder_wizard_step = &$element->settings['finder_wizard_step'];
+      if ($finder_wizard_step['question']) {
+        $question .= " <div class=\"finder-wizard-question finder-wizard-question-". $finder_element_id ."\">\n";
+        $question .= '  '. check_markup($finder_wizard_step['question']);
+        $question .= " </div>\n";
+      }
+    }
+  }
+  if ($responses || $question) {
+    $output = "<div class=\"finder-wizard-header\">\n";
+    $output .= !empty($responses) ? $responses : '';
+    $output .= !empty($question) ? $question : '';
+    $output .= "</div>\n";
+    return $output;
+  }
+}
+
+// TO DO: Skip steps with only one choice.
+// TO DO: redirect for bad textfield values. -- equivelant to redirect if there are no valid choices left.
+
+// TO DO: filter forms for question/response

@@ -1,0 +1,254 @@
+<?php
+
+/**
+ * @file
+ * Install, uninstall and update sticky_notes module
+ */
+
+/**
+ * Implementation of hook_requirements().
+ *
+ * @return void
+ * @author berliner
+ */
+function sticky_notes_requirements($phase) {
+  $requirements = array();
+  
+  if ($phase == 'install') {
+  
+    // Ensure translations don't break at install time
+    $t = get_t();
+  
+    if (module_exists('jquery_ui')) {
+      $requirements['sticky_notes'] = array(
+        'title' => $t('Sticky Notes'),
+        'severity' => REQUIREMENT_OK,
+        'value' => $t('Correctly installed.'),
+      );
+    } else {
+      $requirements['sticky_notes'] = array(
+        'title' => $t('Sticky Notes'),
+        'severity' => REQUIREMENT_ERROR,
+        'value' => $t('without jQuery UI support, not functional'),
+        'description' => $t('The <a href="@url">jQuery UI</a> module is missing or not correctly installed.', array('@url' => 'http://drupal.org/project/jquery_ui')),
+      );
+    }
+  }
+  
+  return $requirements;
+}
+
+/**
+ * Implementation of hook_install().
+ *
+ * @return void
+ * @author berliner
+ */
+
+function sticky_notes_install() {
+  drupal_install_schema('sticky_notes');
+  drupal_set_message(
+    st('Sticky Notes module has been installed. Set the ' .
+      'preferences for your site on the ' .
+      '<a href="@settings-page">settings page</a>',
+    array('@settings-page' => url('admin/settings/sticky_notes')))
+  );
+
+}
+
+/**
+ * Implementation of hook_uninstall().
+ *
+ * @return void
+ * @author berliner
+ */
+
+function sticky_notes_uninstall() {
+
+  // remove the sticky notes tables
+  drupal_uninstall_schema('sticky_notes');
+
+  // remove the sticky notes settings from the variables table
+  variable_del('sticky_notes_default_container_selector');
+  variable_del('sticky_notes_minimal_zindex');
+  variable_del('sticky_notes_auto_size');
+  variable_del('sticky_notes_allow_node_operations');
+  variable_del('sticky_notes_page_visibility_hide_on_load');
+  variable_del('sticky_notes_width');
+  variable_del('sticky_notes_height');
+  variable_del('sticky_notes_note_color');
+  variable_del('sticky_notes_text_color');
+  variable_del('sticky_notes_character_limit');
+  variable_del('sticky_notes_resizable');
+  variable_del('sticky_notes_hide_on_page_load');
+  variable_del('sticky_notes_show_on_admin');
+  variable_del('sticky_notes_info_box_corner');
+  variable_del('sticky_notes_info_box_hide');
+  variable_del('sticky_notes_toggle_visibility_state');
+  variable_del('sticky_notes_visibility_state_memory');
+  variable_del('sticky_notes_page_visibility_type');
+  variable_del('sticky_notes_page_visibility_pages');
+  variable_del('sticky_notes_page_visibility_roles');
+  variable_del('sticky_notes_default_priority_level');
+  
+  for ($i = 0; $i < STICKY_NOTES_PRIORITY_LEVEL_MAX_COUNT; $i++) {
+    variable_del('sticky_notes_priority_name_' . $i);
+    variable_del('sticky_notes_priority_color_' . $i);
+  }
+}
+
+/**
+ * Implementation of hook_schema().
+ *
+ * @return void
+ * @author berliner
+ */
+
+function sticky_notes_schema() {
+
+  $schema;
+
+  $schema['node_sticky_note'] = array(
+    'fields' => array(
+      'nid' => array(
+        'type'      => 'int',
+        'unsigned'  => TRUE,
+        'not null'  => TRUE,
+        'default'   => 0
+      ),
+      'vid' => array(
+        'type'      => 'int',
+        'unsigned'  => TRUE,
+        'not null'  => TRUE,
+        'default'   => 0
+      ),
+      'position_x' => array(
+        'type'      => 'int',
+        'unsigned'  => TRUE,
+        'not null'  => TRUE,
+        'default'   => 0
+      ),
+      'position_y' => array(
+        'type'      => 'int',
+        'unsigned'  => TRUE,
+        'not null'  => TRUE,
+        'default'   => 0
+      ),
+      'position_z' => array(
+        'type'      => 'int',
+        'unsigned'  => TRUE,
+        'not null'  => TRUE,
+        'default'   => 0
+      ),
+      'width' => array(
+        'type'      => 'int',
+        'unsigned'  => TRUE,
+        'not null'  => TRUE,
+        'default'   => 0
+      ),
+      'height' => array(
+        'type'      => 'int',
+        'unsigned'  => TRUE,
+        'not null'  => TRUE,
+        'default'   => 0
+      ),
+      'link_path'  => array(
+        'type'      => 'varchar',
+        'length'    => 255,
+        'not null'  => TRUE,
+        'default'   => ''
+      ),
+      'link_pattern' => array(
+        'type'      => 'varchar',
+        'length'    => 255,
+        'not null'  => TRUE,
+        'default'   => ''
+      ),
+      'link_scope' => array(
+        'type'      => 'varchar',
+        'length'    => 10,
+        'not null'  => TRUE,
+        'default'   => 0
+      ),
+      'origin_title' => array(
+        'type'      => 'varchar',
+        'length'    => 255,
+        'not null'  => TRUE,
+        'default'   => 0
+      ),
+      'priority' => array(
+        'type'      => 'int',
+        'unsigned'  => TRUE,
+        'not null'  => TRUE,
+        'default'   => 0
+      ),
+      'public' => array(
+        'type'      => 'int',
+        'unsigned'  => TRUE,
+        'not null'  => TRUE,
+        'size'      => 'tiny',
+        'default'   => 0
+      ),
+    ),
+    'primary' => array('vid'),
+  );
+
+  return $schema;
+
+}
+
+
+/**
+ * Add public field for improved sticky note access.
+ */
+
+function sticky_notes_update_6100() {
+  $ret = array();
+  db_add_field($ret, 'node_sticky_note', 'public', array(
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+    'size' => 'tiny',
+    'default' => 0
+  ));
+  return $ret;
+}
+
+function sticky_notes_update_6101() {
+  $ret = array();
+  db_add_field($ret, 'node_sticky_note', 'width', array(
+    'type'      => 'int',
+    'unsigned'  => TRUE,
+    'not null'  => TRUE,
+    'default'   => 0
+  ));
+  db_add_field($ret, 'node_sticky_note', 'height', array(
+    'type'      => 'int',
+    'unsigned'  => TRUE,
+    'not null'  => TRUE,
+    'default'   => 0
+  ));
+  return $ret;
+}
+
+function sticky_notes_update_6102() {
+  $ret = array();
+  db_add_field($ret, 'node_sticky_note', 'origin_title', array(
+    'type'      => 'varchar',
+    'length'    => 255,
+    'not null'  => TRUE,
+    'default'   => 0
+  ));
+  return $ret;
+}
+
+/**
+ * Implementation of hook_update_n().
+ */
+ 
+function sticky_notes_update_6103() {
+  $ret = array();
+  db_query("UPDATE {node} n, {node_revisions} r SET n.title = LEFT(r.body, 80) WHERE n.vid = r.vid AND n.type = 'sticky_notes' AND n.title = ''");
+  return $ret;
+}
+

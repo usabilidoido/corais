@@ -1,0 +1,12 @@
+name = File attachment utils
+description = Utility module to make the handling of file attachments more intuitive for users and more flexible for admins.
+package = User interface
+
+dependencies[] = upload
+dependencies[] = stylistics
+; Information added by drupal.org packaging script on 2010-06-26
+version = "6.x-1.4"
+core = "6.x"
+project = "attachments"
+datestamp = "1277561702"
+

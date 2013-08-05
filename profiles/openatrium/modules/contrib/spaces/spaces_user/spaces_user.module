@@ -1,0 +1,114 @@
+<?php
+
+/**
+ * Implementation of hook_init().
+ */
+function spaces_user_init() {
+  if (arg(0) === 'user' && arg(1) !== 'autocomplete') {
+    global $user;
+    $uid = is_numeric(arg(1)) ? arg(1) : $user->uid;
+    if ($uid) {
+      spaces_init_space('user', $uid);
+    }
+  }
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function spaces_user_perm() {
+  return array('configure own user space');
+}
+
+/**
+ * Implementation of hook_ctools_plugin_api().
+ */
+function spaces_user_ctools_plugin_api($module, $api) {
+  if ($module == 'spaces' && $api == 'plugins') {
+    return array('version' => 3);
+  }
+}
+
+/**
+ * Implementation of hook_spaces_plugins().
+ */
+function spaces_user_spaces_plugins() {
+  $plugins = array();
+  $plugins['space_user'] = array(
+    'handler' => array(
+      'path' => drupal_get_path('module', 'spaces_user') .'/plugins',
+      'file' => 'space_user.inc',
+      'class' => 'space_user',
+      'parent' => 'space_type',
+    ),
+  );
+  return $plugins;
+}
+
+/**
+ * Implementation of hook_spaces_registry().
+ */
+function spaces_user_spaces_registry() {
+  return array(
+    'types' => array(
+      'user' => array(
+        'title' => t('User space'),
+        'plugin' => 'space_user',
+        'path' => 'user/%user',
+      ),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_user().
+ */
+function spaces_user_user($op, &$edit, &$account, $category = NULL) {
+  switch ($op) {
+    case 'form':
+      if ($category === 'account') {
+        module_load_include('inc', 'spaces', 'spaces.admin');
+        $presets = spaces_preset_load(NULL, 'user');
+        if (count($presets) === 1) {
+          $form['spaces_preset_user'] = array('#type' => 'value', '#value' => key($presets));
+        }
+        else if (count($presets) > 1) {
+          $form = array();
+          $form['spaces_preset'] = spaces_preset_form($presets, 'user');
+        }
+        return $form;
+      }
+      break;
+    case 'insert':
+    case 'update':
+      // Save preset values
+      if (!empty($edit['spaces_preset_user'])) {
+        $space = spaces_load('user', $account->uid);
+        if ($space->activate()) {
+          $space->controllers->variable->set('spaces_preset_user', $edit['spaces_preset_user']);
+        }
+      }
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_form_alter() for spaces_features_form.
+ * Disallow site_frontpage var from being customizable within a user space.
+ */
+function spaces_user_form_spaces_features_form_alter(&$form, &$form_state) {
+  $space = spaces_get_space();
+  if ($space && $space->type === 'user' && !empty($form['site_frontpage'])) {
+    unset($form['site_frontpage']);
+  }
+}
+
+
+/**
+ * Implementation of hook_spaces_get_space_from_object().
+ */
+function spaces_user_spaces_get_space_from_object($type, $object) {
+  if ($type == 'user') {
+    return spaces_load('user', $object->uid);
+  }
+}

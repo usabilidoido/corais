@@ -1,0 +1,110 @@
+<?php
+/**
+ * @file
+ * Install hooks for Data module.
+ */
+
+/**
+ * Implementation of hook_schema().
+ */
+function data_schema() {
+  $schema['data_tables'] = array(
+    'description' => 'Tables managed by Data module.',
+    'export' => array(
+      'key' => 'name',
+      'identifier' => 'data_table',
+      'default hook' => 'data_default',  // Function hook name.
+      'api' => array(
+        'owner' => 'data',
+        'api' => 'data_default',  // Base name for api include files.
+        'minimum_version' => 1,
+        'current_version' => 1,
+      ),
+    ),
+    'fields' => array(
+      'title' => array(
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'Natural name of the table.',
+      ),
+      'name' => array(
+        'type' => 'varchar',
+        'length' => '128',
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'Table name.',
+      ),
+      'table_schema' => array(
+        'type' => 'text',
+        'not null' => FALSE,
+        'description' => 'Table schema.',
+        'serialize' => TRUE,
+      ),
+      'meta' => array(
+        'type' => 'text',
+        'not null' => FALSE,
+        'description' => 'Meta information about the table and its fields.',
+        'serialize' => TRUE,
+      ),
+    ),
+    'primary key' => array('name'),
+  );
+  return $schema;
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function data_install() {
+  // Create tables.
+  drupal_install_schema('data');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function data_uninstall() {
+  // Remove tables.
+  drupal_uninstall_schema('data');
+}
+
+/**
+ * Move join information into meta fields.
+ */
+function data_update_6001() {
+  $ret = array();
+  $result = db_query('SELECT * FROM {data_join}');
+  while ($row = db_fetch_object($result)) {
+    if ($table = data_get_table($row->right_table)) {
+      $table->link($row->left_table, $row->left_field, $row->right_field, $row->inner_join ? TRUE : FALSE);
+    }
+  }
+  db_drop_table($ret, 'data_join');
+  return $ret;
+}
+
+/**
+ * Add a primary key, required by CTools. Shorten name key to 128 char max.
+ */
+function data_update_6002() {
+  $ret = array();
+  db_drop_index($ret, 'data_tables', 'name');
+  $spec = array(
+    'type' => 'varchar',
+    'length' => '128',
+    'not null' => TRUE,
+    'default' => '',
+    'description' => 'Table name.',
+  );
+  db_change_field($ret, 'data_tables', 'name', 'name', $spec);
+  db_add_primary_key($ret, 'data_tables', array('name'));
+  // reset cTools static cache of this table; otherwise it throws an error about
+  // lacking a primary key, which just adds insult to injury as we're trying to fix that!
+  drupal_get_schema('data_tables', TRUE);
+  if (function_exists('ctools_static_reset')) {
+    ctools_static_reset('ctools_export_get_schema');
+  }
+  return $ret;
+}

@@ -1,0 +1,459 @@
+<?php
+// $Id: urlfill.module,v 1.8.2.2 2010/11/02 23:23:14 phayes Exp $
+
+/**
+ * Implementation of hook_theme().
+ */
+function urlfill_theme() {
+  return array(
+    'urlfill_manage_marker' => array(
+      'arguments' => array('field' => NULL),
+    ),
+  );
+}
+
+
+/**
+ * Theme urlfill field marker in 'Manage fields'.
+ *
+ * @param $field
+ *   urlfill field data.
+ * @return
+ *   Themed HTML.
+ */
+function theme_urlfill_manage_marker($field) {
+  $output = '<div class="description">';
+  if ($field->multiple) {
+    $output .= t('URL can autofill. Add <em>&@field_name[]=value1&@field_name[]=value2</em> to URL',array('@field_name' => $field->variable));
+  }
+  else {
+    $output .= t('URL can autofill. Add <em>&@field_name=value</em> to URL',array('@field_name' => $field->variable));
+  }
+  $output .= "</div>";
+  return $output;
+}
+
+
+/**
+ * Implementation of hook_form_alter()
+ */
+function urlfill_form_alter(&$form, $form_state, $form_id) {
+  
+  // Do alterations on forms on administrative pages.
+  switch ($form_id) {
+    case 'content_field_edit_form':
+      if ($form['widget'] && $form_state['post']['op'] != t('Change basic information')) {
+        module_load_include('inc','urlfill','urlfill.admin');
+        urlfill_content_admin_field($form);
+      }
+      break;
+    case 'content_field_overview_form':
+      // Find urlfill fields, and mark them
+      module_load_include('inc','urlfill','urlfill.admin');
+      urlfill_field_overview_form($form);    
+      break;
+    case 'content_field_remove_form':
+      module_load_include('inc','urlfill','urlfill.admin');
+      $form['#submit'][] = 'urlfill_content_admin_field_remove_submit';
+      break;
+    case 'content_copy_import_form':
+      // @@TODO: Do node import and feature integration
+      #$form['#submit'][] = 'ulrfill_fields_import';
+      break;
+    case 'node_type_form':
+      module_load_include('inc','urlfill','urlfill.admin');
+      urlfill_node_admin($form);
+      break;
+  }
+  
+  // Do the actual alteration of the node editing form.
+  if ($form['#id'] == 'node-form') {
+    // Process CCK fields
+    urlfill_node_editing_form_field($form);
+    // Process title / body
+    urlfill_node_editing_form_node($form);
+  }
+}
+
+/**
+ * Implementation of hook_features_api() (features module).
+ */
+function urlfill_features_api() {
+  return array(
+    'urlfill' => array(
+      'name' => t('URL Fill'),
+      'default_hook' => 'urlfill_defaults',
+      'default_file' => FEATURES_DEFAULTS_INCLUDED,
+      'features_source' => TRUE,
+      'file' => drupal_get_path('module', 'urlfill') .'/urlfill.features.inc',
+    ),
+  );
+}
+
+
+/**
+ * Alter the node editing form for title and body fields
+ *
+ * This function loads urlfill data for title and body, checks
+ * to see if there is urldata to fill in, fills-in data, then
+ * checks to see if it should lock / hide the field or display
+ * a 404.
+ *
+ * @param $form
+ *   Node submit / edit form to be altered
+ * @return
+ *   None. Form is passed by reference and therefore is altered in situ.
+ */
+function urlfill_node_editing_form_node (&$form) {
+  // Load existing urlfill data.
+  $field_urlfill_data = urlfill_load_data('node',FALSE, $form['type']['#value']);
+  
+  // Do this for each field (two fields: title and body). 
+  foreach ($field_urlfill_data as $urlfill_field) {
+    $urlcontent = $_GET[$urlfill_field->variable];
+    $autofilled = FALSE;
+    if ($urlcontent) {
+    	// Fill in the data if either we ovverride turned on, or there are no pre-existing values
+      if ($urlfill_field->override || !urlfill_preexisting_value($form, $urlfill_field)){
+        if ($urlfill_field->field_name == 'title') {
+          $form['title']['#default_value'] = $urlcontent;
+          $autofilled = TRUE;
+        }
+        if ($urlfill_field->field_name == 'body') {
+          $form['body_field']['body']['#default_value'] = $urlcontent;
+          $autofilled = TRUE;
+        }
+      }
+    }
+    if ($autofilled) {
+      // We have autofilled from the URL. Check to see if we should lock or hide the fields.
+      if ($urlfill_field->editable == 'lock') {
+        //@@TODO: content_format magic
+      }
+      if ($urlfill_field->editable == 'hide') {
+      	// Hide the field by denying access
+        if ($urlfill_field->field_name == 'title') {
+          $form['title']['#access'] = FALSE;
+        }
+        if ($urlfill_field->field_name == 'body') {
+          $form['body_field']['body']['#access'] = FALSE;
+        }
+      }
+    }
+    else {
+      // We have not autofilled from the URL. Check to see if we should display a 404.
+      if ($urlfill_field->nourl == 'notfound' && !urlfill_preexisting_value($form, $urlfill_field)){
+        drupal_set_message(t('Missing auto-fill URL Variable'), 'error');
+        drupal_not_found();
+        exit();          
+      }
+    }
+  }
+
+}
+
+
+/**
+ * Alter the node editing form for cck fields
+ *
+ * This function loads urlfill data for cck fields, checks
+ * to see if there is urldata to fill in, fills-in data, then
+ * checks to see if it should lock / hide the field or display
+ * a 404.
+ *
+ * @param $form
+ *   Node config form to be altered
+ * @return
+ *   None. Form is passed by reference and therefore is altered in situ.
+ */
+function urlfill_node_editing_form_field (&$form) {
+  
+  // Load cck auto-fill data from the database
+  $field_urlfill_data = urlfill_load_data('field');
+  // For each field loaded from data
+  foreach ($field_urlfill_data as $urlfill_field){
+    // Check to see if this field exists in the form
+    if ($form[$urlfill_field->field_name]) {
+      // Go through the fields marked as available to be auto filled from the URL
+      $field_info = $form['#field_info'][$urlfill_field->field_name];
+      $urlcontent = $_GET[$urlfill_field->variable];
+      if ($urlcontent) {
+        
+        // Build a clone if we need to add extra values
+        $switch_clone = $form[$urlfill_field->field_name][0];
+        
+        // Build our paths and references to make editing fields easier. This is all done by reference,
+        // so no need to return a value.
+        urlfill_build_refs($form, $urlfill_field, $field_info);
+        
+        // Let's replace some values!
+        // Check to see if there are pre-existing values, if there are then check to see if we are allowed to ovverride them.
+        if ($urlfill_field->override || ($urlfill_field->values_ref[0] == NULL)) {
+          
+          // If it's a single value, then urlcontent should be passed as a string.
+          if ($field_info['multiple'] == '0' && is_string($urlcontent)){
+            // replace <linebreak> with linebreak
+            $fieldval = str_replace('<linebreak>',"\n",$urlcontent);
+            // Fill in field value.
+            $urlfill_field->values_ref[0] = $fieldval;
+            $autofilled = TRUE;
+          }
+          
+          // If it's a multi-value, then urlcontent should be passed as an array.    
+          if ($field_info['multiple'] != '0' && is_array($urlcontent)){
+            $count = 0;
+            foreach ($urlcontent as $urlkey => $urlvalue){
+              // Check to make sure we are not going over the maximum number allowed. (multiple = 1 implies unlimited.)
+              if ($count < $field_info['multiple'] || $field_info['multiple'] == '1') {
+                // replace <linebreak> with linebreak
+                $fieldval = str_replace('<linebreak>',"\n",$urlvalue);
+                
+                if (!array_key_exists($urlkey, $urlfill_field->values_ref)) {
+                   // The field element does not exists, clone from number 0
+                  $urlfill_field->switch_ref[$urlkey] = $switch_clone;
+                  
+                  // Fill out values_ref with the new item
+                  $urlfill_field->values_ref[$urlkey] = &$urlfill_field->switch_ref[$urlkey];
+                  foreach ($urlfill_field->post_path as $form_key){
+                    $urlfill_field->values_ref[$urlkey] = &$urlfill_field->values_ref[$urlkey][$form_key];
+                  }
+                }
+                
+                // Fill in the value
+                $urlfill_field->values_ref[$urlkey] = $fieldval;
+                
+                $count++;
+              }
+            }
+            // We've filled in our multi-values. Remove all other values that might have survived.
+            while ($urlfill_field->switch_ref[$count]){
+              unset($urlfill_field->switch_ref[$count]);
+              $count++;
+            }
+            $autofilled = TRUE;
+          }
+        }
+      }
+      else {
+        // $urlcontent is empty, so we can't autofill
+        $autofilled = FALSE;
+      }
+      if ($autofilled) {
+        // We have autofilled from the URL. Check to see if we should lock or hide the fields.
+        if ($urlfill_field->editable == 'lock') {
+          //@@TODO: content_format magic
+        }
+        if ($urlfill_field->editable == 'hide') {
+          // Hide the field by denying access
+          $form[$urlfill_field->field_name]['#access'] = FALSE;
+        }
+      }
+      else {
+        // We have not autofilled from the URL. Check to see if we should display a 404.
+        if ($urlfill_field->nourl == 'notfound'){
+        	if (!$urlfill_field->refs_built) {
+            urlfill_build_refs($form, $urlfill_field, $field_info);
+        	}
+        	if ($urlfill_field->values_ref[0] == NULL) {
+	          drupal_set_message(t('Missing auto-fill URL Variable'), 'error');
+	          drupal_not_found();
+	          exit();
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Build URL Fill References
+ *
+ * Builds out references to various variables, making modifying
+ * them downstream easier. We build out raw_path, pre_path, and post_path.
+ * raw_path is the full path to the first value
+ * pre_path is the path to the multi-value fork
+ * post_path is the path to the value after the multi-value fork
+ * switch_ref is a pointers to where the form 'forks' into different multi-value paths.
+ * values_ref is an array pointing to the actual values of the field.
+ *
+ * @param &$form
+ *   The form object.
+ * @param &$urlfill_field
+ *   URL Fill data for the field.
+ * @param $field_info
+ *   CCK data for the field.
+ * @return
+ *   None. $urlfill_field is modified by reference.
+ */
+function urlfill_build_refs(&$form, &$urlfill_field, $field_info) {
+  $urlfill_field->raw_path = urlfill_get_path($field_info['widget']['type']);
+  $urlfill_field->pre_path = array();
+  $urlfill_field->post_path = array();
+  $pre = TRUE;
+  
+  foreach ($urlfill_field->raw_path as $form_key) {
+    if ($pre && !is_numeric($form_key)){
+      $urlfill_field->pre_path[] = $form_key;            
+    }
+    else {
+      $pre = FALSE;
+      if (!is_numeric($form_key)){
+        $urlfill_field->post_path[] = $form_key;
+      }
+    }
+  }
+  
+  // Build assign-by-reference pointers to certain sections of the form array
+  // switch_ref is a pointers to where the form 'forks' into different multi-value paths.
+  // It can be thought of as the 'root' for different fields.
+  // values_ref is an array pointing to the actual values of the field.
+  $urlfill_field->switch_ref = array();
+  
+  // Build switch_ref
+  $urlfill_field->switch_ref = &$form[$urlfill_field->field_name];
+  foreach ($urlfill_field->pre_path as $form_key) {
+    $urlfill_field->switch_ref = &$urlfill_field->switch_ref[$form_key];
+  }
+  
+  // If we have no initial empty default value, create an empty one.
+  if (empty($urlfill_field->switch_ref)) {
+    $urlfill_field->switch_ref[0] = array();
+  }
+  
+  // Build values_ref. By editing $urlfield->values_ref[x], we edit the value of the field.
+  $urlfill_field->values_ref = array();
+  foreach ($urlfill_field->switch_ref as $key => $existing_value) {
+    if (is_numeric($key)){
+      $urlfill_field->values_ref[$key] = &$urlfill_field->switch_ref[$key];
+      foreach ($urlfill_field->post_path as $form_key){
+        $urlfill_field->values_ref[$key] = &$urlfill_field->values_ref[$key][$form_key];
+      }
+    }
+  }
+  
+  // Mark ref fields as built.
+  $urlfill_field->refs_built = TRUE;
+}
+
+/**
+ * Load urlfill data
+ * 
+ * @param $type
+ *   Type of field to load data for. Currently supports 'node' and 'field'.
+ *   'node' referes to title and body fields. 'field' refers to cck fields.
+ * @param $field_name
+ *   Load data for a specific field. If left false, will load all fields that
+ *   match the other criteria.
+ * @param $node_type
+ *   Load data for a specific node type. It should be left blank for cck fields
+ *   as they can be shared across node types.
+ * @return
+ *   Auto-fill from url data from the database. Returned as an array of objects.
+ */
+function urlfill_load_data($type, $field_name = FALSE, $node_type = '') {
+  if ($field_name) {
+    // If a field name is given, load data only for that field.
+    $db_result = db_query("SELECT * from {urlfill} WHERE field_name = '%s' AND type = '%s' AND node_type = '%s'", $field_name, $type, $node_type);
+    $result = db_fetch_object($db_result);
+    return $result;
+  }
+  else {
+    // If a field name is not given, load data for the whole class.
+    $db_result = db_query("SELECT * from {urlfill} WHERE type = '%s' AND node_type = '%s'", $type, $node_type);
+    $data = array();
+    while ($result = db_fetch_object($db_result)){
+      $data[] = $result;
+    }
+    return $data;
+  }
+}
+
+
+/**
+ * Check if we there are any pre-existing values.
+ *
+ * Checks for pre-existing values in the fields. This function takes
+ * into account whether the form has been set to override pre-existing values.
+ * If override is set to true, it always returns true. If override is set to 
+ * false, it checks for a value and only returns if that value is empty.
+ * 
+ * @param $form
+ *   The form object.
+ * @param $urlfill_field
+ *   Data for the specific field needing to be checked.
+ * @return
+ *   TRUE or FALSE. FALSE means that the value should not be overwritten.
+ *   TRUE means go for it - write the value.
+ */
+function urlfill_preexisting_value ($form, $urlfill_field, $field_info = FALSE) {
+  if ($urlfill_field->type =='node') {
+	  // It's title or body. Check for preexisting values.
+	  if ($urlfill_field->field_name == 'title') {
+	    $checkval = $form['title']['#default_value'];
+	  }
+	  if ($urlfill_field->field_name == 'body') {
+	    $checkval = $form['body_field']['#body']['#default_value'];
+	  }
+  }
+  if ($urlfill_field->type =='field') {
+  	//@@TODO: use urlfill_preexisting_value for both node and field
+  }
+  if (empty($checkval) && $checkval != '0') return FALSE;
+  else return TRUE;
+}
+
+
+/**
+ * Get path for a given field / widget pair
+ *
+ * This function returns the path (as an array) to the first value field
+ * for a given widget type. You will want to edit this function to add support
+ * for new widgets.
+ * 
+ * @param $widget_type
+ *   The widget.
+ * @param $field_type
+ *   The field_type
+ * @return
+ *   Array representing path to relevant value. [0] can be interpreted
+ *   as the marker for the multi-value fork of the form array.
+ */
+function urlfill_get_path($widget_type, $field_type = FALSE) {
+  // Switch on the widget, get the correct path to fill
+  switch ($widget_type) {
+    case 'text_textfield':
+    case 'text_textarea':
+      return array(0,'#default_value','value');
+      break;
+    case 'optionwidgets_select':
+    case 'optionwidgets_buttons':
+    case 'optionwidgets_onoff': 
+      return array('#default_value',0,'value');
+      break;
+    case 'nodereference_select':
+    case 'nodereference_buttons':
+      return array('#default_value',0,'nid');
+      break;
+    case 'nodereference_autocomplete':
+    case 'nodereference_explorer':
+      return array(0,'#default_value','nid');
+      break;
+    case 'userreference_select':
+    case 'userreference_buttons':
+      return array('#default_value',0,'uid');
+      break;
+    case 'userreference_autocomplete':
+      return array(0,'#default_value','uid');
+      break;
+    case 'content_taxonomy_select':
+    case 'content_taxonomy_options':
+    case 'content_taxonomy_autocomplete':
+      return array('#default_value',0,'value');
+      break;
+    default: 
+      return FALSE;
+      break;
+  }
+}
+
+?>

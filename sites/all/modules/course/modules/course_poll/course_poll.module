@@ -1,0 +1,56 @@
+<?php
+
+/**
+ * Course context handler callback.
+ */
+function course_poll_context() {
+  $node = node_load(arg(1));
+
+  if (isset($node->nid) && $node->type == 'poll') {
+    return array(
+      'object_type' => 'poll',
+      'instance' => $node->nid,
+    );
+  }
+}
+
+/**
+ * Implements hook_course_handlers().
+ */
+function course_poll_course_handlers() {
+  return array(
+    'object' => array(
+      'poll' => array(
+        'name' => t('Poll'),
+        'class' => 'CourseObjectPoll',
+        'description' => t('A poll to be used in a course workflow.'),
+      ),
+    ),
+    'context' => array(
+      'poll' => array(
+        'callback' => 'course_poll_context',
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_form_FORMID_alter().
+ */
+function course_poll_form_poll_view_voting_alter(&$form, &$form_state) {
+  $form['vote']['#submit'][] = 'course_poll_fulfill';
+}
+
+/**
+ * Fulfill the voting object.
+ */
+function course_poll_fulfill(&$form, &$form_state) {
+  global $user;
+
+  $nid = $form['#node']->nid;
+
+  // Find the course object associated with this poll.
+  if ($courseObject = course_get_course_object('course_poll', 'poll', $nid, $user)) {
+    $courseObject->getFulfillment()->setComplete()->save();
+  }
+}

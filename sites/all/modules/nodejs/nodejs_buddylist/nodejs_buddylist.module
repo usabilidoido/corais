@@ -1,0 +1,254 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function nodejs_buddylist_menu() {
+  return array(
+    'nodejs-buddylist/start-chat' => array(
+      'title' => 'Start a chat',
+      'page callback' => 'nodejs_buddylist_start_chat',
+      'page arguments' => array(2),
+      'access arguments' => array('create chats'),
+    ),
+    'nodejs-buddylist/post-message/%node' => array(
+      'title' => 'post a message',
+      'page callback' => 'nodejs_buddylist_post_message',
+      'page arguments' => array(2),
+      'access arguments' => array('access chats'),
+    ),
+  );
+}
+
+/**
+ * Posted messages are handled here.
+ */
+function nodejs_buddylist_post_message($node) {
+  global $user;
+
+  if (!isset($_POST['message'])) {
+    exit;
+  }
+
+  $message = array(
+    'ccid' => $node->chat->nid,
+    'uid' => $user->uid,
+    'msg' => $_POST['message'],
+    'sid' => session_id(),
+    'msg_type' => 'message',
+    'recipient_uid' => 0,
+    'modified' => time(),
+    'anon_name' => '',
+    'js_callback' => 'nodejsBuddyAddMessage',
+  );
+  chatroom_chat_save_message($message, $node);
+}
+
+/**
+ * Start a chat between two users.
+ */
+function nodejs_buddylist_start_chat() {
+  global $user;
+  module_load_include('inc', 'node', 'node.pages');
+  
+  if (!isset($_POST['uid']) || !$buddy = user_load($_POST['uid'])) {
+    exit();
+  }
+
+  $node = new StdClass();
+  $node->type = 'chat';
+  $node->title = 'One on one chat';
+  $node->uid = $user->uid;
+  $node->max_users = 2;
+  $node->private = TRUE;
+  $node->promote = 0;
+  $node->language = LANGUAGE_NONE;
+  node_object_prepare($node);
+  node_save($node);
+
+  $user_data = array('uid' => $user->uid, 'nid' => $node->nid);
+  drupal_write_record('chatroom_chat_user', $user_data);
+  nodejs_add_user_to_channel($user->uid, 'chatroom_chat_' . $node->nid);
+
+  $user_data = array('uid' => $buddy->uid, 'nid' => $node->nid);
+  drupal_write_record('chatroom_chat_user', $user_data);
+  nodejs_add_user_to_channel($buddy->uid, 'chatroom_chat_' . $node->nid);
+
+  $message = (object) array(
+    'channel' => 'nodejs_user_' . $buddy->uid,
+    'type' => 'startChat',
+    'callback' => 'nodejsBuddyListStartChat',
+    'data' => (object) array(
+      'buddyUid' => $user->uid,
+      'chatId' => $node->nid,
+      'buddyUsername' => $user->name,
+    ),
+  );
+  nodejs_send_message($message);
+
+  $message = (object) array(
+    'channel' => 'nodejs_user_' . $user->uid,
+    'type' => 'startChat',
+    'callback' => 'nodejsBuddyListStartChat',
+    'data' => (object) array(
+      'buddyUid' => $buddy->uid,
+      'chatId' => $node->nid,
+      'buddyUsername' => $buddy->name,
+      'creatorUid' => $user->uid,
+    ),
+  );
+  nodejs_send_message($message);
+}
+
+/**
+ * Implements hook_theme().
+ */
+function nodejs_buddylist_theme() {
+  return array(
+    'nodejs_buddylist_chat_button' => array(
+      'variables' => array('buddy' => NULL, 'online' => NULL),
+    ),
+  );
+}
+
+/**
+ * Implements hook_init().
+ */
+function nodejs_buddylist_init() {
+  global $user;
+  	
+  drupal_add_css(drupal_get_path('module', 'nodejs_buddylist') . '/nodejs_buddylist.css');
+  drupal_add_js(drupal_get_path('module', 'nodejs_buddylist') . '/nodejs_buddylist.js', 'module', 'footer');
+
+  if (user_access('Use Node.js Buddylist')) {
+    $buddy_list_html = nodejs_buddylist_block_content($user, 'nodejs-chatbar-uid-');
+  
+    $chatbar_settings = array('chatbar_settings' => '<div id="chatbar"><div id="buddy-list" class="section-container"><a id="buddy-toggle" class="tab-button">'
+        . t('Buddys') . '</a><div class="chatbar-pane"><h2>' . t('Your Buddylist') . '</h2>' . $buddy_list_html . '</div></div></div>');
+    drupal_add_js($chatbar_settings, 'setting');
+  }
+}
+
+/**
+ * Implements hook_nodejs_user_presence_list().
+ */
+function nodejs_buddylist_nodejs_user_presence_list($account) {
+  return array_keys(nodejs_buddylist_user_list($account));
+}
+
+/**
+ * Get a list of buddies for the given account.
+ *
+ * @param $account
+ * @return array
+ */
+function nodejs_buddylist_user_list($account) {
+  return flag_friend_get_friends($account->uid);
+}
+
+/**
+ * Implements hook_permission().
+ */
+function nodejs_buddylist_perm() {
+  return array(t('Use Node.js Buddylist'));
+}
+
+/**
+ * Implementation of hook_block_info.
+ */
+function nodejs_buddylist_block($op = 'list', $delta = 0, $edit = array()) {
+  global $user;
+  	
+  if ($op == 'list') {
+    $block[0] = array(
+		'info' => t('Node.js Buddylist a specific users buddylist.'),
+		'weight' => 0,
+		'status' => 1,
+		'region' => 'content');
+	return $block;
+	}
+	else if ($op == 'view') {
+	  switch($delta) {
+		case 0:
+		  $block['subject'] = t('Your Buddylist');
+		  $block['content'] = nodejs_buddylist_block_content($user);
+		break;
+		}
+    return $block;	
+  } 	
+}
+
+/**
+ * Get the content for the buddy list block.
+ */
+function nodejs_buddylist_block_content($account, $id_prefix='nodejs-buddylist-uid-') {
+
+  $buddies = nodejs_buddylist_user_list($account);
+
+  if ($buddies) {
+    $online_uids = nodejs_buddylist_get_online_uids(array_keys($buddies));
+    
+    $html = '<ul>';
+    $chat_enabled = module_exists('chatroom_nodejs');
+    foreach ($buddies as $buddy) {
+	  $friend = user_load($buddy->uid);
+      $id = $id_prefix . $buddy->uid;
+      $class = 'nodejs-buddylist-' . (in_array($buddy->uid, $online_uids) ? 'online' : 'offline');
+      $chat_button = '';
+      if ($chat_enabled && $class == 'nodejs-buddylist-online') {
+        $chat_button = theme('nodejs_buddylist_chat_button', array('buddy' => $buddy, 'online' => TRUE));
+      }
+      else {
+        $chat_button = theme('nodejs_buddylist_chat_button', array('buddy' => $buddy, 'online' => FALSE));
+      }
+      $html .= '<li id="' . $id . '" class="' . $class . '">';
+      $html .= theme_username($friend) . $chat_button;
+      $html .= '</li>';
+    }
+    $html .= '</ul>';
+    return $html;
+  }
+  else {
+    return t("You have no buddies.");
+  }
+}
+
+/**
+ * Theme the start chat button.
+ */
+function theme_nodejs_buddylist_chat_button($variables) {
+  $buddy = $variables['buddy'];
+  $class = $variables['online'] ? 'chat-link-wrapper-online' : 'chat-link-wrapper-offline';
+  return '<span class="chat-link-wrapper ' . $class . '"> | <a class="nodejs-buddylist-start-chat-link" href="#start-chat-' . $buddy->uid . '">' . t('Chat') . '</a></span>';
+}
+
+/**
+ * Filter the given list of uids based on who is online.
+ * TODO: change the query
+ */
+function nodejs_buddylist_get_online_uids($uids) {
+    foreach ($uids as $uid) {
+		$row = db_fetch_array(db_query("SELECT uid FROM {nodejs_presence} WHERE uid = %d", $uid));
+		$puids[] = $row['uid'];
+	}
+	return $puids;
+}
+
+/**
+ * Implements hook_page_alter().
+ * Commented out this hook doesn't exist in Drupal 6
+ * @todo make it themable.
+ */
+ /*
+function nodejs_buddylist_page_alter(&$page) {
+  global $user;
+
+  if (user_access('use nodejs_buddylist')) {
+    $buddy_list_html = nodejs_buddylist_block_content($user, 'nodejs-chatbar-uid-');
+  
+    $chatbar_settings = array('chatbar_settings' => '<div id="chatbar"><div id="buddy-list" class="section-container"><a id="buddy-toggle" class="tab-button">'
+        . t('Buddys') . '</a><div class="chatbar-pane"><h2>' . t('Your Buddylist') . '</h2>' . $buddy_list_html . '</div></div></div>');
+    drupal_add_js($chatbar_settings, 'setting');
+  }
+}*/
+

@@ -1,0 +1,88 @@
+/* .date-picker-formatter-table-wrapper{
+  overflow:auto;
+} */
+.date-picker-formatter-table thead th.date-header {
+  text-align:center;
+  vertical-align:middle;
+  border-left: solid 1px #000;
+  border-bottom: none;
+}
+
+.date-picker-formatter-table td.date,
+.date-picker-formatter-table td.answer,
+.date-picker-formatter-table td.answer-stats,
+.date-picker-formatter-table td.time{
+  text-align:center;
+  vertical-align:middle;
+  border-left: 1px solid;
+}
+
+/*
+.date-picker-formatter-table td.vote-100{
+   background: #A8FFA6;
+}
+.date-picker-formatter-table td.vote-0{
+   background: #FFA6A8;
+}
+.date-picker-formatter-table td.vote-none{
+   background: #A6A8FF;
+}
+*/
+
+.date-picker-formatter-table tr.stats {
+  border-top: 1px solid #000;
+  background-color: #EEE;
+}
+
+.date-picker-formatter-table tr.stats li {
+  list-style: none;
+  list-style-image: none;
+  background: none;
+  padding: 0; margin: 0;
+}
+
+.date-picker-formatter-table tr.time{
+  border-bottom: 1px solid;
+}
+
+/**
+ * Styling the current-user row
+ */
+.date-picker-formatter-table tr.current-user {
+  background: #ffe9ae;
+  border: 1px;
+}
+
+/**
+ * Stats cell styling
+ */
+.date-picker-formatter-table td.winning-100 {
+  background: #A8FFA6;
+}
+.date-picker-formatter-table td.winning-tied {
+  background: #FFFF99;
+}
+
+/**
+ * Cell votes content styling (using icons)
+ */
+.date-picker-formatter-table span.vote-none {
+  background : url("./images/unreadable.png") no-repeat center;
+  display: block;
+  height: 16px;
+  text-indent: -9999px;
+}
+
+.date-picker-formatter-table span.vote-0 {
+  background : url("./images/no.png") no-repeat center;
+  display: block;
+  height: 16px;
+  text-indent: -9999px;
+}
+
+.date-picker-formatter-table span.vote-100 {
+  background : url("./images/yes.png") no-repeat center;
+  display: block;
+  height: 16px;
+  text-indent: -9999px;
+}

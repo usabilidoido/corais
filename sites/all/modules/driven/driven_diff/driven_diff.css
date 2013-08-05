@@ -1,0 +1,85 @@
+/* $Id: driven_diff.css,v 1.2 2010/04/03 23:18:07 arhak Exp $ */
+
+table.driven_diff {
+  margin: 0;
+  width: auto;
+}
+
+table.driven_diff tr td, table.driven_diff tr th {
+  padding: 0 .3em;
+}
+
+table.driven_diff tr td *, table.driven_diff tr th *,
+.messages .filefield-file, .messages .filefield-file .filefield-icon {
+  display: inline;
+  white-space: nowrap;
+  float: none; /* e.g filefield-icon */
+}
+
+.driven_diff.diff.preview {
+  display: table;
+}
+
+.diff.outgoing-diff {
+  /* text-decoration: line-through; */
+}
+
+.diff .mark {
+  padding-right: 2px;
+  font-weight: bold;
+}
+
+.diff.outgoing-diff .mark {
+  color: red;
+}
+
+.diff.incoming-diff .mark {
+  color: green;
+}
+
+.diff .number_integer .mark,
+.diff .number_decimal .mark,
+.diff .number_float .mark {
+  display: none;
+}
+
+.diff.outgoing-diff .number_integer,
+.diff.outgoing-diff .number_decimal,
+.diff.outgoing-diff .number_float {
+  text-decoration: line-through;
+}
+
+table.driven_diff .boolean,
+table.driven_diff .comment-settings {
+  background-position: 5px 50%;
+  background-repeat: no-repeat;
+  padding-bottom: 6px;
+  padding-top: 6px;
+  padding-left: 30px;
+  padding-right: 8px;
+}
+
+table.driven_diff .boolean.true {
+  color: green;
+  background-image: url(img/ok.png);
+}
+
+table.driven_diff .boolean.false {
+  color: red;
+  background-image: url(img/error.png);
+}
+
+table.driven_diff .comment-settings.disabled {
+  color: gray;
+  background-image: url(img/error.png);
+}
+
+table.driven_diff .comment-settings.read-only {
+  color: #EF9E00;
+  background-image: url(img/warn.png);
+}
+
+table.driven_diff .comment-settings.read-write {
+  color: green;
+  background-image: url(img/ok.png);
+}

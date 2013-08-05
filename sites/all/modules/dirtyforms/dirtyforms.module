@@ -1,0 +1,143 @@
+<?php
+
+/**
+ * @file
+ * Check forms before users leave the page, warning them if they are about
+ * to loose changes and providing an option to remain on the page.
+ */
+
+/**
+ * Implementation of hook_help().
+ */
+function dirtyforms_help($path, $arg) {
+  if ($path == 'admin/settings/dirtyforms') {
+    return '<p>'. t('Configure Dirty Forms settings.') .'</p>';
+  }
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function dirtyforms_menu() {
+  $items = array();
+  $items['admin/settings/dirtyforms'] = array(
+    'title' => 'Dirty Forms',
+    'description' => 'Configure Dirty Forms settings.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('dirtyforms_admin_settings'),
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'dirtyforms.admin.inc',
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function dirtyforms_form_alter(&$form, $form_state, $form_id) {
+  static $settings;
+
+  // Skip processing when maintenance mode is on.
+  if (defined('MAINTENANCE_MODE')) {
+    return;
+  }
+
+  // Load module settings just once per execution cycle.
+  if (!isset($settings)) {
+    $settings = _dirtyforms_get_settings();
+  }
+
+  // Exclude forms based on configured policy.
+  if ($settings['forms']['policy'] == 'blacklist') {
+    if (_dirtyforms_match_rules($form_id, $settings['forms']['rules'])) {
+      _dirtyforms_exclude_form($form);
+    }
+    _dirtyforms_add_js($settings);
+  }
+  elseif ($settings['forms']['policy'] == 'whitelist') {
+    if (!_dirtyforms_match_rules($form_id, $settings['forms']['rules'])) {
+      _dirtyforms_exclude_form($form);
+    }
+    _dirtyforms_add_js($settings);
+  }
+}
+
+/**
+ * Add the dirtyForms javascript to the page (just once).
+ */
+function _dirtyforms_add_js($settings) {
+  static $ready;
+  if (!isset($ready)) {
+    $ready = TRUE;
+
+    // Add the onBeforeUnload API.
+    onbeforeunload_add_js();
+
+    // Add the dirtyForms behavior.
+    drupal_add_js(drupal_get_path('module', 'dirtyforms') .'/dirtyforms.js');
+
+    // Add javascript settings.
+    $js_settings = array(
+      'troubleshooting' => array(
+        'alerts' => $settings['troubleshooting']['alerts'],
+      ),
+    );
+    drupal_add_js(array('dirtyForms' => $js_settings), 'setting');
+
+    // Provide visual indication of excluded forms?
+    if ($settings['troubleshooting']['highlight']) {
+      drupal_add_css(drupal_get_path('module', 'dirtyforms') .'/dirtyforms.css');
+    }
+  }
+}
+
+/**
+ * Check a string against a list of rules.
+ */
+function _dirtyforms_match_rules($string, $rules) {
+  foreach ($rules as $rule) {
+    $rule = str_replace(array('-', '_'), '[-_]', str_replace('*', '.*', $rule));
+    if (preg_match('`^'. $rule .'$`', $string)) {
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
+/**
+ * Assign the exclude CSS class to the given form.
+ */
+function _dirtyforms_exclude_form(&$form) {
+  if (!isset($form['#attributes'])) {
+    $form['#attributes'] = array();
+  }
+  if (empty($form['#attributes']['class'])) {
+    $form['#attributes']['class'] = 'dirtyforms-exclude';
+  }
+  else {
+    $form['#attributes']['class'] .= ' dirtyforms-exclude';
+  }
+}
+
+/**
+ * Get module settings.
+ */
+function _dirtyforms_get_settings() {
+  return array(
+    'forms' => array(
+      'policy' => variable_get('dirtyforms_forms_policy', 'blacklist'),
+      'rules' => variable_get('dirtyforms_forms_rules', array(
+        'search_theme*',
+        'search_block*',
+        'user_login*',
+        'user_register*',
+        'user_pass*',
+      )),
+    ),
+    'troubleshooting' => array(
+      'alerts' => variable_get('dirtyforms_troubleshooting_alerts', 0),
+      'highlight' => variable_get('dirtyforms_troubleshooting_highlight', 0),
+    ),
+  );
+}

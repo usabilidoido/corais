@@ -1,0 +1,41 @@
+<?php
+/**
+ * @file
+ *   Simple source for Taskbar activity.
+ */
+
+/**
+ * Implements hook_taskbar_activity_source().
+ */
+function taskbar_activity_example_taskbar_activity_source() {
+  return array(
+    array(
+      'name' => 'activity_example',
+      'description' => 'Taskbar activity example source',
+      'callbacks' => array(
+        'count' => 'taskbar_activity_example_taskbar_activity_count',
+        'list' => 'taskbar_activity_example_taskbar_activity_list',
+        'mark' => 'taskbar_activity_example_taskbar_activity_mark',
+      ),
+      'dependencies' => 'taskbar_activity_example',
+    ),
+  );
+}
+
+function taskbar_activity_example_taskbar_activity_count($unread = FALSE) {
+  return isset($_COOKIE['taskbar_activity_example_read']) ? 0 : rand(1,99);
+}
+
+function taskbar_activity_example_taskbar_activity_list($count = 5, $start = 0) {
+  $list = array();
+  while ($count-- > 0) {
+    $list[] = 'Random notifications ' . rand(1000,9999);
+  }
+  $list[] = '<em>You won\'t receive any notification in the next two minutes (sure!).</em>';
+  return $list;
+}
+
+function taskbar_activity_example_taskbar_activity_mark() {
+  $_COOKIE['taskbar_activity_example_read'] = 1;
+  setcookie('taskbar_activity_example_read', 1, time()+120, '/');
+}

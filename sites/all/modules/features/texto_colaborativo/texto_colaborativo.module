@@ -1,0 +1,18 @@
+<?php
+
+include_once('texto_colaborativo.features.inc');
+/**
+* Implementation of hook_init().
+*/
+function texto_colaborativo_init() {
+  drupal_add_css(drupal_get_path('module', 'texto_colaborativo') .'/texto_colaborativo.css');
+}
+
+
+function texto_colaborativo_title($title) {
+  $title = t($title);
+ // if (!empty($texto_colaborativo['count'])) {
+    $title .= " ({$texto_colaborativo['count']})";
+  //}
+  return $title;
+}

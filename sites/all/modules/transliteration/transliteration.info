@@ -1,0 +1,11 @@
+name = Transliteration
+description = Converts non-latin text to US-ASCII and sanitizes file names.
+core = 6.x
+
+
+; Information added by drupal.org packaging script on 2012-06-01
+version = "6.x-3.1"
+core = "6.x"
+project = "transliteration"
+datestamp = "1338540716"
+

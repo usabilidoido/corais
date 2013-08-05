@@ -1,0 +1,6 @@
+<?php
+
+/**
+ * @file certificate_test.install
+ * Installation tasks for test module.
+ */

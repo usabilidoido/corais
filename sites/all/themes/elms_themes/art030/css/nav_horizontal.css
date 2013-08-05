@@ -1,0 +1,10 @@
+.side-block-wrap ul.menu li a:link,
+.side-block-wrap ul.menu li a:visited,
+.side-block-wrap ul.menu li a:active {
+	font-family:"Courier New", Courier, monospace;
+	color:#000;
+	text-decoration:none;
+}
+.side-block-wrap ul.menu li a:hover {
+	text-decoration:underline;	
+}

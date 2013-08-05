@@ -1,0 +1,93 @@
+<?php
+function quiz_assignment_install() {
+  $result = drupal_install_schema('quiz_assignment');
+  variable_set('node_options_quiz_assignment', array('status'));
+  cache_clear_all('autoload:', 'cache');
+}
+
+function quiz_assignment_uninstall() {
+  drupal_uninstall_schema('quiz_assignment');
+}
+
+function quiz_assignment_schema() {
+
+  $schema = array();
+  
+  // Extensions to nodes for quiz assignments
+  $schema['quiz_assignment_properties'] = array(
+    'description' => 'Stores extended properties for the quiz assigment node type',
+    'fields' => array(
+      'nid' => array(
+        'description' => 'A reference to the question node in {node}.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'vid' => array(
+        'description' => 'A reference to the version of the node used in {node} and {node_revisions}.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'valid_extensions' => array(
+        'description' => 'A comma-separated list of valid extension for an assignment question on an individual bases.',
+        'type' => 'text',
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array(
+      'vid', 'nid',
+    ),
+  );
+  
+  // Place to store quiz assignment answers
+  $schema['quiz_assignment_user_answers'] = array(
+    'description' => 'Stores information about every answer for the quiz assignment question type.',
+    'fields' => array(
+      'question_nid' => array(
+        'description' => 'A reference to the question node in {node}.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'question_vid' => array(
+        'description' => 'A reference to the version of the node used in {node} and {node_revisions}.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'result_id' => array(
+        'description' => 'A reference to the result stored in {quiz_node_results}.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),      
+      'filepath' => array(
+        'description' => 'Path to the submitted file in local storage. NOTE: This path can be placed outside of Drupal root and is therefor only relative to the global path setting.',
+        'type' => 'text',
+        'not null' => TRUE,
+      ),
+      'score' => array(
+        'type' => 'float',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'is_evaluated' => array(
+        'description' => 'This question type must be manually scored. This value indicates if it is evaluated or not.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'size' => 'tiny',
+        'default' => 0,
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array(
+      'result_id', 'question_nid', 'question_vid',
+    ),
+  );
+  
+  return $schema;
+}
+
+?>

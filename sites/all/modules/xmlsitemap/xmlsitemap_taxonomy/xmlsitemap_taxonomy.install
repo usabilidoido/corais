@@ -1,0 +1,287 @@
+<?php
+// $Id: xmlsitemap_taxonomy.install,v 1.1.2.20 2009/06/10 15:16:55 earnie Exp $
+
+/**
+ * @file
+ * Installation file for XML sitemap term.
+ */
+
+/*****************************************************************************
+ * Drupal hooks.
+ ****************************************************************************/
+
+/**
+ * Implementation of hook_enable().
+ */
+function xmlsitemap_taxonomy_enable() {
+  xmlsitemap_flag_sitemap();
+}
+
+/**
+ * Implementation of hook_disable().
+ */
+function xmlsitemap_taxonomy_disable() {
+  xmlsitemap_flag_sitemap();
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function xmlsitemap_taxonomy_schema() {
+  $schema['xmlsitemap_taxonomy'] = array(
+    'description' => 'The base table for xmlsitemap_taxonomy.',
+    'fields' => array(
+      'tid' => array(
+        'description' => 'The vocabulary term ID.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'vid' => array(
+        'description' => 'The vocabulary ID.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'changed' => array(
+        'description' => 'The Unix timestamp of the last change.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'previously_changed' => array(
+        'description' => 'The Unix timestamp of the previous change.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'priority_override' => array(
+        'description' => 'The priority of the term in the sitemap.',
+        'type' => 'float',
+        'not null' => TRUE,
+        'default' => -2.0,
+      ),
+    ),
+    'primary key' => array('tid'),
+  );
+  return $schema;
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function xmlsitemap_taxonomy_install() {
+  if (!db_table_exists('xmlsitemap_taxonomy')) {
+    drupal_install_schema('xmlsitemap_taxonomy');
+  }
+  db_query("UPDATE {system} SET weight = 10 WHERE name = 'xmlsitemap_taxonomy'");
+  db_query("DELETE FROM {system} WHERE name = 'xmlsitemap_term'");
+}
+
+/**
+ * Implementation of hook_update_N().
+ * Updates the SQL tables.
+ */
+function xmlsitemap_taxonomy_update_6100() {
+  $ret = array();
+  if (db_table_exists('xmlsitemap_taxonomy')) {
+    if (db_column_exists('xmlsitemap_taxonomy', 'pid')) {
+      $result = array();
+      @db_drop_index($result, 'xmlsitemap_taxonomy', 'pid');
+      if ($result[0]['success']) {
+        $ret[] = $result[0];
+      }
+      db_drop_field($ret, 'xmlsitemap_taxonomy', 'pid');
+    }
+    $result = array();
+    @db_drop_primary_key($result, 'xmlsitemap_taxonomy');
+    if ($result[0]['success']) {
+      $ret[] = $result[0];
+    }
+    if (db_column_exists('xmlsitemap_taxonomy', 'tid')) {
+      db_change_field($ret, 'xmlsitemap_taxonomy', 'tid', 'tid',
+        array(
+          'description' => 'The vocabulary term ID.',
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+        ),
+        array('primary key' => array('tid'))
+      );
+    }
+    else {
+      db_add_field($ret, 'xmlsitemap_taxonomy', 'tid',
+        array(
+          'description' => 'The vocabulary term ID.',
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+        ),
+        array('primary key' => array('tid'))
+      );
+    }
+    if (!db_column_exists('xmlsitemap_taxonomy', 'vid')) {
+      db_add_field($ret, 'xmlsitemap_taxonomy', 'vid',
+        array(
+          'description' => 'The vocabulary ID.',
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+        )
+      );
+    }
+    if (db_column_exists('xmlsitemap_taxonomy', 'last_changed')) {
+      db_change_field($ret, 'xmlsitemap_taxonomy', 'last_changed', 'changed',
+        array(
+          'description' => 'The Unix timestamp of the last change.',
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+        )
+      );
+    }
+    else {
+      if (!db_column_exists('xmlsitemap_taxonomy', 'changed')) {
+        db_add_field($ret, 'xmlsitemap_taxonomy', 'changed',
+          array(
+            'description' => 'The Unix timestamp of the last change.',
+            'type' => 'int',
+            'unsigned' => TRUE,
+            'not null' => TRUE,
+            'default' => 0,
+          )
+        );
+      }
+      else {
+        db_change_field($ret, 'xmlsitemap_taxonomy', 'changed', 'changed',
+          array(
+            'description' => 'The Unix timestamp of the last change.',
+            'type' => 'int',
+            'unsigned' => TRUE,
+            'not null' => TRUE,
+            'default' => 0,
+          )
+        );
+      }
+    }
+    if (!db_column_exists('xmlsitemap_taxonomy', 'previously_changed')) {
+      db_add_field($ret, 'xmlsitemap_taxonomy', 'previously_changed',
+        array(
+          'description' => 'The Unix timestamp of the previous change.',
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+        )
+      );
+    }
+    else {
+      db_change_field($ret, 'xmlsitemap_taxonomy', 'previously_changed', 'previously_changed',
+        array(
+          'description' => 'The Unix timestamp of the previous change.',
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+        )
+      );
+    }
+    $ret[] = update_sql("UPDATE {xmlsitemap_taxonomy}
+      SET priority_override = -2.0
+      WHERE priority_override IS NULL"
+    );
+    db_change_field($ret, 'xmlsitemap_taxonomy', 'priority_override', 'priority_override',
+      array(
+        'description' => 'The priority of the term in the sitemap.',
+        'type' => 'float',
+        'not null' => TRUE,
+        'default' => -2.0,
+      )
+    );
+  }
+  else {
+    db_create_table($ret, 'xmlsitemap_taxonomy',
+      array(
+        'description' => 'The base table for xmlsitemap_taxonomy.',
+        'fields' => array(
+          'tid' => array(
+            'description' => 'The vocabulary term ID.',
+            'type' => 'int',
+            'unsigned' => TRUE,
+            'not null' => TRUE,
+            'default' => 0,
+          ),
+          'vid' => array(
+            'description' => 'The vocabulary ID.',
+            'type' => 'int',
+            'unsigned' => TRUE,
+            'not null' => TRUE,
+            'default' => 0,
+          ),
+          'changed' => array(
+            'description' => 'The Unix timestamp of the last change.',
+            'type' => 'int',
+            'unsigned' => TRUE,
+            'not null' => TRUE,
+            'default' => 0,
+          ),
+          'previously_changed' => array(
+            'description' => 'The Unix timestamp of the previous change.',
+            'type' => 'int',
+            'unsigned' => TRUE,
+            'not null' => TRUE,
+            'default' => 0,
+          ),
+          'priority_override' => array(
+            'description' => 'The priority of the term in the sitemap.',
+            'type' => 'float',
+            'not null' => TRUE,
+            'default' => -2.0,
+          ),
+        ),
+        'primary key' => array('tid'),
+      )
+    );
+  }
+  return $ret;
+}
+
+/**
+ * Implementation of hook_update_N().
+ */
+function xmlsitemap_taxonomy_update_6106() {
+  $ret[] = update_sql("UPDATE {system} SET weight = 10 WHERE name = 'xmlsitemap_taxonomy'");
+  return $ret;
+}
+
+/**
+ * Implementation of hook_update_N().
+ *
+ */
+function xmlsitemap_taxonomy_update_6113() {
+  $result = db_query("SELECT name FROM {variable} WHERE name LIKE 'xmlsitemap\_term\_%'");
+  while ($row = db_fetch_object($result)) {
+    $new_name = preg_replace('/_term_/', '_taxonomy_', $row->name);
+    $ret[] = update_sql("UPDATE {variable} set name = '$new_name' WHERE name LIKE 'xmlsitemap\_term\_%'");
+  }
+  $ret[] = update_sql("UPDATE {xmlsitemap} set module = 'xmlsitemap_taxonomy' WHERE module = 'xmlsitemap_term'");
+  $ret[] = update_sql("DELETE FROM {system} WHERE name = 'xmlsitemap_term'");
+  return $ret;
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function xmlsitemap_taxonomy_uninstall() {
+  drupal_uninstall_schema('xmlsitemap_taxonomy');
+  db_query("DELETE FROM {variable} WHERE name LIKE 'xmlsitemap\_taxonomy\_%'");
+}
+

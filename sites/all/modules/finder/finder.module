@@ -1,0 +1,1832 @@
+<?php
+
+/**
+ * @file
+ * The finder module.
+ *
+ * Finder allows Drupal site administrators to create flexible search forms to
+ * find objects such as Nodes or Users based on the values of a field.
+ */
+
+/**
+ * Implementation of hook_menu().
+ *
+ * @see hook_menu()
+ */
+function finder_menu() {
+  $items = array();
+  $items['finder/finder_ahah'] = array(
+    'title' => 'Finder AHAH',
+    'page callback' => 'finder_ahah',
+    'access arguments' => array('use finder'),
+    'type' => MENU_CALLBACK,
+  );
+  $finders = finder_load_multiple(NULL, array(), TRUE);
+  if (is_array($finders)) {
+    foreach ($finders as $finder) {
+      $items[$finder->path] = array(
+        'title' => $finder->title,
+        'page callback' => 'finder_page',
+        'page arguments' => array($finder->finder_id),
+        'access arguments' => array('use finder'),
+        'type' => MENU_CALLBACK,
+        'description' => $finder->description,
+      );
+    }
+  }
+  $admin_item = array(
+    'file' => 'finder.admin.inc',
+    'file path' => finder_inc_path(),
+  );
+  $items['admin/build/finder'] = $admin_item + array(
+    'title' => t('Finder'),
+    'page callback' => 'finder_admin_list',
+    'access arguments' => array('administer finder'),
+    'weight' => 0,
+    'type' => MENU_NORMAL_ITEM,
+    'description' => t("Finders are configurable forms to allow users to find objects in the system."),
+  );
+  $items['admin/build/finder/list'] = $admin_item + array(
+    'title' => t('Finder list'),
+    'page callback' => 'finder_admin_list_redirect',
+    'access arguments' => array('administer finder'),
+    'weight' => 1,
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+  $items['admin/build/finder/import'] = $admin_item + array(
+    'title' => t('Finder import'),
+    'page callback' => 'finder_admin_import',
+    'access callback' => 'finder_menu_allow_finder_import',
+    'weight' => 2,
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/build/finder/%finder/edit'] = $admin_item + array(
+    'title' => t('Edit finder'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('finder_admin_edit', 3),
+    'access callback' => 'finder_menu_allow_finder_tabs',
+    'access arguments' => array(3),
+    'weight' => 3,
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/build/finder/%finder/delete'] = $admin_item + array(
+    'title' => t('Delete finder'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('finder_admin_delete', 3),
+    'access callback' => 'finder_menu_allow_finder_tabs',
+    'access arguments' => array(3),
+    'weight' => 4,
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/build/finder/%finder/export'] = $admin_item + array(
+    'title' => t('Export finder'),
+    'page callback' => 'finder_admin_export',
+    'page arguments' => array(3),
+    'access callback' => 'finder_menu_allow_finder_tabs',
+    'access arguments' => array(3),
+    'weight' => 5,
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/build/finder/%finder/edit/%/edit'] = $admin_item + array(
+    'title' => t('Edit element'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('finder_admin_element_edit', 3, 5),
+    'access callback' => 'finder_menu_allow_finder_element_tabs',
+    'access arguments' => array(3),
+    'weight' => 6,
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/build/finder/%finder/edit/%/delete'] = $admin_item + array(
+    'title' => t('Delete element'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('finder_admin_element_delete', 3, 5),
+    'access callback' => 'finder_menu_allow_finder_element_tabs',
+    'access arguments' => array(3),
+    'weight' => 7,
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+/**
+ * Determine whether to allow the import tab.
+ */
+function finder_menu_allow_finder_import() {
+  return user_access('administer finder') && user_access('administer finder PHP settings');
+}
+
+/**
+ * Determine whether to show edit/delete tabs for finder.
+ *
+ * @see finder_menu()
+ */
+function finder_menu_allow_finder_tabs($finder) {
+  if (is_numeric(arg(3)) && !$finder->settings['programmatic']) {
+    return user_access('administer finder');
+  }
+  return FALSE;
+}
+
+/**
+ * Determine whether to show edit/delete tabs for finder element.
+ *
+ * @see finder_menu()
+ */
+function finder_menu_allow_finder_element_tabs($finder) {
+  return (is_numeric(arg(5)) && finder_menu_allow_finder_tabs($finder));
+}
+
+/**
+ * Implementation of hook_perm().
+ *
+ * @see hook_perm()
+ */
+function finder_perm() {
+  return array('administer finder', 'administer finder PHP settings', 'use finder');
+}
+
+/**
+ * Implementation of hook_theme().
+ *
+ * @see hook_theme()
+ */
+function finder_theme() {
+  return array(
+    'finder_admin_edit_elements_table' => array(
+      'file' => 'finder.theme.inc',
+      'path' => finder_inc_path(),
+      'arguments' => array(
+        'form' => NULL,
+      ),
+    ),
+    'finder_admin_links' => array(
+      'file' => 'finder.theme.inc',
+      'path' => finder_inc_path(),
+      'arguments' => array(
+        'finder' => NULL,
+      ),
+    ),
+    'finder_links' => array(
+      'file' => 'finder.theme.inc',
+      'path' => finder_inc_path(),
+      'arguments' => array(
+        'finder' => NULL,
+      ),
+    ),
+    'finder_page' => array(
+      'file' => 'finder.theme.inc',
+      'path' => finder_inc_path(),
+      'arguments' => array(
+        'finder' => NULL,
+      ),
+    ),
+    'finder_block' => array(
+      'file' => 'finder.theme.inc',
+      'path' => finder_inc_path(),
+      'arguments' => array(
+        'finder' => NULL,
+      ),
+    ),
+    'finder_view' => array(
+      'file' => 'finder.theme.inc',
+      'path' => finder_inc_path(),
+      'arguments' => array(
+        'finder' => NULL,
+        'display' => NULL,
+        'output_array' => NULL,
+      ),
+    ),
+    'finder_results' => array(
+      'file' => 'finder.theme.inc',
+      'path' => finder_inc_path(),
+      'arguments' => array(
+        'results' => NULL,
+        'finder' => NULL,
+        'keywords' => NULL,
+        'pager' => NULL,
+        'params' => NULL,
+        'form_state' => NULL,
+        'no_results' => NULL,
+      ),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_forms().
+ *
+ * @see hook_forms()
+ */
+function finder_forms($form_id, $args) {
+  if (strpos($form_id, 'finder_form_') === 0) {
+    $forms[$form_id] = array(
+      'callback' => 'finder_form',
+      'callback arguments' => $args,
+    );
+    return $forms;
+  }
+}
+
+/**
+ * Invoke hook_finderapi().
+ *
+ * @param &$object
+ *   The finder or finder flement.
+ * @param $op
+ *   The operation, indicates where/when this is being invoked.
+ * @param $a3, $a4
+ *   Arguments to pass to the hook implementation.
+ * @return
+ *   The returned value of the invoked hooks.
+ */
+function finder_invoke_finderapi(&$object, $op, $a3 = NULL, $a4 = NULL) {
+  $return = array();
+  foreach (module_implements('finderapi') as $name) {
+    $function = $name .'_finderapi';
+    $result = $function($object, $op, $a3, $a4);
+    if (isset($result) && is_array($result)) {
+      $return = array_merge($return, $result);
+    }
+    elseif (isset($result)) {
+      $return[] = $result;
+    }
+  }
+  return $return;
+}
+
+/**
+ * Load objects from the database.
+ *
+ * This is intended as a reverse 'drupal_write_record' based on the code from
+ * node_load_multiple() in Drupal 7.  It can be used to read records from any
+ * table assuming they are keyed by a serial field named {table}_id.  Also
+ * supports serialized fields.
+ *
+ * @param $load
+ *   The name of the table, and thus the type of object to load.
+ * @param $ids
+ *   An array of IDs, if selecting by ID.
+ * @param $conditions
+ *   An array of conditions on the table in the form 'field' => $value.
+ * @param $reset
+ *   Whether to reset the internal cache for this type of $load object.
+ * @return
+ *   An array of loaded objects indexed by ID.
+ */
+function finder_load_objects($load, $ids = NULL, $conditions = array(), $reset = FALSE) {
+  static $object_cache = array();
+  if ($reset) {
+    $object_cache[$load] = array();
+  }
+
+  if (!isset($object_cache[$load])) {
+    $object_cache[$load] = array();
+  }
+
+  $objects = array();
+
+  $id_key = $load .'_id';
+
+  // Create a new variable which is either a prepared version of the $ids
+  // array for later comparison with the finder cache, or FALSE if no $ids were
+  // passed. The $ids array is reduced as items are loaded from cache, and we
+  // need to know if it's empty for this reason to avoid querying the database
+  // when all requested objects are loaded from cache.
+
+  $passed_ids = !empty($ids) ? array_flip($ids) : FALSE;
+
+  // Load any available objects from the internal cache.
+  if ($object_cache[$load]) {
+    if (!empty($ids)) {
+      $objects += array_intersect_key($object_cache[$load], $passed_ids);
+      // If any objects were loaded, remove them from the $ids still to load.
+      $ids = array_keys(array_diff_key($passed_ids, $objects));
+    }
+    // If loading objects only by conditions, fetch all available objects from
+    // the cache. objects which don't match are removed later.
+    elseif ($conditions) {
+      $objects = $object_cache[$load];
+    }
+  }
+
+  // Exclude any objects loaded from cache if they don't match $conditions.
+  // This ensures the same behavior whether loading from memory or database.
+  if (!empty($conditions)) {
+    foreach ($objects as $object) {
+      $object_values = (array) $object;
+      if (array_diff_assoc($conditions, $object_values)) {
+        unset($objects[$object->$id_key]);
+      }
+    }
+  }
+
+  // Load objects from the database. This is the case if there are
+  // any $ids left to load, if $conditions was passed without $ids,
+  // or if $ids and $conditions were intentionally left blank.
+  if ((!empty($ids) || ($conditions && !$passed_ids)) || ($ids === NULL && $conditions === array())) {
+    $query = array();
+
+    // build query
+    $query['from'] = '{'. $load .'}';
+    if (!empty($ids)) {
+      $query['wheres'][] = $id_key .' IN ('. db_placeholders($ids) .')';
+      $query['arguments'] = (isset($query['arguments']) && is_array($query['arguments'])) ? $query['arguments'] + $ids : $ids;
+    }
+    if (!empty($conditions)) {
+      $object_schema = drupal_get_schema($load);
+      if (!empty($object_schema)) {
+        foreach ($conditions as $field => $value) {
+          $type = $object_schema['fields'][$field]['type'];
+          $query['wheres'][] = $field ." = ". db_type_placeholder($type);
+          $query['arguments'][] = $value;
+        }
+      }
+    }
+
+    if ($load == 'finder_element') {
+      $query['orders'][] = 'weight';
+    }
+
+    $queried_objects = finder_query($query);
+
+  }
+
+  // Pass all objects loaded from the database through the finder type specific
+  // callbacks and hook_finderapi(), then add them to the internal cache.
+  if (!empty($queried_objects)) {
+
+    foreach ($queried_objects as $q_key => $q_object) {
+
+      // unserialize settings
+      if (isset($q_object->settings)) {
+        $queried_objects[$q_key]->settings = (array)unserialize($q_object->settings);
+      }
+
+      // add elements if object is a finder.
+      // this code is here in lieu of a hook_finderapi ($op='finder_load') implementation.
+      if ($load == 'finder') {
+        $queried_objects[$q_key]->elements = finder_element_load_multiple(array(), array($id_key => $q_object->$id_key));
+        if (!empty($queried_objects[$q_key]->elements)) {
+          foreach ($queried_objects[$q_key]->elements as $position => $element) {
+            $queried_objects[$q_key]->elements_index[$element->finder_element_id] = $position;
+          }
+        }
+        finder_load_base_handler($queried_objects[$q_key]);
+        finder_load_element_handler($queried_objects[$q_key]);
+        finder_load_links($queried_objects[$q_key]);
+      }
+
+      // invoke finderapi so modules can make changes
+      finder_invoke_finderapi($queried_objects[$q_key], $load .'_load');
+    }
+
+    $objects += $queried_objects;
+    // Add objects to the cache.
+    //$object_cache[$load] += $queried_objects;
+    foreach ($queried_objects as $queried_object) {
+      $object_cache[$load][$queried_object->$id_key] = $queried_object;
+    }
+
+  }
+
+  // Ensure that the returned array is ordered the same as the original $ids
+  // array if this was passed in and remove any invalid ids.
+  if ($passed_ids) {
+    // Remove any invalid ids from the array.
+    $passed_ids = array_intersect_key($passed_ids, $objects);
+    foreach ($objects as $object) {
+      $passed_ids[$object->$id_key] = $object;
+    }
+    $objects = $passed_ids;
+  }
+
+  return $objects;
+}
+
+/**
+ * Load a finder object from the database.
+ *
+ * @param $finder_id
+ *   The finder ID.
+ * @param $reset
+ *   Whether to reset the internal cache for finder objects.
+ * @return
+ *   The loaded finder object, or FALSE on failure.
+ */
+function finder_load($finder_id, $reset = FALSE) {
+  $finders = finder_load_multiple(array($finder_id), array(), $reset);
+  return $finders ? $finders[$finder_id] : FALSE;
+}
+
+/**
+ * Load finder objects from the database.
+ *
+ * @param $ids
+ *   An array of finder IDs if selecting by IDs.
+ * @param $conditions
+ *   An array of conditions on the table in the form 'field' => $value.
+ * @param $reset
+ *   Whether to reset the internal cache for finder objects.
+ * @return
+ *   An array of loaded finder objects indexed by ID.
+ */
+function finder_load_multiple($ids = NULL, $conditions = array(), $reset = FALSE) {
+  return finder_load_objects('finder', $ids, $conditions, $reset);
+}
+
+/**
+ * Save changes to a finder or add a new finder.
+ *
+ * @param &$finder
+ *   The finder object.
+ */
+function finder_save(&$finder) {
+  finder_invoke_finderapi($finder, 'finder_presave');
+  $update = array();
+  $op = 'finder_insert';
+  if (!empty($finder->finder_id)) {
+    $update[] = 'finder_id';
+    $op = 'finder_update';
+  }
+  drupal_write_record('finder', $finder, $update);
+  finder_invoke_finderapi($finder, $op);
+}
+
+/**
+ * Delete a finder and it's finder elements.
+ *
+ * @param $finder_id
+ *   The finder ID.
+ */
+function finder_delete($finder_id) {
+  $finder = finder_load($finder_id);
+  db_query("DELETE FROM {finder_element} WHERE finder_id = %d", $finder_id);
+  db_query('DELETE FROM {finder} WHERE finder_id = %d', $finder_id);
+  finder_invoke_finderapi($finder, 'finder_delete');
+  watchdog('finder', 'Finder %title deleted.', array('%title' => $finder->title));
+  drupal_set_message(t('Finder %title has been deleted.', array('%title' => $finder->title)));
+}
+
+/**
+ * Load a finder element object from the database.
+ *
+ * @param $finder_element_id
+ *   The finder element ID.
+ * @param $reset
+ *   Whether to reset the internal cache for finder element objects.
+ * @return
+ *   The loaded finder element object, or FALSE on failure.
+ */
+function finder_element_load($finder_element_id) {
+  $finder_elements = finder_element_load_multiple(array($finder_element_id), array(), $reset);
+  return $finder_elements ? $finder_elements[$finder_element_id] : FALSE;
+}
+
+/**
+ * Load finder element objects from the database.
+ *
+ * @param $ids
+ *   An array of finder element IDs if selecting by IDs.
+ * @param $conditions
+ *   An array of conditions on the table in the form 'field' => $value.
+ * @param $reset
+ *   Whether to reset the internal cache for finder element objects.
+ * @return
+ *   An array of loaded finder element objects indexed by ID.
+ */
+function finder_element_load_multiple($ids = NULL, $conditions = array(), $reset = FALSE) {
+  return finder_load_objects('finder_element', $ids, $conditions, $reset);
+}
+
+/**
+ * Save changes to a finder element or add a new finder element.
+ *
+ * @param &$finder_element
+ *   The finder element object.
+ */
+function finder_element_save(&$finder_element) {
+  finder_invoke_finderapi($finder_element, 'finder_element_presave');
+  $update = array();
+  $op = 'finder_element_insert';
+  if (!empty($finder_element->finder_element_id)) {
+    $update[] = 'finder_element_id';
+    $op = 'finder_element_update';
+  }
+  drupal_write_record('finder_element', $finder_element, $update);
+  finder_invoke_finderapi($finder_element, $op);
+}
+
+/**
+ * Delete a finder element.
+ *
+ * @param $finder_element_id
+ *   The finder element ID.
+ */
+function finder_element_delete($finder_element_id) {
+  $finder_element = finder_element_load($finder_element_id);
+  db_query("DELETE FROM {finder_element} WHERE finder_element_id = %d", $finder_element_id);
+  finder_invoke_finderapi($finder_element, 'finder_element_delete');
+  watchdog('finder', 'Finder element %title deleted.', array('%title' => $finder_element->title));
+  drupal_set_message(t('Finder element %title has been deleted.', array('%title' => $finder_element->title)));
+}
+
+/**
+ * Write a finder into the database as a new finder.
+ *
+ * @param $old_finder
+ *   The finder object to clone.
+ * @return
+ *   The new finder object.
+ */
+function finder_clone($old_finder) {
+  $finder = drupal_clone($old_finder);
+  finder_invoke_finderapi($finder, 'finder_clone');
+  unset($finder->finder_id);
+  finder_save($finder);
+  foreach ($finder->elements as $key => $finder_element) {
+    unset($finder_element->finder_element_id);
+    $finder_element->finder_id = $finder->finder_id;
+    finder_element_save($finder_element);
+    $finder->elements[$key] = $finder_element;
+  }
+  return $finder;
+}
+
+/**
+ * Menu callback; view a finder page.
+ *
+ * @param $finder_id
+ *   The finder ID.
+ * @return
+ *   Themed output of a finder page.
+ */
+function finder_page($finder_id) {
+  $finder = finder_load($finder_id);
+  finder_invoke_finderapi($finder, 'finder_page');
+  return theme('finder_page', $finder);
+}
+
+/**
+ * Generate display of a given finder.
+ *
+ * @param $finder
+ *   The finder object to generate the output for.
+ * @param $display
+ *   The type of display ('page', or 'block').
+ * @param $ahah
+ *   Whether in the context of an AHAH request.
+ * @return
+ *   Themed output of a finder.
+ */
+function finder_view($finder, $display, $ahah = FALSE) {
+  finder_inc('form');
+  finder_invoke_finderapi($finder, 'finder_view', $display);
+  $output = array();
+
+  $finder->finder_view_build_id = 'finder-'. $display .'-'. $finder->finder_id .'-wrapper';
+  $finder->finder_view_build_display = $display;
+
+  // Always get the form in order to populate the form_state in case there are results we need to present.
+  // The form building function will not spend resources building elements if it doesn't need to.
+  // to do: this non form_on_page get_form may only be needed when hiding url args?
+  $form = drupal_get_form('finder_form_'. $finder->finder_id, $finder);
+
+  if ($finder->settings['advanced']['show_admin_links'] && user_access('administer finder')) {
+    $output['admin_links'] = theme('finder_admin_links', $finder);
+  }
+  if ($display != 'page' || ($display == 'page' && $finder->settings['form_on_page'])) {
+    $output['form'] = $form;
+  }
+  if ($finder->settings['advanced']['show_links']) {
+    $output['links'] = theme('finder_links', $finder);
+  }
+  if ($display != 'block' || ($display == 'block' && $ahah)) {
+    $output['results'] = finder_results($finder);
+  }
+
+  $rendered = '';
+  $rendered .= $ahah ? '' : '<div id="'. $finder->finder_view_build_id .'" class="finder-view-wrapper">';
+  $rendered .= theme('finder_view', $finder, $display, $output);
+  $rendered .= $ahah ? '' : '</div>';
+
+  return $rendered;
+}
+
+/**
+ * Menu callback; get finder ahah output.
+ *
+ * @param $finder_id
+ *   The finder ID.
+ * @param $display
+ *   the type of display ('page', or 'block).
+ * @param $path
+ *   URL encoded path substitute.
+ * @return
+ *   Finder ahah output in JSON format.
+ */
+function finder_ahah($finder_id, $display, $path) {
+  if ($finder_id) {
+    $finder = finder_load($finder_id);
+    if ($finder) {
+      // fix the path for any scripts that might call $_GET['q']
+      $_GET['q'] = urldecode($path);
+      // force the json'd finder output to hide_args
+      $finder->settings['advanced']['hide_args'] = 1;
+
+      drupal_json(array('status' => TRUE, 'data' => finder_view($finder, $display, TRUE)));
+      exit;
+    }
+  }
+  drupal_json(array('data' => ''));
+  exit;
+}
+
+/**
+ * Create finder results output.
+ *
+ * @param $finder
+ *   The finder object.
+ * @return
+ *   Themed output of finder results.
+ */
+function finder_results($finder) {
+  $output = '';
+
+  $finder_form_state = finder_form_state($finder->finder_id);
+
+  finder_invoke_finderapi($finder, 'finder_results', $finder_form_state);
+
+  if (($finder_form_state && $finder_form_state['storage']['finished']) || $finder->settings['advanced']['filter']) {
+
+    // I can't remember what this is for...
+    foreach ($_REQUEST as $k => $v) {
+      unset($_REQUEST[$k]);
+    }
+
+    $keywords = array();
+
+    $pager = &$finder->settings['advanced']['pager'];
+
+    foreach ($finder->elements as $element) {
+      $match = &$element->settings['advanced']['match'];
+      $keyword = array();
+      if (!is_null($finder_form_state['values'][$element->finder_element_id])) {
+        $keyword = (array)$finder_form_state['values'][$element->finder_element_id];
+
+        if (!empty($element->settings['advanced']['delimit'])) {
+
+          // This enables escaped characters to work in delimiters.
+          $delimiter = stripcslashes($element->settings['advanced']['delimit']);
+
+          foreach ($keyword as $k => $v) {
+            unset($keyword[$k]);
+            $exploded = explode($delimiter, $v);
+            foreach ($exploded as $e) {
+              $keyword[] = trim($e);
+            }
+          }
+        }
+
+      }
+      $keywords[$element->finder_element_id] = $keyword;
+    }
+
+    $goto = &$finder->settings['advanced']['goto'];
+    if ((isset($_GET['go']) && $_GET['go']) || (isset($finder_form_state['clicked_button']) && $finder_form_state['clicked_button']['#name'] == 'go' && $finder_form_state['storage']['finished']) || $goto == 'always') {
+      $finder->go = TRUE;
+    }
+
+    $result = finder_find($finder, $keywords, 'results', $match, $pager);
+
+    if ($finder->settings['advanced']['hide_args']) {
+      if ($pager && !isset($finder_form_state['storage']['pager_token'])) {
+        $token = drupal_get_token();
+        $finder_form_state['storage']['pager_token'] = $token;
+        $_SESSION['finder'][$token] = $finder_form_state;
+      }
+    }
+
+    $base_module = &$finder->base_handler['#module'];
+
+    if ((isset($finder->go) && $finder->go && count($result)) || ($goto == 'best' && count($result) === 1 && empty($_GET['page']))) {
+      drupal_alter('finder_goto', $result, $finder);
+      $current_result = current($result);
+      module_invoke($base_module, 'finder_goto', $finder, $current_result);
+    }
+
+    $results = module_invoke($base_module, 'finder_result', $finder, $keywords, $result, $finder_form_state);
+
+    $params = array();
+    if (!empty($finder_form_state['storage']['pager_token'])) {
+      $params['finder'] = $finder_form_state['storage']['pager_token'];
+    }
+
+    if (!empty($finder->settings['advanced']['no_results']['no_results'])) {
+      $variables = array(
+        'finder' => $finder,
+        'keywords' => $keywords,
+        'form_state' => $finder_form_state,
+      );
+      $no_results = finder_eval($finder->settings['advanced']['no_results']['no_results'], $variables);
+    }
+    else {
+      // Default text.
+      $no_results = t('There are no results to display');
+    }
+
+    $output .= theme('finder_results', $results, $finder, $keywords, $pager, $params, $finder_form_state, $no_results);
+  }
+
+  return $output;
+}
+
+/**
+ * Implementation of hook_block().
+ *
+ * @see hook_block()
+ */
+function finder_block($op = 'list', $delta = 0, $edit = array()) {
+  if ($op == 'list') {
+    $finders = finder_load_multiple(NULL, array('block' => 1));
+    $blocks = array();
+    foreach ($finders as $finder) {
+      $blocks['finder_'. $finder->finder_id] = array(
+        'info' => t('Finder') .': '. $finder->title,
+        'cache' => BLOCK_NO_CACHE,
+      );
+    }
+    return $blocks;
+  }
+  elseif ($op == 'view' && user_access('use finder')) {
+    $finder_id = str_replace('finder_', '', $delta);
+    $finder = finder_load($finder_id);
+    if ($finder) {
+      finder_invoke_finderapi($finder, 'finder_block');
+      $block = array(
+        'subject' => check_plain($finder->title),
+        'content' => theme('finder_block', $finder),
+      );
+      return $block;
+    }
+  }
+}
+
+/**
+ * Get a list of choices for form or results.
+ *
+ * This will invoke the base handler module's hook_finder_find()
+ * implementation.  It also allows for hooks to alter the keywords, finder, and
+ * choices/results.
+ *
+ * @param $finder
+ *   The finder object.
+ * @param $keywords
+ *   An array keyed by finder_element_id, where the values are any
+ *   str/num/bool/null or an array of such values to be OR'd together.
+ * @param $mode
+ *   'choices' or 'results' depending on what we are fetching.
+ * @param $match
+ *   The match method, see finder_match_operator().
+ * @param $pager
+ *   Used to limit choices or results per page.
+ * @param $finder_element_id
+ *   If $mode is 'choices', this is the finder element id to get choices for.
+ * @param $reset
+ *   Reset the cached return value for this set of parameters.
+ * @return
+ *   An array of choices/results.
+ * @see hook_finder_find()
+ */
+function finder_find($finder, $keywords, $mode = 'choices', $match = 'e', $pager = 0, $finder_element_id = NULL, $reset = FALSE) {
+  static $finder_find_cache = array();
+
+  // For a 'choices' find we need a main element to focus our query around
+  // normally calling finder_find() you would not specify the $finder_element_id
+  // but it would be interpreted as the index of the last $keywords element
+  // though some modules may need to specify a main element other than the last
+  // so that parameter is available.  This value is best left 'NULL' for 'results'.
+  if ($mode == 'choices' && is_null($finder_element_id)) {
+    // no $finder_element_id was passed as the current element we're doing
+    // so let's assume the last array key in $keywords is current finder_element_id
+    $finder_element_id = end(array_keys($keywords));
+  }
+
+  // Create an ID using the function params so we can cache the return value.
+  $id = ($mode == 'choices' ? 'e'. $finder_element_id : 'f'. $finder->finder_id) .'|';
+  $id_length = strlen($id);
+  $cache_id = ($match != 'e' ? $match : '')
+            . ($pager ? $pager . (isset($_GET['page']) ? '.'. $_GET['page'] : '') : '')
+            . serialize($keywords);
+  $cache_id_length = strlen($cache_id);
+  if (($cache_id_length + $id_length) > 255) {
+    // For ID's that (will) exceed 255 we will try to represent them a unique way and pray for the best :/
+    $cache_id = md5($cache_id)
+              . $cache_id_length
+              . substr($cache_id, 0, 223 - strlen($cache_id_length) - $id_length);  // 223 = 255 - 32
+  }
+  $cache_id = $id . $cache_id;
+
+  if (isset($finder_find_cache[$cache_id])) {
+    // Use the static data.
+    $options = $finder_find_cache[$cache_id];
+  }
+  elseif ($finder->settings['advanced']['cache_finder_find']
+    && !$reset
+    && ($cache = cache_get($cache_id, 'cache_finder_find'))
+    && !empty($cache->data)) {
+    // Use the cached data.
+    $options = $cache->data;
+  }
+  else {
+    // Calculate the values from the database.
+
+    // Figure out which module is the base module (the module that tells us the options)
+    $module = &$finder->base_handler['#module'];
+
+    // Allow other modules to intefere with the keywords.
+    drupal_alter('finder_find_keywords', $keywords, $finder, $finder_element_id, $mode, $match, $pager);
+
+    // Allow other modules to react to and alter the finder.
+    finder_invoke_finderapi($finder, 'finder_find', $mode, $finder_element_id);
+
+    $options = module_invoke($module, 'finder_find', $finder, $finder_element_id, $keywords, $mode, $match, $pager);
+
+    // If mode is choices, we want to conduct some extra processing on this list.
+    if ($mode == 'choices') {
+      $options = finder_find_choices($finder, $finder_element_id, $options, $keywords[$finder_element_id], $match);
+    }
+
+    // Allow other modules to intefere with the options.
+    drupal_alter('finder_find_options', $options, $finder, $finder_element_id, $keywords, $mode, $match, $pager);
+
+    // Add the resulting $options to the drupal cache.
+    if ($finder->settings['advanced']['cache_finder_find']) {
+      cache_set($cache_id, $options, 'cache_finder_find', time() + $finder->settings['advanced']['cache_finder_find']);
+    }
+
+    // Add the resulting $options to the static internal load cache.
+    $finder_find_cache[$cache_id] = $options;
+
+  }
+
+  return $options;
+}
+
+/**
+ * Build basic finder query arrays.
+ *
+ * This is a helper function that can be leveraged by basic hook_finder_find()
+ * implementations.  It takes care of the common tasks that need to be done to
+ * build the $query array correctly, and allows the base handler modules to
+ * focus on their specialties.
+ *
+ * @param $query
+ *   The query array to modify.
+ * @param $finder
+ *   The finder object.
+ * @param $finder_element_id
+ *   If $mode is 'choices', this is the finder element id to get choices for.
+ * @param $keywords
+ *   An array keyed by finder_element_id, where the values are any
+ *   str/num/bool/null or an array of such values to be OR'd together.
+ * @param $mode
+ *   'choices' or 'results' depending on what we are fetching.
+ * @param $match
+ *   The match method, see finder_match_operator().
+ * @param $pager
+ *   Used to limit choices or results per page.
+ * @param $join_ons
+ *   Join information in the form of an array where the key is the table string
+ *   as returned when a value returned from hook_finder_fields() is put through
+ *   finder_split_info() and the value is an array where the keys are the names
+ *   of real tables to join, and the values are the 'ON condition' that follows
+ *   the ON keyword in SQL.
+ * @param $base_table
+ *   The name of the base table to query.
+ * @param $base_field
+ *   The primary key of the base table.
+ * @return
+ *   The modified query array.
+ */
+function finder_find_query($query, $finder, $finder_element_id, $keywords, $mode, $match, $pager, $join_ons, $base_table, $base_field) {
+
+  $options = array();
+
+  $element_match = finder_match_operator($match);
+
+  $query['from'] = '{'. $base_table .'} '. $base_table;
+
+  if ($mode == 'results') {
+    $query['selects'][] = $base_table .'.'. $base_field;
+    $query['selects'][] = '"'. $base_field .'" AS base_field';
+    $query['selects'][] = '"'. $base_table .'" AS base_table';
+    $query['groups'][] = $base_table .'.'. $base_field;
+  }
+
+  foreach ($keywords as $feid => $keyword_array) {
+
+    $element = &finder_element($finder, $feid);
+    $fields[$feid] = &$element->settings['choices']['field'];
+    foreach ($fields[$feid] as $key => $field) {
+      $field_info[$feid][$key] = finder_split_field($field);
+    }
+
+    if ($mode == 'choices' && $feid == $finder_element_id && $element->settings['choices']['per_result']) {
+      $query['selects'][] = $base_table .'.'. $base_field;
+      $query['selects'][] = '"'. $base_field .'" AS base_field';
+      $query['selects'][] = '"'. $base_table .'" AS base_table';
+      $query['groups'][] = $base_table .'.'. $base_field;
+    }
+
+    foreach ($fields[$feid] as $key => $field) {
+      $field_alias = finder_field_alias($feid, $field_info[$feid][$key]['table'], $field_info[$feid][$key]['field']);
+      $query['selects'][] = $field .' AS '. $field_alias;
+      if ($mode == 'choices' && $feid == $finder_element_id) {
+        $query['groups'][] = $field_alias;
+      }
+      $field_info[$feid][$key]['field_alias'] = $field_alias;
+    }
+
+    // join tables if needed
+    foreach ($fields[$feid] as $key => $field) {
+      if (in_array($field_info[$feid][$key]['table'], array_keys($join_ons))) {
+        $join_on = $join_ons[$field_info[$feid][$key]['table']];
+        foreach ($join_on as $table => $on) {
+          $query['joins'][] = 'INNER JOIN {'. $table .'} '. $table .' ON '. $on;
+        }
+      }
+    }
+
+    $field_operator = $element->settings['advanced']['field_combination'] ? 'AND' : 'OR';
+    $value_operator = $element->settings['advanced']['value_combination'] ? 'AND' : 'OR';
+    $nesting_order = &$element->settings['advanced']['nesting_order'];
+    $outer_operator = $nesting_order ? $field_operator : $value_operator;
+    $inner_operator = $nesting_order ? $value_operator : $field_operator;
+
+    // Restrict by keywords on field.
+    $keyword_array = (array)$keyword_array;
+    $keyword_array = array_filter($keyword_array, 'finder_empty_keyword');
+    if (!empty($keyword_array)) {
+      $results_match = finder_match_operator($element->settings['advanced']['match']);
+      $query['wheres']['outer']['#operator'] = $outer_operator;
+      foreach ($keyword_array as $keyword_index => $keyword) {
+        if ($feid == $finder_element_id) {
+          foreach ($fields[$feid] as $key => $field) {
+            $inner_key = $nesting_order ? $key : $keyword_index;
+            if (!isset($query['wheres']['outer']['inner' . $inner_key]['#operator'])) {
+              $query['wheres']['outer']['inner' . $inner_key]['#operator'] = $inner_operator;
+            }
+            $expression = $field . finder_placeholder($element_match, $field_info[$feid][$key]['table'], $field_info[$feid][$key]['field']);
+            $query['wheres']['outer']['inner' . $inner_key][] = $expression;
+            $query['arguments'][] = $keyword;
+            if ($mode == 'choices') {
+              array_unshift($query['selects'], '(' . $expression . ') AS ' . $field_info[$feid][$key]['field_alias'] . '_matched');
+              array_unshift($query['arguments'], $keyword);
+            }
+          }
+        }
+        else {
+          $query['wheres']['restrictions'][$feid]['outer']['#operator'] = $outer_operator;
+          foreach ($fields[$feid] as $key => $field) {
+            $inner_key = $nesting_order ? $key : $keyword_index;
+            if (!isset($query['wheres']['restrictions'][$feid]['outer']['inner' . $inner_key]['#operator'])) {
+              $query['wheres']['restrictions'][$feid]['outer']['inner' . $inner_key]['#operator'] = $inner_operator;
+            }
+            $query['wheres']['restrictions'][$feid]['outer']['inner' . $inner_key][] = $field . finder_placeholder($results_match, $field_info[$feid][$key]['table'], $field_info[$feid][$key]['field']);
+            $query['arguments'][] = $keyword;
+          }
+        }
+      }
+    }
+
+  }
+
+  // provide info for db_rewrite_sql
+  $query['primary_table'] = $base_table;
+  $query['primary_field'] = $base_field;
+
+  // ensure there are no duplicate joins
+  if (!empty($query['joins'])) {
+    $query['joins'] = array_unique($query['joins']);
+  }
+
+  // for additional elements wheres group
+  if (!empty($query['wheres']['restrictions'])) {
+    $query['wheres']['restrictions']['#operator'] = $finder->settings['advanced']['element_combination'] ? 'OR' : 'AND';
+  }
+
+  if ($pager) {
+    $query['limit'] = $pager;
+    $query['pager'] = TRUE;
+  }
+
+  // Restrict to one result if $finder->go is TRUE.
+  if ($mode == 'results' && isset($finder->go) && $finder->go) {
+    $query['limit'] = 1;
+    $query['pager'] = TRUE;
+  }
+
+  return $query;
+
+}
+
+/*
+ * A very basic query builder to perform select queries.
+ *
+ * Takes a $query array which determines how to build the SQL, whether and how
+ * to execute it, and what to return.
+ *
+ * @param $query
+ *   The query array.  See in-code comments for expected values.
+ * @return
+ *   The built $query array if $query['execute'] is FALSE, or the array of
+ *   query results if $query['execute'] is TRUE, or FALSE on failure.
+ */
+function finder_query($query) {
+
+  // Allow modules to modify this query.
+  drupal_alter('finder_query', $query);
+
+  // Prepare 'selects'.
+  // Expecting empty or array('field1', 'alias.field2', etc..).
+  if (!empty($query['selects'])) {
+    $selects = "SELECT ". implode(', ', $query['selects']);
+  }
+  else {
+    $selects = "SELECT *";
+  }
+
+  // Prepare 'from'
+  // expecting string like "{tablename} tablealias".
+  if ($selects && $query['from']) {
+    $from = " FROM ". $query['from'];
+  }
+  elseif ($selects) {
+    drupal_set_message(t("No 'from' given in finder_query()"), "error");
+    return FALSE;
+  }
+  else {
+    $from = '';
+  }
+
+  // Prepare joins.
+  // Expecting array("LEFT JOIN {table} alias ON alias.field1 = x.field2", "INNER JOIN {table} alias ON alias.field1 = x.field2", etc..).
+  if (!empty($query['joins'])) {
+    $joins = " ". implode(' ', $query['joins']);
+  }
+  else {
+    $joins = '';
+  }
+
+  // Prepare wheres.
+  // See finder_wheres() for expected values.
+  if (!empty($query['wheres'])) {
+    $wheres = " WHERE ". finder_wheres($query['wheres']);
+  }
+  else {
+    $wheres = '';
+  }
+
+  // Prepare groups.
+  // Expecting array('a field', 'another field', etc...).
+  if (!empty($query['groups'])) {
+    $groups = " GROUP BY ". implode(', ', $query['groups']);
+  }
+  else {
+    $groups = '';
+  }
+
+  // Prepare orders.
+  // Expecting array("field1 ASC", "alias.field2 DESC", etc..).
+  if (!empty($query['orders'])) {
+    $orders = " ORDER BY ". implode(', ', $query['orders']);
+  }
+  else {
+    $orders = '';
+  }
+
+  // Build the query string.
+  $query['sql'] = $selects . $from . $joins . $wheres . $groups . $orders;
+
+  // Rewrite if required information is given.
+  if (isset($query['primary_table']) && isset($query['primary_field'])) {
+    $query['sql'] = db_rewrite_sql($query['sql'], $query['primary_table'], $query['primary_field'], $query['arguments']);
+  }
+
+  // Do a pager query
+  if (isset($query['pager']) && !empty($query['pager'])) {
+    $query['limit'] = $query['limit'] ? $query['limit'] : 10;
+    $query['element'] = $query['element'] ? $query['element'] : 0;
+    $query['count_sql'] = $query['count_sql'] ? $query['count_sql'] : "SELECT COUNT(*) ". $from . $joins . $wheres;
+
+    $query['query_function'] = 'pager_query';
+    $query['query_function_arguments'] = array(
+      'query' => $query['sql'],
+      'limit' => $query['limit'],
+      'element' => $query['element'],
+      'count_query' => $query['count_sql'],
+      'arguments' => isset($query['arguments']) ? $query['arguments'] : array(),
+    );
+  }
+  // Do a range query
+  elseif (isset($query['range']) && !empty($query['range'])) {
+    $query['from'] = $query['from'] ? $query['from'] : 0;
+    $query['count'] = $query['count'] ? $query['count'] : 10;
+    $query['query_function'] = 'db_query_range';
+    $query['query_function_arguments'] = array(
+      'query' => $query['sql'],
+      'arguments' => isset($query['arguments']) ? $query['arguments'] : array(),
+      'from' => $query['from'],
+      'count' => $query['count'],
+    );
+  }
+  // Do a normal query.
+  else {
+    $query['query_function'] = 'db_query';
+    $query['query_function_arguments'] = array(
+      'query' => $query['sql'],
+      'arguments' => isset($query['arguments']) ? $query['arguments'] : NULL,
+    );
+  }
+
+  // Allow modules to modify the built query.
+  drupal_alter('finder_query_built', $query);
+
+  //dpm($query);
+
+  // If not executing a query just return the query object here.
+  if (isset($query['execute']) && $query['execute'] === FALSE) {
+    return $query;
+  }
+
+  if ($query['query_function']) {
+    $result = call_user_func_array($query['query_function'], $query['query_function_arguments']);
+  }
+
+  // process results
+  $db_function = isset($query['db_function']) ? $query['db_function'] : 'db_fetch_object';
+  $results = array();
+  while ($row = $db_function($result)) {
+    $results[] = $row;
+  }
+
+  return $results;
+
+}
+
+/*
+ * Recursively process SQL 'wheres'.
+ *
+ * @param $wheres
+ *   The wheres array. For example:
+ *     array(
+ *      '#operator' => 'OR',
+ *      "foo = 'something'",
+ *      "bar = 'another'",
+ *      array(
+ *         '#operator' => 'AND',
+ *         "baz IN (1,2,3)",
+ *         "baz NOT NULL",
+ *       ),
+ *     );
+ * @return
+ *   The where string. For example:
+ *     WHERE foo = 'something'
+ *     OR bar = 'another'
+ *     OR (baz IN (1,2,3) AND baz NOT NULL)
+ */
+function finder_wheres($wheres) {
+
+  $operator = isset($wheres['#operator']) ? $wheres['#operator'] : 'AND';
+  unset($wheres['#operator']);
+
+  foreach ($wheres as $key => $where) {
+    if (is_array($where)) {
+      $finder_wheres = finder_wheres($where);
+      if ($finder_wheres) {
+        $wheres[$key] = '('. $finder_wheres .')';
+      }
+      else {
+        unset($wheres[$key]);
+      }
+    }
+  }
+
+  return implode(' '. $operator .' ', $wheres);
+}
+
+/**
+ * Get a list of possible element types.
+ *
+ * @return
+ *   An array of element handlers from hook implementations.
+ * @see hook_finder_element_handlers()
+ */
+function finder_element_handlers() {
+  static $element_handlers;
+  if (empty($element_handlers)) {
+    $element_handlers = module_invoke_all('finder_element_handlers');
+  }
+  return $element_handlers;
+}
+
+/**
+ * Attach element handler data to the finder.
+ *
+ * @param &$finder
+ *   The finder object.
+ */
+function finder_load_element_handler(&$finder) {
+  $element_handlers = finder_element_handlers();
+  if (!empty($finder->elements)) {
+    foreach ($finder->elements as $key => $element) {
+      $finder->elements[$key]->element_handler = $element_handlers[$element->element];
+    }
+  }
+}
+
+/**
+ * Get a list of findable Drupal objects.
+ *
+ * @return
+ *   An array of base handlers from hook implementations.
+ * @see hook_finder_base_handlers()
+ */
+function finder_base_handlers() {
+  static $base_handlers;
+  if (empty($base_handlers)) {
+    $base_handlers = module_invoke_all('finder_base_handlers');
+  }
+  return $base_handlers;
+}
+
+/**
+ * Attach base handler data to the finder.
+ *
+ * @param &$finder
+ *   The finder object.
+ */
+function finder_load_base_handler(&$finder) {
+  $base_handlers = finder_base_handlers();
+  $finder->base_handler = $base_handlers[$finder->base];
+}
+
+/**
+ * Load a module include file according to finder's naming convention.
+ *
+ * Finder's naming convention suggests includes be put in a directory called
+ * 'includes' within the module's directory, and named like so:
+ * module-name.inc-string.inc
+ *
+ * @param $inc_string
+ *   If the file is finder.foo.inc then the $inc_string to specify is 'foo'.
+ * @param $module
+ *   The name of the module.
+ */
+function finder_inc($inc_string, $module = 'finder') {
+  return module_load_include('inc', $module, 'includes/'. $module .'.'. $inc_string);
+}
+
+/**
+ * Returns the path to a module's includes directory according to finder's
+ * naming convention.
+ *
+ * Finder's naming convention suggests includes be put in a directory called
+ * 'includes' within the module's directory.
+ *
+ * @param $module
+ *   The name of the module.
+ */
+function finder_inc_path($module = 'finder') {
+  static $inc_path;
+  if (empty($inc_path[$module])) {
+    $inc_path[$module] = drupal_get_path('module', $module) .'/includes';
+  }
+  return $inc_path[$module];
+}
+
+/**
+ * Turns string placeholders to other types in keyword queries, if required.
+ *
+ * By default finder's queries use a string placeholder ('%s') with no regard
+ * for pgsql peculiarities when creating an SQL condition for searches.   By
+ * putting such conditions through this function, this is a common place to do
+ * string manipulation on the condition to ensure compatibility with the
+ * database.
+ *
+ * @param $match
+ *   The SQL condition string.
+ * @param $table
+ *   The name of the table this condition is from.
+ * @param $field
+ *   The name of the field this condition is against.
+ * @param $insert_value
+ *   Insert the value into the query instead of the placeholder.
+ * @return
+ *   The modified SQL condition string.
+ */
+function finder_placeholder($match, $table, $field, $insert_value = FALSE) {
+  global $db_type;
+  $object_schema = drupal_get_schema($table);
+  $type = $object_schema['fields'][$field]['type'];
+  $placeholder = db_type_placeholder($type);
+  if ($insert_value !== FALSE) {
+    switch ($placeholder) {
+      case '%d':
+        if ($insert_value > PHP_INT_MAX) {
+          $precision = ini_get('precision');
+          @ini_set('precision', 16);
+          $insert_value = sprintf('%.0f', $insert_value);
+          @ini_set('precision', $precision);
+        }
+        else {
+          $insert_value = (int) $insert_value;
+        }
+        $match = str_replace('%d', $insert_value, $match);
+        break;
+      case "'%s'":
+        $match = str_replace('%s', db_escape_string($insert_value), $match);
+        break;
+      case '%n':
+        $insert_value = trim($insert_value);
+        $insert_value =  is_numeric($insert_value) && !preg_match('/x/i', $insert_value) ? $insert_value : '0';
+        $match = str_replace('%n', $insert_value, $match);
+        break;
+      case '%%':
+        $match = str_replace('%%', '%', $match);
+        break;
+      case '%f':
+        $match = str_replace('%f', (float) $insert_value, $match);
+        break;
+      case '%b':
+        $match = str_replace('%b', db_encode_blob($insert_value), $match);
+        break;
+    }
+  }
+
+  if ($placeholder != "'%s'") {
+    if (strpos($match, 'LIKE') === FALSE) {
+      $match = str_replace('%s', $placeholder, $match);
+      $match = str_replace("'", "", $match);
+    }
+    elseif ($db_type == 'pgsql') {  // It is also assumed that $match contains 'LIKE' here.
+      $match = '::text'. str_replace('LIKE', 'ILIKE', $match);
+    }
+  }
+  return $match;
+}
+
+/**
+ * Return info about a field.
+ *
+ * Finder stores information about fields as "table-name.field-name", this is
+ * just a simple function to split the field string into the two parts for
+ * convenience.
+ *
+ * @param $field
+ *   A field value as given in the array keys returned from
+ *   hook_finder_fields() implementations.
+ * @return
+ *   An array with keys 'field' and 'table'.
+ */
+function finder_split_field($field) {
+  $field_parts = explode('.', $field);
+  $field_info['field'] = $field_parts[1];
+  $field_info['table'] = $field_parts[0];
+  return $field_info;
+}
+
+/**
+ * Get data about finder match methods.
+ *
+ * @param $match
+ *   The match method if a specific operator is needed.
+ * @return
+ *   A specific operator string if $match is set.  Otherwise returns the full
+ *   array of data about all match methods including operators and
+ *   descriptions.
+ */
+function finder_match_operator($match = NULL) {
+  static $operators;
+  if (empty($operators)) {
+    // Operators use abbreviated key names because they need to be tiny in cache ID's.
+    $operators = array(
+      'c' => array(
+        'operator' => " LIKE '%%%s%%'",
+        'description' => t('<em>Contains</em> - Results <em>contain</em> the submitted values.'),
+      ),
+      'cw' => array(
+        'operator' => " REGEXP '[[:<:]]%s[[:>:]]'",
+        'description' => t('<em>Contains word</em> - Results <em>contain</em> the submitted values as whole words.'),
+      ),
+      'e' => array(
+        'operator' => " = '%s'",
+        'description' => t('<em>Equals</em> - Results must match the submitted values <em>exactly</em>.'),
+      ),
+      'sw' => array(
+        'operator' => " LIKE '%s%%'",
+        'description' => t('<em>Starts with</em> - Results must <em>start with</em> the submitted values.'),
+      ),
+      'ew' => array(
+        'operator' => " LIKE '%%%s'",
+        'description' => t('<em>Ends with</em> - Results must <em>end with</em> the submitted values.'),
+      ),
+      'lt' => array(
+        'operator' => " < '%s'",
+        'description' => t('<em>Less than</em> - Results must be <em>less than</em> the submitted values.'),
+      ),
+      'lte' => array(
+        'operator' => " <= '%s'",
+        'description' => t('<em>Less than or equals</em> - Results must be <em>less than or equal to</em> the submitted values.'),
+      ),
+      'gt' => array(
+        'operator' => " > '%s'",
+        'description' => t('<em>Greater than</em> - Results must be <em>greater than</em> the submitted values.'),
+      ),
+      'gte' => array(
+        'operator' => " >= '%s'",
+        'description' => t('<em>Greater than or equals</em> - Results must be <em>greater than or equal to</em> the submitted values.'),
+      ),
+      'nc' => array(
+        'operator' => " NOT LIKE '%%%s%%'",
+        'description' => t("<em>Doesn't contain</em> - Results <em>don't contain</em> the submitted values."),
+      ),
+      'ncw' => array(
+        'operator' => " NOT REGEXP '[[:<:]]%s[[:>:]]'",
+        'description' => t("<em>Doesn't contain word</em> - Results <em>don't contain</em> the submitted values as whole words."),
+      ),
+      'ne' => array(
+        'operator' => " != '%s'",
+        'description' => t('<em>Not equals</em> - Results must <em>not</em> match the submitted values.'),
+      ),
+    );
+    drupal_alter('finder_match_operators', $operators);
+  }
+  if (!is_null($match)) {
+    return $operators[$match]['operator'];
+  }
+  return $operators;
+}
+
+/**
+ * Get an element from a finder.
+ *
+ * Finder stores it's elements in an indexed array, as well as tracking an
+ * array that maps finder element IDs to the index position.  This can be
+ * awkward to use when dealing with a particular element's settings especially
+ * when the element variable needs to be a reference to an element in the
+ * finder variable.  This function conveniently allows us to pull a finder
+ * element into a reference.  If called by reference, for example,
+ * $element = &finder_element($finder, $finder_element_id);
+ * this function will return a reference to a finder element from the supplied
+ * finder as identified by the supplied finder element id, if not called by
+ * reference it will return a copy of the element.
+ *
+ * @param &$finder
+ *   The finder object from which to get the element.
+ * @param &$finder_element_id
+ *   The ID of the finder element required.
+ * @return
+ *   The finder element, or reference to the finder element.
+ */
+function &finder_element(&$finder, &$finder_element_id) {
+  $key = &$finder->elements_index[$finder_element_id];
+  return $finder->elements[$key];
+}
+
+/**
+ * Attach 'links' data and 'admin links' data to the finder.
+ *
+ * @param &$finder
+ *   The finder object.
+ */
+function finder_load_links(&$finder) {
+  // create admin links
+  $finder->admin_links = array();
+  $finder->admin_links[$finder->path] = t('View "Path"');
+  if (!isset($finder->settings['programmatic']) || !$finder->settings['programmatic']) {
+    $finder->admin_links['admin/build/finder/'. $finder->finder_id .'/edit'] = t('Edit');
+  }
+  // create links
+  $finder->links = array();
+}
+
+/**
+ * Build finder code string recursively.
+ */
+function finder_export($var, $iteration = 0) {
+  $tab = '';
+  for ($i = 0; $i < $iteration; $i++) {
+    $tab = $tab ."  ";
+  }
+  $iteration++;
+  if (is_object($var)) {
+    $var = (array)$var;
+    $var['#_finder_object'] = '1';
+  }
+  if (is_array($var)) {
+    $empty = empty($var);
+    $code = "array(". ($empty ? '' : "\n");
+    foreach ($var as $key => $value) {
+      $out = $tab ."  '". $key ."' => ". finder_export($value, $iteration) .",\n";
+      drupal_alter('finder_export', $out, $tab, $key, $value, $iteration);
+      $code .= $out;
+    }
+    $code .= ($empty ? '' : $tab) .")";
+    return $code;
+  }
+  else {
+    if (is_string($var)) {
+      return "'". addslashes($var) ."'";
+    }
+    elseif (is_numeric($var)) {
+      return $var;
+    }
+    elseif (is_bool($var)) {
+      return ($var ? 'TRUE' : 'FALSE');
+    }
+    else {
+      return 'NULL';
+    }
+  }
+}
+
+/**
+ * Evaluate and return decoded string.
+ */
+function finder_import($string) {
+  $array = eval('return '. $string .';');
+  $return = finder_import_objects($array);
+  return $return;
+}
+
+/**
+ * Recursively converts arrays back into objects.
+ */
+function finder_import_objects($array) {
+  foreach ($array as $k => $v) {
+    if (is_array($v)) {
+      $array[$k] = finder_import_objects($v);
+    }
+    if (is_string($v)) {
+      $array[$k] = stripslashes($v);
+    }
+  }
+  if ($array['#_finder_object']) {
+    unset($array['#_finder_object']);
+    $array = (object)$array;
+  }
+  return $array;
+}
+
+/**
+ * Postprocessing for returned finder_find options when mode is choices.
+ *
+ */
+function finder_find_choices($finder, $finder_element_id, $options, $keywords, $match) {
+  if ($options) {
+    // If there are options, fetch some info about the field names.
+    $element = &finder_element($finder, $finder_element_id);
+    $filter = isset($element->settings['choices']['sanitization']['format']) ? $element->settings['choices']['sanitization']['format'] : 'filter_xss';
+    $fields = &$element->settings['choices']['field'];
+    foreach ($fields as $key => $field) {
+      $field_info[$key] = finder_split_field($field);
+      $field_names[$key] = finder_field_alias($finder_element_id, $field_info[$key]['table'], $field_info[$key]['field']);
+    }
+    // Create a new array where we will put the options to return.
+    $new_options = array();
+    // Iterate through the options.
+    foreach ($options as $option) {
+      // Simply case - there is only one field.
+      if (count($fields) === 1) {
+        // Add the field name to the option.
+        $option->field_name = end($field_names);
+        // Add the field name to the display_field property of the option too.
+        $option->display_field = $option->field_name;
+        // If doing "per_result" then switch the field name to the base field.
+        if ($element->settings['choices']['per_result']) {
+          $option->field_name = $option->base_field;
+        }
+        // Append this option to the array.
+        $new_options[] = finder_sanitize($option, $filter);
+      }
+      // Complex case - more than one field.
+      elseif (count($fields) > 1) {
+        if (is_null($keywords)) {
+          $matching_names = $field_names;
+        }
+        else {
+          $matching_names = array();
+          foreach ($field_names as $field_name) {
+            if (!empty($option->{$field_name . '_matched'})) {
+              $matching_names[] = $field_name;
+            }
+          }
+        }
+        if (count($matching_names) === 1) {
+          $option->field_name = end($matching_names);
+          $option->display_field = $option->field_name;
+          $new_options[] = finder_sanitize($option, $filter);
+        }
+        elseif (!empty($matching_names)) {
+          foreach ($matching_names as $matching_name) {
+            $new_option = drupal_clone($option);
+            $new_option->field_name = $matching_name;
+            $new_option->display_field = $new_option->field_name;
+            $new_options[] = finder_sanitize($new_option, $filter);
+          }
+        }
+      }
+    }
+    return $new_options;
+  }
+
+  return $options;
+}
+
+/**
+ * Sanitize a finder choice.
+ *
+ * @param $option
+ *  The option object with unsanitized display field.
+ * @param $filter
+ *  The filter to use.
+ * @return
+ *  The option object with sanitized display field.
+ */
+function finder_sanitize($option, $filter = 'filter_xss') {
+  switch ($filter) {
+    case 'filter_xss':
+    case 'filter_xss_admin':
+    case 'check_plain':
+    case 'check_url':
+      $option->{$option->display_field . '_safe'} = $filter($option->{$option->display_field});
+      break;
+    default:
+      $option->{$option->display_field . '_safe'} = check_markup($option->{$option->display_field}, $filter, FALSE);
+  }
+  $option->display_field = $option->display_field . '_safe';
+  return $option;
+}
+
+/**
+ * Evaluate a string of PHP code.
+ *
+ * This is a wrapper around PHP's eval(). It uses output buffering to capture
+ * both returned value and printed text. Allows to use variables with the given
+ * code.
+ * Using this wrapper also ensures that the PHP code which is evaluated can not
+ * overwrite any variables in the calling code, unlike a regular eval() call.
+ * In other words, we evaluate the code with independent variable scope.
+ *
+ * @param $code
+ *   The code to evaluate.
+ * @param $variables
+ *   Variables to import to local variable scope.
+ * @return
+ *   A string containing the printed output of the code, followed by the
+ *   returned output of the code.
+ */
+function finder_eval($code, $variables = array()) {
+  global $theme_path, $theme_info, $conf;
+
+  // Store current theme path.
+  $old_theme_path = $theme_path;
+
+  // Restore theme_path to the theme, as long as drupal_eval() executes,
+  // so code evaluted will not see the caller module as the current theme.
+  // If theme info is not initialized get the path from theme_default.
+  if (!isset($theme_info)) {
+    $theme_path = drupal_get_path('theme', $conf['theme_default']);
+  }
+  else {
+    $theme_path = dirname($theme_info->filename);
+  }
+
+  extract($variables);
+
+  ob_start();
+  print eval('?>'. $code);
+  $output = ob_get_contents();
+  ob_end_clean();
+
+  // Recover original theme path.
+  $theme_path = $old_theme_path;
+
+  return $output;
+}
+
+/**
+ * Modify a PHP setting element.
+ *
+ * Used for security reasons to prevent an unauthorized user editing the
+ * field.  Also makes variables available for the PHP input.
+ *
+ * @param $element
+ *   The original array for the element.
+ * @param $variables
+ *   Array where keys are variable names (without the $) to make available in
+ *   the PHP, and the values are descriptions already passed through t().
+ */
+function finder_php_setting($element, $variables = array()) {
+  if (user_access('administer finder PHP settings')) {
+    $var_list = array();
+    foreach ($variables as $variable => $description) {
+      $var_list[] = '<em>$'. $variable .'</em> - '. $description;
+    }
+    if (!empty($var_list)) {
+      $element['#description'] =
+        (isset($element['#description']) ? $element['#description'] : '')
+        .'<div>'
+        . t('Available variables')
+       .':'
+       . theme('item_list', $var_list)
+       . '</div>';
+    }
+  }
+  else {
+    $element['#disabled'] = TRUE;
+    $element['#prefix'] =
+      '<div class="messages warning">'
+      . t("You don't have permission to modify <em>!setting</em>.", array('!setting' => $element['#title']))
+      .'</div>'
+      . (isset($element['#prefix']) ? $element['#prefix'] : '');
+
+    $element['#value'] = $element['#default_value'];
+
+  }
+  return $element;
+}
+
+/**
+ * Callback for array_filter to remove empty keywords.
+ */
+function finder_empty_keyword($keyword) {
+  if ($keyword !== '' && $keyword !== NULL) {
+    return TRUE;
+  }
+  return FALSE;
+}
+
+/**
+ * Build table alias in consistent manner.
+ *
+ * Deprecated.  Use finder_alias('table', ...) instead.
+ */
+function finder_table_alias($feid, $table = NULL, $field = NULL, $delta = NULL) {
+  return finder_alias('table', $feid, $table, $field, $delta);
+}
+
+/**
+ * Build field alias in consistent manner.
+ *
+ * Deprecated.  Use finder_alias('field', ...) instead.
+ */
+function finder_field_alias($feid, $table = NULL, $field = NULL, $delta = NULL) {
+  return finder_alias('field', $feid, $table, $field, $delta);
+}
+
+/**
+ * Build aliases in consistent manner.
+ *
+ * Only the $type and $feid are required, but you can supply as many params as
+ * is needed, as long as your usage is consistent between places where it needs
+ * to be.
+ *
+ * @param $type
+ *  The type of alias ('table', or 'field').
+ * @param $feid
+ *  The finder element id.
+ * @param $table
+ *  The raw table name.
+ * @param $field
+ *  The raw field name.
+ * @param $delta
+ *  A meaningful extra value.
+ */
+function finder_alias($type, $feid, $table = NULL, $field = NULL, $delta = NULL) {
+  static $aliases = array();
+  static $alias_count = 0;
+
+  $alias = &$aliases[$type][$feid][$table][$field][$delta];
+  if (empty($alias)) {
+    $alias = ++$alias_count;
+  }
+
+  return 'finder_' . $type . '_' . $alias;
+}
+
+/**
+ * Callback for array filter, removes NULL/FALSE but keeps 0.
+ *
+ * @todo: Deprecated?
+ */
+function finder_alias_filter($var) {
+  return ($var !== FALSE && $var !== NULL);
+}
+
+// TO DO: add multifield element sorts into finder_find_choices.
+// TO DO: reduce duplicate choices returned from queries - distinct doesn't
+//        work because nid's are selected too. - but it doesn't hurt to add
+//        it to prevent superfluous rows??

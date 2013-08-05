@@ -1,0 +1,84 @@
+# $Id: nl.po,v 1.1 2008/11/06 09:03:35 sutharsan Exp $
+#
+# LANGUAGE translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  update_advanced.settings.inc,v 1.1 2007/07/11 16:07:00 dww
+#  update_advanced.module,v 1.2 2007/10/20 22:34:21 dww
+#  update_advanced.info,v 1.1 2007/07/11 16:07:00 dww
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: update-advanced\n"
+"POT-Creation-Date: 2008-03-19 21:41+0100\n"
+"PO-Revision-Date: 2008-11-06 09:55+0100\n"
+"Last-Translator: Erik Stielstra <sutharsan a t  drupal dot org>\n"
+"Language-Team: Dutch\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+"X-Poedit-Language: Dutch\n"
+"X-Poedit-Country: NETHERLANDS\n"
+"X-Poedit-SourceCharset: utf-8\n"
+
+#: update_advanced.settings.inc:36
+msgid "These settings allow you to control if a certain project, or even a specific release of that project, should be ignored by the available updates report.  For each project, you can select if it should always warn you about a newer release, never warn you (ignore the project completely), or ignore a specific available release you do not want to upgrade to. You can also specify a note explaining why you are ignoring a specific project or version, and that will be displayed on the available updates report."
+msgstr "Met deze instellingen kunt u bepalen of een project, of zelfs een bepaalde uitgave van een project, uitsluiten moet worden van het overzicht van beschikbare updates.  Per project kunt u instellen of u altijd of juist nooit gewaarschuwd wilt worden als er een nieuwe uitgave is. U kunt ook een bepaalde beschikbare uitgave negeren indien u deze niet wil bijwerken. U kunt een toelichting opgeven als u een project of een uitgave uitsluit, deze komt dan op het overzicht."
+
+#: update_advanced.settings.inc:49
+msgid "Always"
+msgstr "Altijd"
+
+#: update_advanced.settings.inc:51
+msgid "Ignore @version"
+msgstr "@version uitsluiten"
+
+#: update_advanced.settings.inc:53
+msgid "Never"
+msgstr "Nooit"
+
+#: update_advanced.settings.inc:83
+msgid "Project"
+msgstr "Project"
+
+#: update_advanced.settings.inc:85
+msgid "Warn if out of date"
+msgstr "Waarschuwen indien verlopen"
+
+#: update_advanced.settings.inc:88
+msgid "Notes"
+msgstr "Toelichting"
+
+#: update_advanced.settings.inc:118
+msgid "Drupal core"
+msgstr "Drupal-kern"
+
+#: update_advanced.settings.inc:119
+msgid "Modules"
+msgstr "Modules"
+
+#: update_advanced.settings.inc:120
+msgid "Themes"
+msgstr "Themes"
+
+#: update_advanced.module:61
+msgid "Ignored from settings"
+msgstr "Uitgesloten door instellingen"
+
+#: update_advanced.module:65
+msgid "Administrator note"
+msgstr "Aantekening beheerder"
+
+#: update_advanced.module:0
+msgid "update_advanced"
+msgstr "update_advanced"
+
+#: update_advanced.info:0
+msgid "Update status advanced settings"
+msgstr "Update status extra instellingen"
+
+#: update_advanced.info:0
+msgid "Adds advanced settings and extra functionality to the Update status module in core."
+msgstr "Voegt extra instellingen en functionaliteit toe aan de Update Status-module."
+

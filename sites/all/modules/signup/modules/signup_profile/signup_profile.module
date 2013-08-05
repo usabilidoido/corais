@@ -1,0 +1,242 @@
+<?php
+/**
+ * @file signup_profile.module
+ * Provides integration with profile module.
+ *
+ * Comments a-plenty as this is also an example of how to use the API.
+ * This shows an example of how a signup pane can elect to do its own storage
+ * of its signup data rather than letting signup handle storage.
+ *
+ * @todo: The big question about this module is what to do with anonymous signups.
+ * One possibility would be to add a module-wide admin setting to either:
+ * a) create a user account based on the entered anon email and so store the 
+ *    profile data there
+ * b) just don't show this pane and don't collect data
+ * c) give the user the choice of creating an account as they signup
+ * d) (crazyland) Store the data for anon users ourselves.
+ */
+
+/**
+ * Implementation of hook_signup_pane_info().
+ *
+ * @param $node
+ *  (optional) The node being considered for panes.
+ *  Most modules won't need to look at this, but you may need to only return
+ *  panes if the node satisfies certain properties.
+ *
+ * This should return an associative array of data about signup form panes.
+ */
+function signup_profile_signup_pane_info($node = NULL) {
+  // Get the categories. This may return NULL if none are defined yet.
+  $categories = _signup_profile_available_categories();
+  if (!is_null($categories)) {
+    foreach ($categories as $category) {
+      // Make a pane for each category.
+      $panes['profile_' . $category['name']] = array(
+        'label' => 'Profile: ' . $category['name'],
+        'description' => t('Collects @category profile fields and saves to the user profile.', array('@category' => $category['name'])),
+        'callback' => 'signup_profile_form',
+      );
+    }
+  }
+  
+  return $panes;
+}
+
+/**
+ * Helper function to get profile categories that users have access to.
+ *
+ * This result is cached as we may need it several times.
+ */
+function _signup_profile_available_categories() {
+  static $available_categories;
+  
+  if (isset($available_categories)) {
+    return $available_categories;
+  }
+  
+  // Get all the categories.
+  $categories = profile_categories();
+  // Get the number of fields in each category according to access. This will
+  // let us determine if a category actually applies.
+  $result = db_query("SELECT category, COUNT(*) AS count FROM {profile_fields} WHERE visibility <> 4 GROUP BY category", PROFILE_HIDDEN);
+  while ($row = db_fetch_array($result)) {
+    $categories_count[$row['category']] = $row['count'];
+  }
+  foreach ($categories as $category) {
+    if (isset($categories_count[$category['name']])) {
+      $available_categories[] = $category;
+    }
+  }
+  
+  return $available_categories;
+}
+
+/**
+ * Signup form pane callback.
+ *
+ * @param &$signup_form
+ *   The form array for the whole signup. You should not alter this, but it
+ *   contains useful data depending on circumstances.
+ * @param &$form_state
+ *   Likewise.
+ * @param $node
+ *   The fully loaded node object.
+ * @param $signup
+ *   If this is an existing signup, the fully loaded signup object. If this is a 
+ *   new signup, this is just NULL.
+ * @param $pane_id
+ *   The pane ID being invoked. This allows a module to implement multiple panes
+ *   with one callback.
+ * @param $signup_type
+ *   Determines what kind of signup to generate a form for. Possible values:
+ *    'auth' -- regular authenticated user signup form
+ *    'anon' -- anonymous user signup form (includes required email field).
+ *    'admin' -- admin form to signup another user (includes user selector).
+ * @return
+ *   A form API array for insertion into the signup form. 
+ */
+function signup_profile_form(&$signup_form, &$form_state, $node, $signup, $pane_id, $signup_type = 'auth') {
+  $form = array();
+  
+  // Get the real category name from the prefixed pane ID.
+  $category = substr($pane_id, 8);
+  
+  // Call profile.module's implementation of hook_user's form op.
+  // This is a smidgen hacky, but safe, as:
+  // - $edit is just checked for default values, passing nothing won't hurt. 
+  //   @todo: make this bit work for bonus points!
+  // - $user is not looked at at all.
+  $form = profile_form_profile(array(), NULL, $category, FALSE);
+  
+  // Our data is not in the signup data, so we prepopulate this form
+  // with our own default values where applicable.
+  if (isset($signup) && $signup_type != 'anon') {
+    // Existing signup: get the account.
+    $account = user_load($signup->uid);
+  }
+  elseif ($signup_type == 'auth') {
+    // An authenticated user is signup themselves up. 
+    // Prefill their profile values so they can either leave them or know what 
+    // they are changing.
+    global $user;
+    // Need to do a user_load to get profile fields.
+    $account = user_load($user->uid);
+  }
+  
+  if (isset($account)) {
+    // Set the form's defaults to the profile values. 
+    foreach (element_children($form[$category]) as $key) {
+      $form[$category][$key]['#default_value'] = $account->$key;
+    }
+    $form[$category]['#description'] = t('This information is from your @site-name user profile; changes you make here will be saved into it.', array(
+      '@site-name' => variable_get('site_name', 'Drupal'),
+    ));
+  }
+    
+  return $form;
+}
+
+/**
+ * Implementation of hook_signup_data_alter().
+ *
+ * This allows us to alter the signup data prior to it being saved, do our own
+ * saving of profile data, and remove the profile data from the signup so it is
+ * not saved in the {signup_log} table's serialized array.
+ */
+function signup_profile_signup_data_alter(&$signup, $form_values) { 
+  // Check we have incoming data that concerns us.
+  foreach($signup->form_data as $pane_id => $form_data_pane) {
+    if (substr($pane_id, 0, 7) == 'profile') {
+      $profile_pane_ids[] = $pane_id;
+    }
+  }
+  
+  if (isset($profile_pane_ids)) {
+    // Get the user account.
+    $account = user_load($signup->uid);
+    
+    foreach ($profile_pane_ids as $pane_id) {
+      // Get the real category name from the prefixed pane ID.
+      $category_name = substr($pane_id, 8);
+      $profile_data = $signup->form_data['profile_' . $category_name][$category_name];
+      
+      // Again, a bit hackish, but probably safe to call:
+      // function profile_save_profile(&$edit, &$user, $category, $register = FALSE)
+      // $edit is an array of form element ID => value which we have too.
+      // $user we pass the account for the signup.
+      profile_save_profile($profile_data, $account, $category_name, FALSE);
+      
+      // Unset our data from the signup so it's not saved redundantly.
+      unset($signup->form_data[$pane_id]);
+    }    
+  }
+}
+
+/**
+ * Implementation of hook_signup_form_data_display_alter().
+ *
+ * Load the signup user's profile data and add it to the data being output.
+ *
+ * @todo: consider skipping this in the case $type == 'view', as really
+ * the profile fields should be added to the view itself.
+ *
+ * @param $form_data
+ *  The user's signup data to alter.
+ * @param $nid
+ *  The node id for the signup-enabled node.
+ * @param $sid
+ *  The signup record id.
+ * @param $uid
+ *  The user id whose signup this is; 0 if this is an anonymous signup.
+ * @param $type
+ *  The type of output being prepared. Possible values are:
+ *    - 'list': The hardcoded admin lists of signups, eg at node/X/signups/admin
+ *    - 'view': The form data field in Views.
+ *    - 'mail': Email output. This is probably the only one that needs special 
+ *      handling; in this case, modules should be more generous about supplying
+ *      data since there's no other place to see it.
+ */
+function signup_profile_signup_form_data_display_alter(&$form_data, $nid, $sid, $uid, $type = 'list') {
+  // Check this is a signup that concerns us. We don't store anything of 
+  // our own in $form_data so we have to investigate the node.
+  static $nodes = array();
+  if (!isset($nodes[$nid])) {
+    $nodes[$nid] = node_load($nid);
+  }
+  foreach($nodes[$nid]->signup_form_panes as $pane_id => $form_data_pane) {
+    if (substr($pane_id, 0, 7) == 'profile') {
+      // We actually only need to know there is at least one signup pane that interests us.
+      $has_profile_signup_panes = TRUE;
+      break;
+    }
+  }
+  
+  // If there are signup panes and this is not an anonymous user, load the
+  // profile data and display it.
+  if ($has_profile_signup_panes && $uid != 0) {
+    // Get all the profile fields and cache them.
+    static $profile_fields;
+    if (!isset($profile_fields)) {
+      $result = db_query('SELECT fid, name, title, type, category, visibility, weight FROM {profile_fields} WHERE visibility IN (%d, %d) ORDER BY weight', PROFILE_PUBLIC, PROFILE_PUBLIC_LISTINGS);
+      while ($field = db_fetch_object($result)) {
+        $profile_fields[$field->fid] = $field;
+      }
+    }
+    
+    // It's probably quicker to get all the values for this one user rather 
+    // than join to {profile_fields} for each one to see if it's in a category
+    // we care about.
+    $result = db_query("SELECT fid, value FROM {profile_values} WHERE uid = %d", $uid);
+    while ($record = db_fetch_array($result)) {
+      //dsm($record);
+      $signup_profile_data[$record['fid']] = $record['value'];
+    }
+    
+    foreach ($profile_fields as $fid => $field) {
+      if (isset($signup_profile_data[$fid])) {
+        $form_data[$field->category][$field->title] = $signup_profile_data[$fid];
+      }
+    }
+  }
+}

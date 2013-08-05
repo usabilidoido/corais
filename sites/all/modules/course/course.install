@@ -1,0 +1,841 @@
+<?php
+
+/**
+ * @file course.install
+ * Install and update functions for Courses.
+ */
+
+/**
+ * Implements hook_install().
+ *
+ * Install a default content type, set some defaults.
+ */
+function course_install() {
+  drupal_install_schema('course');
+
+  module_load_include('module', 'node', 'node');
+
+  $type = array(
+    'type' => 'course',
+    'name' => 'Course',
+    'module' => 'node',
+    'has_title' => 1,
+    'title_label' => 'Title',
+    'has_body' => 1,
+    'body_label' => 'Description',
+    'description' => 'A <em>course</em> containing Drupal learning objects.',
+    'custom' => TRUE,
+    'modified' => TRUE,
+    'locked' => FALSE,
+    'help' => '',
+    'min_word_count' => '',
+  );
+
+  $type = (object) _node_type_set_defaults($type);
+  node_type_save($type);
+  node_types_rebuild();
+  menu_rebuild();
+
+  variable_set('course_use_course', 1);
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function course_uninstall() {
+  drupal_uninstall_schema('course');
+}
+
+/**
+ * Implements hook_schema().
+ */
+function course_schema() {
+  $schema = array();
+
+  $schema['course_report'] = array(
+    'description' => "Stores users' course reports.",
+    'fields' => array(
+      'crid' => array(
+        'type' => 'serial',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'description' => 'Course report record ID.',
+      ),
+      'nid' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => 0,
+        'description' => 'Drupal course node.',
+      ),
+      'uid' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => 0,
+        'description' => 'Drupal user ID.',
+      ),
+      'date_completed' => array(
+        'type' => 'int',
+        'not null' => FALSE,
+        'unsigned' => TRUE,
+        'default' => NULL,
+        'description' => 'Date completed.',
+      ),
+      'updated' => array(
+        'type' => 'int',
+        'not null' => FALSE,
+        'unsigned' => TRUE,
+        'default' => NULL,
+        'description' => 'Date this record was updated.',
+      ),
+      'grade_result' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => 0,
+        'description' => 'Course grade received.',
+      ),
+      'section' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => "Key of current section.",
+      ),
+      'section_name' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => "Name of current section.",
+      ),
+      'complete' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => 0,
+        'description' => 'Flag to mark this course as complete.',
+      ),
+      'data' => array(
+        'serialize' => TRUE,
+        'type' => 'text',
+        'description' => "Serialized snapshot data.",
+        'size' => 'medium',
+      ),
+    ),
+    'primary key' => array('crid'),
+    'unique keys' => array('uk' => array('nid', 'uid')),
+    'indexes' => array(
+      'nid' => array('nid'),
+      'uid' => array('uid'),
+    ),
+  );
+
+  $schema['course_enrolment'] = array(
+    'description' => 'Stores enrolment records.',
+    'fields' => array(
+      'eid' => array(
+        'description' => 'Primary Key: The eid of the enrolment.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'nid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'The nid of the course node',
+      ),
+      'uid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'The uid of the user',
+      ),
+      'enrollmenttype' => array(
+        'type' => 'varchar',
+        'length' => '128',
+        'not null' => FALSE,
+        'default' => '',
+        'description' => 'The type of enrollment, if applicable',
+      ),
+      'status' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'The enrolment status.',
+      ),
+      'created' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'The time this enrolment was created.',
+      ),
+      'timestamp' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'The time the user started the course.',
+      ),
+      'enrol_end' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Date enrolment ends.',
+      ),
+      'code' => array(
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'The access code used to enroll.',
+      ),
+      'user_type' => array(
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'The user type while in the context of this enrollment.',
+      ),
+    ),
+    'primary key' => array('eid'),
+    'unique keys' => array('nid_uid' => array('nid', 'uid')),
+    'indexes' => array(
+      'nid' => array('nid'),
+      'uid' => array('uid'),
+    ),
+  );
+
+  $schema['course_node'] = array(
+    'description' => 'Stores course node settings.',
+    'fields' => array(
+      'nid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'Course node ID.',
+      ),
+      'outline' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'Course outline display handler.',
+      ),
+      'credits' => array(
+        'type' => 'float',
+        'description' => 'Course credit.',
+        'precision' => 6,
+        'scale' => 2,
+      ),
+      'open' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'description' => 'Date course opens.',
+      ),
+      'close' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'description' => 'Date course closes.',
+      ),
+      'duration' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Amount of time a user has to access this course.',
+      ),
+      'external_id' => array(
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => FALSE,
+        'default' => NULL,
+        'description' => 'External ID of the course.',
+      ),
+    ),
+    'primary key' => array('nid'),
+  );
+
+  $schema['course_outline'] = array(
+    'description' => "Stores users' course reports",
+    'fields' => array(
+      'coid' => array(
+        'type' => 'serial',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'description' => 'Unique identifier for the course object record.',
+      ),
+      'nid' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => 0,
+        'description' => 'nid.',
+      ),
+      'module' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => "The implementing module name (course_quiz etc)",
+      ),
+      'title' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => "The item title",
+      ),
+      'object_type' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => "The course object key as defined by hook_course_handlers()",
+      ),
+      'enabled' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => 0,
+        'description' => 'is this item enabled?',
+      ),
+      'info' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => "The item info",
+      ),
+      'instance' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => 0,
+        'description' => 'The item instance',
+      ),
+      'required' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => 0,
+        'description' => 'is this item required?',
+      ),
+      'weight' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => FALSE,
+        'default' => 0,
+        'description' => 'Order in course outline.',
+      ),
+      'hidden' => array(
+        'type' => 'int',
+        'size' => 'tiny',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => 0,
+        'description' => 'Visibility in course utline',
+      ),
+      'duration' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'Amount of time in seconds a user has to access this object.',
+      ),
+      'uuid' => array(
+        'type' => 'char',
+        'length' => 36,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'The Universally Unique Identifier.',
+      ),
+      'data' => array(
+        'description' => 'Serialized data',
+        'type' => 'text',
+        'serialize' => TRUE,
+      ),
+    ),
+    'primary key' => array('coid'),
+    'indexes' => array(
+      'nid' => array('nid'),
+    ),
+    'unique keys' => array(
+      'uuid' => array('uuid'),
+    ),
+  );
+
+  $schema['course_outline_fulfillment'] = array(
+    'description' => "Stores users' course reports",
+    'fields' => array(
+      'cofid' => array(
+        'type' => 'serial',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'description' => 'Unique identifier for the course object fufillment record.',
+      ),
+      'coid' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => 0,
+        'description' => 'Identifier for the course object.',
+      ),
+      'uid' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => 0,
+        'description' => 'uid of {user}.',
+      ),
+      'complete' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => 0,
+        'description' => 'Is this item complete?',
+      ),
+      'grade_result' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => FALSE,
+        'default' => 0,
+        'description' => 'grade_result',
+      ),
+      'date_started' => array(
+        'type' => 'int',
+        'not null' => FALSE,
+        'unsigned' => TRUE,
+        'default' => NULL,
+        'description' => 'Date object was started.',
+      ),
+      'date_completed' => array(
+        'type' => 'int',
+        'not null' => FALSE,
+        'unsigned' => TRUE,
+        'default' => NULL,
+        'description' => 'Date object was completed.',
+      ),
+      'info' => array(
+        'type' => 'text',
+        'serialize' => TRUE,
+        'description' => "Description of fulfillment event",
+      ),
+      'uuid' => array(
+        'type' => 'char',
+        'length' => 36,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'The Universally Unique Identifier.',
+      ),
+    ),
+    'primary key' => array('cofid'),
+    'unique keys' => array(
+      'coid_uid' => array('coid', 'uid'),
+      'uuid' => array('uuid'),
+    ),
+    'indexes' => array(
+      'coid' => array('coid'),
+    ),
+  );
+
+  return $schema;
+}
+
+/**
+ * Delete enrollments for users who don't exist anymore.
+ */
+function course_update_6121() {
+  $ret = array();
+  $sql = "DELETE ce.* FROM {course_enrolment} ce LEFT JOIN {users} u ON (ce.uid = u.uid) WHERE u.uid IS NULL";
+  $ret[] = update_sql($sql);
+  $ret[] = array(
+    'success' => TRUE,
+    'query' => db_affected_rows() . ' old enrollments deleted',
+  );
+  return $ret;
+}
+
+/**
+ * Migrate and remove old fields that won't be used anymore.
+ */
+function course_update_6122() {
+  $ret = array();
+
+  // Migrate any passing grade to serialized storage.
+  $sql = "SELECT * FROM {course_outline}";
+  $result = db_query($sql);
+  while ($row = db_fetch_object($result)) {
+    $row->data = unserialize($row->data);
+    $row->data['passing_grade'] = $row->passing_grade;
+    $row->data = serialize($row->data);
+    db_query("UPDATE {course_outline} SET data = '%s' WHERE snid = %d", $row->data, $row->snid);
+  }
+
+  $deletes = array(
+    array('course_node', 'transcript'),
+    array('course_node', 'catalog'),
+    array('course_node', 'outline_custom_titles'),
+    array('course_outline', 'graded'),
+    array('course_outline', 'passing_grade'),
+    array('course_outline', 'payment_required'),
+  );
+
+  foreach ($deletes as $delete) {
+    $table = $delete[0];
+    $column = $delete[1];
+    if (db_column_exists($table, $column)) {
+      db_drop_field($ret, $table, $column);
+    }
+  }
+
+  return $ret;
+}
+
+/**
+ * Add date started field to to fulfillment, add duration to course outline
+ * object, remove type field.
+ */
+function course_update_6124() {
+  $ret = array();
+
+  db_add_field($ret, 'course_outline_fulfillment', 'date_started', array(
+    'type' => 'int',
+    'not null' => FALSE,
+    'unsigned' => TRUE,
+    'default' => NULL,
+    'description' => 'Date object was started.',
+  ));
+
+  db_add_field($ret, 'course_outline', 'duration', array(
+    'type' => 'int',
+    'not null' => TRUE,
+    'default' => 0,
+    'description' => 'Amount of time in seconds a user has to access this object.',
+  ));
+
+  db_drop_field($ret, 'course_node', 'type');
+
+  return $ret;
+}
+
+/**
+ * Add indexes to course report table.
+ */
+function course_update_6125() {
+  $ret = array();
+
+  db_add_index($ret, 'course_report', 'nid', array('nid'));
+  db_add_index($ret, 'course_report', 'uid', array('uid'));
+
+  return $ret;
+}
+
+/**
+ * Delete old fulfillment duplicates. Add indexes to outline and fulfillment
+ * table. Change grade_result to signed.
+ */
+function course_update_6126() {
+  $ret = array();
+
+  $sql = "SELECT * FROM {course_outline_fulfillment} order by sfid asc";
+  $result = db_query($sql);
+  $sfids = array();
+  $delete = array();
+
+  while ($row = db_fetch_object($result)) {
+    if ($sfids[$row->snid][$row->uid]) {
+      $delete[] = $sfids[$row->snid][$row->uid];
+    }
+    $sfids[$row->snid][$row->uid] = $row->sfid;
+  }
+
+  if ($delete) {
+    $placeholders = db_placeholders($delete);
+    $sql = "DELETE FROM {course_outline_fulfillment} WHERE sfid in ($placeholders)";
+    $ret[] = array(
+      'success' => db_query($sql, $delete),
+      'query' => $sql,
+    );
+  }
+
+  db_add_unique_key($ret, 'course_outline_fulfillment', 'snid_uid', array('snid', 'uid'));
+  db_add_index($ret, 'course_outline_fulfillment', 'snid', array('snid'));
+  db_add_index($ret, 'course_outline', 'nid', array('nid'));
+
+  db_change_field($ret, 'course_outline_fulfillment', 'grade_result', 'grade_result', array('type' => 'int',
+    'not null' => TRUE,
+    'unsigned' => FALSE,
+    'default' => 0,
+    'description' => 'grade_result',
+  ));
+
+  return $ret;
+}
+
+/**
+ * Change primary key in course_report to `crid` (course report ID).
+ */
+function course_update_6127() {
+  $ret = array();
+
+  // Remove serialness of field.
+  db_change_field($ret, 'course_report', 'id', 'id', array(
+    'type' => 'int',
+    'not null' => TRUE,
+    'unsigned' => TRUE,
+  ));
+
+  // Drop primary key.
+  db_drop_primary_key($ret, 'course_report');
+
+  // Rename field, add back serialness.
+  db_change_field($ret, 'course_report', 'id', 'crid', array(
+    'type' => 'serial',
+    'not null' => TRUE,
+    'unsigned' => TRUE,
+    ), array('primary key' => array('crid')));
+
+  return $ret;
+}
+
+/**
+ * Change open and close to integer.
+ */
+function course_update_6128() {
+  $ret = array();
+
+  db_change_field($ret, 'course_node', 'open', 'open', array(
+    'type' => 'int',
+    'unsigned' => TRUE,
+  ));
+
+  db_change_field($ret, 'course_node', 'close', 'close', array(
+    'type' => 'int',
+    'unsigned' => TRUE,
+  ));
+
+  return $ret;
+}
+
+/**
+ * Remove old attendance column. Using course objects now.
+ */
+function course_update_6129() {
+  $ret = array();
+  $ret = db_drop_field($ret, 'course_node', 'attendance');
+  return $ret;
+}
+
+/**
+ * Add `hidden` column to course_outline, add `created` column to
+ * course_enrolment. Add serialized `data` column to course_outline.
+ */
+function course_update_6130() {
+  $ret = array();
+
+  if (!db_column_exists('course_outline', 'hidden')) {
+    db_add_field($ret, 'course_outline', 'hidden', array(
+      'type' => 'int',
+      'size' => 'tiny',
+      'not null' => TRUE,
+      'unsigned' => TRUE,
+      'default' => 0,
+    ));
+  }
+
+  if (!db_column_exists('course_enrolment', 'created')) {
+    db_add_field($ret, 'course_enrolment', 'created', array(
+      'type' => 'int',
+      'not null' => TRUE,
+      'unsigned' => TRUE,
+      'default' => 0,
+    ));
+  }
+
+  if (!db_column_exists('course_outline', 'data')) {
+    db_add_field($ret, 'course_outline', 'data', array(
+      'type' => 'text',
+      'serialize' => TRUE,
+    ));
+  }
+
+  return $ret;
+}
+
+/**
+ * Change fulfillment info to serialized.
+ */
+function course_update_6131() {
+  $ret = array();
+  db_change_field($ret, 'course_outline_fulfillment', 'info', 'info', array('type' => 'text'));
+  return $ret;
+}
+
+/**
+ * Remove old lms settings. Add new course outline display handler settings.
+ */
+function course_update_6132() {
+  $ret = array();
+
+  // Delete old lms variables.
+  $types = node_get_types('names');
+  foreach (array_keys($types) as $type) {
+    variable_del("default_lms_{$type}");
+  }
+
+  // Migrate old lms column.
+  db_change_field($ret, 'course_node', 'lms', 'outline', array(
+    'type' => 'varchar',
+    'length' => 255,
+    'not null' => TRUE,
+  ));
+
+  return $ret;
+}
+
+/**
+ * Change schema, so all literal date fields can be NULL with no default.
+ */
+function course_update_6133() {
+  $ret = array();
+
+  $change = array();
+  $change['course_enrolment'][] = 'created';
+  $change['course_enrolment'][] = 'timestamp';
+  $change['course_enrolment'][] = 'enrol_end';
+  $change['course_node'][] = 'open';
+  $change['course_node'][] = 'close';
+  $change['course_node'][] = 'duration';
+
+  $schema = course_schema();
+
+  foreach ($change as $table => $fields) {
+    foreach ($fields as $field) {
+      // Change schema definition.
+      db_change_field($ret, $table, $field, $field, $schema[$table]['fields'][$field]);
+      // Change values to NULL where 0 was stored.
+      $sql = "UPDATE {{$table}} SET {$field} = NULL WHERE {$field} = 0";
+      $ret[] = update_sql($sql);
+    }
+  }
+  return $ret;
+}
+
+/**
+ * Give course objects and fulfillments UUIDs.
+ */
+function course_update_6134() {
+  $ret = array();
+
+  $uuid_field = array(
+    'type' => 'char',
+    'length' => 36,
+    'not null' => TRUE,
+    'default' => '',
+    'description' => 'The Universally Unique Identifier.',
+  );
+
+  db_add_field($ret, 'course_outline', 'uuid', $uuid_field);
+  db_add_field($ret, 'course_outline_fulfillment', 'uuid', $uuid_field);
+
+  drupal_install_modules(array('uuid'));
+
+  $sql = "SELECT * FROM {course_outline}";
+  $result = db_query($sql);
+  while ($row = db_fetch_object($result)) {
+    db_query("update {course_outline} set uuid = '%s' where snid = %d", uuid_uuid(), $row->snid);
+  }
+
+  $sql = "SELECT * FROM {course_outline_fulfillment}";
+  $result = db_query($sql);
+  while ($row = db_fetch_object($result)) {
+    db_query("update {course_outline_fulfillment} set uuid = '%s' where sfid = %d", uuid_uuid(), $row->sfid);
+  }
+
+  db_add_unique_key($ret, 'course_outline', 'uuid', array('uuid'));
+  db_add_unique_key($ret, 'course_outline_fulfillment', 'uuid', array('uuid'));
+
+
+  return $ret;
+}
+
+/**
+ * Naming conventions update.
+ */
+function course_update_6135() {
+  $ret = array();
+
+  // Change primary keys to int (so we can drop the primary key).
+  db_change_field($ret, 'course_outline', 'snid', 'snid', array('type' => 'int'));
+  db_change_field($ret, 'course_outline_fulfillment', 'sfid', 'sfid', array('type' => 'int'));
+
+  // Drop old PK.
+  db_drop_primary_key($ret, 'course_outline');
+  db_drop_primary_key($ret, 'course_outline_fulfillment');
+
+  // Drop affected indexes.
+  db_drop_unique_key($ret, 'course_outline_fulfillment', 'snid_uid');
+  db_drop_index($ret, 'course_outline_fulfillment', 'snid');
+
+
+  // Rename columns, add back PK.
+  db_change_field($ret, 'course_outline', 'snid', 'coid', array(
+    'type' => 'serial',
+    'not null' => TRUE,
+    'unsigned' => TRUE,
+    ), array('primary key' => array('coid')));
+  db_change_field($ret, 'course_outline_fulfillment', 'sfid', 'cofid', array(
+    'type' => 'serial',
+    'not null' => TRUE,
+    'unsigned' => TRUE,
+    ), array('primary key' => array('cofid')));
+  db_change_field($ret, 'course_outline_fulfillment', 'snid', 'coid', array(
+    'type' => 'int',
+    'not null' => TRUE,
+    'unsigned' => TRUE,
+    'default' => 0));
+
+  // Change requirement_type/requirement_component fields.
+  db_change_field($ret, 'course_outline', 'requirement_type', 'module', array(
+    'type' => 'varchar',
+    'length' => 255,
+    'not null' => TRUE,
+    'default' => ''));
+  db_change_field($ret, 'course_outline', 'requirement_component', 'object_type', array(
+    'type' => 'varchar',
+    'length' => 255,
+    'not null' => TRUE,
+    'default' => ''));
+
+  // Add keys back.
+  db_add_unique_key($ret, 'course_outline_fulfillment', 'coid_uid', array('coid', 'uid'));
+  db_add_index($ret, 'course_outline_fulfillment', 'coid', array('coid'));
+
+  // Update crid to match schema.
+  db_change_field($ret, 'course_report', 'crid', 'crid', array(
+    'type' => 'serial',
+    'not null' => TRUE,
+    'unsigned' => TRUE,
+  ));
+
+  return $ret;
+}
+
+/**
+ * Remove duplicate field that was never used.
+ */
+function course_update_6136() {
+  $ret = array();
+
+  if (db_column_exists('course_outline', 'config')) {
+    db_drop_field($ret, 'course_outline', 'config');
+  }
+
+  return $ret;
+}

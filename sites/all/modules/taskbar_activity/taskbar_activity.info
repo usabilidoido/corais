@@ -1,0 +1,11 @@
+name = Taskbar Activity
+description = Add a activity notification system for Taskbar
+core = 6.x
+dependencies[] = taskbar
+package = "Taskbar"
+; Information added by drupal.org packaging script on 2012-04-15
+version = "6.x-1.1"
+core = "6.x"
+project = "taskbar_activity"
+datestamp = "1334518010"
+

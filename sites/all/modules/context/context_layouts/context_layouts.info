@@ -1,0 +1,12 @@
+name = "Context layouts"
+description = "Allow theme layer to provide multiple region layouts and integrate with context."
+dependencies[] = "context"
+package = "Context"
+core = "6.x"
+
+; Information added by drupal.org packaging script on 2012-12-19
+version = "6.x-3.1"
+core = "6.x"
+project = "context"
+datestamp = "1355940699"
+

@@ -1,0 +1,1104 @@
+<?php
+
+/**
+ * Implementation of hook_node_info().
+ */
+function sheetnode_node_info() {
+  return array(
+    'sheetnode' => array(
+      'name' => t('Sheetnode'),
+      'module' => 'sheetnode',
+      'description' => t('A spreadsheet node.'),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function sheetnode_perm() {
+  return array(
+    'create sheetnode', 
+    'edit own sheetnode', 
+    'edit any sheetnode', 
+    'delete own sheetnode', 
+    'delete any sheetnode', 
+    'create sheetnode template',
+    'edit sheetnode settings',
+  );
+}
+
+/**
+ * Implementation of hook_access().
+ */
+function sheetnode_access($op, $node, $account) {
+  if ($op == 'create') {
+    return user_access('create sheetnode', $account) ? TRUE : NULL;
+  }
+
+  if ($op == 'update') {
+    return user_access('edit any sheetnode', $account) || (user_access('edit own sheetnode', $account) && ($account->uid == $node->uid)) ? TRUE : NULL;
+  }
+
+  if ($op == 'delete') {
+    return user_access('delete any sheetnode', $account) || (user_access('delete own sheetnode', $account) && ($account->uid == $node->uid)) ? TRUE : NULL;
+  }
+}
+
+/**
+ * Implementation of hook_load().
+ */
+function sheetnode_load($node) {
+  $data = new StdClass();
+  $data->sheetnode = db_fetch_array(db_query("SELECT * FROM {sheetnode} WHERE nid=%d AND vid=%d", $node->nid, $node->vid));
+  if (!is_array($data->sheetnode)) {
+    $data->sheetnode = array(
+      'value' => '',
+      'nid' => $node->nid,
+      'vid' => $node->vid,
+    );
+  }
+  return $data;
+}
+
+/**
+ * Implementation of hook_view().
+ */
+function sheetnode_view($node, $teaser = FALSE, $page = FALSE) {
+  $node = node_prepare($node, $teaser);
+  
+  // SocialCalc sheet.
+  if (!$teaser) {
+    $output = _sheetnode_inject(
+      'sheetnode-' . $node->nid, 
+      'sheetnode',
+      $node->sheetnode['value'], 
+      FALSE, 
+      array('entity-name' => 'node', 'oid' => $node->nid)
+    );
+    $node->content['sheetnode'] = array('#value' => $output, '#weight' => -1);
+  }
+
+  return $node;
+}
+
+/**
+ * Implementation of hook_delete().
+ */
+function sheetnode_delete(&$node) {
+  db_query("DELETE FROM {sheetnode} WHERE nid=%d", $node->nid);
+}
+
+/**
+ * Implementation of hook_form().
+ */
+function sheetnode_form(&$node, $form_state) {
+  $type = node_get_types('type', $node);
+
+  // Generate the default title and body.
+  $form = node_content_form($node, $form_state);
+ 
+  // SocialCalc sheet.
+  if (!empty($node->nid)) {
+    $value = $node->sheetnode['value'];
+    $nid = $node->nid;
+  }
+  else if (!empty($node->clone_from_original_nid)) { // support node_clone.module
+    $original_node = node_load($node->clone_from_original_nid);
+    $value = $original_node->sheetnode['value'];
+    $nid = $node->clone_from_original_nid;
+  } 
+  else {
+    $value = '';
+    $nid = NULL;
+  }
+  $output = _sheetnode_inject(
+    'sheetnode-' . (empty($node->nid) ? 'new' : $node->nid), 
+    'sheetnode',
+    $value, 
+    'edit-sheetnode-value', 
+    array('entity-name' => 'node', 'oid' => $nid)
+  );
+  $form['sheetnode'] = array(
+    '#tree' => TRUE,
+    '#value' => $output, 
+    '#weight' => -1,
+    'value' => array('#type' => 'hidden'),
+  );
+
+  // Template.
+  if (user_access('create sheetnode template')) {
+    $form['sheetnode']['template'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Save as template'),
+      '#description' => t('When saving this sheet, also keep a copy under the name you specify here. Later, this copy can be used as a template for other sheets.'),
+      '#required' => FALSE,
+    );
+  }
+
+  return $form;
+}
+
+/**
+ * Implementation of hook_validate().
+ */
+function sheetnode_validate($node, &$form) {
+  $errors = form_get_errors();
+  if (!empty($errors)) {
+    _sheetnode_inject(
+      'sheetnode-' . (empty($form['nid']['#value']) ? 'new' : $form['nid']['#value']), 
+      'sheetnode',
+      $form['sheetnode']['value']['#value'], 
+      'edit-sheetnode-value', 
+      array('entity-name' => 'node', 'oid' => $form['nid']['#value'])
+    ); 
+  }
+}
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function sheetnode_form_alter(&$form, $form_state, $form_id) {
+  // Sheetfield CCK settings:
+  // * Force fieldset to open to avoid b0rked sheet layout.
+  // * Insert extra template element for default values.
+  if ($form_id == 'content_field_edit_form' && $form['#field']['type_name'] == 'sheetfield') {
+    $form['widget']['default_value_fieldset']['#collapsed'] = FALSE;
+
+    $options[0] = t('- Select a template -');
+    $result = db_query("SELECT tid, name FROM {sheetnode_template}");
+    while ($template = db_fetch_object($result)) {
+      $options[$template->tid] = $template->name;
+    }
+    $form['widget']['default_value_fieldset']['sheetfield_template'] = array(
+      '#type' => 'select',
+      '#title' => t('Template'),
+      '#description' => t('Please select the template to load into your new sheetfield. This setting will override the sheet above but will be overridden by the PHP code below.'),
+      '#options' => $options, 
+      '#default_value' => variable_get('sheetfield_template_' . $form['#field']['field_name'], 0),
+      '#weight' => 1,
+    );
+    $form['widget']['default_value_fieldset']['default_value_widget']['#weight'] = 0;
+    $form['widget']['default_value_fieldset']['advanced_options']['#weight'] = 2;
+    array_unshift($form['#submit'], '_sheetnode_content_field_edit_form_submit');
+  }
+}
+
+/**
+ * Submit function for content_field_edit_form form.
+ */
+function _sheetnode_content_field_edit_form_submit($form, &$form_state) {
+  if (!empty($form_state['values']['sheetfield_template'])) {
+    $template = _sheetnode_template_load($form_state['values']['sheetfield_template']);
+    if (!empty($template)) {
+      $form_state['values']['default_value'][0]['value'] = $template->value;
+    }
+  }
+  variable_set('sheetfield_template_' . $form_state['values']['field_name'], $form_state['values']['sheetfield_template']);
+}
+
+/**
+ * Helper function to inject Sheetnode JavaScript.
+ */
+function _sheetnode_inject($sheet_id, $sheet_aliases, $value, $save_element, $context, $ahah = FALSE) {
+  $path = drupal_get_path('module', 'sheetnode');
+  drupal_add_js($path . '/socialcalc/socialcalcconstants.js');
+  drupal_add_js($path . '/socialcalc/socialcalc-3.js');
+  drupal_add_js($path . '/socialcalc/socialcalctableeditor.js');
+  drupal_add_js($path . '/socialcalc/formatnumber2.js');
+  drupal_add_js($path . '/socialcalc/formula1.js');
+  drupal_add_js($path . '/socialcalc/socialcalcpopup.js');
+  drupal_add_js($path . '/socialcalc/socialcalcspreadsheetcontrol.js');
+  drupal_add_js($path . '/socialcalc/socialcalcviewer.js');
+  drupal_add_js($path . '/sheetnode.js');
+  drupal_add_css($path . '/socialcalc/socialcalc.css');
+  drupal_add_css($path . '/sheetnode.css');
+
+  // Allow other modules to add their own JS/CSS.
+  module_invoke_all('sheetnode_plugins', $value, $save_element, $context, $ahah);
+
+  // Lower-case sheet aliases.
+  $sheet_aliases = array_map('strtolower', (array)$sheet_aliases);
+
+  if ($ahah) {
+    static $settings = NULL;
+    $settings['sheetnode'][$sheet_id] = array(
+      'aliases' => $sheet_aliases,
+      'value' => $value, 
+      'imagePrefix' => base_path() . $path . '/socialcalc/images/sc-',
+      'containerElement' => $sheet_id,
+      'saveElement' => $save_element,
+      'viewMode' => variable_get('sheetnode_view_mode', SHEETNODE_VIEW_FIDDLE),
+      'showToolbar' => variable_get('sheetnode_view_toolbar', FALSE),
+      'permissions' => array(
+        'edit sheetnode settings' => user_access('edit sheetnode settings'),
+      ),
+      'context' => $context,
+    );
+    $js_settings = drupal_to_js($settings);
+    return <<<EOS
+<script language="javascript" type="text/javascript">
+  Drupal.behaviors.sheetnodeAHAH = function(context) {
+    jQuery.extend(Drupal.settings, $js_settings);
+    Drupal.behaviors.sheetnode(context);
+  }
+</script>
+<div class="sheetview" id="$sheet_id"></div>
+EOS;
+  }
+  else {
+    static $sheets = NULL;
+    if (!isset($sheets[$sheet_id])) {
+      drupal_add_js(array('sheetnode' => array($sheet_id => array(
+        'aliases' => $sheet_aliases,
+        'value' => $value, 
+        'imagePrefix' => base_path() . $path . '/socialcalc/images/sc-',
+        'containerElement' => $sheet_id,
+        'saveElement' => $save_element,
+        'viewMode' => variable_get('sheetnode_view_mode', SHEETNODE_VIEW_FIDDLE),
+        'showToolbar' => variable_get('sheetnode_view_toolbar', FALSE),
+        'permissions' => array(
+          'edit sheetnode settings' => user_access('edit sheetnode settings'),
+        ),
+        'context' => $context,
+      ))), 'setting');
+      $sheets[$sheet_id] = TRUE;
+    }
+    return '<div class="sheetview" id="' . $sheet_id . '"></div>';
+  }
+}
+
+/**
+ * Implementation of hook_insert().
+ */
+function sheetnode_insert($node) {
+  if ($node->sheetnode['value']) {
+    _sheetnode_save($node->nid, $node->vid, $node->sheetnode['value']);
+  }
+  if ($node->sheetnode['template'] && user_access('create sheetnode template')) {
+    _sheetnode_template_save($node->vid, $node->sheetnode['template'], $node->sheetnode['value']);
+  }
+}
+
+/**
+ * Implementation of hook_update().
+ */
+function sheetnode_update($node) {
+  if (!empty($node->sheetnode['value'])) {
+    _sheetnode_save($node->nid, $node->vid, $node->sheetnode['value']);
+  }
+  else if (!empty($node->revision)) {
+    // reverting a revision
+    db_query("INSERT INTO {sheetnode} (nid, vid, value) 
+              SELECT old.nid, %d, old.value 
+              FROM sheetnode AS old WHERE old.vid=%d", array($node->vid, $node->old_vid));
+  }
+  if (!empty($node->sheetnode['template']) && user_access('create sheetnode template')) {
+    _sheetnode_template_save($node->vid, $node->sheetnode['template'], $node->sheetnode['value']);
+  }
+}
+
+/**
+ * Implementation of hook_nodeapi().
+ */
+function sheetnode_nodeapi($node, $op) {
+  if ($op == 'update index') {
+    // Update index for sheetnodes and sheetfields.
+    $output = '';
+    if ($node->type == 'sheetnode') {
+      $output .= _sheetnode_update_index($node->sheetnode['value']);
+    }
+    foreach (sheetnode_get_sheetfields($node->type) as $field_name => $field) {
+      foreach ($node->$field_name as $item) {
+        if (!empty($item['name'])) {
+          $output .= '<h5>' . $item['name'] . '</h5>';
+        }
+        $output .= _sheetnode_update_index($item['value']);
+      }
+    }
+    return $output;
+  }
+  else if ($op == 'presave' && $node->type == 'sheetnode' && isset($node->devel_generate)) {
+    // Generate random spreadsheets for sheetnodes.
+    $node->sheetnode = array(
+      'template' => NULL,
+    ) + sheetnode_content_generate($node, NULL);
+  }
+  else if ($op == 'delete revision' && $node->type == 'sheetnode') {
+    db_query("DELETE FROM {sheetnode} WHERE vid=%d", $node->vid);
+  }
+}
+
+/**
+ * Helper function to return an indexable version of the spreadsheet.
+ */
+function _sheetnode_update_index($value) {
+  require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
+  $output = '<table>';
+  $socialcalc = socialcalc_parse($value);
+  $sc = $socialcalc['sheet'];
+  $row = -1;
+  if (!empty($sc['cells'])) foreach ($sc['cells'] as $c) {
+    if ($c['pos'][1] > $row) { // new row? - this assumes cells are ordered by col/row
+      if ($row != -1) {
+        $output .= '</tr>';
+      }
+      $row = $c['pos'][1];
+      $output .= '<tr>';
+    }
+    $output .= '<td>'. (isset($c['datavalue']) ? $c['datavalue'] : '&nbsp;') . (isset($c['comment']) ? ' ('. check_plain($c['comment']) .')' : '')  .'</td>';
+  }
+  if ($row != -1) {
+    $output .= '</tr>';
+  }
+  $output .= '</table>';
+  return $output;
+}
+
+/**
+ * Implementation of hook_token_list().
+ */
+function sheetnode_token_list($type = 'all') {
+  if ($type == 'all' || $type == 'node') {
+    return array(
+      'sheetnode' => array(
+        'sheetnode-????' => t('Enter a cell reference such as sheetnode-B52, sheetnode-C79, etc.'),
+      ),
+    );
+  }
+  if ($type == 'all' || $type == 'field') {
+    return array(
+      'sheetfield' => array(
+        '????' => t('Enter a cell reference such as sheetnode-B52, sheetnode-C79, etc.'),
+      ),
+    );
+  }
+}
+
+/**
+ * Implementation of hook_token_values().
+ */
+function sheetnode_token_values($type, $object = NULL) {
+  $tokens = array();
+  if ($type == 'node' && $object->type == 'sheetnode') {
+    require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
+    $socialcalc = socialcalc_parse($object->sheetnode['value']);
+    $sc = $socialcalc['sheet'];
+    if (!empty($sc['cells'])) foreach ($sc['cells'] as $coord => $c) {
+      $tokens['sheetnode-' . $coord] = isset($c['datavalue']) ? $c['datavalue'] : '';
+    }
+  }
+  if ($type == 'node' && $object->type != 'sheetnode') {
+    foreach (content_fields(NULL, $object->type) as $field) {
+      if ($field['type_name'] == $object->type && $field['type'] == 'sheetfield') {
+        require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
+        $item = $object->{$field['field_name']}[0]; // To act like other CCK fields
+        $socialcalc = socialcalc_parse($item['value']);
+        if (!empty($socialcalc['sheet'])) {
+          $sc = $socialcalc['sheet'];
+          if (!empty($sc['cells'])) foreach ($sc['cells'] as $coord => $c) {
+            $tokens[$field['field_name'] . '-' . $coord] = isset($c['datavalue']) ? $c['datavalue'] : '';
+          }
+        }
+      }
+    }
+  }
+  return $tokens;
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function sheetnode_menu() {
+  $items = array();
+  
+  $items['sheetnode/load'] = array(
+    'type' => MENU_CALLBACK,
+    'page callback' => '_sheetnode_ajax_load',
+    'access arguments' => array('access content'),
+  );
+  $items['sheetnode/field'] = array(
+    'type' => MENU_CALLBACK,
+    'page callback' => '_sheetnode_ajax_field',
+    'access arguments' => array('access content'),
+  );
+  $items['sheetnode/token'] = array(
+    'type' => MENU_CALLBACK,
+    'page callback' => '_sheetnode_ajax_token',
+    'access arguments' => array('access content'),
+  );
+  $items['node/add/sheetnode_template'] = array(
+    'title' => 'Sheetnode import from template',
+    'access arguments' => array('create sheetnode'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('sheetnode_import_template'),
+    'description' => 'Create a new sheetnode from an existing template.',
+  );
+  $items['admin/settings/sheetnode'] = array(
+    'title' => 'Sheetnode',
+    'access arguments' => array('administer site configuration'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('sheetnode_admin_settings'),
+    'description' => 'Sheetnode module settings',
+  );
+  $items['admin/settings/sheetnode/general'] = array(
+    'title' => 'General',
+    'weight' => -10,
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+define('SHEETNODE_VIEW_READONLY', 0);
+define('SHEETNODE_VIEW_FIDDLE',   1);
+define('SHEETNODE_VIEW_HTML',     2);
+
+/**
+ * Form function for admin/settings/sheetnode.
+ */
+function sheetnode_admin_settings() {
+  $form['sheetnode_view_mode'] = array(
+    '#type' => 'radios',
+    '#title' => t('View mode'),
+    '#description' => t('Select the way sheetnodes should be displayed in view mode.'),
+    '#options' => array(
+      SHEETNODE_VIEW_READONLY => t('Read-only spreadsheet'),
+      SHEETNODE_VIEW_FIDDLE   => t('Fiddle mode (interactive spreadsheet without save functionality)'),
+      SHEETNODE_VIEW_HTML     => t('HTML table'),
+    ),
+    '#default_value' => variable_get('sheetnode_view_mode', SHEETNODE_VIEW_FIDDLE),
+  );
+  $form['sheetnode_view_toolbar'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Show toolbar in view mode'),
+    '#default_value' => variable_get('sheetnode_view_toolbar', FALSE),
+  );
+  return system_settings_form($form);
+}
+
+/**
+ * Form function for node/add/sheetnode_template.
+ */
+function sheetnode_import_template(&$form_state) {
+  $options[0] = t('- Select a template -');
+  $result = db_query("SELECT tid, name FROM {sheetnode_template}");
+  while ($template = db_fetch_object($result)) {
+    $options[$template->tid] = $template->name;
+  }
+  $form['template'] = array(
+    '#type' => 'select',
+    '#title' => t('Template'),
+    '#description' => t('Please select the template to load into your new sheetnode.'),
+    '#options' => $options, 
+    '#default_value' => 0,
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+  );
+  return $form;
+}
+
+/**
+ * Validate function for sheetnode_import_template form.
+ */
+function sheetnode_import_template_validate($form, &$form_state) {
+  if (!$form_state['values']['template']) {
+    form_set_error('template', t('Please select a template.'));
+  }
+}
+
+/**
+ * Submit function for sheetnode_import_template form.
+ */
+function sheetnode_import_template_submit($form, &$form_state) {
+  global $user;
+  module_load_include('inc', 'node', 'node.pages');
+
+  $template = _sheetnode_template_load($form_state['values']['template']);
+  $node = new StdClass;
+  $node->type = 'sheetnode';
+
+  node_object_prepare($node);
+
+  $node->title = $template->name;
+  $node->name = $user->name;
+  $node->sheetnode['value'] = $template->value;
+  $node->sheetnode['template'] = NULL;
+
+  // Let other modules alter the sheetnode or do other work.
+  drupal_alter('sheetnode_import', $node, array(), array('template' => $template));
+
+  // Save the sheetnode.
+  $node = node_submit($node);
+  node_save($node);
+
+  if (!empty($node->nid)) {
+    $form_state['redirect'] = 'node/' . $node->nid . '/edit';
+  }
+}
+
+/**
+ * Implementation of hook_views_api().
+ */
+function sheetnode_views_api() {
+  return array(
+    'api' => 2.0,
+  );
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function sheetnode_theme($existing, $type, $theme, $path) {
+  $hooks = array(
+    'sheetnode_range' => array(
+      'arguments' => array('range' => NULL, 'labels' => NULL),
+    ),
+    'sheetfield_spreadsheet' => array(
+      'arguments' => array('element' => NULL),
+    ),
+    'sheetnode_formatter_default' => array(
+      'arguments' => array('element' => NULL),
+    ),
+  );
+  if (module_exists('date')) {
+    $hooks['sheetnode_formatter_socialcalc_date'] = array(
+      'arguments' => array('element' => NULL),
+    );
+  }
+  return $hooks;
+}
+
+define('SHEETNODE_RANGE_LABELS_ROW', 1);
+define('SHEETNODE_RANGE_LABELS_COL', 2);
+define('SHEETNODE_RANGE_LABELS_ROW_COL', 3);
+
+/**
+ * Theme function for sheetnode_range.
+ */
+function theme_sheetnode_range($range, $labels = SHEETNODE_RANGE_LABELS_ROW_COL) {
+  if (empty($range)) return '';
+  require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
+  list($c, $r) = socialcalc_coord_to_cr(key($range));
+  $row = array();
+  if ($labels & SHEETNODE_RANGE_LABELS_ROW) {
+    $row[] = array('data' => $r, 'header' => TRUE);
+  }
+  $header = array();
+  if ($labels & SHEETNODE_RANGE_LABELS_ROW) {
+    $header[] = array();
+  }
+  $rows = array();
+  foreach ($range as $coord => $value) {
+    $pos = socialcalc_coord_to_cr($coord);
+    if ($pos[1] > $r) {
+      $rows[] = $row;
+      $r = $pos[1];
+      $row = array();
+      if ($labels & SHEETNODE_RANGE_LABELS_ROW) {
+        $row[] = array('data' => $r, 'header' => TRUE);
+      }
+    }
+    $row[] = $value;
+    if (empty($rows)) {
+      $coord = socialcalc_cr_to_coord($pos[0], $pos[1], TRUE);
+      $header[] = $coord[0];
+    }
+  }
+  $rows[] = $row;
+  return theme('table', $labels & SHEETNODE_RANGE_LABELS_COL ? $header : NULL, $rows);
+}
+
+/**
+ * Implementation of hook_init().
+ */
+function sheetnode_init() {
+  // TODO: This is here for the view admin page. Find another way to include them or at least restrict the path.
+  drupal_add_css(drupal_get_path('module', 'sheetnode') . '/socialcalc/socialcalc.css');
+  drupal_add_css(drupal_get_path('module', 'sheetnode') . '/sheetnode.css');
+}
+
+/**
+ * Implementation of hook_content_extra_fields().
+ */
+function sheetnode_content_extra_fields($type_name) {
+  $extra = array();
+  if ($type_name == 'sheetnode') {
+    $extra['sheetnode'] = array(
+      'label' => t('Spreadsheet'),
+      'description' => t('Sheetnode module form.'),
+      'weight' => -1,
+    );
+  }
+  return $extra;
+}
+
+/**
+ * Implementation of hook_field_info().
+ */
+function sheetnode_field_info() {
+  return array(
+    'sheetfield' => array(
+      'label' => t('Spreadsheet'),
+      'description' => t('Store a spreadsheet.'),
+      // 'content_icon' => 'icon_content_sheet.png',
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_field_settings().
+ */
+function sheetnode_field_settings($op, $field) {
+  switch ($op) {
+  case 'database columns':
+    require_once(drupal_get_path('module', 'sheetnode') . '/sheetnode.install');
+    $schema = sheetnode_schema();
+    $columns['value'] = $schema['sheetnode']['fields']['value'];
+    $columns['value']['not null'] = FALSE;
+    $columns['name'] = array(
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => FALSE,
+    );
+    return $columns;
+  }
+}
+
+/**
+ * Implementation of hook_content_is_empty().
+ */
+function sheetnode_content_is_empty($item, $field) {
+  require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
+  $sc = socialcalc_parse($item['value']);
+  return empty($sc['sheet']['cells']);
+}
+
+/**
+* Implementation of hook_content_generate().
+*/
+function sheetnode_content_generate($node, $field) {
+  require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
+
+  $sc = array(
+    'edit' => array(),
+    'audit' => array(),
+    'sheet' => array(),
+  );
+  for ($row = 1; $row < mt_rand(10, 50); $row++) {
+    $sc['sheet']['cells'][] = array(
+      'pos' => array(1, $row),
+      'datavalue' => devel_generate_word(mt_rand(6, 12)),
+      'datatype' => 't',
+      'valuetype' => 't',
+    );
+    $sc['sheet']['cells'][] = array(
+      'pos' => array(2, $row),
+      'datavalue' => _sheetnode_lcg_randf(-100, 100), 
+      'datatype' => 'v',
+      'valuetype' => 'n',
+    );
+  }
+  $sc['edit']['ecell']['coord'] = 'A1';
+  return array('value' => socialcalc_save($sc));
+}
+
+/**
+ * Helper function to return random number using combined linear congruential generator.
+ */
+function _sheetnode_lcg_randf($min, $max) {
+  return $min + lcg_value() * abs($max - $min);
+}
+
+/**
+ * Implementation of hook_field_formatter_info().
+ */
+function sheetnode_field_formatter_info() {
+  $formatters = array(
+    'default' => array(
+      'label' => t('Default'),
+      'field types' => array('sheetfield'),
+      'multiple values' => CONTENT_HANDLE_CORE,
+    ),
+  );
+  if (module_exists('date')) {
+    $formatters['socialcalc_date'] = array(
+      'label' => t('SocialCalc'),
+      'field types' => array('date', 'datetime', 'datestamp'),
+      'multiple values' => CONTENT_HANDLE_CORE,
+    );
+  }
+  return $formatters;
+}
+
+/**
+ * Implementation of hook_widget_info().
+ */
+function sheetnode_widget_info() {
+  return array(
+    'sheetfield_spreadsheet' => array(
+      'label' => t('Spreadsheet'),
+      'field types' => array('sheetfield'),
+      'multiple values' => CONTENT_HANDLE_CORE,
+      'callbacks' => array(
+        'default value' => CONTENT_CALLBACK_DEFAULT,
+      ),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_widget().
+ */
+function sheetnode_widget(&$form, &$form_state, $field, $items, $delta = 0) {
+  $element = array(
+    '#type' => $field['widget']['type'],
+    '#default_value' => isset($items[$delta]) ? $items[$delta] : '',
+  );
+  return $element;
+}
+
+/**
+ * Implementation of FAPI hook_elements().
+ */
+function sheetnode_elements() {
+  return array(
+    'sheetfield_spreadsheet' => array(
+      '#input' => TRUE,
+      '#columns' => array('value', 'name'), 
+      '#delta' => 0,
+      '#process' => array('_sheetfield_spreadsheet_process'),
+      '#autocomplete_path' => FALSE,
+    ),
+  );
+}
+
+/**
+ * Process function for sheetfield_spreadsheet element.
+ */
+function _sheetfield_spreadsheet_process($element, $edit, $form_state, $form) {
+  $defaults = $element['#value'];
+  $field = content_fields($element['#field_name']);
+  $output = _sheetnode_inject(
+    'sheetfield-' . $element['#id'], 
+    _sheetnode_sheetfield_aliases($element['#field_name'], $field['widget'], $defaults, $element['#delta']),
+    @$defaults['value'], 
+    $element['#id'] . '-' . 'value', 
+    isset($form['#node']) ? array('entity-name' => 'node', 'oid' => @$form['#node']->nid) : NULL,
+    !empty($form['#post']) && empty($form['#post']['op']) && !empty($form['#post'][ $element['#field_name'] . '_add_more' ])
+  );
+  $element['#tree'] = TRUE;
+  $element['sheetview'] = array('#value' => $output, '#weight' => -1);
+  $element['value'] = array('#type' => 'hidden');
+  $element['name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Title'),
+    '#default_value' => @$defaults['name'],
+    '#weight' => -2,
+  );
+  return $element;
+}
+
+/**
+ * Helper function to retrieve possible sheetfield aliases.
+ */
+function _sheetnode_sheetfield_aliases($field_name, $widget, $value, $delta) {
+  $names = array();
+  $names[] = $field_name . '/' . $delta;
+  if (!empty($widget['label'])) {
+    $names[] = $widget['label'] . '/' . $delta;
+  }
+  if (!empty($value['name'])) {
+    $names[] = $value['name'];
+  }
+  return $names;
+}
+
+/**
+ * Theme function for sheetfield_spreadsheet element.
+ */
+function theme_sheetfield_spreadsheet($element) {
+  return theme('form_element', $element, $element['#children']);
+}
+
+/**
+ * Theme function for sheetfield default formatter.
+ */
+function theme_sheetnode_formatter_default($element) {
+  $output = '';
+  $field = content_fields($element['#field_name']);
+  $item = $element['#item'];
+  if (!empty($item['value'])) {
+    if (!empty($item['name'])) {
+      $output .= '<div class="sheetfield-title">' . $item['name'] . '</div>';
+    }
+    $output .= _sheetnode_inject(
+      'sheetfield-' . str_replace('_', '-', $element['#field_name']) . '-' . $item['#delta'], 
+      _sheetnode_sheetfield_aliases($element['#field_name'], $field['widget'], $item, $item['#delta']),
+      $item['value'], 
+      FALSE, 
+      isset($element['#node']) ? array('entity-name' => 'node', 'oid' => @$element['#node']->nid) : NULL
+    );
+  }
+  return $output;
+}
+
+/**
+ * Theme function for SocialCalc date formatter.
+ */
+function theme_sheetnode_formatter_socialcalc_date($element) {
+  require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
+
+  $field_name = $element['#field_name'];
+  $fields = content_fields();
+  $field = $fields[$field_name];
+  $item = $element['#item'];
+
+  $value = $item['value'];
+  if ($field['type'] == DATE_ISO) {
+    $value = str_replace(' ', 'T', date_fuzzy_datetime($value));
+  }
+  $date = date_make_date($value, NULL, $field['type'], $field['granularity']);
+  return socialcalc_import_date($date);
+}
+
+/**
+ * API function to return a sheet given a name.
+ */
+function sheetnode_find_sheet($sheetname) {
+  require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
+
+  $args = explode('/', $sheetname);
+  $sheetname = array_shift($args);
+
+  // No value found by default.
+  $value = NULL;
+  $title = NULL;
+
+  // Try to find a node.
+  $node = NULL;
+  if (is_numeric($sheetname)) {
+    $node = node_load(intval($sheetname));
+  }
+  else {
+    $nid = db_result(db_query("SELECT nid FROM {node} WHERE title = '%s' LIMIT 1", 
+      db_escape_string($sheetname)
+    ));
+    if ($nid) {
+      $node = node_load($nid);
+    }
+  }
+
+  // Is it a sheetnode?
+  if ($node && $node->type == 'sheetnode' && empty($args[0])) {
+    $value = $node->sheetnode['value'];
+    $title = $node->title;
+  }
+
+  // Is it a sheetfield?
+  if (!$value && $node) {
+    $target_field = empty($args[0]) ? FALSE : $args[0];
+    $target_delta = empty($args[1]) ? 0 : intval($args[1]);
+    foreach (sheetnode_get_sheetfields($node->type) as $field_name => $field_info) {
+      $name = @$node->{$field_name}[$target_delta]['name'];
+      if ((!$target_field || 
+           0 == strcasecmp($target_field, $field_name) || 
+           0 == strcasecmp($target_field, $field_info['widget']['label']) ||
+           0 == strcasecmp($target_field, $name)
+          ) &&
+          !empty($node->{$field_name}[$target_delta])
+      ) {
+        $value = $node->{$field_name}[$target_delta]['value'];
+        $title = trim(sprintf("%s %s %s", 
+          $node->title, 
+          $field_info['widget']['label'], 
+          $target_delta ? strval($target_delta) : ''
+        ));
+        break;
+      }
+    }
+  }
+
+  // Is it a sheetview?
+  if (!$value && module_exists('views')) { // Try a view feed with our SocialCalc output plugin style
+    $view = views_get_view($sheetname);
+    if ($view) foreach (array_keys($view->display) as $display_name) {
+      $display = $view->display[$display_name];
+      if (isset($display->display_options['style_plugin']) && $display->display_options['style_plugin'] == 'sheet_raw') {
+        if (!empty($args)) {
+          $view->set_arguments($args);
+        }
+        $value = $view->render($display->id);
+        $title = $display->handler->get_option('title');
+        drupal_set_header('Content-type: text/html; charset=utf-8'); // Our style plugin sets this to text/plain
+      } 
+    }
+  }
+
+  return array($value, $title);
+}
+
+/**
+ * AJAX function to return a sheet value. 
+ */
+function _sheetnode_ajax_load($sheetname = NULL) {
+  // Parse the sheetname which might contain extra args separated by forward-slash.
+  if (empty($sheetname)) $sheetname = $_REQUEST['sheetname'];
+
+  // Look for the sheet.
+  list($value, $title) = sheetnode_find_sheet($sheetname);
+
+  // Found a spreadsheet: return it.
+  drupal_set_header('Content-type: text/plain; charset=utf-8');
+  if ($value) {
+    $parts = socialcalc_parse_parts($value);
+    if (isset($parts['sheet'])) {
+      echo $parts['sheet'];
+    }
+  }
+  exit();
+}
+
+/**
+ * AJAX function to return a token value.
+ */
+function _sheetnode_ajax_token($oid = NULL, $entity = NULL, $token = NULL) {
+  if (!$oid) $oid = $_REQUEST['oid'];
+  if (!$entity) $entity = $_REQUEST['entity'];
+  if (!$token) $token = $_REQUEST['token'];
+
+  $value = NULL;
+  $object = _sheetnode_load_entity($entity, $oid);
+  if ($object) {
+    // Do the token replacement.
+    if (module_exists('token')) {
+      $value = token_replace($token, $entity, $object);
+    }
+
+    // If found, send it back.
+    if ($value) {
+      drupal_json(array(
+        'type' => is_numeric($value) ? 'n' : 'th',
+        'value' => $value,
+      ));
+      exit();
+    }
+  }
+  drupal_json(array('value' => '', 'type' => 'e#NAME?'));
+  exit();
+}
+
+/**
+ * AJAX function to return a field value.
+ */
+function _sheetnode_ajax_field($oid = NULL, $entity = NULL, $field = NULL) {
+  if (!$oid) $oid = $_REQUEST['oid'];
+  if (!$entity) $entity = $_REQUEST['entity'];
+  if (!$field) $field = $_REQUEST['field'];
+
+  $value = NULL;
+  $object = _sheetnode_load_entity($entity, $oid);
+  if ($object) {
+    // Try CCK field.
+    if ($entity == 'node' && module_exists('content')) {
+      $field_info = content_fields($field, $object->type);
+      if ($field_info) {
+        $field_info['display_settings']['label']['format'] = 'hidden';
+        $value = content_view_field($field_info, $object, FALSE, TRUE);
+      }
+    }
+
+    // Try rendered node field.
+    if (!$value && $entity == 'node') {
+      $node = drupal_clone($object);
+      $node = node_build_content($node);
+      if (isset($node->content[$field])) {
+        $value = drupal_render($node->content[$field]);
+      }
+    }
+
+    // Try raw object field.
+    if (!$value && isset($object->$field)) {
+      if (is_object($object->$field) || is_array($object->$field)) {
+        $value = print_r($object->$field, TRUE);
+      }
+      else {
+        $value = $object->$field;
+      }
+    }
+
+    // If found, send it back.
+    if ($value) {
+      drupal_json(array(
+        'type' => is_numeric($value) ? 'n' : 'th',
+        'value' => $value,
+      ));
+      exit();
+    }
+  }
+  drupal_json(array('value' => '', 'type' => 'e#NAME?'));
+  exit();
+}
+
+/**
+ * Helper function to save a sheetnode.
+ */
+function _sheetnode_save($nid, $vid, $value) {
+  db_query("DELETE FROM {sheetnode} WHERE vid=%d", $vid);
+  db_query("INSERT INTO {sheetnode} (nid, vid, value) VALUES (%d, %d, '%s')", $nid, $vid, $value);
+}
+
+/**
+ * Helper function to save a sheetnode template.
+ */
+function _sheetnode_template_save($vid, $name, $value) {
+  $record = (object)array('name' => $name, 'value' => $value, 'vid' => $vid);
+  if ($tid = db_result(db_query("SELECT tid FROM {sheetnode_template} WHERE name='%s'", db_escape_string($name)))) {
+    $record->tid = $tid;
+  }
+  drupal_write_record('sheetnode_template', $record, $tid ? 'tid' : array());
+}
+
+/**
+ * Helper function to load a sheetnode template.
+ */
+function _sheetnode_template_load($tid) {
+  $template = db_fetch_object(db_query("SELECT * FROM {sheetnode_template} WHERE tid=%d", $tid));
+  return $template;
+}
+
+/**
+ * Helper function to load a Drupal entity.
+ */
+function _sheetnode_load_entity($entity, $oid) {
+  if (function_exists($entity . '_load')) { // call load function directly
+    return call_user_func($entity . '_load', $oid);
+  }
+  if (module_exists('views_bulk_operations')) { // get entity info from VBO
+    $object_info = _views_bulk_operations_get_object_info();
+    if (isset($object_info[$entity]) && function_exists($object_info[$entity]['load'])) {
+      return call_user_func($object_info[$entity]['load'], $oid);
+    }
+  }
+  watchdog('sheetnode', 'Could not load entity %entity: No load function found.', array('%entity' => $entity), WATCHDOG_WARNING);
+  return NULL;
+}
+
+/**
+ * API function to get all sheetfields of a node type.
+ */
+function sheetnode_get_sheetfields($type) {
+  if (!module_exists('content')) return array();
+
+  $sheetfields = array();
+  $type_info = content_types($type);
+  foreach ($type_info['fields'] as $field_name => $field) {
+    if ($field['type'] == 'sheetfield') {
+      $sheetfields[$field_name] = $field;
+    }
+  }
+  return $sheetfields;
+}
+

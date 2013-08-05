@@ -1,0 +1,6 @@
+WHY IS THIS HERE?
+
+Ajax.module depends on a version of the jquery.form plugin which is newer
+than the version which is currently distributed with Drupal 6. When this
+changes in the future, jquery.form.js will no longer be shipped with
+Ajax.module.

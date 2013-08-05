@@ -1,0 +1,201 @@
+<?php
+
+/**
+ * @file
+ * The installer and uninstaller for plugin manager.
+ */
+
+/**
+ * Implementation of hook_schema().
+ */
+function plugin_manager_schema() {
+  $schema['plugin_manager_repository'] = array(
+    'description' => t('The table that contains all information gathered from the repository.'),
+    'fields' => array(
+      'title' => array(
+        'description' => 'The full name of the project',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+      'short_name' => array(
+        'description' => 'The name the project is referred to by the server',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+      'links' => array(
+        'description' => 'The project url',
+        'type' => 'varchar',
+        'length' => 255,
+      ),
+    ),
+    'primary key' => array('short_name'),
+  );
+  $schema['plugin_manager_files'] = array(
+    'description' => 'Keeps track of all the files that have been installed by the module.',
+    'fields' => array(
+      'short_name' => array(
+        'description' => 'The name the project is referred to by the server',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+      'file_path' => array(
+        'description' => 'The path of the file, relative to the drupal installation, that was installed.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('file_path'),
+  );
+  $schema['plugin_manager_queue'] = array(
+    'description' => 'Keeps track of the plugins that are to be installed.',
+    'fields' => array(
+      'short_name' => array(
+        'description' => 'The name the project is referred to by the server',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('short_name'),
+  );
+  $schema['plugin_manager_taxonomy'] = array(
+    'description' => 'Keeps track of all the files that have been installed by the module.',
+    'fields' => array(
+      'short_name' => array(
+        'description' => 'The name the project is referred to by the server',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+      'tag' => array(
+        'description' => 'The taxonomy item for the this project.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+    ),
+    'index' => array('short_name', 'tag'),
+  );
+  return $schema;
+}
+
+function plugin_manager_update_1() {
+  $schema = array(
+    'description' => 'Keeps track of the plugins that are to be installed.',
+    'fields' => array(
+      'short_name' => array(
+        'description' => 'The name the project is referred to by the server',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('short_name'),
+  );
+
+  $ret = array();
+  db_drop_table($ret, 'plugin_manager_files');
+  db_create_table($ret, 'plugin_manager_queue', $schema);
+  return $ret;
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function plugin_manager_install() {
+  drupal_install_schema('plugin_manager');
+  @mkdir(file_directory_path() .'/plugin_manager_extraction/');
+  @mkdir(file_directory_path() .'/plugin_manager_cache/');
+
+  $module = $_SERVER['DOCUMENT_ROOT'] . base_path() .'sites/all/modules';
+  if (!is_dir($module) AND !@mkdir($module)) {
+    drupal_set_message(st('Could not create directory @dir', array('@dir' => $theme)), 'error');
+  }
+  $theme = $_SERVER['DOCUMENT_ROOT'] . base_path() .'sites/all/themes';
+  if (!is_dir($theme) AND !@mkdir($theme)) {
+    drupal_set_message(st('Could not create directory @dir', array('@dir' => $theme)), 'error');
+  }
+
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function plugin_manager_uninstall() {
+  // Remove the tables from the database.
+  drupal_uninstall_schema('plugin_manager');
+
+  // Remove the variables that have been set with time.
+  $result = db_query("SELECT name FROM {variable} WHERE name LIKE 'plugin_manager%%'");
+  while ($row = db_fetch_array($result)) {
+    variable_del($row['name']);
+  }
+
+  // Remove the files and folders craeted by the plugin_manager.
+  plugin_manager_delete(file_directory_path() .'/plugin_manager_extraction/');
+  plugin_manager_delete(file_directory_path() .'/plugin_manager_cache/');
+}
+
+/**
+ * Recursively delete a directory.
+ *
+ * @param $directory
+ *  The directory to be removed.
+ */
+function plugin_manager_delete($directory) {
+  // If it can't be opened, then return.
+  if (!$dhandle = @opendir($directory)) {
+    return;
+  }
+
+  // As long as there is still something in this directory, keep going.
+  while (false !== ($obj = readdir($dhandle))) {
+    // Skip the directories . and ..
+    if ($obj == '.' || $obj == '..') {
+      continue;
+    }
+    // If it's a file then remove it.
+    if (is_file($directory .'/'. $obj)) {
+      unlink($directory .'/'. $obj);
+    }
+    else {
+      // Otherwise use plugin_manager_delete to remove the directory.
+      plugin_manager_delete($directory .'/'. $obj);
+    }
+  }
+  closedir($dhandle);
+  @rmdir($directory);
+}
+
+
+/**
+ * Implementation of hook_requirements().
+ */
+function plugin_manager_requirements($phase) {
+  @include_once("Archive/Tar.php");
+  $requirements = array();
+  $t = get_t();
+
+  if (!function_exists('simplexml_load_string')) {
+    $requirements[] = array(
+      'title' => $t('SimpleXML'),
+      'value' => $t('Unavailable'),
+      'severity' => REQUIREMENT_ERROR,
+    );
+  }
+
+  if (!class_exists("Archive_Tar") && !function_exists('popen')) {
+    $requirements[] = array(
+      'title' => $t('Archive_Tar or popen'),
+      'value' => $t('Unavailable'),
+      'description' => 'New themes and modules that are downloaded from drupal.org are compressed.  To install them, a way to decompress them must exist.',
+      'severity' => REQUIREMENT_ERROR,
+    );
+  }
+
+  return $requirements;
+}

@@ -1,0 +1,16 @@
+<?php
+// $Id: comment_delete.install,v 1.1.2.1 2010/04/13 00:53:33 robphillips Exp $ 
+
+/**
+ * Implementation of hook_install().
+ */
+function comment_delete_install() {
+  db_query("UPDATE {system} SET weight = 1 WHERE name = 'comment_delete'");
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function comment_delete_uninstall() {
+  
+}

@@ -1,0 +1,21 @@
+; $Id: graphmind_service.info,v 1.1.2.6 2010/07/14 17:49:59 itarato Exp $
+name = GraphMind mindmap and service
+description = FreeMind style mindmap application for Drupal.
+core = 6.x
+package = Graphmind
+dependencies[] = services
+dependencies[] = views
+dependencies[] = amfphp
+dependencies[] = node_service
+dependencies[] = system_service
+dependencies[] = user_service
+dependencies[] = file_service
+dependencies[] = views_service
+dependencies[] = services_keyauth
+
+; Information added by drupal.org packaging script on 2011-06-24
+version = "6.x-1.x-dev"
+core = "6.x"
+project = "graphmind"
+datestamp = "1308874877"
+

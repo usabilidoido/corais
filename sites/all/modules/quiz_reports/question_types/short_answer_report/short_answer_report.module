@@ -1,0 +1,192 @@
+<?php 
+
+/**
+ * @file short_answer_report.module
+ *
+ * Module must expose two functions: get_truefalse_statistics and get_truefalse_themed_output
+ * These two functions are called from the quiz_stats module when generating statistics for this
+ * question type. 
+ * 
+ */
+
+/**
+ * Implementation of hook_help()
+ */
+function short_answer_report_help( $path, $arg ) {
+    $output = '';
+    
+    switch ( $path ) {
+        case 'admin/help#short_answer_report';
+            $output = '<p>' . t('Generates statistic for a short_answer question type') . '</p>';
+            break;
+    }
+    
+    return $output;
+}
+
+/**
+ * Implementation of hook_theme()
+ */
+function short_answer_report_theme() {
+  return array(
+    'short_answer_output' => array(
+      'arguments' => array( 'statistics' => NULL,  ),
+      'path' => drupal_get_path( 'module', 'short_answer_report' ) . '/theme',
+      'template' => 'short_answer_output',
+    ),
+  );
+}
+
+/**
+ * Get properties for the question type
+ *
+ * @param object $question
+ *    The question to get properties from.
+ * @return array
+ *    Return an array of properties for this question
+ **/
+function short_answer_report_get_question_properties( $question ) {
+
+  // Get question properties
+  $sql = "SELECT
+            text_entry_type,
+            correct_answer_evaluation,
+            correct_answer,
+            feedback_correct,
+            feedback_incorrect
+          FROM
+           {quiz_short_answer_node_properties}
+          WHERE
+            nid = %d
+            AND vid = %d";
+  
+  $properties = db_fetch_array(db_query($sql, $question->question_nid, $question->question_vid));
+  
+  // Cleanup, change value from integer to a human readable string
+  switch ( $properties['correct_answer_evaluation'] ) {
+    case 0:
+      $properties['correct_answer_evaluation'] = t('Automatic and case sensitive');
+      break;
+    case 1:
+      $properties['correct_answer_evaluation'] = t('Automatic. Not case sensitive.');
+      break;
+    case 2:
+      $properties['correct_answer_evaluation'] = t('Match against regular expression.');
+      break;
+    case 3:
+      $properties['correct_answer_evaluation'] = t('Manual');
+      break;
+  }
+  
+  // Get max score for question and merge into properties
+  $sql = "SELECT max_score FROM {quiz_question_properties} WHERE nid = %d AND vid = %d";
+  $properties = array_merge($properties, db_fetch_array(db_query($sql, $question->question_nid, $question->question_vid)));
+  
+  return $properties;
+}
+
+/**
+ * Themes the statistics.
+ *
+ * @param array $statistics
+ *      The statistics calculated in get_truefalse_statistics
+ * @return string
+ *      The HTML output for this question.
+ */
+function short_answer_get_themed_output( $statistics = NULL ) {
+  // Just a check to see if we have stats
+  if ( $statistics == NULL )
+      return t("Statistics to populate question theme is missing.");
+  
+  // Return themed output
+  return theme( 'short_answer_output', $statistics );
+}
+
+
+/**
+ * Calculates and returns statistic for a given question in relation to a 
+ * quiz node revision.
+ *
+ * @param object $quesetion
+ * @param int $vid
+ * @return array
+ */
+function short_answer_report_get_statistics( $question, $vid, $generic ) {
+
+  $statistics = array();
+
+  $properties = short_answer_report_get_question_properties($question);
+  
+  $piece = $properties['max_score'] / 4;
+
+  $scores = array();
+  for ($i=1;$i<=4;$i++) {
+    $scores[] = $piece*$i;
+  }
+  
+  $sql = "SELECT
+            SUM(answers.score >= 0 && answers.score <= " . $scores[0] . ") AS '25',
+            SUM(answers.score > " . $scores[0] . " && answers.score <= " . $scores[1] . ") AS '50',
+            SUM(answers.score > " . $scores[1] . " && answers.score <= " . $scores[2] . ") AS '75',
+            SUM(answers.score > " . $scores[2] . " && answers.score <= " . $scores[3] . ") AS '100'
+          FROM
+            {quiz_short_answer_user_answers} answers
+          INNER JOIN
+            {quiz_node_results} results USING(result_id)
+          WHERE
+            answers.question_vid = %d
+            AND answers.is_evaluated = 1
+            AND results.vid = %d";
+  
+  $result = db_fetch_array(db_query($sql, $question->question_vid, $vid));
+  
+  $sql = "SELECT
+            COUNT(*) AS takes,
+			      SUM(answers.is_evaluated=1) AS evaluated,
+            SUM(answers.is_evaluated=0) AS not_evaluated
+          FROM
+            {quiz_short_answer_user_answers} answers
+          INNER JOIN
+            {quiz_node_results} results USING(result_id)
+          WHERE
+            answers.question_vid = %d
+            AND results.vid = %d";
+  
+  $counts = db_fetch_array(db_query($sql, $question->question_vid, $vid));
+  
+  foreach ($counts as $key => $value) {
+    $result[$key] = $value;
+  }
+  
+  $result['percent_25'] = $result['25'] / $result['takes'] * 100;
+  $result['percent_50'] = $result['50'] / $result['takes'] * 100;
+  $result['percent_75'] = $result['75'] / $result['takes'] * 100;
+  $result['percent_100'] = $result['100'] / $result['takes'] * 100;
+  $result['percent_not_evaluated'] = $result['not_evaluated'] / $result['takes'] * 100;
+  
+  $statistics['takes'] = $result;
+  
+  $sql = "SELECT
+          	answers.score,
+          	answers.is_evaluated,
+          	answers.answer
+          FROM
+          	{quiz_short_answer_user_answers} answers
+          INNER JOIN
+          	{quiz_node_results} results USING(result_id)
+          WHERE
+          	answers.question_vid = %d
+          	AND results.vid = %d";
+  
+  
+  
+  $result = db_query($sql, $question->question_vid, $vid);
+  
+  $statistics['answers'] = array();
+  
+  while ($row = db_fetch_array($result)) {
+    $statistics['answers'][] = $row;
+  }
+  
+  return $statistics;
+}

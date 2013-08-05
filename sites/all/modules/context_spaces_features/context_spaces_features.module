@@ -1,0 +1,52 @@
+<?php
+// Context Spaces Features
+
+/**
+ * Implementation of hook_context_registry().
+ */
+function context_spaces_features_context_registry() {
+  return array(
+    'conditions' => array(
+      'context_spaces_features' => array(
+        'title' => t('Active space features'),
+        'plugin' => 'context_spaces_features_context_condition',
+      ),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_ctools_plugin_api().
+ */
+function context_spaces_features_ctools_plugin_api($module, $api) {
+  if ($module == 'context' && $api == 'plugins') {
+    return array('version' => 3);
+  }
+}
+
+/**
+ * Implementation of hook_context_plugins().
+ */
+function context_spaces_features_context_plugins() {
+  $plugins = array();
+  $plugins['context_spaces_features_context_condition'] = array(
+    'handler' => array(
+      'path' => drupal_get_path('module', 'context_spaces_features') .'/plugins',
+      'file' => 'context_spaces_features_context_condition.inc',
+      'class' => 'context_spaces_features_context_condition',
+      'parent' => 'context_condition',
+    ),
+  );
+  return $plugins;
+}
+
+/**
+ * Implementation of hook_init().
+ */
+function context_spaces_features_init() {
+  // get the mapping of conditions and if they should execute
+  $map = context_condition_map();
+  if (!empty($map['context_spaces_features']) && $plugin = context_get_plugin('condition', 'context_spaces_features')) {
+    $plugin->execute();
+  }
+}

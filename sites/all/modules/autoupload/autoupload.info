@@ -1,0 +1,11 @@
+name = AutoUpload
+description = Automatically upload a file without needing to push the Upload button
+core = 6.x
+dependencies[] = filefield
+
+; Information added by drupal.org packaging script on 2013-01-09
+version = "6.x-1.0"
+core = "6.x"
+project = "autoupload"
+datestamp = "1357721111"
+

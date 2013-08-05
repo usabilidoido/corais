@@ -1,0 +1,402 @@
+<?php
+
+/**
+ * Implementation of hook_views_api()
+ */
+
+function smartqueue_og_views_api() {
+  return array(
+    'api' => 2,
+    'path' => drupal_get_path('module', 'smartqueue_og') .'/includes/views',
+  );
+}
+function smartqueue_og_block($op = 'list', $delta = 0, $edit = array()) {
+ if (module_exists('views')) {
+    switch ($op) {
+      case 'list':
+        $blocks[0]['info'] = t("Group Queue");
+        return $blocks; 
+        break;
+      case 'view':
+        if ($delta == 0) {
+          //try not to get grossed out:
+          if ($node = menu_get_object('node')) {
+            if (og_is_group_type($node->type)) {
+              $view = views_embed_view('smartqueue_og_default');
+              $block = array(
+                'subject' => t("@title's Queue", array('@title' => $node->title)),
+                'content' => $view,
+              );
+            }
+          }
+        }
+        return $block;
+        break;
+    }
+  }
+}
+function smartqueue_og_menu() {
+  $items['admin/content/nodequeue/smartqueue_og/batch_delete'] = array(
+    'title' => 'Confirm Smartque OG Batch Queue Deletion',
+    'access callback' => 'smartqueue_og_batch_delete_access',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('smartqueue_og_batch_delete_subqueues_confirm'),
+    'type' => MENU_CALLBACK
+  );
+  return $items;
+}
+
+function smartqueue_og_batch_delete_access() {
+  return user_access('manipulate all queues') || user_access('manipulate all og queues');
+}
+function smartqueue_og_perm() {
+  return array('manipulate og queues', 'manipulate all og queues');
+}
+function smartqueue_og_nodequeue_info() {
+  return array('smartqueue_og' =>
+    array(
+      'title' => t('Smartqueues for Organic Groups'),
+      'description' => t('Provides a Nodequeue for each Organic Group'),
+    )
+  );
+}
+
+function smartqueue_og_nodequeue_form($queue, &$form) {
+  
+  $og_types = array_flip(og_get_types('group'));
+  $og_types = array_intersect_key(node_get_types('names'), $og_types);
+  $form['eligible_group_types'] = array(
+    '#type' => 'checkboxes',
+    '#title' => t("Group types which are eligible for a Nodequeue"),
+    '#description' => t("Select the Organic Group types for which Nodequeues should be automatically created."),
+    '#options' => $og_types,
+    '#default_value' => variable_get('smartqueue_og_'. smartqueue_og_get_qid() .'_eligible_group_types', array()),
+    '#weight' => 1,
+  );
+  $form['manipulate_restrict'] = array(
+    '#type' => 'radios',
+    '#title' => t('Who can manipulate this Nodequeue?'),
+    '#options' => array(
+      'members' => t('All Groups Members can manipulate this Nodequeue.'),
+      'admins' => t('Only Group Administrators can manipulate this Nodequeue.'),
+    ),
+    '#default_value' => variable_get('smartqueue_og_manipulate_restrict_'. $queue->qid, 'admins'),
+  );
+  $form['node_restrict'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Restrict to posts within a group'),
+    '#description' => t("When checked, only posts which are part of the Organic Group can be added to the group's Nodequeue."),
+    '#default_value' => variable_get('smartqueue_og_node_restrict_'. $queue->qid, 0),
+  );
+  $form['auto_add'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Automatically add to group queues'),
+    '#description' => t("When checked, posts will automatically be added to applicable group Nodequeues when they are submitted."),
+    '#default_value' => variable_get('smartqueue_og_auto_add_'. $queue->qid, 0),
+  );
+  $form['submit_actions'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Batch operations to perform when this form is submitted:'),
+    '#weight' => 8,
+    '#tree' => TRUE,
+  );
+  $form['submit_actions']['destroy'] = array(
+    '#type' => 'radios',
+    '#title' => 'For Organic Groups that should no longer have Nodequeues',
+    '#options' => array(
+      //'disable' => t('Disable these NodeQueues'), This isn't possible on a per-SubQueue basis with the current Nodequeue API.
+      'delete' => t('Delete these Nodequeues'),
+      'nothing' => t('Take no action on these Nodequeues'),
+    ),
+  );
+  $form['submit_actions']['create'] = array(
+    '#prefix' => "<label>". t("For eligible groups that do not yet have Queues:") ."</label>",
+    '#type' => 'checkbox',
+    '#title' => t('Create new Nodequeues'),
+    '#default_value' => 1,
+  );
+}
+
+function smartqueue_og_nodequeue_form_submit(&$queue, &$form_state) {
+  variable_set('smartqueue_og_'. $queue->qid .'_eligible_group_types', $form_state['values']['eligible_group_types']);
+  variable_set('smartqueue_og_node_restrict_'. $queue->qid, $form_state['values']['node_restrict']);
+  variable_set('smartqueue_og_manipulate_restrict_'. $queue->qid, $form_state['values']['manipulate_restrict']);
+  variable_set('smartqueue_og_auto_add_'. $queue->qid, $form_state['values']['auto_add']);
+}
+
+function smartqueue_og_nodequeue_form_submit_finish(&$queue, &$form_state) {
+  if ($form_state['values']['submit_actions']['create'] == 1) {
+    $eligible_groups = smartqueue_og_eligible_groups();
+    $existing_subqueues = smartqueue_og_existing_subqueues();
+    if (!empty($eligible_groups)) {
+      $groups_without_subqueues = array_diff_key($eligible_groups, $existing_subqueues);
+      smartqueue_og_batch_add_subqueues($groups_without_subqueues, $queue->qid);
+    }
+  }
+
+  switch ($form_state['values']['submit_actions']['destroy']) {
+    case 'delete':
+      drupal_goto('admin/content/nodequeue/smartqueue_og/batch_delete');
+      break;
+  }
+}
+function smartqueue_og_batch_delete_subqueues_confirm() {
+  $qid = smartqueue_og_get_qid();
+  
+    $eligible_groups = smartqueue_og_eligible_groups();
+    $existing_subqueues = smartqueue_og_existing_subqueues();
+    $extra_subqueues = array_diff_key($existing_subqueues, $eligible_groups);
+
+  if (empty($extra_subqueues)) {
+    drupal_set_message(t("There are no extra OG Nodequeues to delete."));
+    drupal_goto('admin/content/nodequeue/'. $qid .'/edit');
+  }
+  
+  $form['extra_subqueues'] = array(
+    '#type' => 'value',
+    '#value' => $extra_subqueues,
+  );
+  return confirm_form($form, t("Are you sure you wish to batch delete extra OG Nodequeues ?"), 'admin/content/nodequeue/'. $qid .'/edit', NULL, 'Confirm', 'Cancel', 'smartqueue_og_batch_delete_confirm');
+}
+
+function smartqueue_og_batch_delete_subqueues_confirm_submit($form, &$form_state) {
+  smartqueue_og_batch_delete_subqueues($form_state['values']['extra_subqueues']);
+  $form_state['redirect'] = 'admin/content/nodequeue';
+}
+
+function smartqueue_og_batch_delete_subqueues($sq_ids = array()) {
+  //get sqids from the form
+  if (count($sq_ids) > 0) {
+    $in = implode(', ', array_fill(0, count($sq_ids), "%d"));
+    db_query("DELETE FROM {nodequeue_subqueue} WHERE sqid IN($in)", $sq_ids);
+    db_query("DELETE FROM {nodequeue_nodes} WHERE sqid IN($in)", $sq_ids);
+  }
+  else {
+    drupal_set_message(t("No subqueues to delete."));
+  }
+}
+
+function smartqueue_og_batch_add_subqueues($groups, $qid = NULL) {
+  if (!$qid) {
+    $qid = smartqueue_og_get_qid();
+  }
+  if (!$qid) {
+    //TODO: Move this to smartqueue_og_get_qid().
+    drupal_set_message(t("Couldn't establish qid "), 'error');
+    return;
+  }
+  
+  $queue->qid = $qid;
+  $count = 0;
+  foreach ($groups as $nid => $title) {
+    $sq = nodequeue_add_subqueue($queue, $title ."'s Nodequeue", $nid);
+    $node = node_load($nid);
+    if (node_access('view', $node)) {
+      drupal_set_message(t("Added Nodequeue: @title", array('@title' => $title ."'s Nodequeue")));
+    }
+    else {
+      $restricted ++;
+    }
+  }
+  if (count($restricted > 0)) {
+    drupal_set_message(t("Added Nodequeues for %count restricted groups.", array('%count' => count($restricted))));
+  }
+}
+function smartqueue_og_existing_subqueues() {
+  $subqueues = array();
+  //returns an array keyed on the subqueue reference with the sq id as the value
+  $qid = smartqueue_og_get_qid();
+  $query = db_query("SELECT sqid, reference FROM {nodequeue_subqueue} WHERE qid = %d", $qid);
+  while ($result = db_fetch_array($query)) {
+    $subqueues[$result['reference']] = $result['sqid'];
+  }
+  return $subqueues;
+}
+function smartqueue_og_eligible_groups() {
+  $groups = array();
+  if ($eligible_types = smartqueue_og_eligible_group_types()) {
+    $in = 'IN ('. implode(', ', array_fill(0, count($eligible_types), "'%s'")) .')';
+    $query = db_query("SELECT nid, title FROM {node} WHERE type $in", $eligible_types);
+    while ($result = db_fetch_object($query)) {
+      $groups[$result->nid] = $result->title;
+    }
+    
+  }
+  return $groups;
+}
+
+function smartqueue_og_all_group_subqueues() {
+  $subqueues = array();
+  //returns an array keyed on the subqueue reference with the sq id as the value
+  $qid = smartqueue_og_get_qid();
+  $query = db_query("SELECT sqid, reference FROM {nodequeue_subqueue} WHERE qid = %d", $qid);
+  while ($result = db_fetch_array($query)) {
+    $subqueues[$result['reference']] = $result['sqid'];
+  }
+  return $subqueues;
+}
+
+function smartqueue_og_eligible_group_types() {
+ 
+  $var = variable_get('smartqueue_og_'. smartqueue_og_get_qid() .'_eligible_group_types', array());
+  return array_intersect($var, og_get_types('group'));
+}
+
+function smartqueue_og_eligible_group_type($type) {
+   //TODO: verify this syntax when I get an internet conectio
+  if (in_array($type, variable_get('smartqueue_og_'. smartqueue_og_get_qid() .'_eligible_group_types', array()))) {
+    return TRUE;
+  }
+  else {
+    return FALSE;
+  }
+}
+
+function smartqueue_og_form_alter(&$form, &$form_state, $form_id) {
+  switch ($form_id) {
+    case 'nodequeue_edit_queue_form':
+      if ($form['owner']['#value'] == 'smartqueue_og') {
+        $form['description']['#weight'] = -1;
+        $form['title']['#weight'] = -1;
+        $form['submit']['#weight'] = 9;
+        $form[0]['#weight'] = 9; // the Delete button.
+        if (smartqueue_og_get_qid() && empty($form['title']['#default_value'])) {
+          drupal_set_message(t("Only one OG Smartqueue can exist at a time."));
+          drupal_goto('admin/content/nodequeue'); 
+        }
+      }
+      break;
+    
+  }
+}
+
+function smartqueue_og_nodequeue_subqueues(&$queue, $node) {
+  global $user;
+  $manipulate_restrict = variable_get('smartqueue_og_manipulate_restrict_'. $queue->qid, 'admins');
+  $node_restrict = variable_get('smartqueue_og_node_restrict_'. $queue->qid, 0);
+
+  if (empty($user->og_groups) || !user_access('manipulate og queues')) {
+    return;
+  }
+  $user_group_nids = array_keys($user->og_groups);
+  $groups = array_combine($user_group_nids, $user_group_nids);
+  
+  if ($manipulate_restrict == 'admins') {
+    foreach ($user->og_groups as $nid => $this_group) {
+      if ($this_group['is_admin'] != 1) {
+        unset($groups[$nid]);
+      }
+    }
+  }
+
+  //only add posts already in an organic group
+  if ($node_restrict) {
+    if (!is_array($node->og_groups) || empty($node->og_groups)) {
+      return;
+    }
+    $groups = array_intersect_key($groups, $node->og_groups);
+  }
+
+  return $groups;
+}
+
+/*
+ * Implementation of the hook nodequeue_api_queue_access
+ */
+function smartqueue_og_queue_access($queue, $account = NULL) {
+  if (!$account) {
+    global $user;
+    $account = $user;
+  }
+  if (user_access("manipulate all queues", $account) || user_access('manipulate all og queues', $account) || user_access("manipulate og queues", $account)) {
+    return TRUE;
+  }
+  else {
+    return FALSE;
+  }
+}
+
+/*
+ * Implementation of the hook nodequeue_api_subqueue_access
+ */
+function smartqueue_og_subqueue_access($subqueue, $account = NULL) {
+  if (!$account) {
+    global $user;
+    $account = $user;
+  }
+
+  if (user_access("manipulate all queues", $account) || user_access('manipulate all og queues', $account)) {
+    return TRUE;
+  }
+  
+  if (!user_access('manipulate og queues', $account)) {
+    return FALSE;
+  }
+  if (variable_get('smartqueue_og_manipulate_restrict_'. $subqueue->qid, 'admins') == 'admins' && $account->og_groups[$subqueue->reference]['is_admin'] != 1) {
+    return FALSE;
+  }
+  
+  if (!isset($account->og_groups[$subqueue->reference])) {
+    return FALSE;
+  }
+} 
+
+function smartqueue_og_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+  switch ($op) {
+    case 'insert':
+    case 'update':
+      if (smartqueue_og_eligible_group_type($node->type)) {
+        if ($subqueue = !smartqueue_og_load_group_subqueue($node->nid)) {
+          $queue->qid = smartqueue_og_get_qid();
+          nodequeue_add_subqueue($queue, "$node->title's Nodequeue", $node->nid);
+          if (node_access('view', $node)) {
+            drupal_set_message(t("Created a Nodequeue for @title .", array('@title' => $node->title)));
+          }
+        }
+        else {
+          if ($subqueue->title != "$node->title's Subqueue  ") {
+            nodequeue_subqueue_update_title($subqueue->sqid, $node->title ."'s Queue'");
+          }
+        }
+      }
+      if (!empty($node->og_groups)) {
+        //Automatically add this node to applicable group subqueues.
+        foreach ($node->og_groups as $key => $group_nid) {
+          if ($subqueue = smartqueue_og_load_group_subqueue($group_nid)) {
+            $subqueue = array_shift($subqueue);
+            //If this setting is disabled, no need to proceed with further database queries.
+            if (variable_get('smartqueue_og_auto_add_'. $subqueue->qid, 0)) {
+              $queue = nodequeue_load($subqueue->qid);
+              //If this type of node is allowed in this queue:
+              if (in_array($node->type, $queue->types)) {
+                //If this node is not already in the subqueue:
+                if (!nodequeue_get_subqueue_position($subqueue->sqid, $node->nid)) {
+                  nodequeue_subqueue_add($queue, $subqueue, $node->nid);
+                }
+              }
+            }
+          }
+          unset($queue);
+          unset($subqueue);
+        }
+      }
+      break;
+    case 'delete':
+      if ($subqueue = smartqueue_og_load_group_subqueue($node->nid)) {
+        nodequeue_remove_subqueue($subqueue->sqid);
+        drupal_set_message(t("Deleted Nodequeue @title", array('@title' => $subqueue->title)));
+      }
+  }
+}
+
+function smartqueue_og_get_qid() {
+  static $qid;
+  if (!isset($qid)) {
+    $qid = db_result(db_query("SELECT qid FROM {nodequeue_queue} WHERE owner = 'smartqueue_og'"));
+  }
+  return $qid;
+}
+
+function smartqueue_og_load_group_subqueue($nid) {
+  return nodequeue_load_subqueues_by_reference(array(smartqueue_og_get_qid() => array($nid)));
+}

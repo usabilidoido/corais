@@ -1,0 +1,3 @@
+name = OG frontpage
+description = Creates a block containing the OG body content (mission)
+core = 6.x

@@ -1,0 +1,28 @@
+--- plugins/wysiwyg_imagefield/wysiwyg_imagefield.js	2010-09-26 13:44:01.844000000 -0400
++++ plugins/wysiwyg_imagefield/wysiwyg_imagefield.new.js	2010-09-26 13:46:50.227604800 -0400
+@@ -30,12 +30,19 @@
+      * Create wysiwyg_imagefield dialog window.
+      */
+     attach: function(content, settings, instanceId) {
+-      // @TODO: Use Modal Frame API if available.
+-      $('#wysiwyg_imagefield-wrapper').dialog({
+-        autoOpen: false,
+-        title: Drupal.settings.WYSIWYGImageField.title
+-      });
+-      Drupal.wysiwygImageField.init();
++      // If we dont have any wrapper, we should not add the dialog
++      if($('#wysiwyg_imagefield-wrapper').length > 0) {
++        $('#wysiwyg_imagefield-wrapper').dialog({
++          autoOpen: false,
++          height: 'inherit',
++         title: Drupal.t('WYSIWYG ImageField')
++        });
++        Drupal.wysiwygImageField.init();
++      }
++      else {
++        // If we dont have any wrapper, remove the icon from the wysiwyg toolbar
++        $('#edit-body_wysiwyg_imagefield').parent().remove();
++      }
+       return content;
+     },
+ 

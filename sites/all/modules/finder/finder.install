@@ -1,0 +1,288 @@
+<?php
+
+/**
+ * @file
+ * Finder module install file.
+ */
+
+/**
+ * Implementation of hook_schema().
+ *
+ * @see hook_schema()
+ */
+function finder_schema() {
+  $schema['finder'] = array(
+    'description' => t('The base table for finders, each row is a finder object.'),
+    'fields' => array(
+      'finder_id' => array(
+        'description' => t('The primary identifier for a finder.'),
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'base' => array(
+        'description' => t('Base findable for finder.'),
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'title' => array(
+        'description' => t('The title of this finder.'),
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'description' => array(
+        'description' => t('The description of this finder.'),
+        'type' => 'text',
+        'size' => 'big',
+      ),
+      'path' => array(
+        'description' => t('Path for finder functions.'),
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'block' => array(
+        'description' => t('Provide block for this finder.'),
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'size' => 'tiny',
+      ),
+      'settings' => array(
+        'description' => t('Settings for this finder.'),
+        'type' => 'text',
+        'size' => 'big',
+        'serialize' => TRUE,
+      ),
+    ),
+    'primary key' => array('finder_id'),
+  );
+  $schema['finder_element'] = array(
+    'description' => t('The table for finder elements, each row is a finder element.'),
+    'fields' => array(
+      'finder_element_id' => array(
+        'description' => t('The primary identifier for a finder element.'),
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'finder_id' => array(
+        'description' => t('The primary identifier for a finder.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'element' => array(
+        'description' => t('Form element for this finder element.'),
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'title' => array(
+        'description' => t('The title of this finder element.'),
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'weight' => array(
+        'description' => t('The ordering of this element.'),
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'size' => 'tiny',
+      ),
+      'settings' => array(
+        'description' => t('Settings for this finder element.'),
+        'type' => 'text',
+        'size' => 'big',
+        'serialize' => TRUE,
+      ),
+    ),
+    'primary key' => array('finder_element_id'),
+  );
+  $schema['cache_finder_find'] = finder_fetch_cache_schema('Used by Finder to cache options and results.');
+
+  return $schema;
+}
+
+/**
+ * Gets a cache.module compatible table schema.
+ *
+ */
+function finder_fetch_cache_schema($description = '') {
+  return array(
+    'description' => $description,
+    'fields' => array(
+      'cid' => array(
+        'description' => 'Primary Key: Unique cache ID.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => ''),
+      'data' => array(
+        'description' => 'A collection of data to cache.',
+        'type' => 'blob',
+        'not null' => FALSE,
+        'size' => 'big'),
+      'expire' => array(
+        'description' => 'A Unix timestamp indicating when the cache entry should expire, or 0 for never.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0),
+      'created' => array(
+        'description' => 'A Unix timestamp indicating when the cache entry was created.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0),
+      'headers' => array(
+        'description' => 'Any custom HTTP headers to be added to cached data.',
+        'type' => 'text',
+        'not null' => FALSE),
+      'serialized' => array(
+        'description' => 'A flag to indicate whether content is serialized (1) or not (0).',
+        'type' => 'int',
+        'size' => 'small',
+        'not null' => TRUE,
+        'default' => 0)
+      ),
+    'indexes' => array('expire' => array('expire')),
+    'primary key' => array('cid'),
+  );
+}
+
+/**
+ * Implementation of hook_install().
+ *
+ * @see hook_install()
+ */
+function finder_install() {
+  drupal_install_schema('finder');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ *
+ * @see hook_uninstall()
+ */
+function finder_uninstall() {
+  drupal_uninstall_schema('finder');
+}
+
+/**
+ * Implementation of hook_update_N().
+ *
+ * Changes due to caching feature being added, including shortening the match
+ * method storage value.
+ *
+ * @see hook_update_N()
+ */
+function finder_update_6100() {
+  module_load_include('module', 'finder', 'finder');
+
+  // Update finder's settings where possible to avoid problems in this update.
+  $finders = finder_load_multiple(NULL, array(), TRUE);
+  $find = array('contains', 'equals', 'starts_with', 'ends_with');
+  $replace = array('c', 'e', 'sw', 'ew');
+  foreach ($finders as $finder) {
+    $changed = FALSE;
+    if (isset($finder->settings['advanced']['match'])
+      && in_array($finder->settings['advanced']['match'], $find)) {
+      $finder->settings['advanced']['match'] =
+        str_replace($find, $replace, $finder->settings['advanced']['match']);
+      $changed = TRUE;
+    }
+    foreach ($finder->elements as $key => $element) {
+      if (isset($element->settings['form']['match'])
+        && in_array($element->settings['form']['match'], $find)) {
+        $element->settings['form']['match'] =
+          str_replace($find, $replace, $element->settings['form']['match']);
+        $finder->elements[$key] = $element;
+        $changed = TRUE;
+      }
+    }
+    if ($changed) {
+      finder_save($finder);
+    }
+  }
+  // Add table 'cache_finder_find' - Strange name because it is anticipated
+  // that 'cache_finder' might be used for something else down the track.
+  $schema['cache_finder_find'] = finder_fetch_cache_schema('Used by Finder to cache options and results.');
+  $ret = array();
+  db_create_table($ret, 'cache_finder_find', $schema['cache_finder_find']);
+  cache_clear_all();
+  return $ret;
+}
+
+/**
+ * Implementation of hook_update_N().
+ *
+ * Copies match method setting into each of the elements.
+ *
+ * @see hook_update_N()
+ */
+function finder_update_6101() {
+  module_load_include('module', 'finder', 'finder');
+
+  // Update finder's settings where possible to avoid problems in this update.
+  $finders = finder_load_multiple(NULL, array(), TRUE);
+  foreach ($finders as $finder) {
+    $changed = FALSE;
+    if (isset($finder->settings['advanced']['match'])) {
+      foreach ($finder->elements as $key => $element) {
+        if (!isset($element->settings['advanced']['match'])) {
+          $element->settings['advanced']['match'] =
+            $finder->settings['advanced']['match'];
+          $finder->elements[$key] = $element;
+          $changed = TRUE;
+        }
+      }
+      // No need to remove the setting from the finder.
+    }
+    if ($changed) {
+      finder_save($finder);
+    }
+  }
+  return array(array('success' => TRUE, 'query' => t('Moved match method setting into each element.')));
+}
+
+/**
+ * Implementation of hook_update_N().
+ *
+ * Removal of intersect functionality.
+ *
+ * @see hook_update_N()
+ */
+function finder_update_6102() {
+  module_load_include('module', 'finder', 'finder');
+
+  // Update finder's settings where possible to avoid problems in this update.
+  $finders = finder_load_multiple(NULL, array(), TRUE);
+  foreach ($finders as $finder) {
+
+    // Removal of intersect method.
+    if ($finder->settings['advanced']['element_combination'] == 2) {
+      $finder->settings['advanced']['element_combination'] = 0;
+    }
+    foreach ($finder->elements as $key => $element) {
+      if ($element->settings['advanced']['field_combination'] == 2) {
+        $element->settings['advanced']['field_combination'] = 1;
+      }
+      if ($element->settings['advanced']['value_combination'] == 2) {
+        $element->settings['advanced']['value_combination'] = 1;
+      }
+      $finder->elements[$key] = $element;
+    }
+
+    finder_save($finder);
+
+  }
+  return array(array('success' => TRUE, 'query' => t('Removal of intersect functionality.')));
+}

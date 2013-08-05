@@ -1,0 +1,119 @@
+<?php
+// $Id: comment_driven.install,v 1.8 2010/03/27 23:02:25 arhak Exp $
+
+/**
+ * Implementation of hook_install().
+ */
+function comment_driven_install() {
+  drupal_install_schema('comment_driven');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function comment_driven_uninstall() {
+  drupal_uninstall_schema('comment_driven');
+
+  db_query("DELETE FROM {variable} WHERE name LIKE 'comment_driven:%'");
+  cache_clear_all('variables', 'cache');
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function comment_driven_schema() {
+  // @TODO: review if the frozen column is going to be provided
+  $schema['comment_driven_log'] = array(
+    'description' => 'Traces driven property changes.',
+    'fields' => array(
+      'did' => array(
+        'type' => 'serial',
+        'not null' => TRUE,
+        'description' => 'Primary Key: Unique driven ID.',
+      ),
+      'cid' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => 'The {comments}.nid of the traced comment.',
+      ),
+      'old_vid' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => 'The {node_revisions}.vid of the driven node before being changed.',
+      ),
+      'new_vid' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => 'The {node_revisions}.vid of the driven node after being changed (will be equal to old_vid if revisions were disabled at the time).',
+      ),
+      'changes' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'size' => 'big',
+        'description' => 'The changes made.',
+      ),
+      // properties might no longer exist suddenly
+      // a backup render has to be made instantly and kept
+      'diff_render' => array(
+        'type' => 'text',
+        'not null' => TRUE,
+        'size' => 'big',
+        'description' => 'The pre-rendered changes and their theme instructions.',
+      ),
+      // won't be updated when editing the comment
+      // that's why not using {comments}.timestamp
+      'timestamp' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => 'The time the change took place, as a Unix timestamp.',
+      ),
+    ),
+    'indexes' => array(
+      'cid'    => array('cid'),
+      'old_vid'    => array('old_vid'),
+      'new_vid' => array('new_vid'),
+      'timestamp' => array('timestamp'),
+    ),
+    'primary key' => array('did'),
+  );
+  
+  return $schema;
+}
+
+/**
+ * checks for proper upgrade (i.e. old/new files existence, no action is taken).
+ */
+function comment_driven_update_6002() {
+  $ret = array();
+  
+  $url = 'http://drupal.org/project/driven';
+  $dir = drupal_get_path('module', 'comment_driven');
+  $abort = FALSE;
+  
+  if (!module_exists('driven')) {
+    $abort = TRUE;
+    $ret[] = array('success' => FALSE, query => t('Missing new required dependency: <a href="!url">Driven API</a>. Ensure it is also enabled.', array('!url' => $url)));
+  }
+  foreach (array('node', 'taxo', 'cck', 'path') as $realm) {
+    $module = 'comment_driven_' . $realm;
+    if (is_file($dir . '/modules/' . $module . '.module')) {
+      $abort = TRUE;
+      $ret[] = array('success' => FALSE, query => t('Module %module has been moved into <a href="!url">Driven API</a>. You\'ll have to delete old modules before proceeding.', array(
+        '%module' => $module,
+        '!url' => $url,
+      )));
+    }
+  }
+  if (is_file($dir . '/comment_driven.eq.inc') || is_file($dir . '/modules/comment_driven_inspect.api.inc')) {
+    $abort = TRUE;
+    $ret[] = array('success' => FALSE, query => t('Old files has been detected. You\'ll have to delete old files and then place new ones.'));
+  }
+  
+  if ($abort) {
+    $ret['#abort'] = array('success' => FALSE, query => t('Unable to upgrade.'));
+  }
+  else {
+    $ret[] = array('success' => TRUE, query => t('Driven API detected.'));
+  }
+  return $ret;
+}

@@ -1,0 +1,7 @@
+; $Id$
+name = "Atrium User Roles"
+description = "This patches Open Atrium to add a menu item for managing the groups user roles."
+package = "Atrium"
+version = 6.x-1.0
+core = 6.x
+dependencies[] = og_user_roles

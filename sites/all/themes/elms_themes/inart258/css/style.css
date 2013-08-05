@@ -1,0 +1,218 @@
+body  {
+	font: 100% Helvetica, Arial, Verdana, sans-serif;
+	background: #000000 url(../images/bg.png) repeat-x top left;
+	margin: 0; /* it's good practice to zero the margin and padding of the body element to account for differing browser defaults */
+	padding: 0;
+	text-align: center; /* this centers the container in IE 5* browsers. The text is then set to the left aligned default in the #container selector */
+	color: #000000;
+}
+#book-outline {
+	width:auto;
+}
+#skip a, #skip a:hover, #skip a:visited {
+  position: absolute;
+  left:-10000px;
+  top:auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+#skip a:active, #skip a:focus {
+  position: static;
+  width: auto;
+  height: auto;
+}
+
+#header h1 a {
+ text-decoration:none;
+ color:#FFFFFF;
+}
+a {
+ text-decoration:none;
+ color:#000000;
+}
+a:hover {
+ color:#777777;
+}
+ul.menu li.expanded {
+ background-color:#000000;
+ background-image:url(../images/btn-grad.png);
+ background-position: top left;
+ background-repeat:repeat-x;
+ color:#89E1EE;
+ border-bottom:solid 1px #FFFFFF;
+ padding:10px;
+ margin-left:4px;
+ 
+ font-weight:bold;
+}
+li.expanded a{
+ color:#89E1EE;
+}
+ul li ul li a.active {
+ color:#89E1EE;
+}
+ul li a.active {
+	color:#0099FF;
+}
+li.expanded a:hover{
+ color:#0099FF;
+}
+li a.active:hover {
+ color:#0099FF;
+}
+li .active-trail {
+ padding:0px;
+ margin:0px;
+}
+ul.menu {
+ padding:0px;
+
+}
+ul.menu li{
+ list-style:none;
+ font-size:14px;
+ padding: 4px 10px;
+}
+
+ul.menu li ul li{
+	font-size:12px;
+	 font-weight:normal;
+}
+
+#bg-top {
+	background: url(../images/bg-top.jpg) repeat-x top left;
+	height:80px;
+	width:940px;
+	padding:10px 10px;
+	
+}
+#psu-mark {
+	background: url(../images/psu-aanda-reverse-mark.png) no-repeat top left;
+	height:56px;
+	width:212px;
+	float:left;
+	
+}
+#psu-search {
+	float:right;
+	margin-right:10px;
+}
+#container { 
+	width: 960px;  /* using 20px less than a full 800px width allows for browser chrome and avoids a horizontal scroll bar */
+	margin: 0 auto; /* the auto margins (in conjunction with a width) center the page */
+	background: url(../images/cnt-bg.png) repeat-y top left; 
+	text-align: left; /* this overrides the text-align: center on the body element. */
+} 
+#header { 
+	background: url(../images/header.jpg) repeat-x top left; 
+	padding: 0 10px 0 15px;  /* this padding matches the left alignment of the elements in the divs that appear beneath it. If an image is used in the #header instead of text, you may want to remove the padding. */
+	height:81px;
+} 
+#header h1{
+	margin: 0; /* zeroing the margin of the last element in the #header div will avoid margin collapse - an unexplainable space between divs. If the div has a border around it, this is not necessary as that also avoids the margin collapse */
+	padding: 20px 0 0 0; /* using padding instead of margin will allow you to keep the element away from the edges of the div */
+	color:#fff;
+	font-size:42px;
+	line-height:36px;
+}
+#header h2 {
+	margin: 0; /* zeroing the margin of the last element in the #header div will avoid margin collapse - an unexplainable space between divs. If the div has a border around it, this is not necessary as that also avoids the margin collapse */
+	padding: 0px 0 0 0; /* using padding instead of margin will allow you to keep the element away from the edges of the div */
+	color:#fff;
+	font-size:16px;
+}
+#left-col .block h2 {
+	margin-left:15px;	
+}
+#cnt-top {
+		background: url(../images/cnt-top.png) repeat-x top left; 
+		height:37px;
+}
+#left-col {
+	float: left; /* since this element is floated, a width must be given */
+	width: 248px; /* the actual width of this div, in standards-compliant browsers, or standards mode in Internet Explorer will include the padding and border in addition to the width */
+	/*padding: 15px 10px 15px 20px;*/
+}
+
+#left-col .block{
+  padding:5px;
+}
+#block-menu_block-2{
+  padding:0px !important;
+}
+#main-content { 
+	margin: 0 0 0 250px; /* the left margin on this div element creates the column down the left side of the page - no matter how much content the sidebar1 div contains, the column space will remain. You can remove this margin if you want the #mainContent div's text to fill the #sidebar1 space when the content in #sidebar1 ends. */
+	padding: 20px; /* remember that padding is the space inside the div box and margin is the space outside the div box */
+} 
+.content {
+ padding: 0px 8px 0px 0px;
+}
+#footer { 
+	background: url(../images/footer.jpg) repeat-x top left;
+	height:133px;
+	width:960px;
+} 
+#footer p {
+	margin: 0; /* zeroing the margins of the first element in the footer will avoid the possibility of margin collapse - a space between divs */
+	padding: 10px 0; /* padding on this element will create space, just as the the margin would have, without the margin collapse issue */
+}
+#footer-btm { 
+	background: url(../images/footer-btm.png) repeat-x top left;
+	height:40px;
+	width:960px;
+	margin: 0 auto;
+} 
+#footer-info {
+ text-align:center;
+ padding:10px;
+ color:#CCCCCC;
+ font-size:11px;
+}
+#footer-info a{
+ font-size:11px;
+ color:#CCCCCC;
+}
+#footer-info a:hover{
+ color:#FFFFFF;
+}
+.fltrt { /* this class can be used to float an element right in your page. The floated element must precede the element it should be next to on the page. */
+	float: right;
+	margin-left: 8px;
+}
+.fltlft { /* this class can be used to float an element left in your page */
+	float: left;
+	margin-right: 8px;
+}
+.clearfloat { /* this class should be placed on a div or break element and should be the final element before the close of a container that should fully contain a float */
+	clear:both;
+    height:0;
+    font-size: 1px;
+    line-height: 0px;
+}
+
+#tinymce{
+	background:#fff !important;
+	text-align:left;
+	color:#000;
+	margin: 5px;
+	padding:5px 5px 5px 33px;
+	font-size:12px;
+	font-family:Arial, Helvetica, sans-serif;
+	width:auto;
+	min-width:0px;
+}
+#tooltip {c3badc3c...f9886.css (line 1)
+-moz-border-radius-bottomleft:0;
+-moz-border-radius-bottomright:0;
+-moz-border-radius-topleft:0;
+-moz-border-radius-topright:0;
+background:#fff;
+border:2px solid #000;
+color:#000000;
+display:none;
+max-width:20em;
+opacity:1;
+padding:4px;
+z-index:110000;
+}

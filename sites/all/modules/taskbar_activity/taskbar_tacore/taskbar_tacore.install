@@ -1,0 +1,174 @@
+<?php
+/**
+ * @file
+ *   Taskbar activity module installation.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function taskbar_tacore_schema() {
+  $schema = array();
+  $schema['taskbar_tacore'] = array(
+    'description' => 'Activities for the taskbar module.',
+    'fields' => array(
+      'aid' => array(
+        'type' => 'serial',
+        'description' => 'The taskbar activity id.',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+      ),
+      'type' => array(
+        'type' => 'varchar', 
+        'length' => 32, 
+        'description' => 'The type of activity.',
+        'not null' => TRUE,
+      ),
+      'uid' => array(
+        'type' => 'int',
+        'description' => 'The id of the principal actor user.',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'entity_id' => array(
+        'type' => 'int',
+        'description' => 'The id of the principal entity.',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'created' => array(
+        'type' => 'int',
+        'description' => 'The time the activity was recorded.',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'message' => array(
+        'type' => 'text',
+        'size' => 'big',
+        'not null' => TRUE,
+        'description' => 'The untranslated text of the notification.',
+      ),
+      'data' => array(
+        'type' => 'text',
+        'size' => 'big',
+        'description' => 'The serialized data of the notification.',
+        'not null' => TRUE,
+        'serialize' => TRUE,
+        'object default' => array(),
+      ),
+      'url' => array(
+        'description' => 'The url of this notification',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'url_options' => array(
+        'description' => 'The options array passed to url()',
+        'type' => 'text',
+        'size' => 'normal',
+        'not null' => TRUE,
+        'serialize' => TRUE,
+        'object default' => array(),
+      ),
+    ),
+    'indexes' => array(
+      'created' => array('created'),
+      'type' => array('type'),
+      'uid' => array('uid'),
+      'entity_id' => array('entity_id'),
+    ),
+    'primary key' => array('aid'),
+  );
+  $schema['taskbar_tacore_recipient'] = array(
+    'description' => 'Destination and status of activity.',
+    'fields' => array(
+      'aid' => array(
+        'type' => 'int',
+        'description' => 'The taskbar activity id.',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+      ),
+      'recipient' => array(
+        'type' => 'int',
+        'description' => 'The id of the recipient.',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'unread' => array(
+        'type' => 'int',
+        'size' => 'tiny',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => 'The unread status of the message. 1 is unread, 0 is read.',
+      ),
+    ),
+    'indexes' => array(
+      'aid' => array('aid'),
+      'recipient' => array('recipient'),
+      'unread' => array('recipient', 'unread'),
+    ),
+  );
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function taskbar_tacore_install() {
+  drupal_install_schema('taskbar_tacore');
+  taskbar_tacore_install_sample_data();
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function taskbar_tacore_uninstall() {
+  drupal_uninstall_schema('taskbar_tacore');
+}
+
+/**
+ * Inserts sample data
+ */
+function taskbar_tacore_install_sample_data() {
+  $settings = array(
+    'text' => 'Activities',
+    'source' => 'tacore',
+    'max items' => 5,
+  );
+  db_query(
+    "INSERT INTO {taskbar_item} VALUES ('%s', '%s', '%s', '%s', %d, %d, '%s')",
+    'activity', 'Activity system', 'activity', 'right', 1, 0, serialize($settings)
+  );
+}
+
+/**
+ * Add url columns.
+ */
+function taskbar_tacore_update_6000() {
+  $url = array(
+    'description' => 'The url of this notification',
+    'type' => 'varchar',
+    'length' => 255,
+    'not null' => TRUE,
+    'default' => '',
+  );
+  $url_options = array(
+    'description' => 'The options array passed to url()',
+    'type' => 'text',
+    'size' => 'normal',
+    'not null' => TRUE,
+    'serialize' => TRUE,
+    'object default' => array(),
+  );
+  $ret = array();
+  db_add_field($ret, 'taskbar_tacore', 'url', $url);
+  db_add_field($ret, 'taskbar_tacore', 'url_options', $url_options);
+  return $ret;
+}
+

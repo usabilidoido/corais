@@ -1,0 +1,60 @@
+<?php
+
+require_once drupal_get_path('module', 'course') . '/tests/CourseTestCase.test';
+
+/**
+ * Tests for Course enrollment
+ */
+class CourseEnrollmentTestCase extends CourseTestCase {
+
+  public static function getInfo() {
+    // Note that getInfo() strings are not translated with t().
+    return array(
+      'name' => 'Course enrollment',
+      'description' => 'Ensure that Course enrollment and access control functions properly.',
+      'group' => 'Course',
+    );
+  }
+
+  /**
+   * Test for enrollment access and timestamping.
+   */
+  function testCourseEnrollment() {
+    global $user;
+    $courseNode = $this->createCourseNode();
+
+    $result = course_enrol_access($courseNode);
+    $this->assertTrue($result['success'], 'Check that the user is allowed to self enroll into this course.');
+
+    $result = course_take_course_access($courseNode);
+    $this->assertTrue($result['success'], 'Check that the user can take the course.');
+
+    course_enrol($courseNode, $user);
+    $enroll = course_enrolment_load($courseNode, $user);
+    $this->assertTrue($enroll->eid > 0, 'Enrollment was created.');
+    $this->assertTrue($enroll->created > 0, 'Enrollment has a creation timestamp.');
+    $this->assertFalse($enroll->timestamp > 0, 'Check that user has not started course.');
+
+    // Take the course
+    course_take_course($courseNode);
+    $enroll = course_enrolment_load($courseNode, $user);
+    $this->assertTrue($enroll->timestamp > 0, 'Check for start of course timestamp.');
+  }
+
+  /**
+   * Test for course duration being set properly on enrollment.
+   */
+  function testCourseDuration() {
+    global $user;
+    $courseNode = $this->createCourseNode();
+
+    $courseNode->course['duration'] = 30;
+    node_save($courseNode);
+    $enroll = course_enrolment_load($courseNode, $user);
+    $this->assertFalse($enroll, 'Check that enrollment does not exist.');
+    course_take_course($courseNode);
+    $enroll = course_enrolment_load($courseNode, $user);
+    $this->assertTrue($enroll->enrol_end > time(), 'Duration end got set with course start.');
+  }
+
+}

@@ -1,0 +1,24 @@
+<?php
+// $Id: stickers.install,v 1.1 2010/10/08 14:26:49 Countzero Exp $
+
+/**
+ * @file
+ * Install, update and uninstall functions for the Stickers module.
+ */
+
+function stickers_install() {
+  // Make sure the file with the function is included.  It lives at "install_profile_api/contrib/content_copy.inc"
+  module_load_include('inc', 'install_profile_api', 'contrib/content_copy');
+
+  // Get path to the file where I pasted my CCK export, which is inside this module's folder
+  $file = drupal_get_path('module', 'stickers') . '/stickers.cck_import.inc';
+
+  // Call function.  I want to create a new type, so I don't provide a second argument.
+  install_content_copy_import_from_file($file);
+  watchdog('content', 'Content type Sticker created.');
+}
+
+function stickers_uninstall() {
+  node_type_delete('sticker');
+  cache_clear_all('stickers:*', 'cache', TRUE);
+}

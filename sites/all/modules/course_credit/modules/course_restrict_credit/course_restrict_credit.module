@@ -1,0 +1,116 @@
+<?php
+
+/**
+ * Implements hook_nodeapi().
+ *
+ * Display a message when a node is loaded that matches an already completed
+ * sister Course.
+ */
+function course_restrict_credit_nodeapi(&$node, $op, $a3, $a4) {
+  if ($op == 'view') {
+    if ($restriction = course_restrict_credit_check($node)) {
+      course_restrict_credit_message($restriction);
+    }
+  }
+}
+
+
+/**
+ * Implements hook_panels_post_render().
+ *
+ * Nodeapi view is never called on a panel page, so display the message here.
+ */
+function course_restrict_credit_panels_post_render($display) {
+  if ($node = node_load($display->args[0])) {
+    if ($restriction = course_restrict_credit_check($node)) {
+      course_restrict_credit_message($restriction);
+    }
+  }
+}
+
+/**
+ * Display a message based on a sister Course.
+ */
+function course_restrict_credit_message($restriction) {
+  if (empty($restriction['message'])) {
+    drupal_set_message(t('You will not be able to receive credit for this course.', 'error'));
+  }
+  else {
+    drupal_set_message($restriction['message'], 'error');
+  }
+}
+
+/**
+ * Implements hook_course_credit_check_completion().
+ *
+ * Prevent the user from claiming credit if they're already taken a sister
+ * course.
+ */
+function course_restrict_credit_course_credit_check_completion($node) {
+  if (course_restrict_credit_check($node)) {
+    drupal_goto("node/{$node->nid}");
+  }
+}
+
+/**
+ * Check if credit has already been claimed for a node with the same
+ * external ID. Invoke other modules to provide restrictions.
+ *
+ * @return array
+ *   A course restriction array, containing:
+ *    - takecourse: boolean, whether or not the user may take the course.
+ *    - message: translated string to display to the user.
+ */
+function course_restrict_credit_check($node) {
+  global $user;
+
+  static $cache = array();
+
+  $ret = FALSE;
+
+  if (!$cache[$node->nid]) {
+    // Allow modules to restrict credit for a course.
+    $rets = module_invoke_all('course_restrict', $node, $user);
+    if (count($rets)) {
+      $ret = $rets[0];
+    }
+
+    if (!$ret) {
+      // Find a sister course that the user already claimed credit for.
+      if (!empty($node->course['external_id'])) {
+        $sql = "select c.nid from {course_node} c
+        inner join {course_credit_awarded} cca on ((cca.nid = c.nid) and (cca.uid = %d))
+        where external_id = '%s' and c.nid != %d";
+        if ($nid = db_result(db_query($sql, $user->uid, $node->course['external_id'], $node->nid))) {
+          // Found a sister course.
+          $sister_node = node_load($nid);
+          $ret = array(
+            'message' => t('You will not be able to receive credit for this course because you have already claimed credit for !title.', array(
+              '!title' => l($sister_node->title, "node/{$sister_node->nid}"),
+              )),
+            'takecourse' => TRUE,
+          );
+        }
+      }
+    }
+
+    $cache[$node->nid] = $ret;
+  }
+
+  return $cache[$node->nid];
+}
+
+/**
+ * Block taking course if restriction disallows.
+ */
+function course_restrict_credit_can_take_course($node, $user) {
+  if ($restriction = course_restrict_credit_check($node)) {
+    if (!$restriction['takecourse']) {
+      // If user can't take course.
+      return array(array(
+        'success' => FALSE,
+        'message' => $restriction['message'],
+      ));
+    }
+  }
+}

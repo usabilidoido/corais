@@ -1,0 +1,105 @@
+<?php
+/**
+ * AJAX Captcha Plugin
+ *
+ * @see http://drupal.org/project/ajax
+ * @see irc://freenode.net/#drupy
+ * @depends Drupal 6
+ * @author brendoncrawford
+ * @note This file uses a 79 character width limit.
+ *
+ */
+
+/**
+ * validation fail hook
+ *
+ * @param $form Assoc
+ * @param $form_state Assoc
+ * @param $data Assoc
+ * @return Bool
+ */
+function ajax_captcha_ajax_validate_fail(&$form, &$form_state, &$data) {
+  ajax_captcha_process($form, $form_state, $data);
+  return TRUE;
+}
+
+/**
+ * validation fail hook
+ *
+ * @param $form Assoc
+ * @param $form_state Assoc
+ * @param $data Assoc
+ * @return Bool
+ */
+function ajax_captcha_ajax_validate_pass(&$form, &$form_state, &$data, &$pass) {
+  ajax_captcha_process($form, $form_state, $data);
+  return TRUE;
+}
+
+
+/**
+ * Captcha functionality
+ * This depends on the provided captcha patches
+ *
+ * @param $form Assoc
+ * @param $form_state Assoc
+ * @param $data Assoc
+ * @return Bool
+ */
+function ajax_captcha_process(&$form, &$form_state, &$data) {
+  //$data['debug'] = 'A';
+  if (array_key_exists('captcha_token', $form_state['values']) &&
+      array_key_exists('captcha_type', $form_state['values']) &&
+      array_key_exists('captcha_query', $form_state['values'])) {
+    //$data['debug'] .= 'B';
+    // COnditional show
+    if (_captcha_persistence_skip($form['form_id']['#value'])) {
+      $data['updaters'][] = array(
+          'type' => 'remove',
+          'selector' => 'fieldset.captcha',
+          'value' => NULL
+      );
+      //$data['debug'] .= 'C';
+    }
+    // ALways Show
+    else {
+      //$data['debug'] .= 'D';
+      // MATH
+      if ($form_state['values']['captcha_type'] === 'math') {
+        $selector =
+          "#edit-captcha-response-wrapper .field-prefix";
+        $type = 'html_in';
+        //$data['debug'] .= 'E';
+      }
+      elseif ($form_state['values']['captcha_type'] === 'text') {
+        $selector =
+          "#edit-captcha-response-wrapper label[for='edit-captcha-response']";
+        $type = 'html_in';
+        //$data['debug'] .= 'F';
+      }
+      elseif ($form_state['values']['captcha_type'] === 'image') {
+        $selector =
+          ".captcha img";
+        $type = 'html_out';
+        //$data['debug'] .= 'G';
+      }
+      $data['updaters'][] = array(
+        'type' => 'field',
+        'selector' => '#edit-captcha-token',
+        'value' => $form_state['values']['captcha_token']
+      );
+      $data['updaters'][] = array(
+        'type' => $type,
+        'selector' => $selector,
+        'value' => $form_state['values']['captcha_query']
+      );
+      $data['updaters'][] = array(
+        'type' => 'field',
+        'selector' => '#edit-captcha-response',
+        'value' => ''
+      );
+      captcha_pre_render($form);
+    }
+  }
+  return TRUE;
+}

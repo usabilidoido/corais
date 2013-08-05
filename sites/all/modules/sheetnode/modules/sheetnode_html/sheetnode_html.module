@@ -1,0 +1,153 @@
+<?php
+
+/**
+ * Implementation of hook_menu().
+ */
+function sheetnode_html_menu() {
+  $items['node/add/sheetnode_html'] = array(
+    'title' => 'Sheetnode import from HTML page',
+    'access arguments' => array('create sheetnode'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('sheetnode_html_import_form'),
+    'description' => 'Create a new sheetnode with table from HTML page.',
+  );
+  return $items;
+}
+
+/**
+ * Callback for import form.
+ */
+function sheetnode_html_import_form() {
+  $form['url'] = array(
+    '#type' => 'textfield',
+    '#title' => t('URL'),
+    '#required' => TRUE,
+    '#description' => t('URL of the page to parse.'),
+  );
+  $form['querypath'] = array(
+    '#type' => 'textfield',
+    '#title' => t('QueryPath'),
+    '#description' => t('<a href="@qp">QueryPath expression</a> to find one or more tables to import into a single spreadsheet. For example: <code>table#flat-rates-table</code>.', array('@qp' => 'http://querypath.org/'))
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+  );
+  return $form;
+}
+
+/**
+ * Submit handler for import form.
+ */
+function sheetnode_html_import_form_submit($form, &$form_state) {
+  module_load_include('inc', 'node', 'node.pages');
+  global $user;
+
+  $url = $form_state['values']['url'];
+  $querypath = $form_state['values']['querypath'];
+  $options = array(
+    'ignore_spans' => variable_get('sheetnode_html_ignore_spans', FALSE),
+  );
+  list($title, $sc) = sheetnode_html_import($url, $querypath, $options);
+
+  $node = new StdClass;
+  $node->type = 'sheetnode';
+
+  node_object_prepare($node);
+
+  $node->title = $title;
+  $node->name = $user->name;
+  $node->sheetnode['value'] = $sc;
+  $node->sheetnode['template'] = NULL;
+
+  // Let other modules alter the sheetnode or do other work.
+  drupal_alter('sheetnode_import', $node, array(), array('url' => $url, 'querypath' => $querypath, 'options' => $options));
+
+  // Save the sheetnode.
+  $node = node_submit($node);
+  node_save($node);
+
+  if (!empty($node->nid)) {
+    $form_state['redirect'] = 'node/'. $node->nid;
+  }
+}
+
+/**
+ * API function to import a URL.
+ */
+function sheetnode_html_import($url, $querypath, $options = array()) {
+  require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
+  $doc = new DOMDocument('1.0');
+  @$doc->loadHTMLFile($url);
+  $qp = htmlqp($doc);
+  $title = $qp->top('title')->text();
+  $sheet = array();
+  foreach ($qp->top($querypath) as $table) {
+    sheetnode_html_import_table($table, $sheet, $options);
+  }
+  $socialcalc = array(
+    'sheet' => $sheet,
+    'edit' => socialcalc_default_edit($sheet),
+    'audit' => socialcalc_default_audit($sheet),
+  );
+  return array($title, socialcalc_save($socialcalc));
+}
+
+/**
+ * API function to import a single table.
+ */
+function sheetnode_html_import_table($table, &$sheet, $options = array()) {
+  $cell = $cells = $spans = array();
+  $pos = $maxpos = array(1, @$sheet['attribs']['lastrow'] + 1); // col, row
+  foreach ($table->find('tr') as $row) {
+    $pos[0] = 1;
+    foreach ($row->find('td,th') as $element) {
+      while (isset($spans[socialcalc_cr_to_coord($pos[0], $pos[1])])) {
+        $pos[0]++;
+      }
+      $value = _sheetnode_html_import_value($element->text());
+      $cell = array();
+      $cell['pos'] = $pos;
+      $cell['datavalue'] = $value;
+      $cell['datatype'] = is_numeric($value) ? 'v' : 't';
+      $cell['valuetype'] = is_numeric($value) ? 'n' : 'th';
+      $colspan = 1;
+      if ($element->attr('colspan') > 1) {
+        $colspan = $element->attr('colspan');
+        if (empty($options['ignore_spans'])) $cell['colspan'] = $colspan;
+      }
+      $rowspan = 1;
+      if ($element->attr('rowspan') > 1) {
+        $rowspan = $element->attr('rowspan');
+        if (empty($options['ignore_spans'])) $cell['rowspan'] = $rowspan;
+      }
+      if (!empty($value)) {
+        $cells[socialcalc_cr_to_coord($pos[0], $pos[1])] = $cell;
+      }
+      for ($r = $pos[1]; $r < $pos[1]+$rowspan; $r++) {
+        $spans[socialcalc_cr_to_coord($pos[0], $r)] = TRUE;
+      }
+      $pos[0] += $colspan;
+      $maxpos[0] = max($maxpos[0], $pos[0]);
+    }
+
+    // Advance to next row.
+    if ($pos[0] > 1) $pos[1]++;
+    $maxpos[1] = max($maxpos[1], $pos[1]);
+  }
+
+  $sheet['cells'] = isset($sheet['cells']) ? $sheet['cells'] + $cells : $cells;
+  $sheet['attribs']['lastcol'] = max(@$sheet['attribs']['lastcol'], $maxpos[0]-1);
+  $sheet['attribs']['lastrow'] = max(@$sheet['attribs']['lastrow'], $maxpos[1]-1);
+}
+
+/**
+ * Utility function to import a cell value.
+ */
+function _sheetnode_html_import_value($val) {
+  $val = str_replace(html_entity_decode('&nbsp;', ENT_COMPAT, 'UTF-8'), ' ', $val);
+  $val = trim($val);
+  $num = parse_formatted_number($val);
+  return $num === FALSE ? $val : $num; 
+}
+

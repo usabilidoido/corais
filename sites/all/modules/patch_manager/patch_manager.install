@@ -1,0 +1,138 @@
+<?php
+ 
+/**
+ * Implementation of hook_schema().
+ */
+function patch_manager_install() {
+  
+  // Install our fields
+  module_load_include('inc', 'content', 'includes/content.crud');
+  $fields = patch_manager_field_info();
+  foreach ($fields as $field) {
+    content_field_instance_create($field);
+  }
+}
+
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function patch_manager_uninstall() {
+  
+  // Uninstall our fields
+  module_load_include('inc', 'content', 'includes/content.crud');
+  $fields = patch_manager_field_info();
+  foreach ($fields as $field) {
+    content_field_instance_delete($field['field_name'], $field['type_name']);
+  }
+  
+  // Remove any actions we created
+  db_query('DELETE FROM {actions} WHERE aid LIKE "patch_manager_%" LIMIT 10');
+}
+
+
+/**
+ * Implementation of hook_field_info().
+ */
+function patch_manager_field_info() {
+  $fields = array();
+
+  // Exported field: field_module
+  $fields['patch-field_module'] = array(
+    'field_name' => 'field_module',
+    'type_name' => 'patch',
+    'widget_active' => '1',
+    'type' => 'text',
+    'required' => '1',
+    'multiple' => '0',
+    'module' => 'text',
+    'active' => '1',
+    'text_processing' => '0',
+    'max_length' => '30',
+    'allowed_values' => '',
+    'allowed_values_php' => '',
+    'widget' => array(
+      'rows' => 5,
+      'size' => '30',
+      'default_value' => array(
+        '0' => array(
+          'value' => '',
+          '_error_element' => 'default_value_widget][field_module][0][value',
+        ),
+      ),
+      'default_value_php' => NULL,
+      'label' => 'Module',
+      'weight' => -5,
+      'description' => 'Enter the name of the module this patch should be categorised with, e.g. core, views, cck, taxonomy.',
+      'type' => 'text_textfield',
+      'module' => 'text',
+    ),
+  );
+
+  // Exported field: field_patch
+  $fields['patch-field_patch'] = array(
+    'field_name' => 'field_patch',
+    'type_name' => 'patch',
+    'widget_active' => '1',
+    'type' => 'filefield',
+    'required' => '1',
+    'multiple' => '0',
+    'module' => 'filefield',
+    'active' => '1',
+    'list_field' => '0',
+    'list_default' => 1,
+    'description_field' => '0',
+    'widget' => array(
+      'file_extensions' => 'txt diff patch',
+      'file_path' => 'patches',
+      'progress_indicator' => 'throbber',
+      'max_filesize_per_file' => '',
+      'max_filesize_per_node' => '',
+      'label' => 'Patch file',
+      'weight' => -4,
+      'description' => 'The patch file. This should be a unified diff, created according to the instructions in the <a href="http://drupal.org/node/22568">patch section</a> of the Drupal website. This means the patch should be against the module\'s directory, or against the Drupal root for patches against Drupal\'s core.',
+      'type' => 'filefield_widget',
+      'module' => 'filefield',
+    ),
+  );
+
+  // Exported field: field_drupal_issue
+  $fields['patch-field_drupal_issue'] = array(
+    'field_name' => 'field_drupal_issue',
+    'type_name' => 'patch',
+    'widget_active' => '1',
+    'type' => 'text',
+    'required' => '0',
+    'multiple' => '0',
+    'module' => 'text',
+    'active' => '1',
+    'text_processing' => '0',
+    'max_length' => '10',
+    'allowed_values' => '',
+    'allowed_values_php' => '',
+    'widget' => array(
+      'rows' => 1,
+      'size' => '60',
+      'default_value' => array(
+        '0' => array(
+          'value' => '',
+          '_error_element' => 'default_value_widget][field_drupal_issue][0][value',
+        ),
+      ),
+      'default_value_php' => NULL,
+      'label' => 'Drupal.org issue number',
+      'weight' => -3,
+      'description' => 'Enter the drupal.org issue number, if one exists (e.g. <em>284899</em>). If the patch comes from a comment on a drupal issue, then include the comment number (e.g. <em>284899/23</em>).',
+      'type' => 'text_textfield',
+      'module' => 'text',
+    ),
+  );
+  
+  // Translatables
+  // Included for use with string extractors like potx.
+  t('Drupal.org issue number');
+  t('Module');
+  t('Patch file');
+
+  return $fields;
+}

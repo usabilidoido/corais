@@ -1,0 +1,496 @@
+***************
+*** 4,11 ****
+   * This code is beta quality.
+   */
+  
+- var http = require('http'),
+-     https = require('https'),
+      url = require('url'),
+      fs = require('fs'),
+      express = require('express'),
+--- 4,10 ----
+   * This code is beta quality.
+   */
+  
++ var request = require('request'),
+      url = require('url'),
+      fs = require('fs'),
+      express = require('express'),
+***************
+*** 18,23 ****
+      authenticatedClients = {},
+      onlineUsers = {},
+      presenceTimeoutIds = {},
+      tokenChannels = {},
+      settingsDefaults = {
+        scheme: 'http',
+--- 17,23 ----
+      authenticatedClients = {},
+      onlineUsers = {},
+      presenceTimeoutIds = {},
++     contentChannelTimeoutIds = {},
+      tokenChannels = {},
+      settingsDefaults = {
+        scheme: 'http',
+***************
+*** 40,67 ****
+        toggleDebugUrl: 'debug/toggle',
+        contentTokenUrl: 'content/token',
+        publishMessageToContentChannelUrl: 'content/token/message',
+        extensions: [],
+        clientsCanWriteToChannels: false,
+        clientsCanWriteToClients: false,
+        transports: ['websocket', 'flashsocket', 'htmlfile', 'xhr-polling', 'jsonp-polling'],
+        jsMinification: true,
+        jsEtag: true,
+        logLevel: 1
+      },
+      extensions = [];
+  
+  try {
+    var settings = vm.runInThisContext(fs.readFileSync(process.cwd() + '/nodejs.config.js'));
+-   for (var key in settingsDefaults) {
+-     if (!settings.hasOwnProperty(key)) {
+-       settings[key] = settingsDefaults[key];
+-     }
+-   }
+  }
+  catch (exception) {
+    console.log("Failed to read config file, exiting: " + exception);
+    process.exit(1);
+  }
+  
+  // Load server extensions
+  for (var i in settings.extensions) {
+--- 40,86 ----
+        toggleDebugUrl: 'debug/toggle',
+        contentTokenUrl: 'content/token',
+        publishMessageToContentChannelUrl: 'content/token/message',
++       getContentTokenUsersUrl: 'content/token/users',
+        extensions: [],
+        clientsCanWriteToChannels: false,
+        clientsCanWriteToClients: false,
+        transports: ['websocket', 'flashsocket', 'htmlfile', 'xhr-polling', 'jsonp-polling'],
+        jsMinification: true,
+        jsEtag: true,
++       backend: {
++         host: 'localhost',
++         scheme: 'http',
++         port: 80,
++         basePath: '',
++         messagePath: '/nodejs/message'
++       },
+        logLevel: 1
+      },
+      extensions = [];
+  
+  try {
+    var settings = vm.runInThisContext(fs.readFileSync(process.cwd() + '/nodejs.config.js'));
+  }
+  catch (exception) {
+    console.log("Failed to read config file, exiting: " + exception);
+    process.exit(1);
+  }
++ for (var key in settingsDefaults) {
++   if (key != 'backend' && !settings.hasOwnProperty(key)) {
++     settings[key] = settingsDefaults[key];
++   }
++ }
++ 
++ if (!settings.hasOwnProperty('backend')) {
++   settings.backend = settingsDefaults.backend;
++ }
++ else {
++   for (var key2 in settingsDefaults.backend) {
++     if (!settings.backend.hasOwnProperty(key2)) {
++       settings.backend[key2] = settingsDefaults.backend[key2];
++     }
++   }
++ }
+  
+  // Load server extensions
+  for (var i in settings.extensions) {
+***************
+*** 88,124 ****
+  }
+  
+  /**
+   * Send a message to the backend.
+   */
+  var sendMessageToBackend = function (message, callback) {
+- 
+    var requestBody = querystring.stringify({
+-         messageJson: JSON.stringify(message),
+-         serviceKey: settings.serviceKey
+-       }),
+-       options = {
+-         port: settings.backend.port,
+-         host: settings.backend.host,
+-         headers: {
+-           'Content-Length': Buffer.byteLength(requestBody),
+-           'Content-Type': 'application/x-www-form-urlencoded'
+-         },
+-         agent: false,
+-         method: 'POST',
+-         agent: http.getAgent(settings.backend.host, settings.backend.port),
+-         path: settings.backend.messagePath
+-       },
+-       scheme = settings.scheme,
+-       request;
+  
+    if (settings.debug) {
+      console.log("Sending message to backend", message, options);
+    }
+-   request = scheme == 'http' ? http.request(options, callback) : https.request(options, callback);
+-   request.on('error', function (error) {
+-     console.log("Error sending message to backend:", error.message);
+-   });
+-   request.end(requestBody);
+  }
+  
+  /**
+--- 107,141 ----
+  }
+  
+  /**
++  * Returns the backend url.
++  */
++ var getBackendUrl = function () {
++   return settings.backend.scheme + '://' + settings.backend.host + ':' +
++          settings.backend.port + settings.backend.messagePath;
++ }
++ 
++ /**
+   * Send a message to the backend.
+   */
+  var sendMessageToBackend = function (message, callback) {
+    var requestBody = querystring.stringify({
++     messageJson: JSON.stringify(message),
++     serviceKey: settings.serviceKey
++   });
++ 
++   var options = {
++     uri: settings.backend.scheme + '://' + settings.backend.host + ':' + settings.backend.port + settings.backend.messagePath,
++     body: requestBody,
++     headers: {
++       'Content-Length': Buffer.byteLength(requestBody),
++       'Content-Type': 'application/x-www-form-urlencoded'
++     }
++   }
+  
+    if (settings.debug) {
+      console.log("Sending message to backend", message, options);
+    }
++   request.post(options, callback);
+  }
+  
+  /**
+***************
+*** 142,190 ****
+  /**
+   * Handle authentication call response.
+   */
+- var authenticateClientCallback = function (response) {
+-   var requestBody = '';
+-   response.setEncoding('utf8');
+-   response.on('data', function (chunk) {
+-     requestBody += chunk;
+-   });
+-   response.on('end', function () {
+-     if (response.statusCode == 404) {
+-       if (settings.debug) {
+-         console.log('Backend authentication url not found, full response info:', response);
+-       }
+-       else {
+-         console.log('Backend authentication url not found.');
+-       }
+-       return;
+-     }
+-     var authData = false;
+-     try {
+-       authData = JSON.parse(requestBody);
+-     }
+-     catch (exception) {
+-       console.log('Failed to parse authentication message:', exception);
+-       if (settings.debug) {
+-         console.log('Failed message string: ' + requestBody);
+-       }
+-       return;
+      }
+-     if (!checkServiceKey(authData.serviceKey)) {
+-       console.log('Invalid service key "', authData.serviceKey, '"');
+-       return;
+      }
+-     if (authData.nodejsValidAuthToken) {
+-       if (settings.debug) {
+-         console.log('Valid login for uid "', authData.uid, '"');
+-       }
+-       setupClientConnection(authData.clientId, authData, authData.contentTokens);
+-       authenticatedClients[authData.authToken] = authData;
+      }
+-     else {
+-       console.log('Invalid login for uid "', authData.uid, '"');
+-       delete authenticatedClients[authData.authToken];
+      }
+-   });
+  }
+  
+  /**
+--- 159,205 ----
+  /**
+   * Handle authentication call response.
+   */
++ var authenticateClientCallback = function (error, response, body) {
++   if (error) {
++     console.log("Error with authenticate client request:", error);
++     return;
++   }
++   if (response.statusCode == 404) {
++     if (settings.debug) {
++       console.log('Backend authentication url not found, full response info:', response);
+      }
++     else {
++       console.log('Backend authentication url not found.');
+      }
++     return;
++   }
++ 
++   var authData = false;
++   try {
++     authData = JSON.parse(body);
++   }
++   catch (exception) {
++     console.log('Failed to parse authentication message:', exception);
++     if (settings.debug) {
++       console.log('Failed message string: ' + body);
+      }
++     return;
++   }
++   if (!checkServiceKey(authData.serviceKey)) {
++     console.log('Invalid service key "', authData.serviceKey, '"');
++     return;
++   }
++   if (authData.nodejsValidAuthToken) {
++     if (settings.debug) {
++       console.log('Valid login for uid "', authData.uid, '"');
+      }
++     setupClientConnection(authData.clientId, authData, authData.contentTokens);
++     authenticatedClients[authData.authToken] = authData;
++   }
++   else {
++     console.log('Invalid login for uid "', authData.uid, '"');
++     delete authenticatedClients[authData.authToken];
++   }
+  }
+  
+  /**
+***************
+*** 231,236 ****
+  }
+  
+  /**
+   * Http callback - set the debug flag.
+   */
+  var toggleDebug = function (request, response) {
+--- 246,272 ----
+  }
+  
+  /**
++  * Http callback - return the list of content channel users.
++  */
++ var getContentTokenUsers = function (request, response) {
++   var requestBody = '';
++   request.setEncoding('utf8');
++   request.on('data', function (chunk) {
++     requestBody += chunk;
++   });
++   request.on('end', function () {
++     try {
++       var channel = JSON.parse(requestBody);
++       response.send({users: getContentTokenChannelUsers(channel.channel)});
++     }
++     catch (exception) {
++       console.log('getContentTokensUsers: Invalid JSON "' + requestBody + '"', exception);
++       response.send({error: 'Invalid JSON, error: ' + exception.toString()});
++     }
++   });
++ }
++ 
++ /**
+   * Http callback - set the debug flag.
+   */
+  var toggleDebug = function (request, response) {
+***************
+*** 434,439 ****
+  };
+  
+  /**
+   * Get the list of Node.js sessionIds for a given uid.
+   */
+  var getNodejsSessionIdsFromUid = function (uid) {
+--- 470,491 ----
+  };
+  
+  /**
++  * Get the list of backend uids and authTokens connected to a content token channel.
++  */
++ var getContentTokenChannelUsers = function (channel) {
++   var users = {uids: [], authTokens: []};
++   for (var sessionId in tokenChannels[channel].sockets) {
++     if (io.sockets.sockets[sessionId].uid) {
++       users.uids.push(io.sockets.sockets[sessionId].uid);
++     }
++     else {
++       users.authTokens.push(io.sockets.sockets[sessionId].authToken);
++     }
++   }
++   return users;
++ }
++ 
++ /**
+   * Get the list of Node.js sessionIds for a given uid.
+   */
+  var getNodejsSessionIdsFromUid = function (uid) {
+***************
+*** 815,827 ****
+    }
+  
+    for (var tokenChannel in tokenChannels) {
+-     delete tokenChannels[tokenChannel].sockets[socket.id];
+    }
+  
+    delete io.sockets.sockets[socket.id];
+  }
+  
+  /**
+   * Check for any open sockets for uid.
+   */
+  var checkOnlineStatus = function (uid) {
+--- 867,924 ----
+    }
+  
+    for (var tokenChannel in tokenChannels) {
++     console.log("cleanupSocket: checking tokenChannel", tokenChannel, socket.id);
++     if (tokenChannels[tokenChannel].sockets[socket.id]) {
++       console.log("cleanupSocket: found socket.id for tokenChannel", tokenChannel, tokenChannels[tokenChannel].sockets[socket.id]);
++       if (tokenChannels[tokenChannel].sockets[socket.id].notifyOnDisconnect) {
++         if (contentChannelTimeoutIds[tokenChannel + '_' + uid]) {
++           clearTimeout(contentChannelTimeoutIds[tokenChannel + '_' + uid]);
++         }
++         contentChannelTimeoutIds[tokenChannel + '_' + uid] = setTimeout(checkTokenChannelStatus, 2000, tokenChannel, socket);
++       }
++       delete tokenChannels[tokenChannel].sockets[socket.id];
++     }
+    }
+  
+    delete io.sockets.sockets[socket.id];
+  }
+  
+  /**
++  * Check for any open sockets associated with the channel and socket pair.
++  */
++ var checkTokenChannelStatus = function (tokenChannel, socket) {
++   // If the tokenChannel no longer exists, just bail.
++   if (!tokenChannels[tokenChannel]) {
++     console.log("checkTokenChannelStatus: no tokenChannel", tokenChannel, socket.uid);
++     return;
++   }
++ 
++   // If we find a socket for this user in the given tokenChannel, we can just
++   // return, as there's nothing we need to do.
++   var sessionIds = getNodejsSessionIdsFromUid(socket.uid);
++   for (var i = 0; i < sessionIds.length; i++) {
++     if (tokenChannels[tokenChannel].sockets[sessionIds[i]]) {
++       console.log("checkTokenChannelStatus: found socket for tokenChannel", tokenChannel, socket.uid);
++       return;
++     }
++   }
++ 
++   // We didn't find a socket for this uid, and we have other sockets in this,
++   // channel, so send disconnect notification message.
++   var message = {
++     'channel': tokenChannel,
++     'contentChannelNotification': true,
++     'data': {
++       'uid': socket.uid,
++       'type': 'disconnect',
++     }
++   };
++   for (var socketId in tokenChannels[tokenChannel].sockets) {
++     publishMessageToClient(socketId, message);
++   }
++ }
++ 
++ /**
+   * Check for any open sockets for uid.
+   */
+  var checkOnlineStatus = function (uid) {
+***************
+*** 864,870 ****
+        return;
+      }
+      tokenChannels[message.channel] = tokenChannels[message.channel] || {'tokens': {}, 'sockets': {}};
+-     tokenChannels[message.channel].tokens[message.token] = true;
+      if (settings.debug) {
+        console.log('setContentToken', message.token, 'for channel', message.channel);
+      }
+--- 961,967 ----
+        return;
+      }
+      tokenChannels[message.channel] = tokenChannels[message.channel] || {'tokens': {}, 'sockets': {}};
++     tokenChannels[message.channel].tokens[message.token] = message;
+      if (settings.debug) {
+        console.log('setContentToken', message.token, 'for channel', message.channel);
+      }
+***************
+*** 901,907 ****
+  
+      clientToken = contentTokens[tokenChannel];
+      if (tokenChannels[tokenChannel].tokens[clientToken]) {
+-       tokenChannels[tokenChannel].sockets[sessionId] = true;
+        if (settings.debug) {
+          console.log('Added token', clientToken, 'for channel', tokenChannel, 'for socket', sessionId);
+        }
+--- 998,1004 ----
+  
+      clientToken = contentTokens[tokenChannel];
+      if (tokenChannels[tokenChannel].tokens[clientToken]) {
++       tokenChannels[tokenChannel].sockets[sessionId] = tokenChannels[tokenChannel].tokens[clientToken];
+        if (settings.debug) {
+          console.log('Added token', clientToken, 'for channel', tokenChannel, 'for socket', sessionId);
+        }
+***************
+*** 936,942 ****
+  server.get(settings.baseAuthPath + settings.addChannelUrl, addChannel);
+  server.get(settings.baseAuthPath + settings.removeChannelUrl, removeChannel);
+  server.get(settings.baseAuthPath + settings.setUserPresenceListUrl, setUserPresenceList);
+- server.get(settings.baseAuthPath + settings.toggleDebugUrl, toggleDebug);
+  server.post(settings.baseAuthPath + settings.contentTokenUrl, setContentToken);
+  server.post(settings.baseAuthPath + settings.publishMessageToContentChannelUrl, publishMessageToContentChannel);
+  server.get('*', send404);
+--- 1033,1040 ----
+  server.get(settings.baseAuthPath + settings.addChannelUrl, addChannel);
+  server.get(settings.baseAuthPath + settings.removeChannelUrl, removeChannel);
+  server.get(settings.baseAuthPath + settings.setUserPresenceListUrl, setUserPresenceList);
++ server.post(settings.baseAuthPath + settings.toggleDebugUrl, toggleDebug);
++ server.post(settings.baseAuthPath + settings.getContentTokenUsersUrl, getContentTokenUsers);
+  server.post(settings.baseAuthPath + settings.contentTokenUrl, setContentToken);
+  server.post(settings.baseAuthPath + settings.publishMessageToContentChannelUrl, publishMessageToContentChannel);
+  server.get('*', send404);
+***************
+*** 972,978 ****
+          console.log('Received message from client ' + socket.id);
+        }
+  
+-       // If this message is destined for a channel, check that writing to 
+        // channels from client sockets is allowed.
+        if (message.hasOwnProperty('channel')) {
+          if (settings.clientsCanWriteToChannels || channelIsClientWritable(message.channel)) {
+--- 1070,1076 ----
+          console.log('Received message from client ' + socket.id);
+        }
+  
++       // If this message is destined for a channel, check that writing to
+        // channels from client sockets is allowed.
+        if (message.hasOwnProperty('channel')) {
+          if (settings.clientsCanWriteToChannels || channelIsClientWritable(message.channel)) {

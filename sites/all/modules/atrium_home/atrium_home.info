@@ -1,0 +1,13 @@
+name=Atrium Home
+description=Adds a simple "Home" tab to all pages in atrium
+package=Atrium
+core=6.x
+
+dependencies[] = purl
+dependencies[] = atrium
+; Information added by drupal.org packaging script on 2012-04-20
+version = "6.x-1.x-dev"
+core = "6.x"
+project = "atrium_home"
+datestamp = "1334923458"
+

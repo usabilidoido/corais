@@ -1,0 +1,188 @@
+<?php
+
+/**
+ * Implementation of hook_rules_action_info().
+ */
+function notifications_rules_rules_action_info() {
+  return array(
+    'notifications_rules_subscribe_user' => array(
+      'label' => t('Subscribe a user to content notifications'),
+      'arguments' => array(
+        'node' => array('type' => 'node', 'label' => t('Node')),
+      ),
+      'module' => 'Notifications',
+      'eval input' => array('uid'),
+    ),
+    'notifications_rules_unsubscribe_user' => array(
+      'label' => t('Unsubscribe a user from content notifications'),
+      'arguments' => array(
+        'node' => array('type' => 'node', 'label' => t('Node')),
+      ),
+      'module' => 'Notifications',
+      'eval input' => array('uid'),
+    ),
+    'notifications_rules_send_notifications' => array(
+      'label' => t('Send notifications'),
+      'module' => 'Notifications',
+  	  'arguments' => array(
+        'node' => array('type' => 'node', 'label' => t('Content')),
+      ),
+    ),
+  );
+}
+
+/**
+ * Implementation of Rules Action: Subscribe a user to content notifications
+ */
+function notifications_rules_subscribe_user($node, $settings) {
+  $user_ids = explode(' ', $settings['uid']);
+  foreach($user_ids as $i => $uid) {
+    $fields = array('nid' => $node->nid);
+    $account = user_load($uid);
+    $subscription = (object)array(
+      'uid' => $uid,
+      'type' => 'thread',
+      'fields' => $fields,
+      'send_interval' => ($settings['interval'] == 'user') ? notifications_user_setting('send_interval', $account, 0) : $settings['interval'],
+      'send_method' => ($settings['method'] == 'user') ? notifications_user_setting('send_method', $account, '') : $settings['method'],
+      'event_type' => notifications_subscription_types('thread', 'event_type'),
+    );
+    notifications_save_subscription($subscription);
+  }
+}
+
+/**
+ * Implementation of Rules Action: Unsubscribe a user from content notifications
+ */
+function notifications_rules_unsubscribe_user($node, $settings) {
+  $user_ids = explode(' ', $settings['uid']);
+  foreach($user_ids as $i => $uid) {
+    $fields = array('nid' => $node->nid);
+    // Get subscription sids for this user
+    $result = db_query("SELECT n.sid FROM {notifications} n
+                        INNER JOIN {notifications_fields} nf
+                        ON n.sid = nf.sid
+                        WHERE n.uid = %d
+                        AND nf.field = 'nid' AND nf.value = '%s'",
+                        $uid, $node->nid);
+    // Loop and delete
+    while( $row = db_fetch_object($result) ){
+      notifications_delete_subscription($row->sid);
+    }
+  }
+}
+
+/**
+ * Implementation of Rules Action: Send Notifications
+ * This action sends notifications to all subscriber of a particaluar node. It emulates the standard notifications behavior
+ * with the difference that notifications can be restricted by certain conditions.
+ * @param $node
+ *   object of node information
+ * @return
+ *   object of notifications event
+ */
+function notifications_rules_send_notifications($node) {
+  // Pass the action information as event parameters to the hook_notifications(), operation event queued
+  $action_info = array(
+    'id' => __FUNCTION__,
+  );
+  notifications_rules_send_event($node, $action_info);
+}
+
+/**
+ * Subscribe a user to notifications settings form
+ */
+function notifications_rules_subscribe_user_form($settings, &$form) {
+  $settings += array('uid' => '', 'interval' => '', 'method' => '');
+  $form['settings']['uid'] = array(
+    '#type' => 'textfield',
+    '#title' => t('User ID(s) to subscribe'),
+    '#default_value' => $settings['uid'],
+    '#description' => t('Input the User ID(s) you want to subscribe. Separate with a space for multiple users.'),
+  );
+  $user_default = array('user' => t('User Default'));
+  $notifications_intervals = _notifications_send_intervals();
+  $interval_options = array_merge($user_default, $notifications_intervals);
+  $form['settings']['interval'] = array(
+    '#type' => 'select',
+    '#title' => t('Send Interval'),
+    '#default_value' => $settings['interval'],
+    '#description' => t('When do you want to get notifications for this subscription'),
+    '#options' => $interval_options,
+  );
+  $notifications_methods = _notifications_send_methods();
+  $method_options = array_merge($user_default, $notifications_methods);
+  $form['settings']['method'] = array(
+    '#type' => 'select',
+    '#title' => t('Send Method'),
+    '#default_value' => $settings['method'],
+    '#description' => t('How do you want the notification sent'),
+    '#options' => $method_options,
+  );
+}
+
+/**
+ * Unsubscribe a user from notifications settings form
+ */
+function notifications_rules_unsubscribe_user_form($settings, &$form) {
+  $settings += array('uid' => '');
+  $form['settings']['uid'] = array(
+    '#type' => 'textfield',
+    '#title' => t('User ID(s) to unsubscribe.'),
+    '#default_value' => $settings['uid'],
+    '#description' => t('Input the User ID(s) you want to unsubscribe. Separate with a space for multiple users.'),
+  );
+}
+
+/**
+ * Send a rule-triggered event
+ * 
+ * @param $node
+ *   object node to be notified about
+ * @param $action_info
+ *   an array containing rules action information, to be processed
+ *   by the hook_notifications implementation
+ */
+function notifications_rules_send_event($node, $action_info) {
+  // Create and queue the event
+  // The 'event queued' hook implementation in the Subscriptions UI module
+  // will delete the unnecessary queue entries, based on the $action_info
+  $event = array(
+    'module' => 'node',
+    'oid' => $node->nid,
+    'type' => 'node',
+    'action' => 'insert',
+    'node' => $node,
+    'params' => array('nid' => $node->nid, 'rules_action_info' => $action_info),
+    'save' => TRUE,
+    'queue' => TRUE,
+  );
+  $event = notifications_event($event);
+}
+
+/**
+ * Implementation of hook_notifications().
+ * 
+ * Takes the rule action parameters passed in the $event->params,
+ * and deletes any non-matching notification queue item.
+ */
+function notifications_rules_notifications($op, &$arg0, $arg1 = NULL, $arg2 = NULL) {
+  switch ($op) {
+    case 'event queued':
+      $event = $arg0;
+      $action_info = $event->params['rules_action_info'];
+      if (isset($action_info)) {
+        switch($action_info['id']) {
+          // Standard event prevents sending notifications to blocked users
+          case 'notifications_rules_send_notifications':
+          	$sql = "DELETE nq 
+                    FROM notifications_queue nq 
+                    INNER JOIN users u 
+                    ON nq.uid = u.uid
+                    WHERE u.status = 0;";
+            $result = db_query($sql);
+          	break;
+        }
+      } 
+  }
+}

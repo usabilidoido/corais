@@ -1,0 +1,238 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Adds Facebook's "Like" button to each selected node type.
+ * Adds a block with a global static value where users can "Like" the URL set by
+ * admins.
+ */
+
+/**
+ * Implements of hook_menu().
+ */
+function fblikebutton_menu() {
+  $items['admin/settings/fblikebutton'] = array(
+    'title' => 'FB Like Button',
+    'description' => 'Configure the Facebook Like button',
+    'page callback' => 'system_admin_menu_block_page',
+    'access arguments' => array('administer fblikebutton'),
+    'position' => 'right',
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'system.admin.inc',
+    'file path' => drupal_get_path('module', 'system'),
+  );
+  $items['admin/settings/fblikebutton/dynamic'] = array(
+    'title' => 'Dynamic Like button settings',
+    'description' => 'Configure the settings for the Like button as it appears on individual nodes (liking that node).',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('fblikebutton_dynamic_settings'),
+    'access arguments' => array('administer fblikebutton'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'fblikebutton.admin.inc',
+    'weight' => 0,
+  );
+  $items['admin/settings/fblikebutton/static'] = array(
+    'title' => 'Static Like button settings',
+    'description' => 'Configure the settings for the static Like button as it appears in the block (liking a given url). Use this to like for example your Facebook fanpage.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('fblikebutton_static_settings'),
+    'access arguments' => array('administer fblikebutton block'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'fblikebutton.admin.inc',
+    'weight' => 1,
+  );
+  return $items;
+}
+
+/**
+ * Implements of hook_nodeapi().
+ */
+function fblikebutton_nodeapi(&$node, $op, $teaser, $page) {
+  global $user;
+  $types = variable_get('fblikebutton_node_types', array());
+  $fullnodedisplay = variable_get('fblikebutton_full_node_display', 0);
+  $teaserdisplay = variable_get('fblikebutton_teaser_display', 0);
+  $show = ( ! empty($types[$node->type]) && user_access('access fblikebutton'));
+  // Thanks to corbacho for supplying the code for the $webpage_to_like variable...
+  // (It was apparently throwing errors/notices the way I had it set up.)
+  $webpage_to_like = url("node/$node->nid", array('absolute' => TRUE));
+  $likebutton_weight = variable_get('fblikebutton_weight', '0');
+  $conf = array(
+    'layout' => variable_get('fblikebutton_layout', 'standard'),
+    'action' => variable_get('fblikebutton_action', 'like'),
+    'color_scheme' => variable_get('fblikebutton_color_scheme', 'light'),
+    'show_faces' => variable_get('fblikebutton_show_faces', TRUE),
+    'font' => variable_get('fblikebutton_font', 'arial'),
+    'height' => variable_get('fblikebutton_iframe_height', '80'),
+    'width' => variable_get('fblikebutton_iframe_width', '450'),
+    'send' => variable_get('fblikebutton_send', 'true'),
+    'other_css' => variable_get('fblikebutton_iframe_css', ''),
+    'language' => variable_get('fblikebutton_language', 'en_US'),
+  );
+  // Content area
+  if (($show && $teaser && $teaserdisplay == 1) || ($show && $page && $fullnodedisplay == 0)) {
+    $node->content['fblikebutton_field'] = array(
+      '#value' => _fblikebutton_field($webpage_to_like, $conf),
+      '#weight' => $likebutton_weight,
+    );
+  }
+}
+
+/**
+ * Implements of hook_link().
+ */
+function fblikebutton_link($type, $node = NULL, $teaser = FALSE) {
+  global $user, $base_url, $language;
+  $types = variable_get('fblikebutton_node_types', array());
+  $fullnodedisplay = variable_get('fblikebutton_full_node_display', 0);
+  $teaserdisplay = variable_get('fblikebutton_teaser_display', 0);
+  $show = ( ! empty($types[$node->type]) && user_access('access fblikebutton'));
+  // Thanks to corbacho for supplying the code for the $webpage_to_like variable...
+  // (It was apparently throwing errors/notices the way I had it set up.)
+  $webpage_to_like = url("node/$node->nid", array('absolute' => TRUE));
+  $likebutton_weight = variable_get('fblikebutton_weight', '0');
+  $links = array();
+  $conf = array(
+    'layout' => variable_get('fblikebutton_layout', 'standard'),
+    'action' => variable_get('fblikebutton_action', 'like'),
+    'color_scheme' => variable_get('fblikebutton_color_scheme', 'light'),
+    'show_faces' => variable_get('fblikebutton_show_faces', TRUE),
+    'font' => variable_get('fblikebutton_font', 'arial'),
+    'height' => variable_get('fblikebutton_iframe_height', '80'),
+    'width' => variable_get('fblikebutton_iframe_width', '450'),
+    'send' => variable_get('fblikebutton_send', 'true'),
+    'other_css' => variable_get('fblikebutton_iframe_css', ''),
+    'language' => variable_get('fblikebutton_language', 'en_US'),
+  );
+
+  // Link area
+  if (($show && $teaser && $teaserdisplay == 2) || ($show && !$teaser && $fullnodedisplay == 2)) {
+    $links['fblikebutton_field'] = array(
+      'title' => _fblikebutton_field($webpage_to_like, $conf),
+      'html' => TRUE,
+    );
+    return $links;
+  }
+}
+
+/**
+ * Implements of hook_perm().
+ */
+function fblikebutton_perm() {
+  return array(
+    'administer fblikebutton',
+    'administer fblikebutton block',
+    'access fblikebutton',
+  );
+}
+
+
+/**
+ * Implementation of hook_block()
+ */
+function fblikebutton_block($op = 'list', $delta = 0, $edit = array()) {
+  switch ($op) {
+    case 'list':
+      $fullnodedisplay = variable_get('fblikebutton_full_node_display', 0);
+      $blocks[0]['info'] = t('Static FB Like Button');
+      $blocks[0]['cache'] = BLOCK_NO_CACHE;
+      if($fullnodedisplay == 1) {
+        $blocks[1]['info'] = t('Dynamic FB Like Button');
+        $blocks[1 ]['cache'] = BLOCK_NO_CACHE;
+      }
+    return $blocks;
+
+    case 'configure':
+      $form = array();
+      if ($delta == 0 && user_access('administer fblikebutton block')) {
+        $form['fblikebutton_static_block'] = array(
+          '#type' => 'fieldset',
+          '#title' => t('Static FB Like button block'),
+          '#collapsible' => false,
+        );
+        $form['fblikebutton_static_block']['fblikebutton_static_config'] = array(
+          '#type' => 'markup',
+          '#value' => '<p>'. t('To configure the URL and the appearance of the button go to the ' . l(t('static Like button settings'), 'admin/settings/fblikebutton/static') . '. Make sure you set the right permissions on the ' . l(t('permissions page'), 'admin/user/permissions') . '.</p>'),
+        );
+      }
+      if ($delta == 1 && user_access('administer fblikebutton block')) {
+        $form['fblikebutton_dynamic_block'] = array(
+          '#type' => 'fieldset',
+          '#title' => t('Dynamic FB Like button block'),
+          '#collapsible' => false,
+        );
+        $form['fblikebutton_dynamic_block']['fblikebutton_dynamic_config'] = array(
+          '#markup' => '<p>'. t('To configure the visibility and the appearance of the button go to the ' . l(t('dynamic Like button settings'), 'admin/config/fblikebutton/dynamic') . '. You can enhance the visibility settings by using the settings on this page. Make sure you set the right permissions on the ' . l(t('permissions page'), 'admin/people/permissions') . '.</p>'),
+        );
+      }
+      return $form;
+
+    case 'view':
+      global $base_url;
+      $node = node_load(arg(1));
+      $types = variable_get('fblikebutton_node_types', array());
+      if ($node) {
+        $show = ( ! empty($types[$node->type]) && user_access('access fblikebutton'));
+      }
+      else {
+        $show = NULL;
+      }
+      $fullnodedisplay = variable_get('fblikebutton_full_node_display', 0);
+      if ($delta == 1 && $show && $fullnodedisplay == 1 && $node) {
+        $webpage_to_like = url("node/$node->nid", array('absolute' => TRUE));
+        $conf = array(
+          'layout' => variable_get('fblikebutton_layout', 'standard'),
+          'action' => variable_get('fblikebutton_action', 'like'),
+          'color_scheme' => variable_get('fblikebutton_color_scheme', 'light'),
+          'show_faces' => variable_get('fblikebutton_show_faces', TRUE),
+          'font' => variable_get('fblikebutton_font', 'arial'),
+          'height' => variable_get('fblikebutton_iframe_height', '80'),
+          'width' => variable_get('fblikebutton_iframe_width', '450'),
+          'send' => variable_get('fblikebutton_send', 'true'),
+          'other_css' => variable_get('fblikebutton_iframe_css', ''),
+          'language' => variable_get('fblikebutton_language', 'en_US'),
+        );
+        $block['content'] = _fblikebutton_field($webpage_to_like, $conf);
+      }
+      else {
+        $block['content'] = NULL;
+      }
+      if ($delta == 0) {
+        $addr = variable_get('fblikebutton_block_url', $base_url);
+        $conf = array(
+          'layout' => variable_get('fblikebutton_bl_layout', "standard"),
+          'action' => variable_get('fblikebutton_bl_action', "like"),
+          'color_scheme' => variable_get('fblikebutton_bl_color_scheme', "light"),
+          'show_faces' => variable_get('fblikebutton_bl_show_faces', FALSE),
+          'font' => variable_get('fblikebutton_bl_font', "arial"),
+          'height' => variable_get('fblikebutton_bl_iframe_height', '80'),
+          'width' => variable_get('fblikebutton_bl_iframe_width', '450'),
+          'other_css' => variable_get('fblikebutton_bl_iframe_css', ''),
+          'language' => variable_get('fblikebutton_bl_language', 'en_US'),
+        );
+        $block['content'] = _fblikebutton_field($addr, $conf);
+      }
+
+      return $block;
+
+    }
+  }
+
+function _fblikebutton_field($webpage_to_like, $conf) {
+  $webpage_to_like = urlencode($webpage_to_like);
+  $width = $conf['width'];
+  $height = $conf['height'];
+  $layout = $conf['layout'];
+  $action = $conf['action'];
+  $colorscheme = $conf['color_scheme'];
+  $show_faces = $conf['show_faces'] ? 'true' : 'false';
+  $font = $conf['font'];
+//  $send = $conf['send'];
+  $other_css = $conf['other_css'];
+  $language = ($conf['language']) ? '&locale=' . $conf['language'] : '';
+  $params = "href={$webpage_to_like}&layout={$layout}&show_faces={$show_faces}&width={$width}&font={$font}&height={$height}&action={$action}&colorscheme={$colorscheme}{$language}&send=false";
+  $src = htmlentities($params);
+  $output = '<iframe src="https://www.facebook.com/plugins/like.php?' . $src . '" scrolling="no" frameborder="0" style="border: none; overflow: hidden; width: ' . $width . 'px; height: ' . $height . 'px;' . $other_css . '" allowTransparency="true"></iframe>';
+  return $output;
+}

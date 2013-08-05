@@ -1,0 +1,217 @@
+<?php
+
+function makemeeting_schema() {
+  $schema = array();
+  $schema['makemeeting_poll_heads'] = array(
+    'description' => t('The main informations of the polls.'),
+    'fields' => array(
+      'nid' => array(
+        'description' => t('The contact with the base node.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE
+      ),
+      'vid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0
+      ),
+      'uid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0
+      ),
+      'anonym_name' => array(
+        'type' => 'varchar',
+        'length' => 100,
+        'not null' => TRUE,
+        'default' => ''
+      ),
+      'anonym_email' => array(
+        'type' => 'varchar',
+        'length' => 100,
+        'not null' => TRUE,
+        'default' => ''
+      ),
+      'email_notification' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => '0'
+      ),
+      'poll_type' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => '0'
+      ),
+      'url' => array(
+        'type' => 'varchar',
+        'length' => 10,
+        'not null' => TRUE,
+        'default' => ''
+      ),
+      'admin_url' => array(
+        'type' => 'varchar',
+        'length' => 25,
+        'not null' => TRUE,
+        'default' => ''
+      ),
+      'multiple_allowed' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => '0'
+      ),
+      'secure' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => '0'
+      ),
+      'maybe_option' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => '0'
+      ),
+    ),
+    'primary key' => array('nid'),
+  );
+
+  $schema['makemeeting_poll_rows'] = array(
+    'description' => t('The dates and answers.'),
+    'fields' => array(
+      'answer_id' => array(
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE
+      ),
+      'nid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0
+      ),
+      'answer_text' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => ''
+      ),
+      'type' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => '0'
+      ),
+    ),
+
+    'primary key' => array('answer_id'),
+  );
+
+  $schema['makemeeting_poll_alters'] = array(
+    'description' => t('The options of dates.'),
+    'fields' => array(
+      'alter_id' => array(
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE
+      ),
+      'answer_id' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0
+      ),
+      'alter_text' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => ''
+      ),
+    ),
+
+    'primary key' => array('alter_id'),
+
+  );
+  $schema['makemeeting_poll_logs'] = array(
+    'description' => t('Log table.'),
+    'fields' => array(
+      'log_id' => array(
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE
+      ),
+      'nid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0
+      ),
+      'username' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => ''
+      ),
+      'dt' => array(
+        'type' => 'datetime',
+        'not null' => TRUE,
+      ),
+    ),
+
+    'primary key' => array('log_id'),
+  );
+
+  $schema['makemeeting_poll_votes'] = array(
+    'description' => t('The table of voters.'),
+    'fields' => array(
+      'id' => array(
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE
+      ),
+      'user_name' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => ''
+      ),
+      'poll_id' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => 0
+      ),
+      'answer_id' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => 0
+      ),
+      'answer_value' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => 0
+      ),
+      'dt' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => 0
+      ),
+    ),
+
+    'primary key' => array('id'),
+  );
+
+  return $schema;
+}
+
+function makemeeting_install() {
+  // Create my tables.
+  drupal_install_schema('makemeeting');
+}
+
+function makemeeting_uninstall() {
+  // Drop my tables.
+  drupal_uninstall_schema('makemeeting');
+}

@@ -1,0 +1,40 @@
+<?php
+define('MEDIA_SCHOOLTUBE_SOAP_ENDPOINT', 'http://api.schooltube.com/0.1.3/wsdl');
+
+/**
+ *  @file
+ *  Embedded Video Field provider file for schooltube.com.
+ */
+
+function media_schooltube_emfield_providers($module, $provider = NULL) {
+  if ($module == 'emvideo') {
+    return drupal_system_listing("$provider\.inc$", drupal_get_path('module', 'media_schooltube') ."/providers", 'name', 0);
+  }
+}
+
+/**
+ * This uses the schooltube SOAP API to fetch video metadata.
+ */
+function media_schooltube_request_metadata($video_id) {
+  // If the soap extension isn't present, just fail.
+  if (!defined('SOAP_FUNCTIONS_ALL'))
+    return FALSE;
+
+  $soapClient = new SoapClient(MEDIA_SCHOOLTUBE_SOAP_ENDPOINT);
+  $param = array(
+    'MediaKey' => $video_id,
+    'SearchTerm' => '',
+    'ResultsPerPage' => 1,
+    'PageNumber' => 1,
+  );
+
+  try {
+    $info = $soapClient->__call("SearchMedia", array($param));
+  } catch (SoapFault $fault) {
+    drupal_set_message($fault->faultstring, 'error');
+    $info = FALSE;
+  }
+  unset($soapClient);
+
+  return $info;
+}

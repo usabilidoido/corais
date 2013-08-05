@@ -1,0 +1,14 @@
+name = "Outline Designer Book Organic Groups"
+description = "Allows group admins to use Outline Designer for books in their group."
+dependencies[] = "outline_designer_book"
+dependencies[] = "og"
+package = "Outline Designer"
+core = "6.x"
+project = "outline_designer"
+
+; Information added by drupal.org packaging script on 2012-06-21
+version = "6.x-2.0-beta3"
+core = "6.x"
+project = "outline_designer"
+datestamp = "1340302000"
+

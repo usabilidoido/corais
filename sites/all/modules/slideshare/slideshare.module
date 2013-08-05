@@ -1,0 +1,25 @@
+<?php
+
+/**
+ * @file
+ * SlideShare provider for Embedded Media Video module.
+ */
+
+/**
+ * Implementation of hook_emfield_providers().
+ */
+function slideshare_emfield_providers() {
+  return drupal_system_listing("\.inc", drupal_get_path('module', 'slideshare') ."/providers", 'name', 0);
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function slideshare_theme() {
+  return array(
+    'slideshare_flash' => array(
+      'arguments' => array('embed' => NULL, 'width' => NULL, 'height' => NULL, 'field' => NULL, 'item' => NULL, 'node' => NULL, 'autoplay' => NULL),
+      'file' => 'slideshare.theme.inc'
+    ),
+  );
+}

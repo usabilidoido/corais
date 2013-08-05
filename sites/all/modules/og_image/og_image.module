@@ -1,0 +1,20 @@
+<?php
+function og_image_block($op = 'list', $delta = 0, $edit = array()) {
+  if ($op == 'list') {
+    $blocks[0] = array('info' => t('Imagem do Projeto'),
+      'weight' => 0, 'status' => 1);
+    return $blocks;
+  }
+
+  else if ($op == 'view') {
+    global $base_url;
+	$space = spaces_get_space();
+	//$content = '<img src="'.$base_url.'/'.$space->group->field_image[0]["filepath"].'" alt="'.$space->group->field_image[0]["filename"].'" />';
+	if ($space->group->field_image[0]){
+		$content = theme('imagecache', 'imageboard_preview', $space->group->field_image[0]["filepath"]);
+	} else {
+		$content = t("Este projeto ainda n&atilde;o tem uma imagem principal definida.");
+	}
+	return array('subject'=>'Imagem Principal', 'content'=>$content);
+  }  
+}

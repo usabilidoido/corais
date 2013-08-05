@@ -1,0 +1,23 @@
+***************
+*** 418,426 ****
+   */
+  function ginkgo_preprocess_views_view_table(&$vars) {
+    $view = $vars['view'];
+-   foreach ($view->field as $field => $handler) {
+-     if (isset($vars['fields'][$field]) && $class = _ginkgo_get_views_field_class($handler)) {
+-       $vars['fields'][$field] = $class;
+      }
+    }
+  }
+--- 418,428 ----
+   */
+  function ginkgo_preprocess_views_view_table(&$vars) {
+    $view = $vars['view'];
++   if ($view->name != 'noderelationships_noderef') {
++     foreach ($view->field as $field => $handler) {
++       if (isset($vars['fields'][$field]) && $class = _ginkgo_get_views_field_class($handler)) {
++         $vars['fields'][$field] = $class;
++       }
+      }
+    }
+  }

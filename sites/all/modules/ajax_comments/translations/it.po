@@ -1,0 +1,93 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"POT-Creation-Date: 2009-05-21 11:29+0000\n"
+"PO-Revision-Date: 2009-07-23 12:39+0100\n"
+"Last-Translator: Alberto Colella <kongoji@gmail.com>\n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: ajax_comments.module:38;49;164
+msgid "Please wait..."
+msgstr "Attendere prego..."
+
+#: ajax_comments.module:122;135;149
+msgid "Preview"
+msgstr "Anteprima"
+
+#: ajax_comments.module:141;149;152
+#: ajax_comments.js:0
+msgid "Save"
+msgstr "Salva"
+
+#: ajax_comments.module:259
+msgid "Settings"
+msgstr "Impostazioni"
+
+#: ajax_comments.module:263
+msgid "Form always expanded"
+msgstr "Form sempre espanso"
+
+#: ajax_comments.module:264
+msgid "This setting allows to render comments as collapsed link by default."
+msgstr "Questa impostazione consente di visualizzare i commenti come link collassati di default."
+
+#: ajax_comments.module:269
+msgid "Blink new comment"
+msgstr "Mostra il nuovo commento lampeggiante"
+
+#: ajax_comments.module:270
+msgid "This effect helps to find new comment after replying to long threads."
+msgstr "Questo effetto permette di individuare più facilmente un nuovo commento quando si hanno thread molto lunghi."
+
+#: ajax_comments.module:275
+msgid "Default row count"
+msgstr "Numero di righe della textarea"
+
+#: ajax_comments.module:276
+msgid "Allows to control comment forms' textarea size. Leave blank to use system defined."
+msgstr "Consente di definire il numero di righe che avrà la textarea del form di inserimento commenti. Se lasciato vuoto, sarà usato il valore di default del sistema."
+
+#: ajax_comments.module:281
+msgid "Row count in replies"
+msgstr "Numero di righe della textarea del \"Rispondi al commento\""
+
+#: ajax_comments.module:282
+msgid "Usually, there is no need in big forms for replies, so this setting allows to reduce their size."
+msgstr "Di solito non c'è necessità di avere una textarea molto grande quando si risponde ad un commento. Questa impostazione permette quindi di ridurne le dimensioni."
+
+#: ajax_comments.module:288
+msgid "Content types"
+msgstr "Tipi di contenuto"
+
+#: ajax_comments.module:294
+msgid "Select node types you want to activate ajax comments on. If you select nothing, AJAX Comments will be enabled everywhere."
+msgstr "Seleziona i tipi di nodo per i quali vuoi attivare AJAX Comments. Se non selezioni alcun tipo, AJAX Comments sarà abilitato ovunque di default."
+
+#: ajax_comments.module:338;356
+msgid "delete"
+msgstr "elimina"
+
+#: ajax_comments.module:364
+msgid "preview"
+msgstr "anteprima"
+
+#: ajax_comments.module:83
+#: ajax_comments.info:0
+msgid "AJAXifies comments on site."
+msgstr "Introduce l'AJAX per i commenti sul sito"
+
+#: ajax_comments.module:0
+msgid "ajax_comments"
+msgstr "ajax_comments"
+
+#: ajax_comments.info:0
+msgid "AJAX Comments"
+msgstr "Commenti AJAX"
+
+#: ajax_comments.js:0
+msgid "Are you sure you want to delete the comment? Any replies to this comment will be lost. This action cannot be undone."
+msgstr "Sei sicuro di voler eliminare questo commento? Sarà eliminata anche ogni risposta al commento. Questa azione non può essere annullata."
+

@@ -1,0 +1,71 @@
+<?php
+
+/**
+ * Course context handler callback.
+ */
+function course_webform_context() {
+  $node = node_load(arg(1));
+
+  if (isset($node->nid) && $node->type == 'webform') {
+    return array(
+      'object_type' => 'webform',
+      'instance' => $node->nid,
+    );
+  }
+}
+
+/**
+ * Implements hook_course_handlers().
+ */
+function course_webform_course_handlers() {
+  return array(
+    'object' => array(
+      'webform' => array(
+        'name' => t('Webform'),
+        'class' => 'CourseObjectWebform',
+        'description' => t('A webform to be used in a course workflow.'),
+      ),
+    ),
+    'settings' => array(
+      'webform' => array(
+        'name' => t('Webform'),
+        'description' => t('Course webform configurations.'),
+        'callback' => 'course_webform_settings',
+      ),
+    ),
+    'context' => array(
+      'webform' => array(
+        'callback' => 'course_webform_context',
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_webform_submission_insert().
+ */
+function course_webform_webform_submission_insert($node, $submission) {
+  global $user;
+
+  // Find the course object associated with this webform.
+  if ($courseObject = course_get_course_object('course_webform', 'webform', arg(1), $user)) {
+    $courseObject->getFulfillment()->setComplete()->save();
+  }
+}
+
+/**
+ * Settings form callback.
+ */
+function course_webform_settings() {
+  $form = array();
+
+  $form['course_webform_settings_test'] = array(
+    '#title' => t('Test'),
+    '#type' => 'textarea',
+    '#rows' => 5,
+    '#description' => t('Test.'),
+    '#default_value' => variable_get('course_webform_settings_test', ''),
+  );
+
+  return system_settings_form($form);
+}

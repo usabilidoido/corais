@@ -1,0 +1,91 @@
+Installation instructions
+=========================
+
+#  Enable and configure messaging, notifications, and mailhandler modules.
+  - http://drupal.org/project/messaging
+  - http://drupal.org/project/notifications
+  - http://drupal.org/project/mailhandler
+#  Setup a mailbox for mailhandler which you'll use with mailcomment.
+#  Enable the mailcomment module
+#  Go to admin/messaging/mailcomment and configure as desired.  You must select at least one content type in order
+   for mailcomment to work at all.
+#  If a user does not have 'post comments' privilege, they will not be able to use mailcomment.  The notifications
+that get sent to users without 'post comments' privilege will not contain the necessary information from mailcomment
+in order for the user to reply via email.
+
+That's it.  Now, when notifications are sent out, they should appear with the delimiter text.
+The default delimiter text says "((( Reply ABOVE this LINE to POST a COMMENT )))".
+
+# Note about mailcomment_extras module:  This module uses a few regular expressions targeted at specific email clients.
+  mailcomment_extras can simply be enabled, and it will start trying to detect on incoming messages for mailcomment.  If a
+  match is found, the default cleaner in mailcomment module itself will not be run, even if it is enabled to run.  If no 
+  match is found, the default cleaner (if enabled on the settings page) will attempt to run and clean the message.
+
+
+For developers
+==============
+
+# If you need to modify or maintain node parameters upon each reply, there is a hook_mailcomment_alter that allows plugin
+modules to act on the node object of each message that comes in via mailcomment.
+
+
+Known issues
+============
+
+#  If you get blank or incomplete messages, try turning off the "Message cleaner" on the mailcomment settings page.  There is a regex
+that works most of the time, but may not work all the time.  This can lead to incomplete or lost messages.  If you turn the message
+cleaner off, all comments that are posted via mailcomment will contain an email client byline at the bottom, like:
+"On Jan 27, 2009, John Doe wrote:"
+
+Upgrading
+=========
+
+From 6.x Beta 4 to 6.x Beta 5
+-----------------------------
+
+There are no required steps for upgrading from Beta4 to Beta5, but there are configuration changes you may want to
+make on the Mail Comment settings page (admin/messaging/mailcomment).  Three new settings have been added:
+
+* "Mail Comment-enabled mailboxes" - This setting makes it possible for incoming messages to mailcomment to come from
+these different email addresses.  This setting cannot be taken advantage of with Mail Comment alone.  Add-on modules 
+may require this setting.  For example, if an add-on module sets a different reply-to header, you can be sure replies
+to that email box will get through to Mail Comment by choosing the mailbox(es) in this option.
+
+* "Mail Comment catchall mailboxes" - If your mailbox is a catchall mailbox, you should choose it in this option. This
+will make sure Mail Comment considers all messages going to an address based on the base domain of the mailbox.
+
+* "Use mailing list-style subjects" - In order to support better message threading some email clients/providers require
+consistency in the message subject instead of relying on the in-reply-to header.  If you check this option the subject
+of outgoing messages on Mail Comment-enabled content types will be altered to read like: "[Site Name] Title of message"
+instead of using the messaging template configured by the messaging module.
+
+
+FAQ / Common issues
+===================
+
+* Quoted text does not get removed in replies.  If you experience this problem there are a few solutions you can try.
+  
+  - If your mailhandler mailbox is using "HTML" as its "MIME Preference" you can try switching to "Plain text" if you do 
+  not need to support full HTML.
+  
+  - If you are using the "Mail Commet Extras" module, try disabling it and just use the default message cleaner.
+  
+  - On the Mail Comment settings page, try using a shorter string for the "Reply text".
+  
+  - Write your own message cleaning plugin module.  The default and extra cleaners provided by Mail Comment and Mail
+  Comment Extras modules may not work with certain clients.  These cleaners use a few general tactics to try to clean
+  the quoted text which may not cover the way various mail clients behave.
+
+
+
+
+Roadmap
+=======
+
+# DONE - Add setting to control on what content types mailcomment should be allowed on.  Currently, any notification for a content type will go out with a mailcomment header/message.
+# Any kind of handling for inline replies?
+# DONE Ability to initiate a new post while using mailcomment (security issues must be sorted out)
+# DONE Ability to use mailcomment with multiple email addresses, such as 1 address per OG.
+# Improved error handling, error messages, and detailed instructions in mail footers
+# Set a max-length on the demarcation line allowed, because a very long demarcation line ("PLEASE reply ABOVE...") will break a line and this may not get deteced (need to test).
+# Allow for plugin to handle per-node or per-X on/off switch for mailcomment.  Right now, we just handle per-content type.

@@ -1,0 +1,44 @@
+<?php
+
+
+function featured_comments_install() {
+  drupal_install_schema('featured_comments');
+}
+
+function featured_comments_uninstall() {
+  drupal_uninstall_schema('featured_comments');
+}
+
+
+function featured_comments_schema() {
+
+  $schema = array();
+  
+  $schema['featured_comments'] = array(
+    'description' => t('Indicates which comments are featured.'),
+    'unique keys' => array('cid' => array('cid')),
+    'fields' => array(
+      'cid' => array(
+        'description' => t('Comment id'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'status' => array(
+        'description' => t('1 for featured, 0 for unfeatured'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'weight' => array(
+        'description' => t('Weight in block'),
+        'type' => 'int',
+        'unsigned' => FALSE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    )
+  );
+
+  return $schema;
+}

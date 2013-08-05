@@ -1,0 +1,55 @@
+.LightTheme {
+  color:#333; 
+  border: solid 1px #ccc;
+}
+
+.LightTheme .timeline-band-0 .timeline-ether-bg { 
+  background-color: #fff;
+}
+
+.LightTheme .timeline-band-1 .timeline-ether-bg {
+  border-top: solid 1px #ccc;
+  background-color: #fff;
+}
+
+.LightTheme .t-highlight1 {
+  background-color:#003;
+}
+
+.LightTheme .p-highlight1 { 
+  background-color:#300;
+}
+                
+.LightTheme .timeline-highlight-label-start .label_t-highlight1 {
+  color:#f00;
+}
+
+.LightTheme .timeline-highlight-label-end .label_t-highlight1 { 
+  color:#115;
+}
+                
+.LightTheme .timeline-band-events .important{color:#c00;}               
+.LightTheme .timeline-band-events .small-important {
+  background:#c00;
+}
+                
+.LightTheme .timeline-date-label-em {
+  color:#000;
+}
+.LightTheme .timeline-ether-lines{
+  border-color:#999; 
+  border-style:solid;
+}
+
+.LightTheme .timeline-ether-highlight{
+  background:#E2F2FB;
+}
+                
+.LightTheme .timeline-event-tape,
+.LightTheme .timeline-small-event-tape {
+  background:#f60;
+}
+
+.LightTheme .timeline-ether-weekends {
+  background:#E2F2FB;
+}

@@ -1,0 +1,1595 @@
+<?php
+
+/**
+ * @file
+ * The Sticky Notes module file.
+ *
+ * Sticky Notes provides the well known yellow sticky notes for drupal sites.
+ * They can be attached to specific pages, all pages or all possible pages that
+ * can be accessed using the same menu path as the current page (e.g. node/%).
+ */
+
+define('STICKY_NOTES_SCOPE_ALL', 'all');
+define('STICKY_NOTES_SCOPE_LINK_PATTERN', 'pattern');
+define('STICKY_NOTES_SCOPE_LINK_PATH', 'path');
+
+define('STICKY_NOTES_PRIORITY_LEVEL_MAX_COUNT', 5);
+
+define('STICKY_NOTES_INFO_BOX_CORNER_TOP_LEFT', 'top_left');
+define('STICKY_NOTES_INFO_BOX_CORNER_TOP_RIGHT', 'top_right');
+define('STICKY_NOTES_INFO_BOX_CORNER_BOTTOM_LEFT', 'bottom_left');
+define('STICKY_NOTES_INFO_BOX_CORNER_BOTTOM_RIGHT', 'bottom_right');
+
+define('STICKY_NOTES_DEFAULT_ZINDEX', 50);
+define('STICKY_NOTES_DEFAULT_AUTO_SIZE', FALSE);
+define('STICKY_NOTES_DEFAULT_ALLOW_NODE_OPERATIONS', 1);
+define('STICKY_NOTES_DEFAULT_PRIORITY', 0);
+define('STICKY_NOTES_DEFAULT_SCOPE', STICKY_NOTES_SCOPE_LINK_PATH);
+define('STICKY_NOTES_DEFAULT_PUBLIC', 1);
+define('STICKY_NOTES_DEFAULT_WIDTH', 154);
+define('STICKY_NOTES_DEFAULT_HEIGHT', 154);
+define('STICKY_NOTES_DEFAULT_NOTE_COLOR', 'FDFB8C');
+define('STICKY_NOTES_DEFAULT_TEXT_COLOR', 'black');
+define('STICKY_NOTES_DEFAULT_CHARACTER_LIMIT', 0);
+define('STICKY_NOTES_DEFAULT_RESIZABLE', TRUE);
+define('STICKY_NOTES_DEFAULT_TOGGLE_VISIBILITY_STATE', TRUE);
+define('STICKY_NOTES_DEFAULT_VISIBILITY_STATE_MEMORY_DAYS', 5);
+define('STICKY_NOTES_DEFAULT_INFO_BOX_CORNER', STICKY_NOTES_INFO_BOX_CORNER_BOTTOM_RIGHT);
+define('STICKY_NOTES_DEFAULT_INFO_BOX_HIDE', 0);
+define('STICKY_NOTES_DEFAULT_CONTAINER_SELECTOR', 'body');
+define('STICKY_NOTES_DEFAULT_PAGE_VISIBILITY_HIDE_ON_LOAD', 0);
+define('STICKY_NOTES_DEFAULT_PAGE_VISIBILITY_TYPE', 0);
+define('STICKY_NOTES_DEFAULT_PAGE_VISIBILITY_PAGES', '');
+define('STICKY_NOTES_DEFAULT_DEFAULT_ACCESSIBILITY', 1);
+define('STICKY_NOTES_DEFAULT_OVERRIDE_DEFAULT_ACCESSIBILITY', TRUE);
+
+/**
+ * Implementation of hook_help().
+ */
+function sticky_notes_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#sticky_notes':
+      return '<p>'. t('This module provides sticky notes for Drupal sites. Please note that you need to have javascript enabled in your browser in order to see the notes and the info box.') .'</p>';
+      break;
+    case 'admin/settings/sticky_notes':
+      return '<p>'. t('On this page you can change the global settings for the sticky notes module for your site.');
+      break;
+    case 'admin/settings/sticky_notes/visibility':
+      return '<p>'. t('On this page you can set role specific settings for sticky notes. Note that the settings from the highest role a user belongs to will be the one that is used.');
+      break;
+    case 'admin/settings/sticky_notes/priorities':
+      return '<p>'. t("On this page you can define the priority levels that can be associated to each note. If you don't want to use priorities  you can simply set all name fields to empty.");
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_menu().
+ *
+ * @return void
+ * @author berliner
+ */
+function sticky_notes_menu() {
+
+  $items = array();
+
+  // specific sticky notes callbacks
+  $items['sticky-notes/info-box'] = array(
+    'page callback' => 'sticky_notes_info_box_js',
+    'access callback' => 'sticky_notes_check_interface_access',
+    'type' => MENU_CALLBACK,
+    'file' => 'sticky_notes.callbacks.inc'
+  );
+
+  $items['sticky-notes/load'] = array(
+    'page callback' => 'sticky_notes_load_js',
+    'access callback' => 'sticky_notes_check_interface_access',
+    'type' => MENU_CALLBACK,
+    'file' => 'sticky_notes.callbacks.inc'
+  );
+
+  $items['sticky-notes/save-position/%node/%/%'] = array(
+    'page callback' => 'sticky_notes_save_position_js',
+    'page arguments' => array(2, 3, 4),
+    'access callback' => 'node_access',
+    'access arguments' => array('update', 2),
+    'type' => MENU_CALLBACK,
+    'file' => 'sticky_notes.callbacks.inc'
+  );
+
+  $items['sticky-notes/save-size/%node/%/%'] = array(
+    'page callback' => 'sticky_notes_save_size_js',
+    'page arguments' => array(2, 3, 4),
+    'access callback' => 'node_access',
+    'access arguments' => array('update', 2),
+    'type' => MENU_CALLBACK,
+    'file' => 'sticky_notes.callbacks.inc'
+  );
+
+  $items['sticky-notes/add'] = array(
+    'title' => 'Add sticky note',
+    'page callback' => 'sticky_notes_dialog_add_js',
+    'access callback' => 'node_access',
+    'access arguments' => array('create', 'sticky_notes'),
+    'file' => 'sticky_notes.callbacks.inc',
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['sticky-notes/edit/%node'] = array(
+    'title' => 'Edit sticky note',
+    'page callback' => 'sticky_notes_dialog_edit_js',
+    'page arguments' => array(2),
+    'access callback' => 'node_access',
+    'access arguments' => array('update', 2),
+    'file' => 'sticky_notes.callbacks.inc',
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['sticky-notes/delete/%node'] = array(
+    'title' => 'Delete sticky note',
+    'page callback' => 'sticky_notes_dialog_delete_js',
+    'page arguments' => array(2),
+    'access callback' => 'node_access',
+    'access arguments' => array('delete', 2),
+    'file' => 'sticky_notes.callbacks.inc',
+    'type' => MENU_CALLBACK,
+  );
+
+  // override the default node pages
+  $items['node/add/sticky-notes'] = array(
+    'title' => 'Sticky note',
+    'page callback' => 'sticky_notes_node_page',
+    'page arguments' => array('add'),
+    'access callback' => 'sticky_notes_access_default_node_page',
+    'access arguments' => array('create', 'sticky_notes'),
+  );
+
+  // administration pages
+  $items['admin/settings/sticky_notes'] = array(
+    'title' => 'Sticky Notes',
+    'description' => 'Set preferences for sticky notes.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('sticky_notes_admin_global_form'),
+    'access arguments' => array('administer sticky notes'),
+    'file' => 'sticky_notes.admin.inc',
+  );
+  
+  $items['admin/settings/sticky_notes/global'] = array(
+    'title' => 'Global settings',
+    'description' => 'Set preferences for sticky notes.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('sticky_notes_admin_global_form'),
+    'access arguments' => array('administer sticky notes'),
+    'file' => 'sticky_notes.admin.inc',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+  
+  $items['admin/settings/sticky_notes/priorities'] = array(
+    'title' => 'Priority settings',
+    'description' => 'Set the priorities for sticky notes.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('sticky_notes_admin_priorities_form'),
+    'access arguments' => array('administer sticky notes'),
+    'file' => 'sticky_notes.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+  );
+  
+  $items['admin/settings/sticky_notes/visibility'] = array(
+    'title' => 'Visibility settings',
+    'description' => 'Set role-specific preferences for sticky notes.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('sticky_notes_admin_visibility_form'),
+    'access arguments' => array('administer sticky notes'),
+    'file' => 'sticky_notes.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+/**
+ * Page callback for sticky notes nodes
+ *
+ * @param string $op
+ * @return void
+ * @author berliner
+ */
+
+function sticky_notes_node_page($op) {
+  if (variable_get('sticky_notes_allow_node_operations', STICKY_NOTES_DEFAULT_ALLOW_NODE_OPERATIONS)) {
+    require_once drupal_get_path('module', 'node') . '/node.pages.inc';
+    switch ($op) {
+      case 'add':
+        return node_add('sticky_notes');
+      case 'edit':
+        return drupal_get_form($node->type .'_node_form', $node);
+    }
+  }
+  else {
+    if (user_access('administer sticky notes')) {
+      return t('The access to the default node forms for sticky notes has been disabled on the <a href="@settings-page">settings page</a>.', array('@settings-page' => url('admin/settings/sticky_notes')));
+    }
+    else {
+      drupal_access_denied();
+    }
+  }
+}
+
+/**
+ * Implementation of hook_access().
+ *
+ * @return void
+ * @author berliner
+ */
+
+function sticky_notes_access($op, $node = NULL, $account) {
+  
+  if (user_access('administer sticky notes') || $account->uid == 1) {
+    return TRUE;
+  }
+
+  $access = NULL;  // FALSE would deny access and doesn't give node access modules a chance to act.
+
+  $is_node_page = sticky_notes_is_node_page();
+  $node_page_access = variable_get('sticky_notes_allow_node_operations', STICKY_NOTES_DEFAULT_ALLOW_NODE_OPERATIONS);
+  
+  switch ($op) {
+
+    case 'create':
+      $access = user_access('create sticky notes', $account);
+      break;
+
+    case 'update':
+      if (user_access('edit all sticky notes', $account)) {
+        $access = TRUE;
+      }
+      elseif ($node->uid != 0) {
+        $access = (user_access('edit own sticky notes', $account) && ($account->uid == $node->uid));
+      }
+      else {
+        $access = (user_access('edit anonymous sticky notes', $account) && ($account->uid == $node->uid));
+      }
+      break;
+
+    case 'delete':
+      if (user_access('delete all sticky notes', $account)) {
+        $access = TRUE;
+      }
+      elseif ($node->uid != 0) {
+        $access = (user_access('delete own sticky notes', $account) && ($account->uid == $node->uid));
+      }
+      else {
+        $access = (user_access('delete anonymous sticky notes', $account) && ($account->uid == $node->uid));
+      }
+      break;
+
+    case 'view':
+      // reformated this to make it more readable
+      $access = (sticky_notes_user_acces($node, $account) !== TRUE) ? NULL : TRUE;
+      break;
+
+  }
+  
+  if ($access === TRUE) {
+    return $is_node_page ? ($access && $node_page_access) : $access;
+  }
+  else {
+    return $access;
+  }
+}
+
+/**
+ * Special access control function
+ *
+ * This centralizes the access control of sticky notes user access
+ *
+ * @param object $node 
+ * @param object $user 
+ * @return boolean
+ * @author berliner
+ */
+
+function sticky_notes_user_acces($node, $user) {
+  
+  if (user_access('administer sticky notes') || $user->uid == 1) {
+    return TRUE;
+  }
+  
+  $access = sticky_notes_role_access($node, $user);
+  $access = $access && ($node->public || $node->uid == $user->uid);
+  return $access;
+}
+
+/**
+ * Special access control function for role chechking
+ *
+ * @param array $roles 
+ * @param object $row 
+ * @return boolean
+ * @author berliner
+ */
+function sticky_notes_role_access($node, $account = NULL) {
+  
+  if ($account === NULL) {
+    global $user;
+    $account = $user;
+  }
+  
+  // the author of the given node
+  $author = user_load($node->uid);
+  
+  // the roles of the given users
+  $permitted_roles = sticky_notes_get_users_permitted_roles($account);
+  
+  return array_intersect($permitted_roles, $author->roles);
+  
+}
+
+/**
+ * Retrieve the roles that the given user is allowed to see notes from
+ *
+ * @param object $account 
+ * @return array
+ * @author berliner
+ */
+
+function sticky_notes_get_users_permitted_roles($account = NULL) {
+  
+  if ($account === NULL) {
+    global $user;
+    $account = $user;
+  }
+  
+  // first try to find role specific settings for the current user
+  // the highest applicable role will be used
+  $roles = array();
+  if (!user_access('administer sticky notes', $account) && $account->uid != 1) {
+    foreach ($account->roles as $rid => $role) {
+      if (variable_get('sticky_notes_role_' . $rid . '_use_default', 1) == 0) {
+        $roles = array_filter(variable_get('sticky_notes_role_' . $rid . '_page_visibility_roles', array()));
+      }
+    }
+  }
+  
+  // if there are no role specific settings we take the global settings
+  if (!count($roles)) {
+    $roles = array_filter(variable_get('sticky_notes_page_visibility_roles', array()));
+  }
+  
+  // if there are none we grant access to all roles
+  // also grant global access to admin
+  if (!count($roles) || user_access('administer sticky notes', $account) || $account->uid == 1) {
+    $roles = user_roles();
+  }
+  else {
+    // need to adapt format of the returned roles if retrieved from the
+    // variables table
+    $_roles = array();
+    foreach (user_roles() as $rid => $role) {
+      if (in_array($rid, $roles)) {
+        $_roles[$rid] = $role;
+      }
+    }
+    $roles = $_roles;
+  }
+  
+  return $roles;
+  
+}
+
+/**
+ * Special access callback for default drupal node access pages
+ *
+ * @param string $op
+ * @return boolean
+ *  TRUE if access is granted, FALSE otherwise
+ * @author berliner
+ */
+
+function sticky_notes_access_default_node_page($op) {
+
+  switch ($op) {
+
+    case 'create':
+      return variable_get('sticky_notes_allow_node_operations', STICKY_NOTES_DEFAULT_ALLOW_NODE_OPERATIONS) && user_access('create sticky notes');
+      break;
+
+  }
+
+}
+
+/**
+ * Implementation of hook_node_info().
+ *
+ * @return void
+ * @author berliner
+ */
+
+function sticky_notes_node_info() {
+
+  $types = array();
+  $types['sticky_notes'] = array(
+    'name' => t('Sticky Note'),
+    'module' => 'sticky_notes',
+    'description' => t('A Sticky Note is a note with text, position and priority that you can attach to every page on your site. You can leave messages for other people you are working with or remind yourself of things that are still to be done.'),
+    'has_title' => FALSE,
+    'title_label' => NULL,
+    'has_body' => TRUE,
+    'body_label' => t('Note'),
+    'locked' => TRUE
+  );
+  return $types;
+}
+
+/**
+ * Implementation of hook_perm().
+ *
+ * @return void
+ * @author berliner
+ */
+
+function sticky_notes_perm() {
+  return array(
+    'access sticky notes',
+    'administer sticky notes',
+    'create sticky notes',
+    'create sticky notes with scope all pages',
+    'create sticky notes with scope all pages of a type',
+    'edit all sticky notes',
+    'edit own sticky notes',
+    'edit anonymous sticky notes',
+    'delete all sticky notes',
+    'delete own sticky notes',
+    'delete anonymous sticky notes',
+    'search sticky notes',
+    'view sticky notes overview',
+  );
+}
+
+/**
+ * Implementation of hook_nodeapi().
+ */
+function sticky_notes_nodeapi(&$node, $op, $teaser = NULL, $page = NULL) {
+  
+  if ($node->type != 'sticky_notes') {
+    return;
+  }
+  
+  switch ($op) {
+    
+    case 'presave':
+      // if title is not set node_form_submit will create a notice abaout
+      // access to a property that is not set. This seems to be a bug in
+      // node.module
+      // to make notes distinguishable on admin pages we set a truncated
+      // version of the nodes body as the title
+      $node->title = truncate_utf8($node->body, 80);
+      break;
+    
+  }
+}
+
+/**
+ * Implementation of hook_theme().
+ *
+ * @return void
+ * @author berliner
+ */
+
+function sticky_notes_theme() {
+  return array(
+    'sticky_notes_wrapper' => array(
+      'template' => 'sticky-notes-wrapper',
+      'arguments' => array('items' => NULL),
+      'path' => drupal_get_path('module', 'sticky_notes') . '/templates',
+    ),
+    'sticky_notes_info_box' => array(
+      'template' => 'sticky-notes-info-box',
+      'arguments' => array('classes' => NULL, 'add_link' => NULL, 'overview_link' => NULL, 'toggle_visibility_state' => NULL),
+      'path' => drupal_get_path('module', 'sticky_notes') . '/templates',
+    ),
+    'sticky_notes_note' => array(
+      'template' => 'sticky-notes-note',
+      'arguments' => array('node' => NULL, 'priority_image' => NULL),
+      'path' => drupal_get_path('module', 'sticky_notes') . '/templates',
+    ),
+    'sticky_notes_priority_image' => array(
+      'template' => 'sticky-notes-priority-image',
+      'arguments' => array('priority_image_url' => NULL, 'priority_label' => NULL),
+      'path' => drupal_get_path('module', 'sticky_notes') . '/templates',
+    ),
+    'sticky_notes_node_form' => array(
+      'arguments' => array('form' => NULL,),
+    ),
+    'sticky_notes_admin_priorities_form' => array(
+      'file' => 'sticky_notes.admin.inc',
+      'arguments' => array('form' => NULL),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_load().
+ *
+ * @param string $node
+ *
+ * @return void
+ * @author berliner
+ */
+
+function sticky_notes_load($node) {
+  $additions = db_fetch_object(db_query("SELECT * FROM {node_sticky_note} WHERE vid = %d", $node->vid));
+  return $additions;
+}
+
+/**
+ * Load a sticky node by path
+ *
+ * @param string $path
+ * @param string $href
+ *
+ * @return void
+ * @author berliner
+ */
+
+function sticky_notes_load_by_path($pattern = NULL, $path = NULL) {
+
+  global $user;
+
+  if ($pattern === NULL || $path === NULL) {
+
+    $menu_item = menu_get_item();
+
+    if ($pattern === NULL) {
+      $pattern = $menu_item['path'];
+    }
+
+    if ($path === NULL) {
+      $path = $menu_item['href'];
+    }
+
+  }
+  
+  // we need special handling for anonymous users and authenticated users since
+  // they are not in the users_roles table
+  $args = array($path, $pattern);
+  if (!user_access('administer sticky notes')) {
+    // if the user has no administration priviliges he can see only published
+    // nodes or (for the anonymous users) unpublished nodes of other anonymous
+    // users, admins can see everything
+    $where = $user->uid != 1 ? ' AND (n.status = 1 OR (n.status = 0 AND (n.uid = %d)))' : '';
+    $args[] = $user->uid;
+  }
+  else {
+    $where = '';
+  }
+  
+  $nodes = array();
+  $sql = "SELECT    DISTINCT n.nid, n.uid, s.public
+          FROM      {node} n
+          LEFT JOIN {node_sticky_note} s USING(nid)
+          WHERE     (
+                        s.link_path = '%s'
+                    OR  (s.link_scope = 'pattern' AND s.link_pattern = '%s')
+                    OR  (s.link_scope = 'all')
+                    )
+          " . $where . "
+          ORDER BY  s.position_z";
+  
+  $result = db_query(db_rewrite_sql($sql, 'n', 'nid', $args), $args);
+  
+  $zIndex = variable_get('sticky_notes_minimal_zindex', STICKY_NOTES_DEFAULT_ZINDEX);
+  while ($row = db_fetch_object($result)) {
+    
+    $node = node_load($row->nid);
+    
+    // check for role access
+    if (!sticky_notes_role_access($node)) {
+      continue;
+    }
+    
+    // Access is permitted if another module grants access, note is public, or user has otherwise been granted permission.
+    $access = node_access('view', $node, $user);
+    // The following check for user access permission is necessary because
+    // node_access doesn't return NULL but nothing if hook_access doesn't
+    // return TRUE
+    $access = $access && sticky_notes_user_acces($node, $user);
+    if ($access === TRUE) {
+      $node->position_z = $zIndex++;
+      $nodes[] = $node;
+    }
+  }
+  return $nodes;
+}
+
+/**
+ * Implementation of hook_search().
+ *
+ * We implement this hook to provide a custom search for sticky notes.
+ * That way we can link the search result to the page the note has been
+ * attached to. Additionally we filter the results based on sticky notes
+ * permissions.
+ *
+ * @param string $op 
+ * @param string $keys 
+ * @return void
+ * @author berliner
+ */
+
+function sticky_notes_search($op = 'search', $keys = NULL) {
+  
+  global $user;
+  
+  switch ($op) {
+    
+    case 'name':
+      if (user_access('search sticky notes') && (user_access('access sticky notes'))) {
+        return t('Sticky Notes');
+      }
+      break;
+    
+    case 'search':
+      // The following is taken from the example in
+      // http://api.drupal.org/api/function/hook_search and modified slightly
+      // to suit our needs
+      
+      // Build matching conditions
+      list($join1, $where1) = _db_rewrite_sql(
+        $query = '',
+        $primary_table = 'n',
+        $primary_field = 'nid',
+        $args = array('sticky_notes' => TRUE) // we set this flag, so that
+                                              // hook_db_rewrite_sql() doesn't
+                                              // filter out sticky notes
+                                              // @see: sticky_notes_db_rewrite_sql()
+      );
+      $arguments1 = array();
+      $conditions1 = 'n.status = 1';
+      
+      // modified
+      // if ($type = search_query_extract($keys, 'type')) {
+      //   $types = array();
+      //   foreach (explode(',', $type) as $t) {
+      //     $types[] = "n.type = '%s'";
+      //     $arguments1[] = $t;
+      //   }
+      //   $conditions1 .= ' AND ('. implode(' OR ', $types) .')';
+      //   $keys = search_query_insert($keys, 'type');
+      // }
+      $conditions1 .= " AND (n.type = '%s')";
+      $arguments1[] = 'sticky_notes';
+      
+      // join with our own table to check for the public attribute
+      $join1 .= ' INNER JOIN {node_sticky_note} nsn ON n.vid = nsn.vid';
+      if ($user->uid != 0) {
+        $conditions1 .= " AND (nsn.public = 1 OR n.uid = %d)";
+        $arguments1[] = $user->uid;
+      }
+      else {
+        $conditions1 .= " AND (nsn.public = 1)";
+      }
+      
+      // join with the roles table to check access for this user
+      $roles = sticky_notes_get_users_permitted_roles($user);
+      $role_conditions = array();
+      if (isset($roles[DRUPAL_ANONYMOUS_RID])) {
+        $role_conditions[] = ' (n.uid = 0) ';
+        unset($roles[DRUPAL_ANONYMOUS_RID]);
+      }
+      
+      if (isset($roles[DRUPAL_AUTHENTICATED_RID])) {
+        $role_conditions[] = ' (n.uid != 0) ';
+        unset($roles[DRUPAL_AUTHENTICATED_RID]);
+      }
+      
+      if (count($roles)) {
+        $rids = array_keys($roles);
+        $role_conditions[] = " r.rid IN (" . db_placeholders($rids) . ") ";
+        $arguments1 = array_merge($arguments1, $rids);
+      }
+      
+      $join1 .= ' LEFT JOIN {users_roles} r ON r.uid = n.uid';
+      $conditions1 .= " AND (" . implode(' OR ', $role_conditions) . ")";
+      
+      // removed, since sticky notes doesn't support taxonomy for the moment
+      // if ($category = search_query_extract($keys, 'category')) {
+      //   $categories = array();
+      //   foreach (explode(',', $category) as $c) {
+      //     $categories[] = "tn.tid = %d";
+      //     $arguments1[] = $c;
+      //   }
+      //   $conditions1 .= ' AND ('. implode(' OR ', $categories) .')';
+      //   $join1 .= ' INNER JOIN {term_node} tn ON n.vid = tn.vid';
+      //   $keys = search_query_insert($keys, 'category');
+      // }
+      
+      // Build ranking expression (we try to map each parameter to a
+      // uniform distribution in the range 0..1).
+      $ranking = array();
+      $arguments2 = array();
+      $join2 = '';
+      // Used to avoid joining on node_comment_statistics twice
+      $stats_join = FALSE;
+      $total = 0;
+      if ($weight = (int)variable_get('node_rank_relevance', 5)) {
+        // Average relevance values hover around 0.15
+        $ranking[] = '%d * i.relevance';
+        $arguments2[] = $weight;
+        $total += $weight;
+      }
+      if ($weight = (int)variable_get('node_rank_recent', 5)) {
+        // Exponential decay with half-life of 6 months, starting at last indexed node
+        $ranking[] = '%d * POW(2, (GREATEST(MAX(n.created), MAX(n.changed), MAX(c.last_comment_timestamp)) - %d) * 6.43e-8)';
+        $arguments2[] = $weight;
+        $arguments2[] = (int)variable_get('node_cron_last', 0);
+        $join2 .= ' LEFT JOIN {node_comment_statistics} c ON c.nid = i.sid';
+        $stats_join = TRUE;
+        $total += $weight;
+      }
+      if (module_exists('comment') && $weight = (int)variable_get('node_rank_comments', 5)) {
+        // Inverse law that maps the highest reply count on the site to 1 and 0 to 0.
+        $scale = variable_get('node_cron_comments_scale', 0.0);
+        $ranking[] = '%d * (2.0 - 2.0 / (1.0 + MAX(c.comment_count) * %f))';
+        $arguments2[] = $weight;
+        $arguments2[] = $scale;
+        if (!$stats_join) {
+          $join2 .= ' LEFT JOIN {node_comment_statistics} c ON c.nid = i.sid';
+        }
+        $total += $weight;
+      }
+      if (module_exists('statistics') && variable_get('statistics_count_content_views', 0) &&
+          $weight = (int)variable_get('node_rank_views', 5)) {
+        // Inverse law that maps the highest view count on the site to 1 and 0 to 0.
+        $scale = variable_get('node_cron_views_scale', 0.0);
+        $ranking[] = '%d * (2.0 - 2.0 / (1.0 + MAX(nc.totalcount) * %f))';
+        $arguments2[] = $weight;
+        $arguments2[] = $scale;
+        $join2 .= ' LEFT JOIN {node_counter} nc ON nc.nid = i.sid';
+        $total += $weight;
+      }
+
+      // When all search factors are disabled (ie they have a weight of zero),
+      // the default score is based only on keyword relevance and there is no need to
+      // adjust the score of each item.
+      if ($total == 0) {
+        $select2 = 'i.relevance AS score';
+        $total = 1;
+      }
+      else {
+        $select2 = implode(' + ', $ranking) . ' AS score';
+      }
+      
+      // Do search.
+      $find = do_search($keys, 'node', 'INNER JOIN {node} n ON n.nid = i.sid '. $join1, $conditions1 . (empty($where1) ? '' : ' AND '. $where1), $arguments1, $select2, $join2, $arguments2);
+
+      // Load results.
+      $results = array();
+      foreach ($find as $item) {
+        // Build the node body.
+        $node = node_load($item->sid);
+        
+        // Fetch comments for snippet.
+        $node->body .= module_invoke('comment', 'nodeapi', $node, 'update index');
+        // Fetch terms for snippet.
+        $node->body .= module_invoke('taxonomy', 'nodeapi', $node, 'update index');
+        
+        // removed to prevent display of attachments and comments count
+        // $extra = node_invoke_nodeapi($node, 'search result');
+        
+        $results[] = array(
+          // modified
+          'link' => url($node->link_path, array('absolute' => TRUE)),
+          'type' => check_plain(node_get_types('name', $node)),
+          // modified
+          'title' => t('Sticky Note on !link_path', array('!link_path' => url($node->link_path, array('absolute' => TRUE)))),
+          'user' => theme('username', $node),
+          'date' => $node->changed,
+          'node' => $node,
+          // modified
+          'extra' => NULL,
+          'score' => $item->score / $total,
+          'snippet' => search_excerpt($keys, $node->body),
+        );
+      }
+      return $results;
+      break;
+    
+  }
+  
+}
+
+/**
+ * Implementation of hook_db_rewrite_sql()
+ */
+function sticky_notes_db_rewrite_sql($query, $primary_table, $primary_field, $args) {
+  
+  // Exclude the following content types from the search results
+  $excluded_content_types = array('sticky_notes');
+  
+  if ($query == '' && $primary_table == 'n' && $primary_field = 'nid' && !isset($args['sticky_notes'])) {
+    $where = " n.type NOT IN ('" . implode(', ', $excluded_content_types) . "') ";
+    return array('where' => $where);
+  }
+}
+
+/**
+ * Implementation of hook_insert().
+ *
+ * @param object $node
+ *
+ * @return void
+ * @author berliner
+ */
+
+function sticky_notes_insert($node) {
+  // setting default position for new sticky notes
+  // one day this could be configurable via the admin section
+  $node->position_x = 400;
+  $node->position_y = 300;
+  $node->position_z = sticky_notes_reorder_page_notes($node->link_path, $node->link_pattern);
+  
+  drupal_write_record('node_sticky_note', $node);
+  // Tell the parent window to close the modal frame dialog.
+  modalframe_close_dialog();
+}
+
+/**
+ * Implementation of hook_update().
+ *
+ * @param object $node
+ *
+ * @return void
+ * @author berliner
+ */
+
+function sticky_notes_update($node) {
+  
+  if ($node->link_scope_old && $node->link_scope == -1) {
+    $node->link_scope = $node->link_scope_old;
+  }
+  
+  drupal_write_record('node_sticky_note', $node, array('nid'));
+  // Tell the parent window to close the modal frame dialog.
+  modalframe_close_dialog();
+}
+
+/**
+ * Implementation of hook_delete().
+ *
+ * @param string $node
+ *
+ * @return void
+ * @author berliner
+ */
+
+function sticky_notes_delete($node) {
+  db_query("DELETE FROM {node_sticky_note} WHERE nid = %d", $node->nid);
+
+  // Tell the parent window to close the modal frame dialog.
+  modalframe_close_dialog();
+}
+
+/**
+ * Reorder all sticky notes for the given path or path pattern
+ *
+ * @param string $path
+ * @param string $pattern
+ *
+ * @return int
+ *  The last attributed z-index value of the concerned sticky notes
+ *
+ * @author berliner
+ */
+
+function sticky_notes_reorder_page_notes($path, $pattern) {
+  $zIndex = variable_get('sticky_notes_minimal_zindex', STICKY_NOTES_DEFAULT_ZINDEX);
+  $result = db_query("SELECT nid FROM {node_sticky_note} WHERE link_path = '%s' OR (link_scope = 'pattern' AND link_pattern = '%s') ORDER BY position_z", $path, $pattern);
+  while ($row = db_fetch_object($result)) {
+    db_query("UPDATE {node_sticky_note} SET position_z = %d WHERE nid = %d", $zIndex++, $row->nid);
+  }
+  return $zIndex;
+}
+
+/**
+ * Check if sticky notes are visible on the current page
+ *
+ * @return void
+ * @author berliner
+ */
+
+function sticky_notes_visible($path = NULL) {
+  
+  global $user;
+  
+  // always visible for the admin
+  if ($user->uid == 1) {
+    return TRUE;
+  }
+  
+  // first try to find role specific settings for the current user
+  foreach ($user->roles as $rid => $role) {
+    if (variable_get('sticky_notes_role_' . $rid . '_use_default', 1) == 0) {
+      $type = variable_get('sticky_notes_role_' . $rid . '_page_visibility_type', -1);
+      if ($type != -1) {
+        $pages = variable_get('sticky_notes_role_' . $rid . '_page_visibility_pages', '');
+      }
+    }
+  }
+  
+  // if no role specific settings are set, apply the global settings
+  if (!isset($pages)) {
+    $pages = variable_get('sticky_notes_page_visibility_pages', STICKY_NOTES_DEFAULT_PAGE_VISIBILITY_PAGES);
+    $type = variable_get('sticky_notes_page_visibility_type', STICKY_NOTES_DEFAULT_PAGE_VISIBILITY_TYPE);
+  }
+  
+  if ($pages) {
+    if ($type < 2) {
+      $path = drupal_get_path_alias($path !== NULL ? $path : $_GET['q']);
+      // Compare with the internal and path alias (if any).
+      $page_match = drupal_match_path($path, $pages);
+      
+      if ($path != $_GET['q']) {
+        $page_match = $page_match || drupal_match_path($_GET['q'], $pages);
+      }
+      // When $type has a value of 0, the notes are displayed on
+      // all pages except those listed in $pages. When set to 1, it
+      // is displayed only on those pages listed in $pages.
+      return !($type xor $page_match);
+    }
+    else {
+      return drupal_eval($pages);
+    }
+  }
+  else {
+    return TRUE;
+  }
+}
+
+/**
+ * Custom access callback.
+ *
+ * This checks whether the current user has sufficient permissions to view and
+ * access the sticky notes user interface (the info box).
+ *
+ * @return boolean
+ * @author berliner
+ */
+
+function sticky_notes_check_interface_access() {
+
+  return user_access('access sticky notes') || user_access('administer sticky notes');
+}
+
+/**
+ * Check whether we are on a default drupal node page or not
+ *
+ * @return boolean
+ * @author berliner
+ */
+
+function sticky_notes_is_node_page() {
+  return $_GET['q'] == 'node/add/sticky-notes' || (arg(0) == 'node' && in_array(arg(2), array('edit', 'delete')));
+}
+
+/**
+ * Retrieves an array of currently available priority states.
+ *
+ * @return boolean
+ * @author berliner
+ */
+
+function sticky_notes_get_priority_array($priority = NULL) {
+  $priorities = array();
+  for ($i = 0; $i < STICKY_NOTES_PRIORITY_LEVEL_MAX_COUNT; $i++) {
+    $name = variable_get('sticky_notes_priority_name_' . $i, sticky_notes_get_default_priority_name($i));
+    if (!empty($name)) {
+      $priorities[$i] = check_plain($name);
+    }
+  }
+  return $priority !== NULL ? (isset($priorities[$priority]) ? $priorities[$priority] : FALSE) : $priorities;
+}
+
+/**
+ * Retrieve available scope options for the sticky notes form
+ *
+ * @param object $node 
+ * @param string $path 
+ * @param string $pattern 
+ * @return array
+ * @author berliner
+ */
+
+function sticky_notes_get_scope_options($node, $path, $pattern) {
+
+  // the default option "all pages" is available for users with permission
+  $scope_options = user_access('create sticky notes with scope all pages') ? array(STICKY_NOTES_SCOPE_ALL => t('On all pages')) : array();
+
+  // if we are in a modalframe, meaning we are not on a default drupal node
+  // form, we have a context, so we can propose the current path or pattern
+  // as possible values for the link scope
+  if (!sticky_notes_is_node_page()) {
+    if (user_access('create sticky notes with scope all pages of a type')) {
+      $scope_options[STICKY_NOTES_SCOPE_LINK_PATTERN] = t('On all pages of this type');
+    }
+    $scope_options[STICKY_NOTES_SCOPE_LINK_PATH] = t('Only on the current page');
+  }
+
+  // if we lready have a node, this node has a link scope, so in case the
+  // context has changed, we propose that the users keeps the old context
+  if (isset($node->nid) && isset($node->link_scope) && $node->link_scope != STICKY_NOTES_SCOPE_ALL) {
+    $scope_options[-1] = t('Keep original setting');
+  }
+
+  // if path and pattern are identical we can unset the pattern options
+  if ($pattern == $path) {
+    unset($scope_options[STICKY_NOTES_SCOPE_LINK_PATTERN]);
+  }
+
+  // if there is no path then we drop that option
+  if (empty($path)) {
+    unset($scope_options[STICKY_NOTES_SCOPE_LINK_PATH]);
+  }
+
+  return $scope_options;
+}
+
+/**
+ * Implementation of hook_form().
+ *
+ * @author berliner
+ * @ingroup forms
+ * @see sticky_notes_form_alter()
+ */
+
+function sticky_notes_form(&$node) {
+  
+  global $user;
+  
+  // get the node type
+  $type = node_get_types('type', $node);
+  
+  // retrieve path and pattern for scope
+  if (!isset($node->nid)) {
+    $pattern = isset($_REQUEST['pattern']) ? $_REQUEST['pattern'] : '';
+    $path = isset($_REQUEST['pattern']) ? $_REQUEST['path'] : '';
+    $title = isset($_REQUEST['title']) ? $_REQUEST['title'] : '';
+  }
+  else {
+    $pattern = isset($_REQUEST['pattern']) ? $_REQUEST['pattern'] : (isset($node->link_pattern) ? $node->link_pattern : '');
+    $path = isset($_REQUEST['path']) ? $_REQUEST['path'] : (isset($node->link_path) ? $node->link_path : '');
+    $title = isset($_REQUEST['title']) ? urldecode($_REQUEST['title']) : (isset($node->origin_title) ? $node->origin_title : '');
+  }
+  
+  $form = array();
+
+  $form['body_field'] = node_body_field($node, $type->body_label, $type->min_word_count);
+
+  $form['body_field']['format']['#access'] = FALSE;
+  $form['body_field']['teaser_include']['#access'] = FALSE;
+  $form['body_field']['body']['#rows'] = 5;
+  $form['body_field']['body']['#cols'] = 20;
+  $form['body_field']['body']['#required'] = TRUE;
+  
+  if (variable_get('sticky_notes_character_limit', STICKY_NOTES_DEFAULT_CHARACTER_LIMIT) > 0) {
+    $form['body_field']['body']['#maxlength'] = variable_get('sticky_notes_character_limit', STICKY_NOTES_DEFAULT_CHARACTER_LIMIT);
+  }
+  
+  $form['origin_title'] = array(
+    '#type' => 'hidden',
+    '#value' => $title,
+  );
+  
+  $form['link_pattern'] = array(
+    '#type' => 'hidden',
+    '#value' => $pattern,
+  );
+
+  $form['link_path'] = array(
+    '#type' => 'hidden',
+    '#value' => $path,
+  );
+  
+  $scope_options = sticky_notes_get_scope_options($node, $path, $pattern);
+  if (isset($scope_options[-1])) {
+    // keep the old scope stored
+    $form['link_scope_old'] = array(
+      '#type' => 'hidden',
+      '#value' => $node->link_scope,
+    );
+  }
+  $form['link_scope'] = array(
+    '#type' => 'radios',
+    '#title' => t('Visibility'),
+    '#default_value' => isset($scope_options[-1]) ? -1 : (isset($node->link_scope) ? $node->link_scope : STICKY_NOTES_SCOPE_LINK_PATH),
+    '#options' => $scope_options,
+    '#prefix' => '<div id="edit-link_scope-wrapper">',
+    '#suffix' => '</div>',
+  );
+  
+  if (count(sticky_notes_get_priority_array())) {
+    $form['priority'] = array(
+      '#type' => 'select',
+      '#title' => t('Priority'),
+      '#options' => sticky_notes_get_priority_array(),
+      '#default_value' => isset($node->nid) && isset($node->priority) ? $node->priority : (int) variable_get('sticky_notes_default_priority_level', STICKY_NOTES_DEFAULT_PRIORITY),
+    );
+  }
+  
+  // try to find role specific settings for the current users accessibility
+  // settings
+  $default_accessibility = variable_get(
+    'sticky_notes_default_accessibility',
+    STICKY_NOTES_DEFAULT_DEFAULT_ACCESSIBILITY
+  );
+  $override_default_accessibility = variable_get(
+    'sticky_notes_override_default_accessibility',
+    STICKY_NOTES_DEFAULT_OVERRIDE_DEFAULT_ACCESSIBILITY
+  );
+  if ($user->uid != 1) {
+    foreach ($user->roles as $rid => $role) {
+      if (variable_get('sticky_notes_role_' . $rid . '_use_default', 1) == 0) {
+        $default_accessibility = variable_get(
+          'sticky_notes_role_' . $rid . '_default_accessibility',
+          STICKY_NOTES_DEFAULT_DEFAULT_ACCESSIBILITY
+        );
+        $override_default_accessibility = variable_get(
+          'sticky_notes_role_' . $rid . '_override_default_accessibility',
+          STICKY_NOTES_DEFAULT_OVERRIDE_DEFAULT_ACCESSIBILITY
+        );
+      }
+    }
+  }
+  
+  $form['public'] = array(
+    '#access' => $override_default_accessibility || $user->uid == 1,
+    '#type' => 'checkbox',
+    '#title' => t('Public'),
+    '#default_value' => isset($node->nid) && isset($node->public) ? $node->public : $default_accessibility,
+  );
+  
+  // add in some defaults
+  sticky_notes_form_add_defaults($form, $node);
+  
+  if (!sticky_notes_is_node_page()) {
+    
+    drupal_add_js(array('sticky_notes' => array(
+      'current_pattern' => $pattern,
+      'current_path' => $path,
+      'original_scope' => isset($node->nid) ? $node->link_scope : FALSE
+    )), 'setting');
+    
+    if (isset($node->nid)) {
+      if ($node->link_scope == STICKY_NOTES_SCOPE_ALL) {
+        $where = t('all pages');
+      }
+      else {
+        $where = $node->{'link_' . $node->link_scope};
+      }
+      $who = $node->public == 1 ? t('everybody') : t('me');
+    }
+    else {
+      $where = STICKY_NOTES_DEFAULT_SCOPE == STICKY_NOTES_SCOPE_LINK_PATH ? $path : $pattern;
+      $who = $default_accessibility == 1 ? t('everybody') : t('me');
+    }
+    $visbility_summary = t('Visible on @where for @who', array('@where' => $where, '@who' => $who));
+    $form['visbility_summary'] = array(
+      '#type' => 'item',
+      '#value' => $visbility_summary,
+      '#id' => 'sticky-notes-visibility-summary',
+    );
+  }
+  elseif (!isset($node->nid)) {
+    // if the default drupal node form is used to add a new note we set "all
+    // pages" as the default visibility scope
+    $form['link_scope']['#default_value'] = STICKY_NOTES_SCOPE_ALL;
+  }
+  
+  return $form;
+
+}
+
+/**
+ *  Theme the sticky notes add node form.
+ *  This is added to provide default behavior that themes can override.
+ *  (Much of this was previously found in hook_form_alter...)
+ */
+function theme_sticky_notes_node_form($form) {
+  // don't disable the following form elements, otherwise the form will
+  // simply not submit
+  $exclude = array(
+    'form_build_id',
+    'form_token',
+    'form_id',
+    'body_field',
+    'link_scope',
+    'priority',
+    'public',
+    'visbility_summary',
+    'buttons',
+  );
+
+  // disable most of the default form elements, but only for users not having
+  // sufficient permissions to edit anything and if not on the default node
+  // edit pages
+  if (!user_access('administer sticky notes') || !sticky_notes_is_node_page()) {
+    sticky_notes_disable_form_elements($form, $exclude);
+  }
+
+  // deactivate preview and delete buttons
+  $form['buttons']['preview']['#access'] = FALSE;
+  $form['buttons']['delete']['#access'] = FALSE;
+  
+  // Render the buttons first, then add to the end of the form.
+  $buttons = drupal_render($form['buttons']);
+  return drupal_render($form) . $buttons;
+}
+
+/**
+ * Implementation of hook_form_alter().
+ *
+ * @return void
+ *
+ * @author berliner
+ * @see sticky_notes_form()
+ * @see sticky_notes_menu()
+ */
+
+function sticky_notes_form_alter(&$form, &$form_state, $form_id) {
+
+  // Alter the theme configuration pages, to add a per-theme-content selector.
+  $theme = arg(4);
+  if ($form_id == 'system_theme_settings' && $theme) {
+    $form['sticky_notes'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Sticky Notes Settings'),
+      '#weight' => -2,
+    );
+    $form['sticky_notes']['sticky_notes_container_selector'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Container Selector'),
+      '#default_value' => variable_get('sticky_notes_'. $theme .'_container_selector', ''),
+      '#description' => t('If you have a centered layout you should change this to your content containers CSS ID. A possible value could be "#wrapper". If you are not sure, look in the HTML source of a page that uses this theme and identify the element that contains your content area. All notes will be positioned relative to this element. Changing this after having added notes will change the former position of those notes on the document, so handle with care!'),
+    );
+    $form['sticky_notes']['sticky_notes_theme'] = array(
+      '#type' => 'hidden',
+      '#value' => $theme,
+    );
+    $form['#submit'][] = 'sticky_notes_theme_settings_form_submit';
+  }
+
+  // Only modal forms should be altered. Every special sticky notes form (add,
+  // edit, delete) is accessible through a path starting with "sticky-notes".
+  if (arg(0) == 'sticky-notes') {
+
+    if ($form_id == 'node_delete_confirm') {
+      // the cancel link in the node delete confirm dialog has a target
+      // attribute of "_new". I couldn't figure out why, so for the moment I
+      // disabled this link, because the user can still close the popup using the
+      // button (cross) provided by Modal Frame API
+      unset($form['actions']['cancel']);
+    }
+
+    if ($form_id == 'sticky_notes_node_form') {
+
+      global $user;
+      
+      // add some fix values, those can be ovverridden if necessary using the
+      // default drupal node add/edit forms
+      sticky_notes_form_add_defaults($form, $form['#node']);
+
+      // add a wrapper for styling
+      $form['#prefix'] = '<div id="sticky-notes-form">';
+      $form['#suffix'] = '</div>';
+
+      // add a wrapper for the buttons as well
+      $form['buttons']['#prefix'] = '<div class="sticky-notes-form-buttons">';
+      $form['buttons']['#suffix'] = '</div>';
+      
+      // if the post settings are configured to enforce preview before saving we bypass that here
+      if (isset($form['type']) && isset($form['#node']) && $form['type']['#value'] .'_node_form' == $form_id) {
+        if (isset($form['buttons']['submit']['#access'])) {
+          $form['buttons']['submit']['#access'] = TRUE;
+        }
+      }
+    }
+  }
+  
+  // inform the admin that sticky notes bypass the enforced preview
+  if ($form['#id'] == 'node-configure') {
+    $form['node_preview']['#description'] .= ' ' . t('Note that this will not affect the sticky notes content type.');
+  }
+}
+
+/**
+ * Add default values to the node form, either in the modalframe or on the
+ * default drupal node pages
+ *
+ * @param array $form 
+ * @return void
+ * @author berliner
+ */
+function sticky_notes_form_add_defaults(&$form, $node = NULL) {
+  
+  global $user;
+  
+  // we always take the current author, or if not yet know, the currently logged in user
+  $form['author']['name']['#value'] = $node !== NULL ? $node->name : ($user->uid != 0 ? $user->name : '');
+  $form['author']['date']['#value'] = '';
+  
+  // notes should always be published instantely when using the modalframe dialogs
+  $form['options']['status']['#value'] = 1;
+  // they should never be listed on the frontpage
+  $form['options']['promote']['#value'] = 0;
+  // and they shouldn't be sticky, as they are already sticky by definition ;-)
+  $form['options']['sticky']['#value'] = 0;
+  
+}
+
+/**
+ * Submit callback for the theme settings.
+ *
+ * @param array $form 
+ * @param array $form_state 
+ * @return void
+ * @author berliner
+ */
+
+function sticky_notes_theme_settings_form_submit($form, &$form_state) {
+  $theme = $form_state['values']['sticky_notes_theme'];
+  $container_selector = $form_state['values']['sticky_notes_container_selector'];
+  variable_set('sticky_notes_'. $theme .'_container_selector', $container_selector);
+}
+
+/**
+ * Disable the forms elements recursively.
+ *
+ * @param array $form
+ *
+ * @param array $exclude
+ *  Keys of elements that should not be disabled
+ *
+ * @return void
+ * @author berliner
+ */
+
+function sticky_notes_disable_form_elements(&$form, $exclude) {
+
+  if (is_array($form)) {
+    foreach ($form as $key => $element) {
+      if (is_array($form[$key]) && !in_array($key, $exclude)) {
+        if (strpos($key, '#') === FALSE) {
+          $form[$key]['#access'] = FALSE;
+        }
+        sticky_notes_disable_form_elements($form[$key], $exclude);
+      }
+    }
+  }
+}
+
+
+/**
+ * Implementation of hook_init().
+ *
+ * @return void
+ * @author berliner
+ */
+
+function sticky_notes_init() {
+  
+  // special check for user access to account for cached requests for which
+  // hook_init() is not called
+  if (arg(0) == 'sticky-notes' && isset($_GET['path']) && !sticky_notes_visible($_GET['path'])) {
+    die();
+  }
+  
+  if (!module_exists('jquery_ui')) {
+    return;
+  }
+  
+  // check if notes should be visible on the current page
+  if (!sticky_notes_visible()) {
+    return;
+  }
+
+  if (sticky_notes_check_interface_access()) {
+    
+    jquery_ui_add(array('ui.resizable', 'ui.draggable'));
+    
+    // make sure that the notes and the info box are not visible on our
+    // javascript callback pages
+    if (arg(0) != 'sticky-notes' || arg(1) == 'list') {
+
+      // set up modalframe use
+      modalframe_parent_js();
+
+      // add javascript
+      drupal_add_js(drupal_get_path('module', 'sticky_notes') . '/js/sticky_notes.js');
+
+      $theme = sticky_notes_get_current_theme();
+
+      // check if a container selector for this theme has been specified, if
+      // not the default conatiner as set on admin/settings/sticky-notes will
+      // be used
+      $container_selector = variable_get('sticky_notes_' . $theme . '_container_selector', FALSE);
+      if (!$container_selector) {
+        $container_selector = variable_get('sticky_notes_default_container_selector', STICKY_NOTES_DEFAULT_CONTAINER_SELECTOR);
+      }
+
+      // set some javascript values
+      global $base_url;
+      $menu_item = menu_get_item();
+      drupal_add_js(array('sticky_notes' => array(
+        'current_pattern'     => drupal_urlencode($menu_item['path']),
+        'current_path'        => drupal_urlencode($menu_item['href']),
+        'origin_title'        => urlencode(drupal_get_title()),
+        'container_selector'  => $container_selector,
+        'minimal_z_index'     => variable_get('sticky_notes_minimal_zindex', STICKY_NOTES_DEFAULT_ZINDEX),
+        'auto_size'           => variable_get('sticky_notes_auto_size', STICKY_NOTES_DEFAULT_AUTO_SIZE),
+        'hide_on_page_load'   => variable_get('sticky_notes_page_visibility_hide_on_load', STICKY_NOTES_DEFAULT_PAGE_VISIBILITY_HIDE_ON_LOAD) && variable_get('sticky_notes_toggle_visibility_state', STICKY_NOTES_DEFAULT_TOGGLE_VISIBILITY_STATE),
+        'toggle_visibility_state' => variable_get('sticky_notes_toggle_visibility_state', STICKY_NOTES_DEFAULT_TOGGLE_VISIBILITY_STATE),
+        'visibility_state_memory' => variable_get('sticky_notes_visibility_state_memory', STICKY_NOTES_DEFAULT_VISIBILITY_STATE_MEMORY_DAYS),
+        'resizable'           => variable_get('sticky_notes_resizable', STICKY_NOTES_DEFAULT_RESIZABLE),
+        'base_url'            => $base_url,
+        'note_width'          => variable_get('sticky_notes_width', STICKY_NOTES_DEFAULT_WIDTH),
+        'note_height'         => variable_get('sticky_notes_height', STICKY_NOTES_DEFAULT_HEIGHT),
+        'urls' => array(
+          'info_box'      => url('sticky-notes/info-box'),
+          'load'          => url('sticky-notes/load'),
+          'save_position' => url('sticky-notes/save-position'),
+          'save_size'     => url('sticky-notes/save-size'),
+        ),
+        'clean_urls_enabled'  => variable_get('clean_url', '0') != '0',
+      )), 'setting');
+
+      // add css
+      drupal_add_css(drupal_get_path('module', 'sticky_notes') . '/css/sticky_notes.css');
+
+    }
+    else {
+
+      // add css for the forms
+      drupal_add_css(drupal_get_path('module', 'sticky_notes') . '/css/sticky_notes.forms.css');
+      // add javascript
+      drupal_add_js(drupal_get_path('module', 'sticky_notes') . '/js/sticky_notes.forms.js');
+
+    }
+
+  }
+  
+}
+
+/**
+ * Implementation of hook_preprocess().
+ *
+ * @param array $vars
+ * @param string $hook
+ * @return void
+ * @author berliner
+ */
+
+function sticky_notes_preprocess(&$vars, $hook) {
+  
+  if ($hook == 'sticky_notes_note') {
+    
+    global $user;
+    global $base_url;
+    
+    // some defaults that might get overridden later
+    $vars['edit_link'] = FALSE;
+    $vars['delete_link'] = FALSE;
+    $vars['priority_image'] = FALSE;
+    
+    $node = $vars['node'];
+    $vars['content'] = check_markup($node->body);
+    $vars['author'] = theme('username', $node);
+    if (node_access('update', $node, $user)) {
+      $vars['edit_link'] = l(t('Edit'), 'sticky-notes/edit/' . $node->nid . '/edit', array('attributes' => array('class' => 'sticky-notes-edit-button', 'title' => t('Edit Sticky Note'))));
+    }
+    if (node_access('delete', $node, $user)) {
+      $vars['delete_link'] = l(t('Delete'), 'sticky-notes/delete/' . $node->nid . '/edit', array('attributes' => array('class' => 'sticky-notes-delete-button', 'title' => t('Delete Sticky Note'))));
+    }
+    // find the right priority image if any
+    $priority_name = variable_get('sticky_notes_priority_name_' . $node->priority, sticky_notes_get_default_priority_color($node->priority));
+    if (!empty($priority_name)) {
+      $pin_color = variable_get('sticky_notes_priority_color_' . $node->priority, sticky_notes_get_default_priority_color($node->priority));
+    
+      $pin_file = drupal_get_path('module', 'sticky_notes') . '/images/pin-' . $pin_color . '.gif';
+      if (file_exists($pin_file)) {
+        $vars['priority_image'] = theme('sticky_notes_priority_image', $base_url . '/' . $pin_file, sticky_notes_get_priority_array($node->priority));
+      }
+    }
+    $vars['sticky_note_width']  = $node->width > 0 ? $node->width : variable_get('sticky_notes_width', STICKY_NOTES_DEFAULT_WIDTH);
+    $vars['sticky_note_height'] = $node->height > 0 ? $node->height : variable_get('sticky_notes_height', STICKY_NOTES_DEFAULT_HEIGHT);
+    $vars['sticky_note_note_color'] = variable_get('sticky_notes_note_color', STICKY_NOTES_DEFAULT_NOTE_COLOR);
+    $vars['sticky_note_text_color'] = variable_get('sticky_notes_text_color', STICKY_NOTES_DEFAULT_TEXT_COLOR);
+  }
+}
+
+/**
+ * Implementation of hook_views_api().
+ *
+ * @author berliner
+ */
+
+function sticky_notes_views_api() {
+  return array(
+    'api' => 2,
+    'path' => drupal_get_path('module', 'sticky_notes') . '/views',
+  );
+}
+
+/**
+ * Retrieve the name of the theme that is used for the current page
+ *
+ * @return void
+ * @author berliner
+ */
+
+function sticky_notes_get_current_theme() {
+  // get the current theme
+  global $custom_theme;
+  $theme = $custom_theme;
+  if (!$theme) {
+    $theme = variable_get('theme_default', 'none');
+  }
+  return $theme;
+}
+
+/**
+ * Retrieve the default priority colors
+ *
+ * @param index $index 
+ * @return string or NULL
+ * @author berliner
+ */
+
+function sticky_notes_get_default_priority_color($index) {
+  $colors = array(
+    0 => 'blue',
+    1 => 'green',
+    2 => 'red'
+  );
+  return isset($colors[$index]) ? $colors[$index] : NULL;
+}
+
+/**
+ * Retrieve the default priority names
+ *
+ * @param int $index 
+ * @return string or NULL
+ * @author berliner
+ */
+
+function sticky_notes_get_default_priority_name($index) {
+  $colors = array(
+    0 => t('Low'),
+    1 => t('Normal'),
+    2 => t('High')
+  );
+  return isset($colors[$index]) ? $colors[$index] : NULL;
+}
+
+/**
+ * Retrieve the available priority colors
+ *
+ * @param string $index 
+ * @return void
+ * @author berliner
+ */
+
+function sticky_notes_get_priority_colors($index = NULL) {
+  $colors = array(
+    'white'       => t('White'),
+    'red'         => t('Red'),
+    'orange'      => t('Orange'),
+    'yellow'      => t('Yellow'),
+    'green'       => t('Green'),
+    'dark-green'  => t('Dark green'),
+    'light-blue'  => t('Light blue'),
+    'blue'        => t('Blue'),
+    'navy'        => t('Navy'),
+    'gray'        => t('Gray'),
+    'black'       => t('Black'),
+  );
+  return $index === NULL ? $colors : (isset($colors[$index]) ? $colors[$index] : FALSE);
+}

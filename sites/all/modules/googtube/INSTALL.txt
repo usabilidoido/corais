@@ -1,0 +1,28 @@
+Readme
+------
+
+This is a simple filter module. It automatically converts URLs of 
+Youtube and Google Videos into embedded.
+
+
+Installation
+------------
+
+1. Copy the googtube.module folder to the Drupal modules/ directory.
+
+2. Go to 'administer > modules', and enable the googtube.module
+
+3. Go to 'administer > configuration > input formats' and enable the filter in
+   the desired input formats.
+
+4. Rearrange the filters on the input format's 'rearrange' tab to
+   resolve conflicts with other filters.  After the HTML filter and before the URL Filter is probably best.
+
+
+
+Original Author
+------
+
+Keizo Gates <kzo@kzo.net>
+module based off urlfilter by Steven Wittens <unconed@drupal.org>
+

@@ -1,0 +1,20 @@
+; $Id: stickers.info,v 1.1 2010/10/08 14:26:49 Countzero Exp $ 
+name = Stickers
+description = Stick pictures on your pages
+package = Image
+core = 6.x
+dependencies[] = imagecache
+dependencies[] = imagecache_canvasactions
+dependencies[] = jquery_ui
+dependencies[] = install_profile_api
+dependencies[] = content_copy
+dependencies[] = filefield
+dependencies[] = imagefield
+
+
+; Information added by drupal.org packaging script on 2010-10-16
+version = "6.x-1.2"
+core = "6.x"
+project = "stickers"
+datestamp = "1287215783"
+

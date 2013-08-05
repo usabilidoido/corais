@@ -1,0 +1,24 @@
+<?php
+
+include_once('og_vocabularies.features.inc');
+
+function og_vocabularies_init() {
+  drupal_add_css(drupal_get_path('module', 'og_vocabularies') . '/og_vocabularies.css');
+}
+
+/**
+ * Implementation of hook_atrium_admin_links_alter().
+ */
+
+
+function og_vocabularies_atrium_admin_links_alter(&$links, $space) {
+  if ($space->type == 'og') {
+    $item = menu_get_item("node/{$space->id}/og/vocab");
+    if ($item && $item['access']) {
+      $links['og_vocab'] = array(
+        'title' => t('Manage Taxonomy'),
+        'href' => $item['href'],
+      );
+    }
+  }
+}

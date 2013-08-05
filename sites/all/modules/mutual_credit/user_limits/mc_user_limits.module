@@ -1,0 +1,105 @@
+<?php
+
+
+/**
+* http://api.drupal.org/api/function/hook_user/6
+* This hook is required for modules to define one or more node types.
+*/
+function mc_user_limits_user($op, &$edit, &$account, $category = NULL) {
+  //if there are any modules which set the user limits, these fields are not editable
+  if (module_implements('mc_user_limits', '')) return;
+  if (!user_access('exchange')) return;
+  switch ($op) {
+    case 'form':
+      if ($category != 'account') return;
+    case 'register':
+      $currencies = currencies_load();
+      //fields for individual balance limits
+      if (user_access('edit all exchanges')) {
+        $form['mc_limits'] = array(
+          '#title' => t('Personal balance limits (accountant only)'),
+          '#description' => t("Each of these values will dynamically inherit the currency's limits (shown in brackets) if left blank"),
+          '#type' => 'fieldset',
+          '#weight' => -5,
+          '#attributes' => array('class' => 'balance-limits'),
+          '#tree' => TRUE,
+        );
+        if (user_access('exchange', $account)) {
+          drupal_set_html_head('<style>fieldset.balance-limits fieldset div.form-item{float:left;margin-right:2em;}</style>');
+          foreach ($currencies as $cid => $currency) {
+            $form['mc_limits'][$cid] = array(
+              '#title' => $currency->title,
+              '#type' => 'fieldset',
+              '#weight' => $cid,
+              '#element_validate' => array('mc_validate_limits'),
+              '#cid' => $cid, //this helps with validation
+            );
+            $form['mc_limits'][$cid]['min'] = array(
+              '#title' => t('Min limit'),
+              '#description' =>' ('. $currency->min .')',
+              '#type' => 'textfield',
+              '#default_value' => isset($account->mc_limits[$cid]['min']) ? $account->mc_limits[$cid]['min'] : '',
+              '#maxlength' => 6,
+              '#size' => 6,
+            );
+            $form['mc_limits'][$cid]['max'] = array(
+              '#title' => t('Max limit'),
+              '#description' =>' ('. $currency->max .')',
+              '#type' => 'textfield',
+              '#default_value' => isset($account->mc_limits[$cid]['max']) ? $account->mc_limits[$cid]['max'] : '',
+              '#maxlength' => 6,
+              '#size' => 6,
+            );
+          }
+        }
+        return $form;
+      }
+    case 'view':
+      $account->content['balance_limits'] = array(
+        '#type' => 'user_profile_category',
+        'value' => array(
+          '#type' => 'user_profile_item',
+          '#value' => theme('balance_limits', $account, array_keys(currencies_load()))
+        )
+      );
+  }
+}
+
+function mc_user_limits_theme() {
+  return array(
+    //shows min & max limits for several currencies
+    'balance_limits' => array(
+      'arguments' => array(
+        'account' => NULL,
+        'cids' => array(),
+      )
+    )
+  );
+}
+
+/*
+ * variables:
+ *
+ * $currencies = array(of currency nodes)
+ * $balances = array($cid => 43...);
+ * $maxes = array with currency nids for keys
+ * $mins =  array with currency nids for keys
+ */
+function theme_balance_limits($account, $cids) {
+  module_load_include('inc', 'mcapi');
+  $headings = array(0 => '');
+  $rows = array(
+    1 => array(0 => t('Max limit')),
+    2 => array(0 => t('Min limit'))
+  );
+  foreach($cids as $cid) {
+    $currency = node_load($cid);
+    $headings[] = $currency->title;
+    //this will return the currency limits if there are no user limits
+    $limits = user_limits($account, $cid);
+    $rows[1][$cid] = is_numeric($limits['max']) ? theme('money', $limits['max'], $cid) : '';
+    $rows[2][$cid] = is_numeric($limits['min']) ? theme('money', $limits['min'], $cid) : '';
+  }
+
+  return theme('table', $headings, $rows);
+}

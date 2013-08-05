@@ -1,0 +1,134 @@
+<?php
+
+/**
+ * @file
+ * Test case for CCK field mapper mappers/nodereference.inc.
+ */
+
+require_once(drupal_get_path('module', 'feeds') . '/tests/feeds_mapper.test');
+
+/**
+ * Class for testing Feeds nodereference mapper.
+ */
+class FeedsMapperNodereferenceTestCase extends FeedsMapperTestCase {
+
+  public static function getInfo() {
+    return array(
+      'name' => t('Mapper: Nodereference'),
+      'description' => t('Test Feeds Mapper support for Nodereference CCK fields. <strong>Requires CCK module</strong>.'),
+      'group' => t('Feeds'),
+      'dependencies' => array('cck'),
+    );
+  }
+
+  /**
+   * Set up the test.
+   */
+  function setUp() {
+    // Call parent setup with required modules.
+    parent::setUp('content', 'text', 'optionwidgets', 'nodereference');
+
+    // Create user and login.
+    $this->drupalLogin($this->drupalCreateUser(
+      array(
+        'administer content types',
+        'administer feeds',
+        'administer nodes',
+        'administer site configuration',
+      )
+    ));
+  }
+
+  /**
+   * Basic test loading an rss file.
+   */
+  function test() {
+
+    // Create content type.
+    $typename = $this->createContentType(array(), array(
+      'ref' => array(
+        'type' => 'nodereference',
+        'settings' => array(
+          'multiple' => 1,  // Sets to unlimited.
+          'referenceable_types[story]' => TRUE,
+        ),
+      ),
+    ));
+
+    $rss = simplexml_load_file($this->absolutePath() . '/tests/feeds/developmentseed_changes.rss2');
+    $categories = $rss->xpath('//category');
+
+    foreach ($categories as &$category) {
+      $category = (string) $category;
+    }
+    $categories = array_unique($categories);
+    foreach ($categories as $category) {
+      $this->drupalPost('node/add/story', array('title' => $category), t('Save'));
+    }
+
+    // Create and configure importer.
+    $this->createImporterConfiguration('Nodereference', 'ref_test_title');
+    $this->setSettings('ref_test_title', NULL, array('content_type' => '','import_period' => FEEDS_SCHEDULE_NEVER));
+    $this->setPlugin('ref_test_title', 'FeedsFileFetcher');
+    $this->setSettings('ref_test_title', 'FeedsNodeProcessor', array('content_type' => $typename));
+    $this->addMappings('ref_test_title', array(
+      array(
+        'source' => 'title',
+        'target' => 'title',
+      ),
+      array(
+        'source' => 'tags',
+        'target' => 'field_ref:title',
+      ),
+    ));
+
+    // Import file.
+    $this->importFile('ref_test_title', $this->absolutePath() . '/tests/feeds/developmentseed_changes.rss2');
+    $this->assertText('Created 10 '. $typename .' nodes.');
+
+    foreach ($rss->xpath('//item') as $item) {
+      $feed_item = node_load(array('title' => $item->title));
+      $this->drupalGet('node/' . $feed_item->nid);
+      foreach ($item->category as $category) {
+        $this->assertText((string) $category);
+      }
+    }
+
+    // Delete everything and start over for nid test
+    $this->drupalPost('import/ref_test_title/delete-items', array(), 'Delete');
+
+    // Create and configure importer.
+    $this->createImporterConfiguration('Nodereference', 'ref_test_nid');
+    $this->setSettings('ref_test_nid', NULL, array('content_type' => '','import_period' => FEEDS_SCHEDULE_NEVER));
+    $this->setPlugin('ref_test_nid', 'FeedsFileFetcher');
+    $this->setPlugin('ref_test_nid', 'FeedsCSVParser');
+    $this->setSettings('ref_test_nid', 'FeedsNodeProcessor', array('content_type' => $typename));
+    $this->addMappings('ref_test_nid', array(
+      array(
+        'source' => 'title',
+        'target' => 'title',
+      ),
+      array(
+        'source' => 'ref',
+        'target' => 'field_ref:nid',
+      ),
+    ));
+
+    // Import file.
+    $this->importFile('ref_test_nid', $this->absolutePath() . '/tests/feeds/nodereference.csv');
+    $this->assertText('Created 3 '. $typename .' nodes.');
+    $this->drupalGet('node/' . node_load(array('title' => 'title a'))->nid);
+    $this->assertText('custom mapping');
+    $this->drupalGet('node/' . node_load(array('title' => 'title b'))->nid);
+    $this->assertText('MIX Market');
+    $this->drupalGet('node/' . node_load(array('title' => 'title c'))->nid);
+    $this->assertText('usability');
+  }
+
+  /**
+   * Override parent::getFormFieldsNames().
+   */
+  protected function getFormFieldsNames($field_name, $index) {
+    return array("field_{$field_name}[{$index}][nid]");
+  }
+}

@@ -1,0 +1,16 @@
+***************
+*** 85,90 ****
+    $form = array();
+  
+    $form['title_display'] = array(
+      '#title' => t('Title display'),
+      '#type' => 'select',
+      '#default_value' => $element['#title_display'],
+--- 85,91 ----
+    $form = array();
+  
+    $form['title_display'] = array(
++     '#form_builder' => array('property_group' => 'display'),
+      '#title' => t('Title display'),
+      '#type' => 'select',
+      '#default_value' => $element['#title_display'],

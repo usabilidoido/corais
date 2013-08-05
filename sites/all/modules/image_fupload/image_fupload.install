@@ -1,0 +1,200 @@
+<?php
+// $Id: image_fupload.install,v 1.9 2009/03/21 19:10:14 grandcat Exp $
+
+/**
+ * Implementation of hook_install().
+ */
+function image_fupload_install() {
+  // install a default preview preset for image module so that it works when it is activated
+  // also preventing 403 errors)
+  $image_node_types  = variable_get('image_node_types', array());
+  if (empty($image_node_types['image'])) {
+    $image_node_types['image'] = array(
+      'title' => 'Image',
+      'fieldname' => 'images',
+      'image_selection' => 'preview', // best choice I think; can be changed in admin menu
+      'imagecache_preset' => '',
+    );
+    variable_set('image_node_types', $image_node_types);
+  }
+  
+  // create table for temporary images for image preview list
+  drupal_install_schema('image_fupload');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function image_fupload_uninstall() {
+  // remove all used variables
+  $variables = array(
+    'fupload_title_replacements', 
+    'fupload_previewlist_img_attributes', 
+    'fupload_previewlist_field_settings',
+    'image_node_types',
+  );
+  for ($i = 0; $i < count($variables); $i++) {
+    variable_del($variables[$i]);
+  }
+  
+  // drop our image preview table
+  drupal_uninstall_schema('image_fupload');
+}
+
+/**
+ * Implementation of hook_requirements().
+ */
+function image_fupload_requirements($phase) {
+  $requirements = array();
+  
+  if ($phase == 'runtime') {
+    // Make sure that swfUpload Files which aren't bundled with this module, are located in swfupload directory
+    $path = drupal_get_path('module', 'image_fupload') .'/swfupload/';
+    if (!file_exists($path .'swfupload.js') || !file_exists($path .'swfupload.queue.js') || !file_exists($path .'swfupload.swf')) {
+      // One or more needed files are missing; give an error
+       $requirements['image_fupload'] = array(
+         'title' => t('Image FUpload'),
+         'value' => t('Missing or wrong files in subdirectory "swfupload"'),
+         'description' => t('Some needed files which are not bundled with this module, are missing or out-of-date! This can be either "swfupload.swf", "swfupload.js" or "swfupload.queue.js" which should be located in "%path". These files can be downloaded from !page. <em>Note:</em> Version 2.2.0 or higher is needed.', array('%path' => $path, '!page' => l(t('SWFUploads project page'), 'http://code.google.com/p/swfupload/'))),
+         'severity' => REQUIREMENT_ERROR,
+       ); 
+    }
+  }
+  
+  return $requirements;
+}
+
+/**
+ * Implementation of hook_schemea
+ */
+function image_fupload_schema() {
+  // Currently, schema 1 is the only schema we have. As we make updates,
+  // we might either create a new schema 2 or make adjustments here.
+  return image_fupload_schema_1();
+}
+
+/**
+ * Image FUpload's initial schema; separated for the purposes of updates.
+ */
+function image_fupload_schema_1() {
+  $schema['fupload_previewlist'] = array(
+    'description' => t('Caches images for image preview list.'),
+    'fields' => array(
+      'fieldname' => array(
+        'type' => 'varchar',
+        'length' => '32',
+        'default' => '',
+        'not null' => TRUE,
+        'description' => t('Stores name of our image field depending on used node type.'),
+        'no export' => TRUE,
+      ),
+      'uid' => array(
+        'type' => 'int',
+        'length' => '10',
+        'default' => 0,
+        'not null' => TRUE,
+        'description' => t('Stores user id.'),
+        'no export' => TRUE,
+      ),
+      'nid' => array(
+        'type' => 'int',
+        'length' => '10',
+        'default' => 0,
+        'not null' => TRUE,
+        'description' => t('Stores node id.'),
+        'no export' => TRUE,
+      ),
+      'fid' => array(
+        'type' => 'int',
+        'length' => '11',
+        'default' => 0,
+        'not null' => FALSE,
+        'description' => t('Stores file id of uploaded image.'),
+        'no export' => TRUE,
+      ),
+      'created' => array(
+        'type' => 'int',
+        'length' => '11',
+        'default' => 0,
+        'not null' => TRUE,
+        'description' => t('Stores creation time to do some clean up by cron.'),
+        'no export' => TRUE,
+      ),
+    ),
+    'indexes' => array('fieldname' => array('fieldname'), 'uid' => array('uid')),
+    'primary key' => array('fid'),
+  );
+  
+  return $schema;
+}
+
+
+/**
+ * Implementation of hook_update_N()
+ */
+function image_fupload_update_6100() {
+  $ret = array();
+
+  // activate image_fupload_image by default
+  /* module_enable(array('image_fupload_image'));
+       * why?
+       */
+
+  return $ret;
+}
+
+function image_fupload_update_6110() {
+  $ret = array();
+
+  // Create default profile if nothing exists (preventing 403 errors)
+  $image_node_types  = variable_get('image_node_types', array());
+  if (empty($image_node_types['image'])) {
+    $image_node_types['image'] = array(
+      'title' => 'Image',
+      'fieldname' => 'images',
+      'image_selection' => 'preview', // best choice I think; can be changed in admin menu
+      'imagecache_preset' => '',
+    );
+    variable_set('image_node_types', $image_node_types);
+  }
+
+  return $ret;
+}
+
+function image_fupload_update_6300() {
+  $ret = array();  
+  
+  // create our image preview list table  
+  $schema = image_fupload_schema_1();
+  _drupal_initialize_schema('image_fupload', $schema);
+
+  foreach ($schema as $name => $table) {
+    db_create_table($ret, $name, $table);
+  }
+  
+  return $ret;
+}
+
+/**
+* Update from 3.0 alpha 1 to alpha 2
+*/
+function image_fupload_update_6301() {  
+  $ret = array();
+  
+  // it's not really an update, but we have to force the user to run update.php
+  // because some theme related things changed
+  
+  return $ret;
+}
+
+/**
+* Update from 3.0 alpha 3 to alpha 4
+*/
+function image_fupload_update_6304() {  
+  $ret = array();
+  
+  // it's not really an update, but we have to force the user to run update.php
+  // because some theme related things changed
+  
+  return $ret;
+}

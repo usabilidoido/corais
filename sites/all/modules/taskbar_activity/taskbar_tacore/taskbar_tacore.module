@@ -1,0 +1,152 @@
+<?php
+/**
+ * @file
+ *   Simple source for Taskbar activity.
+ */
+
+/**
+ * Implements hook_taskbar_activity_source().
+ */
+function taskbar_tacore_taskbar_activity_source() {
+  return array(
+    array(
+      'name' => 'tacore',
+      'description' => 'Taskbar activity core source',
+      'callbacks' => array(
+        'count' => 'taskbar_tacore_taskbar_activity_count',
+        'list' => 'taskbar_tacore_taskbar_activity_list',
+        'mark' => 'taskbar_tacore_taskbar_activity_mark',
+      ),
+      'dependencies' => 'taskbar_tacore',
+    ),
+  );
+}
+
+/**
+ * Implements hook_taskbar_default_items().
+ */
+function taskbar_tacore_taskbar_default_items() {
+  if (!variable_get('taskbar_provide_sample_items', 1)) {
+    return array();
+  }
+
+  $items['activity'] = array(
+    'name' => 'activity',
+    'title' => 'Activity system',
+    'provider' => 'activity',
+    'region' => 'right',
+    'status' => 1,
+    'weight' => 0,
+    'settings' => array(
+      'text' => 'Activities',
+      'source' => 'tacore',
+      'max items' => 5,
+    ),
+  );
+
+  return $items;
+}
+
+//===================================
+// ACTIVITY RECORDING FUNCTIONS
+//===================================
+
+/**
+ * Implements hook_comment().
+ */
+function taskbar_tacore_comment(&$comment, $op) {
+  global $user;
+
+  $c = (object) $comment;
+  $node = db_fetch_object(db_query("SELECT n.uid, n.nid, n.title FROM {comments} c INNER JOIN {node} n ON c.nid = n.nid WHERE c.cid = %d", $c->cid));
+
+  if ($op == 'insert') {
+    $activity = new stdClass();
+    $activity->type = 'comment add';
+    $activity->entity_id = $c->cid;
+    $activity->message = 'User !user added a new comment in node !node';
+    $activity->data = array('!user' => theme('username', $user), '!node' => l($node->title, 'node/' . $node->nid, array('fragment' => 'comment-'. $c->cid)));
+    $activity->url = 'node/' . $node->nid;
+    $activity->url_options = array('fragment' => 'comment-' . $c->cid);
+
+    $recipients = array($node->uid);
+
+    $result = db_query("SELECT DISTINCT(uid) FROM {comments} WHERE uid <> %d AND nid = %d", $c->uid, $c->nid);
+    while ($account = db_fetch_object($result)) {
+      if (! in_array($account->uid, $recipients)) {
+        $recipients[] = $account->uid;
+      }
+    }
+    taskbar_tacore_add($activity, $recipients);
+  }
+}
+
+//===================================
+// TASKBAR ACTIVITY TACORE FUNCTIONS
+//===================================
+
+/**
+ * Add a new activity.
+ */
+function taskbar_tacore_add($activity, $recipients) {
+  global $user;
+
+  // For convenient, we support many argument types
+  if (is_array($activity)) {
+    $activity = (object) $activity;
+  }
+  if (! is_array($recipients)) {
+    $recipients = array($recipients);
+  }
+  $recipients = array_unique($recipients);
+
+  $activity->uid = $user->uid;
+  if (empty($activity->created)) {
+    $activity->created = time();
+  }
+
+  // Don't send notification to the activity actor.
+  $recipients = array_diff($recipients, array($activity->uid));
+  if (empty($recipients)) {
+    return;
+  }
+
+  drupal_write_record('taskbar_tacore', $activity);
+
+  $recipient = (object) array('aid' => $activity->aid, 'unread' => 1);
+  foreach ($recipients as $uid) {
+    $recipient->recipient = $uid;
+    // @TODO: is it *much* better do make direct db_query() call if there are hundreds of recipients?
+    drupal_write_record('taskbar_tacore_recipient', $recipient);
+  }
+
+  // Send update notification to Taskbar.
+  $items = taskbar_get_items();
+  foreach ($items as $item) {
+    if ($item->provider == 'taskbar_tacore' && $item->status && (empty($item->settings['roles']) || array_intersect_key($user->roles, $item->settings['roles']))) {
+      taskbar_polling_update($recipients, $item->name);
+    }
+  }
+}
+
+function taskbar_tacore_taskbar_activity_count($unread = FALSE) {
+  global $user;
+  return db_result(db_query("SELECT COUNT(*) FROM {taskbar_tacore_recipient} WHERE recipient = %d AND unread = 1", $user->uid));
+}
+
+function taskbar_tacore_taskbar_activity_list($count = 5, $start = 0) {
+  global $user;
+  $result = db_query_range("SELECT r.*, a.* FROM {taskbar_tacore_recipient} r INNER JOIN {taskbar_tacore} a ON a.aid = r.aid WHERE r.recipient = %d ORDER BY a.created DESC", $user->uid, $start, $count);
+  $list = array();
+  while ($row = db_fetch_object($result)) {
+    $url_options = empty($row->url_options) ? array() : unserialize($row->url_options);
+    $list[] = array('data' => l(strip_tags(t($row->message, unserialize($row->data)), '<p><span><u><i><b><em><strong>'), $row->url, $url_options + array('html' => TRUE)));
+  }
+  return $list;
+}
+
+function taskbar_tacore_taskbar_activity_mark() {
+  global $user;
+  db_query("UPDATE {taskbar_tacore_recipient} SET unread = 0 WHERE recipient = " . $user->uid);
+}
+

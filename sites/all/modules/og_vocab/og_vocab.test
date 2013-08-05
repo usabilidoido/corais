@@ -1,0 +1,168 @@
+<?php
+// $Id: og_vocab.module,v 1.18.2.23 2010/05/11 19:56:34 amitaibu Exp $
+
+/**
+ * @file
+ * Test organic groups vocabulary module.
+ */
+
+require_once drupal_get_path('module', 'og') .'/tests/og_testcase.php';
+
+class OgVocabTestCase extends OgTestCase {
+
+  public static function getInfo() {
+    return array(
+      'name' => t('OG vocab access'),
+      'description' => t('Check access to vocabulary.'),
+      'group' => t('Organic groups vocabulary'),
+    );
+  }
+
+  function setUp() {
+    parent::setUp('og', 'og_vocab');
+
+    // Create and login admin user.
+    $admin_user = $this->drupalCreateUser(array(
+      'administer nodes',
+      'administer content types',
+      'access administration pages',
+      'administer site configuration',
+      'administer organic groups',
+      'administer taxonomy',
+    ));
+    $this->drupalLogin($admin_user);
+    $this->admin_user = $admin_user;
+
+    // Create a group node content type.
+    $group_type = $this->drupalCreateContentType();
+    variable_set('og_content_type_usage_'. $group_type->name, 'group');
+
+    // Rebuild the menu so the new content types will appear in the menu.
+    menu_rebuild();
+
+    // Create a group node.
+    $gid1 = $this->addOgGroup($group_type->name);
+    $gid2 = $this->addOgGroup($group_type->name);
+
+    // Create taxonomy vocabulary and for each group.
+    $vid = $tid = array();
+    foreach (array($gid1, $gid2) as $gid) {
+      $edit = array();
+      $machine_name = drupal_strtolower($this->randomName());
+      $edit['name'] = $this->randomName();
+      $edit['description'] = $this->randomName();
+      $edit['machine_name'] = $machine_name;
+      $edit['og'] = $gid;
+      taxonomy_save_vocabulary($edit);
+
+      $vid[] = $edit['vid'];
+
+      // Create a term.
+      $form_values = array();
+      $form_values['vid'] = $edit['vid'];
+      $form_values['name'] = $this->randomName();
+      taxonomy_save_term($form_values);
+      $tid[] = $form_values['tid'];
+    }
+
+    list($vid1, $vid2) = $vid;
+    list($tid1, $tid2) = $tid;
+
+    // Array with the name of the page, and its URL.
+    $this->og_vocab_pages = array(
+      'group taxonomy tab' => "node/$gid1/og/vocab",
+      'add group vocabulary' =>  "node/$gid1/og/vocab/add/vocabulary",
+      'edit group vocabulary' => "node/$gid1/og/vocab/edit/vocabulary/$vid1",
+      'edit group vocabulary of another group' => "node/$gid1/og/vocab/edit/vocabulary/$vid2",
+      'list terms of group vocabulary' => "node/$gid1/og/vocab/terms/$vid1",
+      'list terms of group vocabulary of another group' => "node/$gid1/og/vocab/terms/$vid2",
+      'add new group term' => "node/$gid1/og/vocab/terms/$vid1/add_term",
+      'add new group term of a vocabulary of another group' => "node/$gid1/og/vocab/terms/$vid2/add_term",
+      'edit group term' => "node/$gid1/og/vocab/terms/edit/$tid1",
+      'edit group term of a vocabulary of another group' => "node/$gid1/og/vocab/terms/edit/$tid2",
+    );
+
+    $this->gid1 = $gid1;
+  }
+
+  /**
+   * Test access to vocabulary.
+   *
+   * - User not a member of a group.
+   * - User member of group but no permissions
+   * - User member of group with correct permissions.
+   * - User is admin in group.
+   * - User has 'administer organic groups' permissions.
+   */
+  function testOgVocabAccess() {
+    $web_user1 = $this->drupalCreateUser();
+    $this->drupalLogin($web_user1);
+
+    // User is not a member of a group, and should have no access.
+    $this->OgVocabTestPage(t('User not a member of a group'));
+
+    // User is a member of a group, but without permissions.
+    $web_user2 = $this->drupalCreateUser();
+    $this->drupalLogin($web_user2);
+    // Assign user to group.
+    og_save_subscription($this->gid1, $web_user2->uid, array('is_active' => 1));
+
+    $this->OgVocabTestPage(t('User a member of a group without permissions'));
+
+    // User is a member of a group, and has all permissions.
+    $web_user3 = $this->drupalCreateUser(array(
+      'administer own group vocabulary',
+      'add own group vocabulary',
+      'edit own group vocabulary',
+      'edit own group term',
+    ));
+    $this->drupalLogin($web_user3);
+    // Assign user to group.
+    og_save_subscription($this->gid1, $web_user3->uid, array('is_active' => 1));
+
+    $responses = array(
+      'group taxonomy tab' => TRUE,
+      'add group vocabulary' =>  TRUE,
+      'edit group vocabulary' => TRUE,
+      'list terms of group vocabulary' => TRUE,
+      'add new group term' => TRUE,
+      'edit group term' => TRUE,
+    );
+
+    $this->OgVocabTestPage(t('User member of a group with permissions'), $responses);
+
+   // User is admin in group.
+    $web_user4 = $this->drupalCreateUser();
+    $this->drupalLogin($web_user4);
+    // Assign user to group.
+    og_save_subscription($this->gid1, $web_user4->uid, array('is_active' => 1, 'is_admin' => 1));
+
+    // Use same responses as previous user.
+    $this->OgVocabTestPage(t('User admin of a group'), $responses);
+
+    // User has 'administer organic groups' permission.
+    $this->drupalLogin($this->admin_user);
+
+    // Use same responses as previous user.
+    $this->OgVocabTestPage(t('User has "administer organic groups" permission'), $responses);
+  }
+
+  /**
+   * Helper function to assert the access to a menu item.
+   *
+   * @param $message
+   *   The prefix of the message.
+   * @param $responses
+   *   Array keyed by the page name (as defined in $this->og_vocab_pages), and
+   *   TRUE or FALSE if the access should be allowed.
+   */
+  function OgVocabTestPage($message, $responses = array()) {
+    foreach ($this->og_vocab_pages as $name => $url) {
+      $response = !empty($responses[$name]) ? 200 : 403;
+      $op = $response == 200 ? t('can') : t('can not');
+      $this->drupalGet($url);
+      $this->assertResponse($response, $message . ' ' . $op . ' ' . $name . '.');
+    }
+  }
+}
+

@@ -1,0 +1,324 @@
+<?php
+// $Id: userpoints_top_contributors.module,v 1.1.4.6 2010/04/12 16:48:15 kmillecam Exp $
+
+/**
+ * @file
+ * Creates blocks and pages that list a community's Top Contributors.
+ */
+
+/**
+ * Implementation of hook_menu().
+ */
+function userpoints_top_contributors_menu() {
+  $items = array();
+
+  $items['userpoints/list/all'] = array(
+    'page callback' => 'userpoints_top_contributors_list',
+    'title' => t('Top Contributors'),
+    'access arguments' => array('view userpoints'),
+    'type' => MENU_CALLBACK,
+  ); 
+  
+  $items['userpoints/list/period'] = array(
+    'title callback' => 'userpoints_top_contributors_list_period_title',
+    'page callback' => 'userpoints_top_contributors_list',
+    'access arguments' => array('view userpoints'),
+    'type' => MENU_CALLBACK,
+  );
+  
+  return $items;
+}
+
+/**
+ * Title callback for period page title.
+ */
+function userpoints_top_contributors_list_period_title() {
+  $period = format_interval(variable_get(userpoints_top_contributors_period, 86400));
+  return t('Top Contributors: '. $period);
+}
+
+function userpoints_top_contributors_cron() {
+    // Refresh the top users data
+    _userpoints_top_contributors_create_summary_data();
+}
+    
+/**
+ * Implementation of hook_form_alter().
+ *
+ * Extends User Points module with Top Contributors settings.
+ */
+function userpoints_top_contributors_form_alter(&$form, $form_state, $form_id) {
+  if ($form_id == 'userpoints_admin_settings') {
+    // Shift system_settings_form buttons.
+    $weight = $form['buttons']['#weight'];
+    $form['buttons']['#weight'] = $weight + 1;
+    
+    $group = "top_contributors";
+    $form[$group] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Top Contributors settings'),
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+      '#description' => t(''),
+    );
+    
+    $form[$group]['userpoints_top_contributors_block_usercount'] = array(
+      '#type'          => 'select',
+      '#title'         => t('Users per block'),
+      '#default_value' => variable_get(userpoints_top_contributors_block_usercount, 30),
+      '#options'       => array(5 => 5, 10 => 10, 15 => 15),
+      '#description'   => t('Limit how many users to display in the Top Contributors block.'), 
+    );
+    
+    $form[$group]['userpoints_top_contributors_period'] = array(
+      '#type'          => 'select',
+      '#title'         => t('Period for top users block and page'),
+      '#default_value' => variable_get(userpoints_top_contributors_period, 86400),
+      '#options'       => drupal_map_assoc(
+        array(86400, 172800, 259200, 259200, 432000, 604800, 1209600, 1814400, 2419200), 'format_interval'),
+      '#description'   => t('Time block used to calculate contributions made in
+                            a defined period. Set to 1 week, for example, if you
+                            want the "Contributions by period" block and page to
+                            list the top contributors in the past week.'),
+    );
+    
+    $form[$group]['userpoints_top_contributors_page_intro'] = array(
+      '#type'          => 'textarea',
+      '#title'         => t("Page Introduction"),
+      '#default_value' => variable_get(userpoints_top_contributors_page_intro, '<p>Here\'s a list of our community\'s top contributors. Click any of the column headings to change the sort order of the table.</p>'),
+      '#cols'          => 70,
+      '#rows'          => 4,
+      '#description'   => t("Text to display at the top of the Top Contributors pages."),
+  );
+  }
+}
+
+function userpoints_top_contributors_list() {
+  global $user;
+  $list_type = db_escape_string(arg(2));
+  $cron_last = variable_get('cron_last', NULL);
+  
+  $sql = "SELECT p.uid, p.rank, u.name, p.period_points, p.current_points, p.lifetime_points
+          FROM {userpoints_top_contributors} p
+          INNER JOIN {users} u
+          USING (uid)";
+
+  $sql_cnt = "SELECT COUNT(uid) FROM {userpoints_top_contributors}";
+  
+  if ($list_type == 'all') {
+    $header = array(
+      array('data' => t('Rank'), 'field' => 'p.rank'),
+      array('data' => t('User'), 'field' => 'u.name'),
+      array('data' => t(format_interval(variable_get(userpoints_top_contributors_period, 86400))), 'field' => 'period_points', 'style' => 'text-align:right'),
+      array('data' => t('Current'), 'field' => 'current_points', 'style' => 'text-align:right'),
+      array('data' => t('Lifetime'), 'field' => 'lifetime_points', 'sort' => 'desc', 'style' => 'text-align:right'),
+    );
+  }
+  else {
+      $header = array(
+      array('data' => t('Rank'), 'field' => 'p.rank'),
+      array('data' => t('User'), 'field' => 'u.name'),
+      array('data' => t(format_interval(variable_get(userpoints_top_contributors_period, 86400))), 'field' => 'period_points', 'sort' => 'desc', 'style' => 'text-align:right'),
+      array('data' => t('Current'), 'field' => 'current_points', 'style' => 'text-align:right'),
+      array('data' => t('Lifetime'), 'field' => 'lifetime_points', 'style' => 'text-align:right'),
+    );
+  }
+  
+  $sql .= tablesort_sql($header);
+  $usr_cnt = variable_get(USERPOINTS_REPORT_USERCOUNT, 30);
+  $result = pager_query($sql, $usr_cnt, 0, $sql_cnt);
+  while ($data = db_fetch_object($result)) {
+    if ($user->uid == $data->uid) {
+      $details = '&nbsp;&nbsp;('. l(t('details'), 'myuserpoints') .')';
+    }
+    elseif (user_access('administer userpoints')) {
+      $details = '&nbsp;&nbsp;('. l(t('details'), 'myuserpoints/'. $data->uid) .')';
+    }
+    else {
+      $details = '';  
+    }
+    $rows[] = array(
+      array('data' => $data->rank .'.', 'style' => 'text-align:left'),
+      array('data' => theme('username', $data) . $details),
+      array('data' => number_format($data->period_points, 1), 'style' => 'text-align:right'),
+      array('data' => number_format($data->current_points, 1), 'style' => 'text-align:right'),
+      array('data' => number_format($data->lifetime_points, 1), 'style' => 'text-align:right'),
+    );
+  }
+
+  $output = t(variable_get(userpoints_top_contributors_page_intro, 'Here\'s a list of our community\'s top contributors. Click any of the column headings to change the sort order of the table.'));
+  $output .= '<p>'. t('Updated !time ago.', array('!time' => format_interval(time() - $cron_last))) .'</p>';
+  $output .= theme('table', $header, $rows);
+  $output .= theme('pager', NULL, $usr_cnt, 0);
+
+  return $output;
+}
+
+function userpoints_top_contributors_block($op = 'list', $delta = 0, $edit = array()) {
+  global $user;
+
+  $usr_cnt = variable_get(userpoints_top_contributors_block_usercount, 10);
+
+  switch ($op) {
+    case 'list':
+      $blocks[0]['info'] = t('Top Contributors');
+      $blocks[1]['info'] = t('Top Contributors by Period');
+      return $blocks;
+
+    case 'view':
+      if (user_access('view userpoints')) {
+        if ($delta == 0) {
+          $title = t('Top Contributors');
+          
+          $result = db_query_range("SELECT p.uid, u.name, p.lifetime_points
+                                    FROM {userpoints_top_contributors} p
+                                    INNER JOIN {users} u
+                                    USING (uid)
+                                    GROUP BY p.uid
+                                    ORDER BY p.lifetime_points DESC", 0, $usr_cnt);
+          
+          while ($data = db_fetch_object($result)) {
+            $rows[] = array(
+                array('data' => theme('username', $data)),
+                array('data' => number_format($data->lifetime_points), 'style' => 'text-align:right'),
+              );
+          }
+          // current user max point total.
+          if ($user->uid) {
+            $data = db_fetch_object(db_query('SELECT * FROM {userpoints_top_contributors} WHERE uid = %d', $user->uid));
+            $rows[] = array(
+                array('data' => t('Your current points: <b>@cp</b><br />Your lifetime points: <b>@lp</b>', array('@cp' => number_format($data->current_points), '@lp' => number_format($data->lifetime_points))), 'colspan' => '2')
+              );
+          }
+          $header = array(
+            array('data' => t('User')),
+            array('data' => t('!Points', userpoints_translation()), 'style' => 'text-align:right')
+          );
+          $content = theme('table', $header, $rows);
+        
+          // more link
+          $content .= '<div class="more-link">'. l(t('more'), 'userpoints/list/all', array('title' => t('All users by !points', userpoints_translation()))) .'</div>';
+        }
+        else {
+          $title = t('Top Contributors: '. format_interval(variable_get(userpoints_top_contributors_period, 86400)));
+          $result = db_query_range('SELECT p.uid, u.name, p.period_points
+                                    FROM {userpoints_top_contributors} p
+                                    INNER JOIN {users} u
+                                    USING (uid)
+                                    GROUP BY p.uid
+                                    ORDER BY period_points DESC', 0, $usr_cnt);
+          while ($data = db_fetch_object($result)) {
+            $rows[] = array(
+                array('data' => theme('username', $data)),
+                array('data' => number_format($data->period_points), 'style' => 'text-align:right'),
+              );
+          }
+          $header = array(
+            array('data' => t('User')),
+            array('data' => t('!Points', userpoints_translation()), 'style' => 'text-align:right')
+          );
+          $content = theme('table', $header, $rows);
+          
+          // more link
+          $content .= '<div class="more-link">'. l(t('more'), 'userpoints/list/period', array('title' => t('All users by !period', userpoints_translation()))) .'</div>';
+        }
+        
+      $block['subject'] = $title;
+      $block['content'] = $content;
+      return $block;
+    }
+  }
+}
+
+function userpoints_top_contributors_user($op, &$edit, &$account, $category = '') {
+  global $user;
+  switch ($op) {
+    case 'view':
+      if (user_access('view userpoints') || (user_access('view own userpoints') && $user->uid == $account->uid)) {
+        // Get the points for the user
+        $lifetime_points = number_format(userpoints_get_max_points($account->uid, 'all'));
+        $current_points = number_format(userpoints_get_current_points($account->uid, 'all'));
+      
+        if (user_access('administer userpoints')) {
+          $current_points = $current_points .'&nbsp;&nbsp;'. l(t('details'), 'myuserpoints/'. $account->uid, array('title' => t('Details'))) .'&nbsp;&nbsp;'. l(t('manage'), 'admin/user/userpoints/add/'. $account->uid, array('title' => t('Add points')));
+        }
+      
+        $disp_points[] = array(
+          'title' => t('Lifetime'),
+          'value' => $lifetime_points,
+          );
+      
+        $disp_points[] = array(
+          'title' => t('Current'),
+          'value' => $current_points,
+          );
+      
+        return array(t('!Points', userpoints_translation()) => $disp_points);
+      }
+    break;
+  }
+}
+
+function _userpoints_top_contributors_create_summary_data() {
+
+  $period = time() - variable_get(userpoints_top_contributors_period, 86400);
+
+  // Empty the userpoints_top_contributors table
+  db_query("TRUNCATE TABLE {userpoints_top_contributors}");
+
+  // Populate it with users and lifetime_points
+  db_query("INSERT INTO {userpoints_top_contributors}
+    SELECT uid, 0, 0, 0, SUM(points)
+    FROM {userpoints_txn}
+    WHERE status = 0 AND points > 0
+    GROUP BY uid"
+  );
+  
+  // Populate the rank field
+  $result = db_query("SELECT *
+    FROM {userpoints_top_contributors}
+    ORDER BY lifetime_points DESC");
+
+  $rank = 1;
+  while ($data = db_fetch_object($result)) {
+      if (!isset($current_points)){
+          static $current_points;
+          $current_points = $data->lifetime_points;
+      }
+      if($data->lifetime_points < $current_points){
+          $current_points = $data->lifetime_points;
+          $rank++;
+      }
+     
+    db_query("UPDATE {userpoints_top_contributors}
+      SET rank = %d
+      WHERE uid = %d", $rank, $data->uid
+    );
+  }
+  
+  // Populate it with current_points
+  db_query("UPDATE {userpoints_top_contributors} AS up
+    INNER
+      JOIN (
+           SELECT uid, SUM(points) AS cp
+           FROM {userpoints_txn}
+           WHERE status = 0
+           GROUP BY uid
+           ) AS q
+        ON q.uid = up.uid
+       SET up.current_points = q.cp"
+  );
+  
+  // Populate it with period_points
+  db_query("UPDATE {userpoints_top_contributors} AS up
+    INNER
+      JOIN (
+           SELECT uid, SUM(points) AS pp
+           FROM {userpoints_txn}
+           WHERE status = 0 AND points > 0 AND time_stamp >= %d
+           GROUP BY uid
+           ) AS q
+        ON q.uid = up.uid
+       SET up.period_points = q.pp", $period
+  );
+}

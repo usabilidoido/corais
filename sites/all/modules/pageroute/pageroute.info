@@ -1,0 +1,21 @@
+; $Id: pageroute.info,v 1.2.2.8 2009/03/26 13:53:36 tauran Exp $
+name = Pageroute
+description = Allows the creation of pageroutes.
+package = Pageroute
+version = "6.x-1.x-dev"
+core = "6.x"
+project = "pageroute"
+
+; Information added by drupal.org packaging script on 2008-11-14
+version = "6.x-1.x-dev"
+core = "6.x"
+project = "pageroute"
+datestamp = "1226664644"
+
+
+; Information added by drupal.org packaging script on 2009-12-12
+version = "6.x-1.0-beta5"
+core = "6.x"
+project = "pageroute"
+datestamp = "1260636650"
+

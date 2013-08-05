@@ -1,0 +1,241 @@
+@charset "UTF-8";
+/* CSS Document */
+
+html
+{
+	font-family: Helvetica, Arial, sans-serif; 	
+	color: #573909;
+	font-size:16px;
+}
+
+body
+{
+	background:
+				url('../images/top_edge2.png') top left repeat-x,
+				url('../images/left_edge2.png') top left repeat-y,
+				url('../images/right_edge2.png') top right repeat-y,
+				url('../images/bottom_edge2.png') bottom left repeat-x,
+				url('../images/brick.jpg') top left repeat;
+				
+	margin:0;
+	
+}
+
+a
+{
+	color: #A77723;
+	text-decoration: none;
+}
+
+a:hover
+{
+	text-decoration: underline;
+}
+
+.container
+{
+	width: 940px;
+			margin: 0 auto;
+
+	margin-top: 50px;
+	margin-bottom: 50px;
+
+	
+}
+
+.top
+{
+	width: 940px;
+	height: 187px;
+	background: url('../images/top1.png') top left no-repeat;
+}
+
+.navigation
+{
+	width: 825px;
+	background: #d3a967;
+	height: 40px;
+	border-bottom: 3px solid #5d5247;
+		border-top: 2px solid #5d5247;
+
+}
+
+.banner
+{
+	padding-top: 100px;
+	padding-left: 180px;
+}
+
+.middle
+{
+	width: 825px;
+	min-height: 320px;
+	background: url('../images/middle1.png') top left repeat-y;
+	padding: 0px 61px 0px 54px;
+}
+
+.main
+{
+	width: 825px;
+
+	background: url('../images/accent1.png') bottom left no-repeat, url('../images/starburst.png') bottom left no-repeat;
+	padding: 20px 0px;
+}
+
+.main-left
+{
+	width: 220px;
+	margin-left: 25px;
+	float:left;
+
+}
+
+.main-left .block
+{
+	width: 220px;
+	border: 3px solid #5d5247;
+	background: #f4df8a;
+}
+
+.main-right
+{
+	width: 535px;
+	margin-right: 25px;
+	float: left;
+	margin-left: 20px;
+}
+
+.main-right h1.title
+{
+	color: #9b6713;
+	font-weight: normal;
+		font-size:24px;
+		margin-top: 0px;
+
+	
+}
+
+.main-right ul.primary
+{
+	border-bottom: none;
+}
+
+.main-right .content p
+{
+	line-height: 1.2em;
+	letter-spacing: 0.1sem;
+	padding: 2px 0px;
+}
+
+.footer
+{
+	width: 940px;
+	height: 200px;
+	background: url('../images/bottom1.png') top left no-repeat;
+	font-size: 12px;
+	text-align: center;
+	padding: 30px 0px;
+	
+}
+
+.edge
+{
+z-index: -1;	
+}
+
+
+.main-left .block h2
+{
+	text-align: center;
+	font-size: 16px;
+	color: #a77723;
+	font-weight: normal;
+	margin: 5px;
+}
+
+.main-left ul.menu
+{
+	padding: 0;
+}
+		
+.main-left ul.menu li
+{
+	padding: 2px 5px 2px 20px;
+	margin: 0;
+	list-style: none;
+}
+
+.main-left ul.menu li a
+{
+	color: #573909;
+	text-decoration: none;
+		font-size: 14px;
+
+}
+
+.main-left ul.menu li a:hover
+{
+	color: #A77723;
+	
+
+}
+
+
+.main-left ul.menu li.collapsed
+{
+	background: url('../images/menu_collapsed.png') top left no-repeat;
+}
+
+.main-left ul.menu li.expanded
+{
+	background: url('../images/menu_expanded.png') top left no-repeat;
+}
+
+.main-left ul.menu li.leaf
+{
+	padding: 2px 5px 2px 20px;
+	margin: 0;
+	list-style: none;
+}
+
+.main-left .block
+{
+	margin-bottom: 10px;	
+}
+
+#breadcrumb
+{
+	float: right;
+	font-size: 14px;
+	padding: 15px 10px;
+}
+
+#breadcrumb a
+{
+		color: #573909;
+		text-decoration: none;	
+}
+		
+		
+		
+		.clearfix:after {
+	content: ".";
+	display: block;
+	clear: both;
+	visibility: hidden;
+	line-height: 0;
+	height: 0;
+}
+ 
+.clearfix {
+	display: inline-block;
+}
+ 
+html[xmlns] .clearfix {
+	display: block;
+}
+ 
+* html .clearfix {
+	height: 1%;
+}
+

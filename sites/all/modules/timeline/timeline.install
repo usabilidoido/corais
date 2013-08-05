@@ -1,0 +1,17 @@
+<?php
+
+/**
+ * @file
+ * Timeline module installation and upgrade code.
+ */
+
+
+/*
+ * Implementation of hook_uninstall().
+ */
+function timeline_uninstall() {
+  variable_del('timeline_library_source');
+  variable_del('timeline_default_width');
+  variable_del('timeline_default_height');
+  variable_del('timeline_debug');
+}

@@ -1,0 +1,353 @@
+<?php
+// $Id: stickers.module,v 1.1.2.1 2010/10/16 07:40:36 Countzero Exp $
+
+function stickers_init() {
+    // Loop on sticker nodes
+    $stickers = array();
+    $params = array();
+    if (user_access('see stickers') ) {
+        $sql = db_query("SELECT nid, title FROM {node} WHERE type='sticker'");
+        while ($nid = db_fetch_object($sql) ) {
+            $name = trim(drupal_strtolower(str_replace(" ", "", $nid->title)));
+            if ($cached = cache_get('stickers-' . $nid->nid) ) {
+                $stickers[$name] = $cached->data;
+            }
+            else {
+                $node = node_load($nid->nid);
+                save_cached_sticker($node);
+            }
+        }
+    }
+    if (arg(0) == 'node' && arg(2) == 'edit') {
+        $params['cursticker'] = arg(1);
+    }
+    drupal_add_js(array('stickers' => array('stickers' => $stickers, 'params' => $params)), 'setting');
+    jquery_ui_add('ui.core');
+    jquery_ui_add('ui.slider');
+    jquery_ui_add('ui.draggable');
+    drupal_add_css(drupal_get_path('module', 'jquery_ui') .'/jquery.ui/themes/base/ui.all.css');
+    drupal_add_js(drupal_get_path('module', 'stickers') . '/stickers.js');
+    drupal_add_css(drupal_get_path('module', 'stickers') .'/stickers.css');
+}
+
+function stickers_perm() {
+    return array('see stickers');
+}
+function stickers_form_alter(&$form, &$form_state, $form_id) {
+    if ($form_id == 'sticker_node_form') {
+        $form['title']['#weight'] = -10;
+        $form['field_article_image']['#weight'] = -8;
+        $form['field_x']['#weight'] = -5;
+        $form['field_y']['#weight'] = -2;
+        $form['field_x']['#attributes'] = array('style' => 'display:none;');
+        $form['field_y']['#attributes'] = array('style' => 'display:none;');
+
+        $form['rangex'] = array(
+          '#weight' => -4,
+          '#value' => "<div id='valx' name='rangex' class='place-img-x'></div>",
+        );
+        $form['rangey'] = array(
+          '#weight' => -1,
+          '#value' => "<div id='valy' name='rangey' class='place-img-y'></div>",
+        );
+    }
+}
+
+function stickers_theme() {
+  return array(
+    'sticker' => array(
+      'arguments' => array('node'),
+    ),
+  );
+}
+
+function stickers_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+    if ($op == 'update' && $node->type == 'sticker') {
+            save_cached_sticker($node);
+    }
+}
+
+function theme_sticker($node) {
+    global $base_url;
+    $output = "<div id='stickers-" . $node->nid . "' class='sticker'";
+    $output .= " name='" . trim(drupal_strtolower(str_replace(" ", "", $node->title))) . "'>";
+    $output .= theme_image(file_directory_path() . "/imagecache/" . $node->field_preset[0]['value'] . "/" . $node->field_article_image[0]['filename'], $alt = '', $title = '', $attributes = array('class' => 'pngstick') , $getsize = FALSE);
+    $output .= "</div>";
+    return $output;
+}
+
+function save_cached_sticker(&$node) {
+        $stickers[$name]['nid'] = $node->nid;
+        $stickers[$name]['x'] = $node->field_x[0]['value'];
+        $stickers[$name]['y'] = $node->field_y[0]['value'];
+        $stickers[$name]['image'] = $node->field_article_image[0]['filepath'];
+        $stickers[$name]['filename'] = $node->field_article_image[0]['filename'];
+        $stickers[$name]['preset'] = $node->field_preset[0]['value'];
+        $stickers[$name]['html'] = theme('sticker', $node);
+        cache_set('stickers-' . $node->nid, $stickers[$name]);
+}
+
+function stickers_imagecache_default_presets() {
+    $presets = array();
+    $presets['sticker-small'] = array(
+      'presetname' => 'sticker-small',
+      'actions' =>
+      array(
+        0 =>
+        array(
+          'weight' => '-10',
+          'module' => 'imagecache',
+          'action' => 'imagecache_scale_and_crop',
+          'data' =>
+          array(
+            'width' => '102',
+            'height' => '103',
+          ),
+        ),
+    1 =>
+    array(
+      'weight' => '-9',
+      'module' => 'imagecache',
+      'action' => 'imagecache_sharpen',
+      'data' =>
+      array(
+        'radius' => '0.5',
+        'sigma' => '0.5',
+        'amount' => '100',
+        'threshold' => '0.05',
+      ),
+    ),
+        2 =>
+        array(
+          'weight' => '-9',
+          'module' => 'imagecache_canvasactions',
+          'action' => 'canvasactions_definecanvas',
+          'data' =>
+          array(
+            'RGB' =>
+            array(
+              'HEX' => '',
+            ),
+            'under' => 1,
+            'exact' =>
+            array(
+              'width' => '118',
+              'height' => '120',
+              'xpos' => 'center',
+              'ypos' => 'center',
+            ),
+            'relative' =>
+            array(
+              'leftdiff' => '',
+              'rightdiff' => '',
+              'topdiff' => '',
+              'bottomdiff' => '',
+            ),
+          ),
+        ),
+        3 =>
+        array(
+          'weight' => '-8',
+          'module' => 'imagecache_canvasactions',
+          'action' => 'canvasactions_file2canvas',
+          'data' =>
+          array(
+            'xpos' => 0,
+            'ypos' => 0,
+            'alpha' => '100',
+            'path' => drupal_get_path('module', 'stickers') . '/images/background-photo.png',
+          ),
+        ),
+        4 =>
+        array(
+          'weight' => '-7',
+          'module' => 'imagecache',
+          'action' => 'imagecache_rotate',
+          'data' =>
+          array(
+            'degrees' => '25',
+            'random' => 1,
+            'bgcolor' => '',
+          ),
+        ),
+        5 =>
+        array(
+          'weight' => '-10',
+          'module' => 'imagecache',
+          'action' => 'imagecache_scale_and_crop',
+          'data' =>
+          array(
+            'width' => '80',
+            'height' => '80',
+          ),
+        ),
+      ),
+    );
+    $presets['sticker-normal'] = array(
+      'presetname' => 'sticker-normal',
+      'actions' =>
+      array(
+        0 =>
+        array(
+          'weight' => '-10',
+          'module' => 'imagecache',
+          'action' => 'imagecache_scale_and_crop',
+          'data' =>
+          array(
+            'width' => '102',
+            'height' => '103',
+          ),
+        ),
+    1 =>
+    array(
+      'weight' => '-9',
+      'module' => 'imagecache',
+      'action' => 'imagecache_sharpen',
+      'data' =>
+      array(
+        'radius' => '0.5',
+        'sigma' => '0.5',
+        'amount' => '100',
+        'threshold' => '0.05',
+      ),
+    ),
+        2 =>
+        array(
+          'weight' => '-9',
+          'module' => 'imagecache_canvasactions',
+          'action' => 'canvasactions_definecanvas',
+          'data' =>
+          array(
+            'RGB' =>
+            array(
+              'HEX' => '',
+            ),
+            'under' => 1,
+            'exact' =>
+            array(
+              'width' => '118',
+              'height' => '120',
+              'xpos' => 'center',
+              'ypos' => 'center',
+            ),
+            'relative' =>
+            array(
+              'leftdiff' => '',
+              'rightdiff' => '',
+              'topdiff' => '',
+              'bottomdiff' => '',
+            ),
+          ),
+        ),
+        3 =>
+        array(
+          'weight' => '-8',
+          'module' => 'imagecache_canvasactions',
+          'action' => 'canvasactions_file2canvas',
+          'data' =>
+          array(
+            'xpos' => 0,
+            'ypos' => 0,
+            'alpha' => '100',
+            'path' => drupal_get_path('module', 'stickers') . '/images/background-photo.png',
+          ),
+        ),
+        4 =>
+        array(
+          'weight' => '-7',
+          'module' => 'imagecache',
+          'action' => 'imagecache_rotate',
+          'data' =>
+          array(
+            'degrees' => '25',
+            'random' => 1,
+            'bgcolor' => '',
+          ),
+        ),
+      ),
+    );
+    $presets['sticker-big'] = array(
+      'presetname' => 'sticker-big',
+      'actions' =>
+      array(
+        0 =>
+        array(
+          'weight' => '-10',
+          'module' => 'imagecache',
+          'action' => 'imagecache_scale_and_crop',
+          'data' =>
+          array(
+            'width' => '155',
+            'height' => '160',
+          ),
+        ),
+    1 =>
+    array(
+      'weight' => '-9',
+      'module' => 'imagecache',
+      'action' => 'imagecache_sharpen',
+      'data' =>
+      array(
+        'radius' => '0.5',
+        'sigma' => '0.5',
+        'amount' => '100',
+        'threshold' => '0.05',
+      ),
+    ),
+        2 =>
+        array(
+          'weight' => '-9',
+          'module' => 'imagecache_canvasactions',
+          'action' => 'canvasactions_definecanvas',
+          'data' =>
+          array(
+            'RGB' =>
+            array(
+              'HEX' => '',
+            ),
+            'under' => 1,
+            'exact' =>
+            array(
+              'width' => '177',
+              'height' => '180',
+              'xpos' => 'center',
+              'ypos' => 'center',
+            ),
+            'relative' =>
+            array(
+              'leftdiff' => '',
+              'rightdiff' => '',
+              'topdiff' => '',
+              'bottomdiff' => '',
+            ),
+          ),
+        ),
+        3 =>
+        array(
+          'weight' => '-8',
+          'module' => 'imagecache_canvasactions',
+          'action' => 'canvasactions_file2canvas',
+          'data' =>
+          array(
+            'xpos' => 0,
+            'ypos' => 0,
+            'alpha' => '100',
+            'path' => drupal_get_path('module', 'stickers') . '/images/background-photo-180.png',
+          ),
+        ),
+        4 =>
+        array(
+          'weight' => '-7',
+          'module' => 'imagecache',
+          'action' => 'imagecache_rotate',
+          'data' =>
+          array(
+            'degrees' => '25',
+            'random' => 1,
+            'bgcolor' => '',
+          ),
+        ),
+        )
+    );
+return $presets;
+}

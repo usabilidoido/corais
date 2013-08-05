@@ -1,0 +1,28 @@
+name = Best Reply
+description = allows users to mark comments as the best reply to their topic.
+package = Other
+; Information added by drupal.org packaging script on 2008-12-08
+version = "6.x-1.x-dev"
+project = "bestreply"
+core = 6.x
+php = 5.1
+; Information added by drupal.org packaging script on 2009-02-15
+version = "6.x-5.2"
+core = "6.x"
+project = "bestreply"
+datestamp = "1234736702"
+
+
+; Information added by drupal.org packaging script on 2009-04-02
+version = "6.x-6.4"
+core = "6.x"
+project = "bestreply"
+datestamp = "1238671824"
+
+
+; Information added by drupal.org packaging script on 2012-05-11
+version = "6.x-8.2"
+core = "6.x"
+project = "bestreply"
+datestamp = "1336696551"
+

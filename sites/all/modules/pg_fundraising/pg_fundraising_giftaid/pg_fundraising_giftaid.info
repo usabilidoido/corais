@@ -1,0 +1,13 @@
+;$Id: pg_fundraising_giftaid.info,v 1.1.2.2 2011/02/18 02:15:35 dokumori Exp $
+name = GiftAid
+description = Provides GiftAid option for Fundraising module
+dependencies[] = pg_fundraising
+package = "Fundraising"
+version = VERSION
+core = 6.x
+; Information added by drupal.org packaging script on 2011-02-18
+version = "6.x-1.0-beta3"
+core = "6.x"
+project = "pg_fundraising"
+datestamp = "1297996010"
+

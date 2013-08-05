@@ -1,0 +1,14 @@
+name = "Outline Designer Menu integration"
+description = "Usability improvements to the menu module that allows the rapid building of site outlines."
+dependencies[] = "menu"
+dependencies[] = "outline_designer"
+package = "Outline Designer"
+project = "outline_designer_menu"
+core = "6.x"
+
+; Information added by drupal.org packaging script on 2012-06-21
+version = "6.x-2.0-beta3"
+core = "6.x"
+project = "outline_designer"
+datestamp = "1340302000"
+

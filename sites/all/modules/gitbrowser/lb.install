@@ -1,0 +1,42 @@
+<?php
+// $Id: lb.install,v 1.3 2009/07/27 03:44:07 gordon Exp $
+
+/**
+ * @file
+ * Local browser installation file
+ */
+
+/**
+ * Implementation of hook_requirements().
+ */
+function lb_requirements($phase) {
+  $requirements = array();
+  $t = get_t();
+  
+  if ($phase == 'runtime') {
+    module_load_include('inc', 'gb');
+    $info = gb_get_commit_info(realpath('./.git'), 'HEAD');
+    $refs = array_filter($info['refs'], '_lb_filter_heads');
+    $requirements['lb_release'] = array(
+      'title' => $t('GIT Release'),
+      'value' => implode(', ', array_map('_lb_map_heads', $refs)),
+      'severity' => REQUIREMENT_INFO,
+    );
+    $changed = gb_check_status();
+    $requirements['lb_changed'] = array(
+      'title' => $t('System changed'),
+      'value' => $t($changed ? 'Changes have been made to the current environment.' : 'No changes detected within the current environment'),
+      'severity' => $changed ? REQUIREMENT_ERROR : REQUIREMENT_OK,
+    );
+  }
+  
+  return $requirements;
+}
+
+function _lb_filter_heads($a) {
+  return $a['type'] == 'heads' || $a['type'] == 'tags';
+}
+
+function _lb_map_heads($a) {
+  return ($a['type'] == 'heads' ? t('Branch: ') : t('Tag: ')) . $a['name'];
+}

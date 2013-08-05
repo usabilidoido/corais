@@ -1,0 +1,47 @@
+<?php
+
+/**
+ * @file
+ * Test case to make sure Views & Page Title play nicely
+ */
+
+class PageTitleViewsTestCase extends DrupalWebTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'page_title_views_test',
+      'description' => 'Ensure Views & Page Title play together nicely',
+      'group' => 'Page Title',
+    );
+  }
+
+  public function setUp() {
+    parent::setUp('page_title_views_test', 'page_title', 'views', 'token');
+  }
+
+  public function testPageTitleViewsTest() {
+    // In theory we dont need to do any setting up - the module should provide a default view...
+    $view = views_get_view('test_view');
+
+    /**
+     * Lets check the frontpage page title is working
+     */
+    $this->drupalGet('test');
+    $title = '<title>'. $view->display['page_with_page_title_1']->display_options['page_title_pattern'] .'</title>';
+    $this->pass(check_plain($title));
+    $title = str_replace('[site-name]', 'Drupal', $title);
+    $this->pass(check_plain($title));
+    $this->assertRaw($title, t('Correct frontpage Title in the head.'), 'Page Title');
+
+
+    /**
+     * Lets check the frontpage page title is working
+     */
+    $u = user_load(array('uid' => 1));
+    $this->drupalGet('test/1');
+    $title = '<title>'. $view->display['page_with_page_title_1']->display_options['arguments']['uid']['page_title_pattern'] .'</title>';
+    $this->pass(check_plain($title));
+    $title = str_replace(array('[site-name]', '%1'), array('Drupal', $u->name), $title);
+    $this->pass(check_plain($title));
+    $this->assertRaw($title, t('Correct frontpage Title in the head.'), 'Page Title');
+  }
+}

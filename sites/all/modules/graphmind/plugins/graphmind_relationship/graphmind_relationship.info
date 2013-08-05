@@ -1,0 +1,14 @@
+; $Id$
+name = GraphMind Relationship Plugin
+description = Create an object relationship environment.
+core = 6.x
+package = Graphmind
+dependencies[] = graphmind_service
+
+
+; Information added by drupal.org packaging script on 2011-06-24
+version = "6.x-1.x-dev"
+core = "6.x"
+project = "graphmind"
+datestamp = "1308874877"
+

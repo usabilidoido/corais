@@ -1,0 +1,98 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * This module creates a new form element called a 'colorpicker_textfield'.
+ *
+ * TODO: If a colorpicker is at the bottom of a fieldset, the CSS property overflow:auto causes problems
+ *
+ * ADDED: Validation passes if the value is #
+ *        The classname is added in the theme function instead of in hook_elements.
+ */
+
+/*
+ * Implementation of hook_elements().
+ */
+function colorpicker_elements() {
+  // A textfield to associate with the Farbtastic colorpicker
+  $type['colorpicker_textfield'] = array(
+    '#input' => TRUE,
+    '#process' => array('colorpicker_textfield_process'),
+    '#element_validate' => array('colorpicker_textfield_validate')
+  );
+  return $type;
+}
+
+/**
+ * Register our theme functions
+ */
+function colorpicker_theme() {
+  return array(
+    'colorpicker_textfield' => array(
+      'arguments' => array('element' => NULL)
+    )
+  );
+}
+
+/**
+ * Format our colorpicker textfield.
+ *
+ * @param $element
+ *   An associative array containing the properties of the element.
+ *   Properties used:  title, value, description, required, attributes
+ * @return
+ *   A themed HTML string representing the textfield.
+ */
+function theme_colorpicker_textfield($element) {
+  $path = drupal_get_path('module', 'colorpicker');
+
+  // Add Farbtastic color picker
+  drupal_add_css('misc/farbtastic/farbtastic.css');
+  drupal_add_js('misc/farbtastic/farbtastic.js');
+
+  // Add our custom js and css for our colorpicker
+  drupal_add_js("$path/js/colorpicker.js");
+  drupal_add_css("$path/css/colorpicker.css");
+
+  if (isset($element['#field_prefix'])) {
+    $output[] = '<span class="field-prefix">'. $element['#field_prefix'] .'</span> ';
+  }
+
+  // Add the required classname to the input element
+  $class = array('colorpicker_textfield','uniform-processed');
+  _form_set_class($element, $class);
+
+  $output[] = '<input type="text" name="'. $element['#name'] .'" id="'. $element['#id'] .'" maxlength="7" size="7" value="'. check_plain($element['#value']) .'"'. drupal_attributes($element['#attributes']) .' />';
+
+  if (isset($element['#field_suffix'])) {
+    $output[] = ' <span class="field-suffix colorpicker">'. $element['#field_suffix'] .'</span>';
+  }
+
+  // Add a wrapper div. Only when if Javascript is enabled, a button is added inside this wrapper.
+  // If the button is clicked, the colorpicker will be added to this wrapper too.
+  $output[] = '<div class="picker_wrapper"></div>';
+
+  return theme('form_element', $element, join("\n", $output));
+}
+
+/**
+ *  Preprocess color fields to scrub for bad values
+ */
+function colorpicker_textfield_process($element, $edit, &$form_state, $complete_form) {
+  if ($element['#value'] == '#') {
+    $element['#value'] = '';
+  }
+  return $element;
+}
+
+/**
+ *  Check to make sure the user has entered a valid 3 or 6 digit hex color.
+ */
+function colorpicker_textfield_validate($element, &$form_values) {
+  if (!preg_match('/^(#(?:(?:[a-f\d]{3}){0,2}))?$/i', $element['#value'])) {
+    form_error($element, "'". check_plain($element['#value']) ."'". t(' is not a valid hex color'));
+  }
+}
+
+function colorpicker_2_or_later() { }

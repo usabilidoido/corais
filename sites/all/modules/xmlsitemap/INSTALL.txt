@@ -1,0 +1,116 @@
+$Id: INSTALL.txt,v 1.2.2.15 2009/08/25 16:52:52 earnie Exp $
+XML Sitemap Module
+
+INSTALLATION INSTRUCTIONS
+-------------------------
+
+1) Place the xmlsitemap directory into your modules directory.
+
+2) Enable the XML sitemap modules you wish to use.
+   You must enable the XML sitemap engines module if you want to automatically
+   submit your sitemap to search engines.
+
+3) You can configure settings for the XML sitemap module at
+   admin/settings/xmlsitemap.  Settings for specific links are available
+   within those links edit forms.
+
+4) For existing data to become presented in the sitemap report you must
+   execute cron.php.  There are control settings at admin/settings/xmlsitemap
+   for the number of rows to execute in one cron 240 second execution.
+   Take note that all the module tasks executed at cron time share the
+   same 240 seconds execution; if you are not seeing data populated you
+   should increase the number of times in the day cron.php executes.
+
+
+UPGRADING INSTRUCTIONS
+----------------------
+
+-- xmlsitemap-5.x-1.6 to xmlsitemap-6.x-1.x-dev:
+-- xmlsitemap-5.x-1.6 to xmlsitemap-6.x-1.0-beta6:
+-- xmlsitemap-5.x-1.6 to xmlsitemap-6.x-1.0-rc1:
+-- xmlsitemap-5.x-1.6 to xmlsitemap-6.x-1.0-rc2:
+-- xmlsitemap-5.x-1.6 to xmlsitemap-6.x-1.0:
+-- xmlsitemap-5.x-1.6 to xmlsitemap-6.x-1.1:
+
+1) Deactivate all the xmlsitemap modules at admin/build/modules.
+
+2) Completly remove the xmlsitemap module directory.
+
+3) Install the new source package to your modules directory.
+
+4) Reactivate the xmlsitemap modules at admin/build/modules you use.
+
+5) Make sure you are logged in as UID 1.
+
+6) Execute update.php.
+
+
+-- xmlsitemap-5.x-2.x-dev to xmlsitemap-6.x-1.x-dev:
+-- xmlsitemap-5.x-2.x-dev to xmlsitemap-6.x-1.0-beta6:
+-- xmlsitemap-5.x-2.x-dev to xmlsitemap-6.x-1.0-rc1:
+-- xmlsitemap-5.x-2.x-dev to xmlsitemap-6.x-1.0-rc2:
+-- xmlsitemap-5.x-2.x-dev to xmlsitemap-6.x-1.0:
+-- xmlsitemap-5.x-2.x-dev to xmlsitemap-6.x-1.1:
+
+1) Deactive all the xmlsitemap modules at admin/build/modules.
+
+2) Completly remove the xmlsitemap module directory.
+
+3) Install the new source package to your modules directory.
+
+4) Reactivate the xmlsitemap modules at admin/build/modules you use.
+
+5) Make sure you are logged in as UID 1.
+
+6) Execute update.php.
+
+
+-- xmlsitemap-6.x-1.x-dev to xmlsitemap-6.x-1.0-beta6:
+-- xmlsitemap-6.x-1.x-beta[012345] to xmlsitemap-6.x-1.0-beta6:
+-- xmlsitemap-6.x-1.x-beta[012345] to xmlsitemap-6.x-1.0-rc1:
+-- xmlsitemap-6.x-1.x-beta[012345] to xmlsitemap-6.x-1.0-rc2:
+-- xmlsitemap-6.x-1.x-beta[012345] to xmlsitemap-6.x-1.0:
+-- xmlsitemap-6.x-1.x-beta[012345] to xmlsitemap-6.x-1.1:
+
+1) Deactive all the xmlsitemap modules at admin/build/modules.
+
+2) Using the Uninstall tab at admin/build/modules uninstall all xmlsitemap
+   modules.
+
+3) Completly remove the xmlsitemap module directory.
+
+4) Make sure that the xmlsitemap tables are no longer available in the
+   database.
+
+5) Make sure there are no variables left in the variable table WHERE name LIKE
+   'xmlsitemap%'.
+
+6) Make sure there are no rows left in the system table WHERE name LIKE
+   'xmlsitemap%'.
+
+7) Install the new source package to your modules directory.
+
+8) Follow the "INSTALLATION INSTRUCTIONS" above.
+
+9) Reset your xmlsitemap settings including those for specific links.
+
+
+-- xmlsitemap-6.x-1.0-beta6 to xmlsitemap-6.x-1.0-rc1:
+-- xmlsitemap-6.x-1.0-beta6 to xmlsitemap-6.x-1.0-rc2:
+-- xmlsitemap-6.x-1.0-beta6 to xmlsitemap-6.x-1.0:
+-- xmlsitemap-6.x-1.0-beta6 to xmlsitemap-6.x-1.1:
+-- xmlsitemap-6.x-1.0-rc1 to xmlsitemap-6.x-1.0-rc2:
+-- xmlsitemap-6.x-1.0-rc1 to xmlsitemap-6.x-1.0:
+-- xmlsitemap-6.x-1.0-rc1 to xmlsitemap-6.x-1.1:
+-- xmlsitemap-6.x-1.0-rc2 to xmlsitemap-6.x-1.0:
+-- xmlsitemap-6.x-1.0-rc2 to xmlsitemap-6.x-1.1:
+
+1) Deactive all the xmlsitemap modules at admin/build/modules.
+
+2) Completly remove the xmlsitemap module directory.
+
+3) Install the new source package to your modules directory.
+
+4) Activate the xmlsitemap modules you use at admin/build/modules.
+
+5) Execute update.php logged in as UID 1.

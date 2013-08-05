@@ -1,0 +1,63 @@
+<?php
+// $Id: graphmind_service.install,v 1.1.2.5 2010/11/07 10:11:42 itarato Exp $
+
+
+/**
+ * Implementation of hook_install().
+ */
+function graphmind_service_install() {
+  $result = db_fetch_object(db_query('SELECT rid FROM {role} WHERE name = \'authenticated user\';'));
+
+  db_query("INSERT INTO {filter_formats} (name, roles, cache) VALUES ('%s', ',%s,', %d);", 'GraphMind', $result->rid, 1);
+  variable_set('services_use_key', '0');
+  variable_set('services_use_sessid', '1');
+  variable_set('services_auth_module', 'services_keyauth');
+  variable_set('services_key_expiry', '30');
+  variable_set('services_use_content_permissions', '0');
+  
+  drupal_install_schema('graphmind_service');
+}
+
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function graphmind_service_uninstall() {
+  db_query("DELETE FROM {filter_formats} WHERE name = 'GraphMind';");
+  drupal_uninstall_schema('graphmind_service');
+}
+
+
+function graphmind_service_schema() {
+  return array(
+    'graphmind_service_nodeinfo' => array(
+      'fields' => array(
+        'nid' => array(
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => 0,
+        ),
+        'settings' => array(
+          'type' => 'text',
+          'size' => 'big',
+        ),
+      ),
+      'primary key' => array('nid'),
+      'indexes' => array('nid' => array('nid')),
+    ),
+  );
+}
+
+
+function graphmind_service_update_6000() {
+  drupal_install_schema('graphmind_service');
+  return array();
+}
+
+
+function graphmind_service_update_6001() {
+  drupal_uninstall_schema('graphmind_service');
+  drupal_install_schema('graphmind_service');
+  return array();
+}

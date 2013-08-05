@@ -1,0 +1,86 @@
+<?php
+/**
+ * @file
+ * Allows thread notifications to be triggered with comments on co-ment texts.
+ */
+
+/**
+ * Implementation of hook_notifications()
+ */
+function notifications_co_ment_notifications($op, &$arg0, $arg1 = NULL, $arg2 = NULL) {
+  switch ($op) {
+    case 'event load': // $arg0 is event
+      $event = &$arg0;
+      if ($event->type == 'node' && $event->action == 'comment') {
+        if (!empty($event->params['co_ment_id']) && empty($event->objects['co_ment_comment'])) {
+          $comments = co_ment_fetch_comments(array($event->params['text_id']), NULL, NULL, $event->params['co_ment_id']);
+          if ($comments[0]) {
+            $comment = (object) array(
+              'subject' => $comments[0]->title,
+              'comment' => $comments[0]->content,
+              'name' => $comments[0]->name,
+              'nid' => $event->params['nid'],
+              'co_ment_id' => $event->params['co_ment_id'],
+            );
+            $event->objects['co_ment_comment'] = $comment;
+          }
+          else { // Comment not available anymore, mark event for deletion
+            $event->delete = TRUE;
+          }
+        }
+      }
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_token_values()
+ */
+function notifications_co_ment_token_values($type, $object = NULL, $options = array()) {
+  if ($type == 'co_ment_comment') {
+      if ($comment = (object)$object) {
+        $values['comment-author-name'] = check_plain($comment->name);
+        $values['comment-title'] = check_plain($comment->subject);
+        $values['comment-body'] = check_plain($comment->comment);
+        $values['comment-url'] = url('node/'. $comment->nid, array('query' => array('comment_id_key'  => $comment->co_ment_id), 'absolute' => TRUE));
+        $values['comment-reply-url'] = $values['comment-url'] . '&comment_op=reply';
+        return $values;
+      }
+  }
+}
+
+/**
+ * Since og_notifications uses a workaround to ensure that OG can
+ * provide custom message templates for notifications, we need to
+ * overwrite this rewritting of the message with appropriate values
+ * from co_ment_comment object.
+ */
+function notifications_co_ment_message_alter(&$message, $info) {
+  if (module_exists('og_notifications') && $sid = _og_notification_check_message($message)) {
+    $event = $message->notifications['events'][0];
+    // Cater for different message groups (actions).
+    $group = 'og-notifications-'. $event->action;
+    $send_method = $message->method;
+    $subscription = notifications_load_subscription($sid);
+
+    $text = array(
+      'subject' => messaging_message_part($group, 'subject', $send_method, $event),
+      'header' => messaging_message_part($group, 'header', $send_method, $event),
+      'main'  => messaging_message_part($group, 'main', $send_method, $event),
+      'footer' => messaging_message_part($group, 'footer', $send_method, $event)
+    );
+
+    $objects = array('user' => $message->account, 'node' => $event->objects['node'], 'subscription' => $subscription);
+    if ($event->action == 'comment') {
+      $objects['co_ment_comment'] = $event->objects['co_ment_comment'];
+      unset($event->objects['comment']);
+    }
+
+    $objects = array_merge($objects, $event->objects);
+    $text = messaging_text_replace($text, $objects);
+
+    $message->subject = $text['subject'];
+    unset($text['subject']);
+    $message->body = $text;
+  }
+}

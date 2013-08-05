@@ -1,0 +1,23 @@
+/**
+  Large Tab icon
+  icon.png = 40X40px
+[menu name] = .info => features[menu][] = "tasks"
+*/
+
+#features-menu li a.icon-group-folder span.icon { 
+   background:url(icon.png) no-repeat; 
+}
+
+/**
+Create content, small icon
+icon-small.png = 20X20px
+[project name] = .info => project = "features_task"
+*/
+
+span.spaces-feature.feature-features_filesystem {
+  background:url(icon-small.png) no-repeat;
+}
+
+div#edit-field-parentid-0-value-wrapper{
+  visibility:hidden;
+}

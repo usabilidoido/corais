@@ -1,0 +1,88 @@
+<?php
+// $Id: userpoints_top_contributors.install,v 1.1.4.2 2010/04/11 01:41:28 kmillecam Exp $
+
+/**
+ * @file
+ * Creates blocks and pages that list a community's Top Contributors.
+ */
+
+/**
+ * Implementation of hook_install().
+ */
+function userpoints_top_contributors_install() {
+  // Create tables.
+  drupal_install_schema('userpoints_top_contributors');
+  
+  // This bit of logic ensures that this module is always weighted heavier
+  // than the userpoints module.
+  $up_weight = (int)db_result(db_query("SELECT weight FROM {system} WHERE name='userpoints'"));
+  $tc_weight = 1;
+  if ($up_weight) {
+    $tc_weight = $up_weight + 1;
+  }
+  db_query("UPDATE {system} SET weight = %d WHERE name = 'userpoints_top_contributors'", $tc_weight);
+  
+  // Let the user know the process has completed successfully.
+  drupal_set_message(t('User Points Top Contributors has been successfully installed.'));
+  drupal_set_message(t('You can configure the User Points Top Contributors module on the <a href="@url">User Points settings page</a>.', array('@url' => url('admin/settings/userpoints'))));
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function userpoints_top_contributors_uninstall() {
+  // Remove table.
+  drupal_uninstall_schema('userpoints_top_contributors');
+
+  db_query("DELETE FROM {blocks} WHERE module like '%userpoints_top_contributors%'");
+  
+  variable_del('userpoints_top_contributors_block_usercount');
+  variable_del('userpoints_top_contributors_period');
+  variable_del('userpoints_top_contributors_page_intro');
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function userpoints_top_contributors_schema() {
+  $schema['userpoints_top_contributors'] = array(
+    'description' => t('Stores information about top contributors.'),
+    'fields' => array(
+      'uid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => t('User ID.'),
+      ),
+      'rank' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => t('Rank of the current user.'),
+      ),
+      'period_points' => array(
+        'type' => 'float',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => t('Points earned this period.'),
+      ),
+      'current_points' => array(
+        'type' => 'float',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => t('Total points earned less points redeemed.'),
+      ),
+      'lifetime_points' => array(
+        'type' => 'float',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => t('Total points earned.'),
+      ),
+    ),
+    'primary key' => array('uid'),
+  );
+
+  return $schema;
+}

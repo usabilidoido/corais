@@ -1,0 +1,50 @@
+<?php
+
+/**
+ * Course context handler callback.
+ */
+function course_quiz_context() {
+  $node = node_load(arg(1));
+
+  if (isset($node->nid) && $node->type == 'quiz') {
+    return array(
+      'object_type' => 'quiz',
+      'instance' => $node->nid,
+    );
+  }
+}
+
+/**
+ * Implements hook_course_handlers().
+ */
+function course_quiz_course_handlers() {
+  return array(
+    'object' => array(
+      'quiz' => array(
+        'name' => t('Quiz'),
+        'class' => 'CourseObjectQuiz',
+        'description' => t('A Quiz course object.'),
+      ),
+    ),
+    'context' => array(
+      'quiz' => array(
+        'callback' => 'course_quiz_context',
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_quiz_finished().
+ *
+ * Update the fulfillment record.
+ */
+function course_quiz_quiz_finished($quiz, $score, $rid) {
+  $uid = db_result(db_query('SELECT uid FROM {quiz_node_results} WHERE result_id = %d', $rid));
+
+  $account = user_load($uid);
+
+  if ($courseObject = course_get_course_object('course_quiz', 'quiz', $quiz->nid, $account)) {
+    $courseObject->grade($account, $rid);
+  }
+}

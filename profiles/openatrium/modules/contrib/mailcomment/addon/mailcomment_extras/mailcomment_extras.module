@@ -1,0 +1,44 @@
+<?php
+// $Id: mailcomment_extras.module,v 1.1.2.4 2010/02/11 17:44:27 developmentseed Exp $
+function mailcomment_extras_mailcomment_alter(&$node, $op) {
+  switch ($op) {
+    case 'post':
+      /*
+       * Below are what each pattern tries to match.
+       * gmail 1 => On 3/10/09,
+       * gmail 2 => On Mon, Mar 9, 2009 at 10:14 PM,
+       * mac_mail_1 => On Feb 17, 2009, at 2:30 PM, foo@example.com wrote:
+       * mac_mail_2 => On Feb 17, 2009, at 2:30 PM,
+       * outlook_express => ----- Original Message -----
+       * outlook_legacy => From: foo@example.com [foo@example.com]
+       *
+       */
+      // Build an array of different possible matching expressions
+      $expressions = array(
+        'gmail_1' => "/On \d{1,2}[\/\-]{1}\d{1,2}[\/\-]{1}\d{1,2},/",
+        'gmail_2' => "/On \w{3}, \w{3} \d{1,2}, \d{4} at \d{1,2}:\d{1,2} [AP]M/",
+        'mac_mail_1' => "/On [A-Z][a-z]{2} [0-9]{1,2}, [0-9]{4}, at [0-9]{1,2}:[0-9]{2} [AP]M, [a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4} wrote/",
+        'mac_mail_2' => "/On [A-Z][a-z]{2} [0-9]{1,2}, [0-9]{4}, at [0-9]{1,2}:[0-9]{2} [AP]M,/", // currently mac mail uses a name rather than the email address
+        'outlook_express' => '/-----\s?Original Message\s?-----/',
+        'outlook_legacy' => '/From:(\s*)[A-Za-z0-9._%+-]+@[A-Za-z0-9._%+-]+\.[A-Za-z]{2,3}(\s*)\[mailto:[A-Za-z0-9._%+-]+@[A-Za-z0-9._%+-]+\.[A-Za-z]{2,3}\]/',
+        'generic_1' => '/From:.*Sent:.*To:.*Subject:/msU',
+      );
+
+      $match = 0;
+      foreach ($expressions as $name => $expression) {
+        if ($match < 1) {
+          $split = preg_split($expression, $node->body);
+          //$split = preg_split("/\>/",$split[0]);
+          if (count($split) > 1) {
+            // An expression was matched, so break the loop.
+            $match = 1;
+          }
+        }
+      }
+
+      if (!empty($split[1])) {
+        $node->body = $split[0];
+      }
+      break;
+  }
+}

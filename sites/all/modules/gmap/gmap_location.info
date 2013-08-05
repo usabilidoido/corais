@@ -1,0 +1,13 @@
+name = GMap Location
+description = Display location.module information on Google Maps
+package = Location
+core = 6.x
+dependencies[] = gmap
+dependencies[] = location
+
+; Information added by drupal.org packaging script on 2013-02-25
+version = "6.x-2.0-beta1"
+core = "6.x"
+project = "gmap"
+datestamp = "1361811776"
+

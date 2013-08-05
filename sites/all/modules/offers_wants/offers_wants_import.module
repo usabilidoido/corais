@@ -1,0 +1,133 @@
+<?php
+// $Id: mc_offer_want.module,v 1.9 2010/10/02 15:54:27 matslats Exp $
+/**
+ * Implementation of hook_help)().
+ * http://api.drupal.org/api/function/hook_help/6
+ */
+function mc_offer_want_import_help($section) {
+  switch ($section) {
+    case 'admin/help#offers_wants':
+      return t('Defines two contentTypes which are created and edited by each user and which are presented as a directory categorised using taxonomy.');
+  }
+}
+
+
+function mc_offer_want_import_menu() {
+  $items['admin/mc/import/offers'] = array(
+    'title' => 'Import offers',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('import_offers_form'),
+    'access arguments' => array('administer nodes'),
+    'file' => 'mc_offer_want.install',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 0,
+  );
+  $items['admin/mc/import/wants'] = array(
+    'title' => 'Import wants',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('import_wants_form'),
+    'access arguments' => array('administer nodes'),
+    'file' => 'mc_offer_want.install', 
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 0,
+  );
+  return $items;
+}
+
+
+function import_offers_form(&$form_state) {
+  $form['#prefix'] = import_prefix('offers');
+  $form['data'] = array (
+    '#type' => 'textarea',
+    '#title' => 'paste data',
+    '#default_value' => $form_state['values']['data'],
+    '#required' => TRUE,
+    '#rows' => 20
+  );
+  $form['import_balances'] = array (
+    '#type' => 'submit',
+    '#value' => 'import',
+  );
+  $form['#redirect'] = 'directory/recent_offers';
+  $form['#validate'][] = 'import_offers_wants_form_validate';
+  return $form;
+}
+
+function import_offers_form_submit ($form, &$form_state) {
+  $rows = str_getcsv($form_state['values']['data']);
+  foreach ($rows as $row) {
+    generate_offer_want_node('offer', $row['UserID'], $row['Description']);
+  }
+}
+
+function import_wants_form(&$form_state) {
+  $form['#prefix'] = import_prefix('wants');
+  $form['data'] = array (
+    '#type' => 'textarea',
+    '#title' => 'paste data',
+    '#default_value' => $form_state['values']['data'],
+    '#required' => TRUE
+  );
+  $form['import_balances'] = array (
+    '#type' => 'submit',
+    '#value' => 'import',
+  );
+  $form['#redirect'] = 'directory/recent_wants';
+  $form['#validate'][] = 'import_offers_wants_form_validate';
+  return $form;
+}
+
+function import_wants_form_submit ($form, &$form_state) {
+  $rows = str_getcsv($form_state['values']['data']);
+  foreach ($rows as $row) {
+    generate_offer_want_node('want', $row['UserID'], $row['Description']);
+  }
+}
+
+
+function import_prefix($type) {
+  return t("This page allows you to import users' @type for users already on the system.", array('@type' => $type)) .
+  t("There are other ways of doing this, but this is simple and maintained along with the rest of the marketplace module.") . '<br />' .
+  //t("If you have 'goods & services' enabled or 'local vs offical' money then it assumes this is a service in local money.") . '<br />' .
+  t("Use a spreadsheet tool to prepare a list of user ids, or names, and their @type in one line. ") .
+  t("For aesthetic reasons, there is a 128 character limit on each description. ") .
+  t("Each line should look like this (you must include the header row): !code", array('!code' => '<blockquote><strong>"UserID","Description"</strong></blockquote>')) .
+  t("Try importing one or two first.");
+}
+
+function import_offers_wants_form_validate($form, &$form_state) {
+  $rows = str_getcsv($form_state['values']['data']);
+  check_users($rows);
+  foreach ($rows as $rownum => $row) {
+    //we've checked the users (field1) already, so now check the description
+    if (strlen($row['Description']) > 128) {
+      form_set_error('data', t('The description on line @rownum is more than 128 characters: @string', array('rownum' => $rownum, '@string' => $row['Description'])));
+    }
+    //now check the taxonomy term exists, and flag an error if it doesn't
+    check_terms($row);
+  }
+
+}
+function check_terms($fields) {
+  if ($fields[2]){
+    form_set_error("data", "importing categories (third column) hasn't been coded yet", "warning");
+  }
+  //TODO
+  return;
+}
+
+
+function generate_offer_want_node($type, $owner, $title, $body='') {
+  $node = new stdClass();
+  $node->title = $title;
+  $node->type = $type;
+  $node->created = time();
+  $node->changed = $node->created;
+  $node->status = 1;
+  $node->promote = 0;
+  $node->sticky = 0;
+  $node->format = 1;
+  $node->uid = $owner;
+  if ($body) $node->body = $body;
+  node_save($node);
+}

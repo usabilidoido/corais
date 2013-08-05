@@ -1,0 +1,72 @@
+<?php
+
+/**
+ * Implementation of hook_sheetnode_plugins().
+ */
+function sheetnode_ckeditor_sheetnode_plugins() {
+  drupal_add_js(variable_get('sheetnode_ckeditor_library_path', drupal_get_path('module', 'sheetnode_ckeditor') . '/ckeditor') . '/ckeditor.js');
+  drupal_add_js(drupal_get_path('module', 'sheetnode_ckeditor') . '/sheetnode_ckeditor.js');
+
+  $toolbar = array(
+    array('Cut','Copy','Paste','PasteText','PasteFromWord','-','Scayt'),
+    array('Undo','Redo','-','Find','Replace','-','SelectAll','RemoveFormat'),
+    '/',
+    array('Font','FontSize','TextColor', 'BGColor'),
+    array('Bold','Italic','Underline','Strike'),
+    array('Link', 'Unlink'),
+  );
+  drupal_alter('sheetnode_ckeditor_toolbar', $toolbar);
+
+  static $once = FALSE;
+  if (!$once) {
+    $once = TRUE;
+    drupal_add_js(array('sheetnodeCK' => array(
+      'imagePrefix' => base_path() . drupal_get_path('module', 'sheetnode_ckeditor') . '/images',
+      'toolbar' => $toolbar,
+    )), 'setting');
+  }
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function sheetnode_ckeditor_menu() {
+  $items = array();
+
+  $items['admin/settings/sheetnode/ckeditor'] = array(
+    'title' => 'CKEditor',
+    'access arguments' => array('administer site configuration'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('_sheetnode_ckeditor_settings'),
+    'description' => 'Administer settings for Sheetnode CKEditor.',
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+/**
+ * Form function for admin/settings/sheetnode/ckeditor.
+ */
+function _sheetnode_ckeditor_settings() {
+  $form['sheetnode_ckeditor_library_path'] = array(
+    '#type' => 'textfield',
+    '#title' => t('CKEditor path'),
+    '#description' => t('Enter the full path of the CKEditor package.'),
+    '#default_value' => variable_get('sheetnode_ckeditor_library_path', drupal_get_path('module', 'sheetnode_ckeditor') . '/ckeditor'),
+  );
+  $form['#validate'][] = '_sheetnode_ckeditor_settings_validate';
+  return system_settings_form($form);
+}
+
+/**
+ * Validate function for _sheetnode_ckeditor_settings form.
+ */
+function _sheetnode_ckeditor_settings_validate($form, $form_state) {
+  $path = rtrim($form_state['values']['sheetnode_ckeditor_library_path'], '/');
+  if (!is_dir($path) || !is_file($path . '/ckeditor.js')) {
+    form_set_error('sheetnode_ckeditor_library_path', t('The path you entered does not point to a valid location. Please enter the location of the extracted CKEditor package.'));
+    return;
+  }
+}
+

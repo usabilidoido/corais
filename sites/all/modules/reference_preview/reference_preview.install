@@ -1,0 +1,24 @@
+<?php
+
+/**
+ * Update to global field settings for reference preview.
+ */
+function reference_preview_update_6001() {
+  $updated = FALSE;
+  module_load_include('inc', 'content', 'includes/content.crud');
+  foreach (variable_get('reference_preview', array()) as  $field_name => $setting) {
+    if ($field = content_fields($field_name)) {
+      $field['reference_preview']['enable'] = TRUE;
+      $field['reference_preview']['type'] = str_replace('panl', 'panel', $setting);
+      content_field_instance_update($field, FALSE);
+      $updated = TRUE;
+    }
+  }
+  if ($updated) {
+    content_clear_type_cache(TRUE);
+  }
+
+  // Delete the variable.
+  variable_del('reference_preview');
+  return array();
+}

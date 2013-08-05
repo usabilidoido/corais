@@ -1,0 +1,609 @@
+<?php
+// $Id: flat_book.module,v 1.5 2010/09/28 15:35:01 criticalpatch Exp $
+/**
+ * @file
+ * This module allows you to flatten all subtrees of a book below a maximum depth.
+ * Nodes in the subtree will be displayed on a single page, with a table of contents to
+ * allow the user to jump to a particular node on the page. If the user requests
+ * a node below the flattened depth he will be redirected to the portion of the flattened
+ * page that contains the requested node.
+ */
+
+//@todo: javascript
+
+define('FLAT_BOOK_FLATTEN_PAGE', -1);
+define('FLAT_BOOK_NOT_FLAT', 0);
+define('FLAT_BOOK_USE_SITEWIDE_DEPTH', -1);
+define('FLAT_BOOK_FLATTEN_SELECTED', 0);
+
+/**
+ * Implementation of hook_help().
+ */
+function flat_book_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#flat_book':
+      return t('A module to flatten subtrees of a book below a certain level. Flattened subtrees will display on a single page. The user may jump to individual nodes on the flattened page by using a table of contents at the top of the page.');
+  }
+}
+
+/**
+ * Implementation of hook_init().
+ *
+ * If the user requests a page that is deeper than the maximum depth, redirect
+ * to the ancestor that is at (or above) the maximum depth.
+ */
+function flat_book_init() {
+  $menu_item = menu_get_item();
+  //If we are on a node page, or if we are on a local task that does not exist (ie node/14/this-page-does-not-exist)
+  if ($menu_item['path'] == 'node/%') {
+    $node = menu_get_object();
+    if (isset($node->book)) {
+      if (($ancestor_nid = _flat_book_find_flattened_ancestor($node->book)) > 0) {
+        drupal_goto('node/'. $ancestor_nid, NULL, 'booknode-'. $node->nid);
+      }
+    }
+  }
+}
+
+/**
+ * Looks for the node above this one at the maximum menu depth (if it exists)
+ * @param  $book        - The menu link of a book page
+ * @return mixed        - If we are below a flattened page, returns the ancestor
+ *                          nid to be redirected to. 
+ *                        If we are on a flattened page, returns FLAT_BOOK_FLATTEN_PAGE.
+ *                        If this node is not flattened, returns FLAT_BOOK_NOT_FLAT.
+ *                        You can check if this returned a nid by checking if the result is
+ *                        greater than 0.
+ */
+function _flat_book_find_flattened_ancestor($book) {
+  static $cache = array();
+  if (!isset($cache[$book['nid']])) {
+    //Find the flatten setting for this book
+    $book_flatten_mode = variable_get('flat_book_bid_' . $book['bid'] . '_depth', FLAT_BOOK_USE_SITEWIDE_DEPTH);
+    //Find the sitewide or bookwide flatten level
+    $flatten_level = ($book_flatten_mode == FLAT_BOOK_FLATTEN_PAGE) 
+                      ? variable_get('flat_book_sitewide_max_depth', 3) : $book_flatten_mode; 
+
+    //If we are below the flatten level, return immediately
+    if ($flatten_level != 0 && $book['depth'] > $flatten_level) {
+      $mlid = $book['p' .  $flatten_level];
+      $cache[$book['nid']] = db_result(db_query('SELECT nid FROM {book} WHERE mlid = %d', $mlid));
+      return $cache[$book['nid']];
+    }
+
+    //Get all branches in this book that are selectively flattened
+    $flattened_nids = array();
+    $result = db_query('SELECT nid FROM {flat_book_flattened_nodes} WHERE bid = %d', $book['bid']);
+    while ($record = db_fetch_object($result)) {
+      //If we are on a flattened page, return immediately
+      if ($book['nid'] == $record->nid) {
+        $cache[$book['nid']] = FLAT_BOOK_FLATTEN_PAGE;
+        return FLAT_BOOK_FLATTEN_PAGE;
+      }
+      $flattened_nids[] = $record->nid;
+    }
+
+    //Check if this page is under a flattened branch
+    if ($book['depth'] > 1) {
+      $query = "SELECT nid FROM {book} WHERE ";
+      for ($i = 1; $i < $book['depth']; $i++) {
+        $query .= "mlid = " . $book['p' . $i];
+        if ($i < $book['depth'] - 1) {
+          $query .= " OR ";  
+        }
+      }
+
+      //If we are under a flattened branch, return the nid
+      $result = db_query($query);
+      while($record = db_fetch_object($result)) {
+        if (in_array($record->nid, $flattened_nids)) {
+          return $record->nid;    
+        }
+      }
+    }
+
+    //If we are at the flatten level, and not under another flattened node, return
+    if ($book['depth'] == $flatten_level) {
+      $cache[$book['nid']] = FLAT_BOOK_FLATTEN_PAGE;
+      return FLAT_BOOK_FLATTEN_PAGE;
+    } else {
+      //If none of the above cases is true, this page is not flattened
+      $cache[$book['nid']] = FLAT_BOOK_NOT_FLAT;
+      return FLAT_BOOK_NOT_FLAT;
+    }
+  }
+  else {
+    return $cache[$book['nid']];
+  }
+}
+
+/**
+ * Implementation of hook_form_alter()
+ */
+function flat_book_form_alter(&$form, $form_state, $form_id) {
+  switch($form_id) {
+    case 'book_admin_settings':
+      for ($i = 1; $i <= 8; $i++) {
+        $options[$i] = $i;
+      }
+      $form['flat_book'] = array(
+        '#title' => 'Flat Book',
+        '#type' => 'fieldset',
+        '#collapsible' => FALSE,
+        '#weight' => 0,
+      );
+      $form['flat_book']['flat_book_sitewide_max_depth'] = array(
+        '#type' => 'select',
+        '#title' => t('Sitewide book depth'),
+        '#description' => t('The depth beneath which book pages will be flattened. Individual books may override this setting. The root is considered depth 1.'),
+        '#default_value' => variable_get('flat_book_sitewide_max_depth', 3),
+        '#options' => $options,
+        '#required' => TRUE,
+        '#weight' => 2,
+      );
+      
+    break;
+    case 'book_outline_form':
+      $form['flat_book'] = array(
+        '#title' => 'Flat Book',
+        '#type' => 'fieldset',
+        '#collapsible' => FALSE,
+        '#weight' => 13,
+      );
+      $flattened = db_result(db_query('SELECT count(nid) FROM {flat_book_flattened_nodes} WHERE nid = %d', $form['#node']->nid));
+      $form['flat_book']['flatten_branch'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Flatten this branch'),
+        '#description' => t('Flatten all nodes beneath this one.'),
+        '#default_value' => $flattened,
+      );
+
+      //Add a submit handler to clear the cache
+      $form['#submit'][] = '_flat_book_book_outline_form_submit';
+    break;
+    case 'book_admin_edit':
+      $flat_nids = array();
+      $result = db_query('SELECT nid FROM {flat_book_flattened_nodes} WHERE bid = %d', $form['#node']->book['bid']);
+      while($record = db_fetch_object($result)) {
+        $flat_nids[] = $record->nid;
+      }
+      foreach($form['table'] as &$value) {
+        if (is_array($value)) {
+          $default_value = in_array($value['nid']['#value'], $flat_nids);
+          $value['flatten'] = array(
+            '#type' => 'checkbox',
+            '#default_value' => $default_value,
+          ); 
+          $value['flatten_depth'] = array(
+            '#value' => $value['depth']['#value'],
+          );
+        }
+      }
+      //The maximum menu and book depth in Drupal is 9
+      $options[FLAT_BOOK_USE_SITEWIDE_DEPTH] = t('Use sitewide flatten depth');
+      $options[FLAT_BOOK_FLATTEN_SELECTED] = t('Only flatten selected branches');
+      for ($i = 1; $i <= 8; $i++) {
+        $options[$i] = $i;
+      }
+      $form['flat_book'] = array(
+        '#title' => 'Flat Book',
+        '#type' => 'fieldset',
+        '#collapsible' => FALSE,
+        '#weight' => 0,
+      );
+      $form['flat_book']['flatten_depth'] = array(
+        '#type' => 'select',
+        '#title' => t('Flatten Depth'),
+        '#description' => t('Here you can set a global flatten depth for this book. Nodes below this depth will be flattened regardless of whether they have been checked in the table below. The root is considered depth 1.'),
+        '#options' => $options,
+        '#default_value' => variable_get('flat_book_bid_' . $form['#node']->book['bid'] . '_depth', FLAT_BOOK_USE_SITEWIDE_DEPTH),
+        '#weight' => 5,
+      );
+      $form['flat_book']['link_text'] = array(
+        '#value' => t('The sitewide flatten depth is @value. You may change it !link, or override it below.', array('@value' => variable_get('flat_book_sitewide_max_depth', 3), '!link' => l(t('here'),'admin/content/book/settings'))),
+      );
+      $form['table']['#theme'] = 'flat_book_admin_table';
+      $form['#submit'][] = '_flat_book_book_admin_edit_submit';
+    break;
+  }
+}
+
+/**
+ * Submit handler for admin form
+ */
+function flat_book_book_admin_settings_submit($form, $form_state) {
+  //@todo: Performance: clear only the necessary pages
+  variable_set('flat_book_sitewide_max_depth', $form_state['values']['flat_book_sitewide_max_depth']);
+  cache_clear_all('flat_book_node_', 'cache', TRUE);
+  cache_clear_all('flat_book_node_admin_', 'cache', TRUE);
+}
+
+/**
+ * Helper function to set whether a branch should be flattened.
+ * @param bid       - Book id of the book containing the branch
+ * @param nid       - Node id of the branch
+ * @param setting   - 1 if to flatten the branch, 0 to not flatten it.
+ */
+function _flat_book_set_branch_flatten($bid, $nid, $setting) {
+  if ($setting) {
+    $record = array(
+      'bid' => $bid,
+      'nid' => $nid,
+    );
+    if (!db_result(db_query('SELECT count(nid) FROM {flat_book_flattened_nodes} WHERE nid = %d', $nid))) {
+      drupal_write_record('flat_book_flattened_nodes', $record);
+    } else {
+      drupal_write_record('flat_book_flattened_nodes', $record, 'nid');
+    }
+  } else {
+    db_query('DELETE FROM {flat_book_flattened_nodes} WHERE nid = %d', $nid);
+  }
+}
+
+/**
+ * Submit Handler for book_admin_edit form
+ */
+function _flat_book_book_admin_edit_submit($form, $form_state) {
+  variable_set('flat_book_bid_' . $form['#node']->book['bid'] . '_depth', $form_state['values']['flatten_depth']);
+  foreach($form_state['values']['table'] as $value) {
+    _flat_book_set_branch_flatten($form['#node']->book['bid'], $value['nid'], $value['flatten']);
+  }
+}
+
+/**
+ * Form submit handler for book_outline form.
+ */
+function _flat_book_book_outline_form_submit($form, &$form_state) {
+  _flat_book_set_branch_flatten($form['#node']->book['bid'], $form['#node']->nid, $form_state['values']['flatten_branch']);
+  _flat_book_update_cache($form['#node']);
+}
+
+/**
+ * Clear the cache associated with the root page of a flattened book
+ */
+function _flat_book_update_cache($node) {
+  $result = db_query('SELECT nid FROM {book} WHERE bid = %d', $node->book['bid']);
+  while($record = db_fetch_object($result)) {
+    cache_clear_all('flat_book_node_' . $record->nid, 'cache');
+    cache_clear_all('flat_book_node_admin_' . $record->nid, 'cache');
+  }
+}
+
+/**
+ * Implementation of hook_nodeapi().
+ *
+ * Squishes the node and its children into one page.
+ */
+function flat_book_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+  // If the node is not in a book, this hook doesn't apply.
+  if (isset($node->book)) {
+    switch ($op) {
+      case 'view':
+        // We rely on node_build_content() to generate the HTML for this node,
+        // which will invoke all hook_nodeapis for the node (including this one!)
+        // The firstrun variable ensures this hook will only be called once,
+        // thus preventing infinite recursion.
+        static $firstrun = TRUE;
+        static $content;
+        if ($firstrun) {
+          $firstrun = FALSE;
+          if (_flat_book_find_flattened_ancestor($node->book) == FLAT_BOOK_FLATTEN_PAGE) {
+            if (!isset($content)) {
+              $is_admin = user_access('administer book outlines') || user_access('add content to books'); 
+              //Check the cache tables: admin pages are cached seperately due to edit links
+              if ($is_admin) {
+                $content = cache_get('flat_book_node_admin_' . $node->nid);
+              } else {
+                $content = cache_get('flat_book_node_' . $node->nid);
+              }
+              if (!empty($content->data)) {
+                $content = unserialize($content->data);
+              }
+              else {
+                //Flatten the subtree and cache the result
+                $tree = book_menu_subtree_data($node->book);
+                $children = _flat_book_export_traverse($tree, 0, $node, $is_admin);
+                $content = $node->content['body']['#value'] . $children;
+                
+                //Cache the results: admin pages are cached seperately due to edit links
+                if ($is_admin) {
+                  cache_set('flat_book_node_admin_' . $node->nid, serialize($content), 'cache');
+                } else {
+                  cache_set('flat_book_node_' . $node->nid, serialize($content), 'cache');
+                }
+              }
+            }
+
+            //Replace the node body content with the content we found/created
+            $node->content['body']['#value'] = $content;
+          }
+        }
+        break;
+      case 'update':
+      case 'insert':
+      case 'delete':
+          _flat_book_update_cache($node); 
+        break;
+    }
+  }
+}
+
+/**
+ * Traverses a book subtree and calls _flat_book_visit on each child page
+ * @param <type> $tree  - Subtree to traverse
+ * @param <type> $depth - The current depth wrt the beginning of traversal
+ * @return string       - HTML
+ */
+function _flat_book_export_traverse($tree, $depth = 0, $root_node, $is_admin) {
+  $output = '';
+  foreach ($tree as $data) {
+    $node = node_load($data['link']['nid'], FALSE); // Do not cache.
+    if ($node) {
+      $children = '';
+      if ($data['below']) {
+        $children = _flat_book_export_traverse($data['below'], $depth + 1, $root_node, $is_admin);
+      }
+      $output .= _flat_book_visit($node, $children, $depth, $root_node, $is_admin);
+    }
+  }
+  return $output;
+}
+
+/**
+ * Generates the HTML for a particular node
+ *
+ * @param $node     - The node to generate output for.
+ * @param $children - All the rendered child nodes within the current node.
+ * @return          - The HTML generated for the given node.
+ */
+function _flat_book_visit($node, $children, $depth, $root_node, $is_admin) {
+  if ($depth == 0) {
+    return $children;
+  }
+  $node = node_build_content($node, FALSE, FALSE);
+  $node->content['book_navigation']['#access'] = FALSE;
+  $node->body = drupal_render($node->content);
+
+  $edit_link = l(t('edit'), "node/{$node->nid}/edit");
+  $outline_link = l(t('outline'), "node/{$node->nid}/outline");
+
+  return theme('flat_book_node_export_html', $node, $children, $root_node->depth - $depth, $root_node->nid, $is_admin, $edit_link, $outline_link);
+}
+
+/**
+ * Helper function to build the table of contents. Recursively traverses the tree
+ * and builds an array that can be passed to theme_item_list.
+ *
+ * @param  array    $tree   - Tree returned by book_menu_subtree_data() 
+ * @param  integer  $depth  - Depth traversed so far
+ * @return string           - HTML for the table of contents
+ */
+function _flat_book_menu_tree_toc($tree, $depth = 0, $item_list = array()) {
+  if ($tree) {
+    if ($depth == 0) {
+      // Recurse one level, since we only have one element in the tree.
+      $values = array_values($tree);
+      return _flat_book_menu_tree_toc($values[0]['below'], $depth + 1);
+    }
+
+    foreach ($tree as &$subtree) {
+      $item['data'] = l($subtree['link']['link_title'], "", array(
+        "fragment" => "booknode-{$subtree['link']['nid']}",
+        //We need to specify external or the link will go to '/'
+        "external" => "TRUE"));
+      $item['children'] = _flat_book_menu_tree_toc($subtree['below'], $depth + 1);
+      $item_list[] = $item;
+    }
+  }
+  return $item_list;
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function flat_book_theme() {
+  return array(
+    'flat_book_node_export_html' => array(
+      'arguments' => array(
+        'node' => NULL,
+        'children' => NULL,
+        'flatten_depth' => NULL,
+        'root_nid' => NULL,
+        'is_admin' => FALSE,
+        'edit_link' => NULL,
+        'outline_link' => NULL,
+      ),
+      'template' => 'flat-book-node-export-html',
+      // Make sure to include the same variables the book theme includes
+      'preprocess functions' => array('template_preprocess_book_node_export_html'),
+    ),
+    'flat_book_toc_title' => array(),
+    'flat_book_admin_table' => array(
+      'arguments' => array('form' => NULL),
+    ),
+  );
+}
+
+/**
+ * Preprocess the book navigation template. 
+ * If we are on a flattened page, remove links to children.
+ */
+function flat_book_preprocess_book_navigation(&$variables) {
+  if (_flat_book_find_flattened_ancestor($variables['book_link']) == FLAT_BOOK_FLATTEN_PAGE) {
+    $variables['tree'] = FALSE;
+  }
+}
+
+/**
+ * Theme function for the book administration page form.
+ *
+ * @ingroup themeable
+ * @see book_admin_table()
+ */
+function theme_flat_book_admin_table($form) {
+
+  drupal_add_tabledrag('book-outline', 'match', 'parent', 'book-plid', 'book-plid', 'book-mlid', TRUE, MENU_MAX_DEPTH - 2);
+  drupal_add_tabledrag('book-outline', 'order', 'sibling', 'book-weight');
+
+  $header = array(t('Title'), t('Depth'), t('Flatten'), t('Weight'), t('Parent'),  array('data' => t('Operations'), 'colspan' => '3'));
+
+  $rows = array();
+  $destination = drupal_get_destination();
+  $access = user_access('administer nodes');
+  foreach (element_children($form) as $key) {
+    $nid = $form[$key]['nid']['#value'];
+    $href = $form[$key]['href']['#value'];
+
+    // Add special classes to be used with tabledrag.js.
+    $form[$key]['plid']['#attributes']['class'] = 'book-plid';
+    $form[$key]['mlid']['#attributes']['class'] = 'book-mlid';
+    $form[$key]['weight']['#attributes']['class'] = 'book-weight';
+
+    $data = array(
+      theme('indentation', $form[$key]['depth']['#value'] - 2) . drupal_render($form[$key]['title']),
+      drupal_render($form[$key]['flatten_depth']),
+      drupal_render($form[$key]['flatten']),
+      drupal_render($form[$key]['weight']),
+      drupal_render($form[$key]['plid']) . drupal_render($form[$key]['mlid']),
+      l(t('view'), $href),
+      $access ? l(t('edit'), 'node/'. $nid .'/edit', array('query' => $destination)) : '&nbsp',
+      $access ? l(t('delete'), 'node/'. $nid .'/delete', array('query' => $destination) )  : '&nbsp',
+    );
+    $row = array('data' => $data);
+    if (isset($form[$key]['#attributes'])) {
+      $row = array_merge($row, $form[$key]['#attributes']);
+    }
+    $row['class'] = empty($row['class']) ? 'draggable' : $row['class'] .' draggable';
+    $rows[] = $row;
+  }
+
+  return theme('table', $header, $rows, array('id' => 'book-outline'));
+}
+
+/**
+ * Implementation of hook_block().
+ * Ideally we would alter the Book Navigation block provided by the book module.
+ * However hook_block_alter does not exist presently. Instead, we provide a
+ * seperate Flat Book Navigation block with the needed functionality.
+ *
+ * The only changes from book_block are:
+ * 1. The flat_book_block_mode variable is used for storing whether to display
+ *    the block on all pages (so that this block can be configured seperately 
+ *    from the book_block.
+ * 2. The results of each call to the menu_tree_all_data() function are passed to
+ *    _flat_book_menu_tree_all_data_alter() to do the menu pruning. 
+ * 3. A new block for the table of contents is provided
+ *
+ * @see book_block()
+ * from which this is copied.
+ */
+function flat_book_block($op = 'list', $delta = 0, $edit = array()) {
+  $block = array();
+  switch ($op) {
+    case 'list':
+      $block[0]['info'] = t('Flat Book navigation');
+      $block[0]['cache'] = BLOCK_CACHE_PER_PAGE | BLOCK_CACHE_PER_ROLE;
+
+      $block[1]['info'] = t('Jump To:');
+      $block[1]['cache'] = BLOCK_CACHE_PER_PAGE | BLOCK_CACHE_PER_ROLE;
+      return $block;
+    case 'view':
+      switch($delta) {
+        case 0:
+          $current_bid = 0;
+          if ($node = menu_get_object()) {
+            $current_bid = empty($node->book['bid']) ? 0 : $node->book['bid'];
+          }
+          if (variable_get('flat_book_block_mode', 'all pages') == 'all pages') {
+            $block['subject'] = t('Flat Book navigation');
+            $book_menus = array();
+            $pseudo_tree = array(0 => array('below' => FALSE));
+            foreach (book_get_books() as $book_id => $book) {
+              if ($book['bid'] == $current_bid) {
+                // If the current page is a node associated with a book, the menu
+                // needs to be retrieved.
+                $tree = menu_tree_all_data($node->book['menu_name'], $node->book);
+                _flat_book_menu_tree_all_data_alter($tree);
+                $book_menus[$book_id] = menu_tree_output($tree);
+              }
+              else {
+                // Since we know we will only display a link to the top node, there
+                // is no reason to run an additional menu tree query for each book.
+                $book['in_active_trail'] = FALSE;
+                $pseudo_tree[0]['link'] = $book;
+                $book_menus[$book_id] = menu_tree_output($pseudo_tree);
+              }
+            }
+            $block['content'] = theme('book_all_books_block', $book_menus);
+          }
+          elseif ($current_bid) {
+            // Only display this block when the user is browsing a book.
+            $title = db_result(db_query(db_rewrite_sql('SELECT n.title FROM {node} n WHERE n.nid = %d'), $node->book['bid']));
+            // Only show the block if the user has view access for the top-level node.
+            if ($title) {
+              $tree = menu_tree_all_data($node->book['menu_name'], $node->book);
+              _flat_book_menu_tree_all_data_alter($tree);
+              // There should only be one element at the top level.
+              $data = array_shift($tree);
+              $block['subject'] = theme('book_title_link', $data['link']);
+              $block['content'] = ($data['below']) ? menu_tree_output($data['below']) : '';
+            }
+          }
+          return $block;
+          break;
+        case 1:
+          if ($node = menu_get_object()) {
+            if (isset($node->book) && _flat_book_find_flattened_ancestor($node->book) == FLAT_BOOK_FLATTENED_PAGE) {
+              $block['subject'] = theme('flat_book_toc_title', $node);
+
+              $tree = book_menu_subtree_data($node->book);
+              $block['content'] = theme_item_list(_flat_book_menu_tree_toc($tree));
+            }
+          }
+          return $block;
+          break;
+        }
+    case 'configure':
+      $options = array(
+        'all pages' => t('Show block on all pages'),
+        'book pages' => t('Show block only on book pages'),
+      );
+      $form['flat_book_block_mode'] = array(
+        '#type' => 'radios',
+        '#title' => t('Book navigation block display'),
+        '#options' => $options,
+        '#default_value' => variable_get('flat_book_block_mode', 'all pages'),
+        '#description' => t("If <em>Show block on all pages</em> is selected, the block will contain the automatically generated menus for all of the site's books. If <em>Show block only on book pages</em> is selected, the block will contain only the one menu corresponding to the current page's book. In this case, if the current page is not in a book, no block will be displayed. The <em>Page specific visibility settings</em> or other visibility settings can be used in addition to selectively display this block."),
+        );
+      return $form;
+    case 'save':
+      variable_set('flat_book_block_mode', $edit['flat_book_block_mode']);
+      break;
+  }
+}
+
+/**
+ * Alters a menu tree to chop off the portions that are below the max menu depth
+ *
+ * @param array $tree - output from the menu_tree_all_data function
+ */
+function _flat_book_menu_tree_all_data_alter(&$tree) {
+  if ($tree) {
+    foreach ($tree as &$subtree) {
+      if ($subtree['link']['depth'] >= variable_get('flat_book_max_menu_depth', 3)) {
+        $subtree['link']['has_children'] = 0; // Required to remove the arrow.
+        $subtree['below'] = FALSE; // Chops the tree down.
+      }
+      else {
+        _flat_book_menu_tree_all_data_alter($subtree['below']);
+      }
+    }
+  }
+}
+
+/**
+ * Theme function for displaying the title of the table of contents block.
+ */
+function theme_flat_book_toc_title() {
+  return t('Jump To:');
+}

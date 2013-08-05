@@ -1,0 +1,627 @@
+# $Id$
+#
+# LANGUAGE translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  node-proposition.tpl.php: n/a
+#  views/offers_wants.views.inc: n/a
+#  offers_wants.module,v 1.9 2010/10/02 15:54:27 matslats
+#  mc_offer_want.module,v 1.9 2010/10/02 15:54:27 matslats
+#  offers_wants.install,v 1.3 2010/05/01 15:52:49 matslats
+#  offers_wants.info: n/a
+#  offers_wants_import.info: n/a
+#  views/views_handler_field_ow_want.inc: n/a
+#  views_plugin_display_feed.inc,v 1.7 2009/09/15 22:20:01 merlinofchaos
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2012-02-06 17:13+0100\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Last-Translator: NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: node-proposition.tpl.php:60 views/offers_wants.views.inc:80
+msgid "Want"
+msgstr ""
+
+#: node-proposition.tpl.php:60 views/offers_wants.views.inc:77
+msgid "Offer"
+msgstr ""
+
+#: node-proposition.tpl.php:67
+msgid "Expires:"
+msgstr ""
+
+#: offers_wants.module:17
+msgid "This panel saves you digging around in Drupal by giving you easy options while managing other parts of the system."
+msgstr ""
+
+#: offers_wants.module:18
+msgid "Offers and wants are organised using two vocabularies."
+msgstr ""
+
+#: offers_wants.module:19
+msgid "The first is like categories and subcategories in the yellow pages. Create and organise your categories here:"
+msgstr ""
+
+#: offers_wants.module:20
+msgid "Edit categories"
+msgstr ""
+
+#: offers_wants.module:21
+msgid "Proposition Types is a second, optional way to find things."
+msgstr ""
+
+#: offers_wants.module:23
+msgid "Here are some ideas which have been used by our community:"
+msgstr ""
+
+#: offers_wants.module:24
+msgid "Loans - in order to foster sharing goods amongst your community members,  and encourage efficient resource use."
+msgstr ""
+
+#: offers_wants.module:25
+msgid "Tips - in order to allow your members to share ways on living better in your area."
+msgstr ""
+
+#: offers_wants.module:26
+msgid "Outings - in order to allow your members to self-organise and build ties."
+msgstr ""
+
+#: offers_wants.module:27
+msgid "Gifts - in order to foster generosity, while publicly recognising the act."
+msgstr ""
+
+#: offers_wants.module:28
+msgid "To dos - in order to list and share the tasks linked to making your association work."
+msgstr ""
+
+#: offers_wants.module:29
+msgid "We encourge you to experiment, and tell us about it."
+msgstr ""
+
+#: offers_wants.module:30
+msgid "Edit types"
+msgstr ""
+
+#: offers_wants.module:75
+msgid "Proposition"
+msgstr ""
+
+#: offers_wants.module:77
+msgid "Something which could meet a need in the community"
+msgstr ""
+
+#: offers_wants.module:79
+msgid "Brief description"
+msgstr ""
+
+#: offers_wants.module:81
+msgid "More information"
+msgstr ""
+
+#: offers_wants.module:151
+msgid "Want categories"
+msgstr ""
+
+#: offers_wants.module:151
+msgid "Offer categories"
+msgstr ""
+
+#: offers_wants.module:157
+msgid "Post offer/want"
+msgstr ""
+
+#: offers_wants.module:173;214;229
+msgid "I would like to request"
+msgstr ""
+
+#: offers_wants.module:173;213;229
+msgid "I would like to offer"
+msgstr ""
+
+#: offers_wants.module:263
+msgid "Stop displaying this proposition on (date)"
+msgstr ""
+
+#: offers_wants.module:275
+msgid "You may choose an expiry date for your proposition."
+msgstr ""
+
+#: offers_wants.module:276
+msgid "This is useful for show tickets, or for help moving house, which you no longer want to display after a given date."
+msgstr ""
+
+#: offers_wants.module:277
+msgid "If this field is left blank, your proposition will be displayed for @time. @days days before the expiry date you will receive a renewal request."
+msgstr ""
+
+#: offers_wants.module:281
+msgid "If you do not renew your proposition, it will no longer be displayed on the community's list after the expiry date."
+msgstr ""
+
+#: offers_wants.module:282
+msgid "You will however, be able to edit or delete it on your personal list of propositions."
+msgstr ""
+
+#: offers_wants.module:285
+msgid "leave blank to make your proposition permanent"
+msgstr ""
+
+#: offers_wants.module:305
+msgid "Expiry date must be after today"
+msgstr ""
+
+#: offers_wants.module:309
+msgid "The proposition will expire in @days days"
+msgstr ""
+
+#: offers_wants.module:376
+msgid "It belongs in these categories"
+msgstr ""
+
+#: offers_wants.module:389
+msgid "Disabled field. See !link"
+msgstr ""
+
+#: offers_wants.module:391
+msgid "Enable and disable the field at !link"
+msgstr ""
+
+#: offers_wants.module:401
+msgid "Selected categories"
+msgstr ""
+
+#: offers_wants.module:406
+msgid "Add"
+msgstr ""
+
+#: offers_wants.module:462
+msgid "Your proposition is about to expire"
+msgstr ""
+
+#: offers_wants.module:463
+msgid "Dear !username\n\nYour have a proposition which will expire in !days days\n\n\"!title\"\n\nIf you do nothing it will disappear\n\nTo refresh it, just alter the expiry date at\n!link_url\n\nThe team at !site"
+msgstr ""
+
+#: offers_wants.module:486
+msgid "Main vocabulary for 'proposition' categories"
+msgstr ""
+
+#: offers_wants.module:487
+msgid "This vocabulary cannot be deleted."
+msgstr ""
+
+#: offers_wants.module:502
+msgid "Extra fields"
+msgstr ""
+
+#: offers_wants.module:503
+msgid "Propositions have optional properties to help identify them more clearly. Use more properties for larger systems, as well as increasing the granularity in the vocabulary."
+msgstr ""
+
+#: offers_wants.module:504
+msgid "Enabling too many of these properties will make the user experience cumbersome."
+msgstr ""
+
+#: offers_wants.module:507
+msgid "Enable 'details' field"
+msgstr ""
+
+#: offers_wants.module:513
+msgid "Enable wants in addition to offers"
+msgstr ""
+
+#: offers_wants.module:520
+msgid "Enable comments on propositions"
+msgstr ""
+
+#: offers_wants.module:531
+msgid "Proposition expiry"
+msgstr ""
+
+#: offers_wants.module:533
+msgid "Send reminders before propositions expire"
+msgstr ""
+
+#: offers_wants.module:537
+msgid "Enable expiry dates"
+msgstr ""
+
+#: offers_wants.module:538
+msgid "Propositions are automatically unpublished when they expire, and can be seen only by the owner and admin."
+msgstr ""
+
+#: offers_wants.module:544
+msgid "Default period for trade notices"
+msgstr ""
+
+#: offers_wants.module:551
+msgid "Number of days before expiry to send reminder mail"
+msgstr ""
+
+#: offers_wants.module:557;564
+msgid "Mail template"
+msgstr ""
+
+#: offers_wants.module:558;565
+msgid "Use the following tokens:"
+msgstr ""
+
+#: offers_wants.module:581
+msgid "Leave 'types' blank or put at least 2 types are required, separated by pipes."
+msgstr ""
+
+#: offers_wants.module:602
+msgid "Some views respond to settings on this page, but only 'default' views."
+msgstr ""
+
+#: offers_wants.module:603
+msgid "'Overridden' views are not affected, but can be 'Reverted'."
+msgstr ""
+
+#: offers_wants.module:622
+msgid "Permanent"
+msgstr ""
+
+#: offers_wants.module:623
+msgid "1 week"
+msgstr ""
+
+#: offers_wants.module:624
+msgid "2 weeks"
+msgstr ""
+
+#: offers_wants.module:625
+msgid "1 month"
+msgstr ""
+
+#: offers_wants.module:626
+msgid "2 months"
+msgstr ""
+
+#: offers_wants.module:627
+msgid "3 months"
+msgstr ""
+
+#: offers_wants.module:628
+msgid "6 months"
+msgstr ""
+
+#: offers_wants.module:629
+msgid "1 year"
+msgstr ""
+
+#: offers_wants.module:724
+msgid "Other propositions from @name"
+msgstr ""
+
+#: offers_wants.module:730
+msgid "Send an email to @name"
+msgstr ""
+
+#: offers_wants.module:734
+msgid "See @name's profile"
+msgstr ""
+
+#: offers_wants.module:749
+msgid "See more in category @name"
+msgstr ""
+
+#: offers_wants.module:759
+msgid "See more of type @name"
+msgstr ""
+
+#: offers_wants.module:799
+msgid "Continue"
+msgstr ""
+
+#: offers_wants.module:837
+msgid "An html table sent direct to the browser"
+msgstr ""
+
+#: offers_wants.module:99
+msgid "post propositions"
+msgstr ""
+
+#: offers_wants.module:99
+msgid "view propositions"
+msgstr ""
+
+#: offers_wants.module:43
+msgid "Offers and wants controls"
+msgstr ""
+
+#: offers_wants.module:49
+msgid "Create offer proposition"
+msgstr ""
+
+#: offers_wants.module:58
+msgid "Create request propositions"
+msgstr ""
+
+#: offers_wants_import.module:10
+msgid "Defines two contentTypes which are created and edited by each user and which are presented as a directory categorised using taxonomy."
+msgstr ""
+
+#: offers_wants_import.module:89
+msgid "This page allows you to import users' @type for users already on the system."
+msgstr ""
+
+#: offers_wants_import.module:90
+msgid "There are other ways of doing this, but this is simple and maintained along with the rest of the marketplace module."
+msgstr ""
+
+#: offers_wants_import.module:92
+msgid "Use a spreadsheet tool to prepare a list of user ids, or names, and their @type in one line. "
+msgstr ""
+
+#: offers_wants_import.module:93
+msgid "For aesthetic reasons, there is a 128 character limit on each description. "
+msgstr ""
+
+#: offers_wants_import.module:94
+msgid "Each line should look like this (you must include the header row): !code"
+msgstr ""
+
+#: offers_wants_import.module:95
+msgid "Try importing one or two first."
+msgstr ""
+
+#: offers_wants_import.module:104
+msgid "The description on line @rownum is more than 128 characters: @string"
+msgstr ""
+
+#: offers_wants.install:202
+msgid "boolean undefined property"
+msgstr ""
+
+#: offers_wants.install:360 views/offers_wants.views.inc:536;1293
+msgid "Category"
+msgstr ""
+
+#: offers_wants.install:361
+msgid "Subcategory"
+msgstr ""
+
+#: offers_wants.install:366
+msgid "All selections"
+msgstr ""
+
+#: offers_wants.install:387
+msgid "Proposition categories"
+msgstr ""
+
+#: offers_wants.install:388
+msgid "This vocabulary is for categorising activities people do in their community. It can be used like the 'yellow pages' to help locate goods and services, but can also be used later on, for monitoring purposes."
+msgstr ""
+
+#: offers_wants.install:389
+msgid "Choose one or more categories"
+msgstr ""
+
+#: offers_wants.install:407
+msgid "Proposition types"
+msgstr ""
+
+#: offers_wants.install:408
+msgid "This vocabulary provides an extra dimension to your offers and wants. When it has more than one term, it shows as tabs on the views pages"
+msgstr ""
+
+#: offers_wants.install:409
+msgid "Choose one or more types"
+msgstr ""
+
+#: offers_wants.info:0
+msgid "Offers & wants"
+msgstr ""
+
+#: offers_wants.info:0
+msgid "Small ads with 2 dimensions of categories, views and blocks"
+msgstr ""
+
+#: offers_wants.info:0 offers_wants_import.info:0
+msgid "Local communities"
+msgstr ""
+
+#: offers_wants_import.info:0
+msgid "Offers/wants import"
+msgstr ""
+
+#: offers_wants_import.info:0
+msgid "paste your comma separated values"
+msgstr ""
+
+#: views/offers_wants.views.inc:27;1505
+msgid "Propositions"
+msgstr ""
+
+#: views/offers_wants.views.inc:35;195;572;794;1019;1143;1325
+msgid "Expires"
+msgstr ""
+
+#: views/offers_wants.views.inc:36
+msgid "Date that the proposition is schedules to be unpublished"
+msgstr ""
+
+#: views/offers_wants.views.inc:49
+msgid "Is a want"
+msgstr ""
+
+#: views/offers_wants.views.inc:55
+msgid "Filter by proposition direction"
+msgstr ""
+
+#: views/offers_wants.views.inc:60
+msgid "Is time limited"
+msgstr ""
+
+#: views/offers_wants.views.inc:61
+msgid "Show only temporary or permanent propositions"
+msgstr ""
+
+#: views/offers_wants.views.inc:77 views/views_handler_field_ow_want.inc:8
+msgid "Offers"
+msgstr ""
+
+#: views/offers_wants.views.inc:80 views/views_handler_field_ow_want.inc:8
+msgid "Wants"
+msgstr ""
+
+#: views/offers_wants.views.inc:134;330
+msgid "@prop directory"
+msgstr ""
+
+#: views/offers_wants.views.inc:144
+msgid "Title, click for more"
+msgstr ""
+
+#: views/offers_wants.views.inc:156;707;962;1122
+msgid "Member"
+msgstr ""
+
+#: views/offers_wants.views.inc:165;752;1007;1131
+msgid "Locality"
+msgstr ""
+
+#: views/offers_wants.views.inc:177;554;776;1309
+msgid "Type"
+msgstr ""
+
+#: views/offers_wants.views.inc:334
+msgid "There are no propositions in this category"
+msgstr ""
+
+#: views/offers_wants.views.inc:372
+msgid "All"
+msgstr ""
+
+#: views/offers_wants.views.inc:415
+msgid "Latest @types"
+msgstr ""
+
+#: views/offers_wants.views.inc:430
+msgid "Latest @proptitle"
+msgstr ""
+
+#: views/offers_wants.views.inc:653;908;1281
+msgid "Description"
+msgstr ""
+
+#: views/offers_wants.views.inc:737;992
+msgid "Telephone"
+msgstr ""
+
+#: views/offers_wants.views.inc:1110
+msgid "Title, click for details"
+msgstr ""
+
+#: views/offers_wants.views.inc:1352
+msgid "Edit"
+msgstr ""
+
+#: views/offers_wants.views.inc:1364
+msgid "delete"
+msgstr ""
+
+#: views/offers_wants.views.inc:1500
+msgid "No offers have been entered."
+msgstr ""
+
+#: views/offers_wants.views.inc:1520
+msgid "Expired"
+msgstr ""
+
+#: views/offers_wants.views.inc:1585
+msgid "Expired propositions"
+msgstr ""
+
+#: views/offers_wants.views.inc:1586
+msgid "The following propositions have expired and are not visible to other users. To re-enable them, simply edit and save them."
+msgstr ""
+
+#: views/offers_wants.views.inc:1602
+msgid "Propositions about to expire"
+msgstr ""
+
+#: views/views_plugin_display_print_table.inc:46
+msgid "Printed on @date"
+msgstr ""
+
+#: views/views_plugin_display_print_table.inc:86
+msgid "Print-page settings"
+msgstr ""
+
+#: views/views_plugin_display_print_table.inc:93
+msgid "Multiple displays"
+msgstr ""
+
+#: views/views_plugin_display_print_table.inc:103
+msgid "None"
+msgstr ""
+
+#: views/views_plugin_display_print_table.inc:108;126
+msgid "Attach to"
+msgstr ""
+
+#: views/views_plugin_display_print_table.inc:113;142
+msgid "Position"
+msgstr ""
+
+#: views/views_plugin_display_print_table.inc:135
+msgid "The feed icon will be available only to the selected displays."
+msgstr ""
+
+#: views/views_plugin_display_print_table.inc:145
+msgid "Attach before or after the parent display?"
+msgstr ""
+
+#: views/views_plugin_display_print_table.inc:151
+msgid "This view will be displayed by visiting this path on your site. It is recommended that the path be something like \"path/%/%/feed\" or \"path/%/%/rss.xml\", putting one % in the path for each argument you have defined in the view."
+msgstr ""
+
+#: views/views_plugin_display_print_table.inc:172
+msgid "Before"
+msgstr ""
+
+#: views/views_plugin_display_print_table.inc:173
+msgid "After"
+msgstr ""
+
+#: views/views_plugin_display_print_table.inc:174
+msgid "Both"
+msgstr ""
+
+#: views/views_plugin_display_print_table.inc:201
+msgid "Printer-friendly version"
+msgstr ""
+
+msgid "Notify all @role users"
+msgstr ""
+
+msgid "Stop displaying this proposition on (date)"
+msgstr ""
+
+msgid "Broadcast"
+msgstr ""
+
+msgid "If a proposition is urgent, users may check this box to mail all users with this role."
+msgstr ""
+
+msgid "N.B. This will send all the mails at the same time. A slow web server or a large list may not send all mails before the page request times out."
+msgstr ""
+
+msgid "Don't send"
+msgstr ""
+
+msgid "Urgent proposition from"
+msgstr ""
+
+msgid "@user has commented on your proposition:"
+msgstr ""

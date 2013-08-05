@@ -1,0 +1,14 @@
+<?php
+// $Id: pageroute_test.module,v 1.1.2.2 2009/12/12 16:46:26 sgilits Exp $
+
+/**
+ * @file
+ * Contains the hook for the page access test
+ */
+
+function pageroute_test_pageroute_view($route, $user, $uid, $nid) {
+  if (!in_array('pageroute_access', $user->roles)) {
+    $route->pageAccess["p1"] = FALSE;
+    $route->pageAccess["p3"] = FALSE;
+  }
+}

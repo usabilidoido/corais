@@ -1,0 +1,46 @@
+<?php
+// $Id: mentions.install,v 1.5 2009/07/23 05:20:03 deciphered Exp $
+/**
+ * @file
+ * Contains database schema for the Mentions module.
+ */
+
+/**
+ * Implementation of hook_schema().
+ */
+function mentions_schema() {
+  $schema['mentions'] = array(
+    'fields' => array(
+      'type' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => ''),
+      'mid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+      'uid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+      'auid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+      'timestamp' => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+    ),
+    'indexes' => array(
+      'uid' => array('uid'),
+    ),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function mentions_install() {
+  drupal_install_schema('mentions');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function mentions_uninstall() {
+  drupal_uninstall_schema('mentions');
+
+  variable_del('mentions_input_prefix');
+  variable_del('mentions_input_suffix');
+  variable_del('mentions_output_prefix');
+  variable_del('mentions_output_content');
+  variable_del('mentions_output_prefix');
+}

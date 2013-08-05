@@ -1,0 +1,25 @@
+; $Id: pageroute_ui.info,v 1.1.4.7 2009/03/26 13:53:36 tauran Exp $
+name = Pageroute UI
+description = Adminstration pages allowing you to create and edit pageroutes.
+package = Pageroute
+dependencies[] = pageroute
+core = "6.x"
+; Information added by drupal.org packaging script on 2007-11-07
+version = "6.x"
+project = "pageroute"
+datestamp = "1194394018"
+
+
+; Information added by drupal.org packaging script on 2008-11-14
+version = "6.x-1.x-dev"
+core = "6.x"
+project = "pageroute"
+datestamp = "1226664644"
+
+
+; Information added by drupal.org packaging script on 2009-12-12
+version = "6.x-1.0-beta5"
+core = "6.x"
+project = "pageroute"
+datestamp = "1260636650"
+

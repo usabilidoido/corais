@@ -1,0 +1,141 @@
+***************
+*** 85,153 ****
+    // get nids of images and start batch process (validation)
+    $type = node_get_types('type', str_replace("-", "_", check_plain(arg(2))));
+    $image_nids = explode(';', $form_state['values']['image_nodes']);
+-   
+-   for ($i = 0; $i < count($image_nids); $i++) {  
+      if (!empty($type->min_word_count) && isset($form_state['values']['body_' .$image_nids[$i]]) && count(explode(' ', $form_state['values']['body_' .$image_nids[$i]])) < $type->min_word_count) {
+        form_set_error('body_' .$image_nids[$i], t('The body of the @img_number. image is too short. You need at least %words words.', array('%words' => $type->min_word_count, '@img_number' => $i + 1)));
+-     }  
+-   } 
+  }
+  
+- function fupload_list_images_image_submit($form, &$form_state) {  
+    // get nids of images and start batch process (saving)
+-   $image_nids = explode(';', $form_state['values']['image_nodes']); 
+    // name of image field
+    $field_name = $form_state['values']['field_name'];
+-   for ($i = 0; $i < count($image_nids); $i++) { 
+-     // load full node object  
+-     $node = node_load($image_nids[$i]);    
+      // new changes to node object
+      $node->status = 1; // publish node
+      $node->title = !empty($form_state['values']['title_' .$image_nids[$i]]) ? $form_state['values']['title_' .$image_nids[$i]] : $node->title; // work around [#227966]
+      $node->body = $form_state['values']['body_' .$image_nids[$i]];
+      if ($node->body == image_fupload_image_status($field_name, IMAGE_NOT_COMPLETED) || !isset($form_state['values']['body_' .$image_nids[$i]])) // nothing changed ==> empty body field
+        $node->body = "";
+-     $node->teaser = node_teaser($node->body, $form_state['values']['format_' .$image_nids[$i]]);    
+-     $node->format = $form_state['values']['format_' .$image_nids[$i]];    
+      // save new node object
+      node_save($node);
+    }
+    drupal_set_message(t('All images have been saved and published.'));
+    drupal_set_message(t('Additonal images can be selected and uploaded now.'));
+-   drupal_redirect_form($form);  
+  }
+  
+  function _fupload_imagepreview($node_image, $node_type) {
+    $image_node_types = variable_get('image_node_types', array());
+    $attributes = variable_get('fupload_previewlist_img_attributes', '');
+    /** need to split image module and other cck related imagemodules to be able to provide the right
+-      *     preview handling 
+       */
+-   switch ($node_type) {    
+  	case 'image':
+        // image module
+        if (!empty($image_node_types['image']['imagecache_preset'])) {
+          // using ImageCache
+-         $content = theme('imagecache', $image_node_types['image']['imagecache_preset'], $node_image->images['_original'], $node_image->title, $node_image->title, $attributes);
+        } else {
+          // using a ready-to-use Image size of Image module
+          $image = $node_image->images[$image_node_types['image']['image_selection']];
+          $content = theme('fupload_imagepreview_image', $image, image_get_info($image), $node_image, $attributes);
+        }
+        break;
+-     
+      default:
+        // imagefield cck module
+        if (!empty($image_node_types[$node_type]['imagecache_preset'])) {
+          // using ImageCache
+          $field_name = $image_node_types[$node_type]['fieldname'];
+          $image = $node_image->$field_name;
+-         
+-         $content = theme('imagecache', $image_node_types[$node_type]['imagecache_preset'], $image[0]['filepath'], $node_image->title, $node_image->title, $attributes);
+        }
+        break;
+    }
+-   
+    return $content;
+  }
+  
+--- 85,153 ----
+    // get nids of images and start batch process (validation)
+    $type = node_get_types('type', str_replace("-", "_", check_plain(arg(2))));
+    $image_nids = explode(';', $form_state['values']['image_nodes']);
++ 
++   for ($i = 0; $i < count($image_nids); $i++) {
+      if (!empty($type->min_word_count) && isset($form_state['values']['body_' .$image_nids[$i]]) && count(explode(' ', $form_state['values']['body_' .$image_nids[$i]])) < $type->min_word_count) {
+        form_set_error('body_' .$image_nids[$i], t('The body of the @img_number. image is too short. You need at least %words words.', array('%words' => $type->min_word_count, '@img_number' => $i + 1)));
++     }
++   }
+  }
+  
++ function fupload_list_images_image_submit($form, &$form_state) {
+    // get nids of images and start batch process (saving)
++   $image_nids = explode(';', $form_state['values']['image_nodes']);
+    // name of image field
+    $field_name = $form_state['values']['field_name'];
++   for ($i = 0; $i < count($image_nids); $i++) {
++     // load full node object
++     $node = node_load($image_nids[$i]);
+      // new changes to node object
+      $node->status = 1; // publish node
+      $node->title = !empty($form_state['values']['title_' .$image_nids[$i]]) ? $form_state['values']['title_' .$image_nids[$i]] : $node->title; // work around [#227966]
+      $node->body = $form_state['values']['body_' .$image_nids[$i]];
+      if ($node->body == image_fupload_image_status($field_name, IMAGE_NOT_COMPLETED) || !isset($form_state['values']['body_' .$image_nids[$i]])) // nothing changed ==> empty body field
+        $node->body = "";
++     $node->teaser = node_teaser($node->body, $form_state['values']['format_' .$image_nids[$i]]);
++     $node->format = $form_state['values']['format_' .$image_nids[$i]];
+      // save new node object
+      node_save($node);
+    }
+    drupal_set_message(t('All images have been saved and published.'));
+    drupal_set_message(t('Additonal images can be selected and uploaded now.'));
++   drupal_redirect_form($form);
+  }
+  
+  function _fupload_imagepreview($node_image, $node_type) {
+    $image_node_types = variable_get('image_node_types', array());
+    $attributes = variable_get('fupload_previewlist_img_attributes', '');
+    /** need to split image module and other cck related imagemodules to be able to provide the right
++      *     preview handling
+       */
++   switch ($node_type) {
+  	case 'image':
+        // image module
+        if (!empty($image_node_types['image']['imagecache_preset'])) {
+          // using ImageCache
++         $content = theme('imagecache', $image_node_types['image']['imagecache_preset'], $node_image->images['_original'], $node_image->title, $node_image->title, _fupload_get_attributes_array($attributes));
+        } else {
+          // using a ready-to-use Image size of Image module
+          $image = $node_image->images[$image_node_types['image']['image_selection']];
+          $content = theme('fupload_imagepreview_image', $image, image_get_info($image), $node_image, $attributes);
+        }
+        break;
++ 
+      default:
+        // imagefield cck module
+        if (!empty($image_node_types[$node_type]['imagecache_preset'])) {
+          // using ImageCache
+          $field_name = $image_node_types[$node_type]['fieldname'];
+          $image = $node_image->$field_name;
++ 
++         $content = theme('imagecache', $image_node_types[$node_type]['imagecache_preset'], $image[0]['filepath'], $node_image->title, $node_image->title, _fupload_get_attributes_array($attributes));
+        }
+        break;
+    }
++ 
+    return $content;
+  }
+  

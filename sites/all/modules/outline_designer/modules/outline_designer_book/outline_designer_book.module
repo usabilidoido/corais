@@ -1,0 +1,888 @@
+<?php
+/**
+ * @file
+ * Book intgration with Outline Designer
+ */
+
+/**
+ * Implementation of hook_help().
+ */
+function outline_designer_book_help($path, $arg) {
+  switch ($path) {
+    case 'admin/content/book/settings':
+      return 'Use this to change what content types are available while outlining content. The default will also be what is automatically selected when adding new content.';
+    case 'admin/content/book/outline_designer':
+      return "Use icons that visually describe your content so that there is no confusion about what's being created.  It also helps in visualizing your site when you have pages, containers, webforms and other content all living in the same hierarchy.";
+  }
+}
+
+/**
+ * Implementation of hook_init().
+ */
+function outline_designer_book_init() {
+  if (arg(0) == 'admin' && arg(1) == 'content' && arg(2) == 'book' && (arg(3) == '' || arg(3) == 'list') ) {
+    drupal_add_css(drupal_get_path('module', 'outline_designer') .'/css/outline_designer.css');
+  $js = '
+  function od_add_book(){
+    window.location="'. base_path() .'?q=node/add/'. variable_get('book_child_type', 'book') .'";
+  }
+  $(document).ready(function(){$(".sticky-table").before('."'".'<div style="width:120px;" class="context-menu context-menu-theme-'. variable_get('outline_designer_theme', 'vista') .'"><div title="" class="context-menu-item"><div style="background-image: url('. base_path() . drupal_get_path('module', 'outline_designer') .'/images/add_content.png);" class="context-menu-item-inner" onclick="od_add_book();">'. t('add book') .'</div></div></div>'."');
+  });";
+    drupal_add_js($js, 'inline');
+  }
+}
+
+function _outline_designer_book_get_unavailable($nid, $ajax_path) {
+  global $user;
+  // Select only those that the book module say can be outlined
+  $types_ary = variable_get('book_allowed_types', array('page'));
+
+  // Make sure default is allowed by this user.
+  if (node_access('create', variable_get('book_child_type', 'book'))) {
+    $default_type = variable_get('book_child_type', 'book');
+  }
+  else {
+    foreach ($types_ary as $current_type) {
+      if (node_access('create', $current_type)) {
+        $default_type = $current_type;
+      }
+    }
+  }
+  // create the array of menu items unavailable to the user by combining
+  // the unavailable menu items in common in all of the user's roles
+  $unchecked_menu_items = array();
+  $view_all = FALSE;
+  if ($user->uid == 1) { // user1 should always see all menu items
+    $view_all = TRUE;
+  }
+  else {
+    $saved_unchecked_items = variable_get('outline_designer_context_menu_exclusion_matrix', array());
+    // collect only the items unchecked in all of the user's roles
+    foreach (array_keys($user->roles) as $rid) {
+      if ($saved_unchecked_items[$rid] != NULL) {
+        $unchecked_menu_items = array_keys($saved_unchecked_items[$rid]);
+        if (isset($tmp)) {
+          $unchecked_menu_items = array_intersect($tmp, $unchecked_menu_items);
+        }
+        $tmp = $unchecked_menu_items;
+      }
+      else {
+        // role not found, they can see everything
+        $view_all = TRUE;
+      }
+    }
+  }
+  // the permission check found that this user should have access to view everything so ignore the unchecked metric
+  if ($view_all) {
+    $unchecked_menu_items = array();
+  }
+  return array_values($unchecked_menu_items);
+}
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function outline_designer_book_form_alter(&$form, $form_state, $form_id) {
+  if ($form_id == 'book_admin_edit' && (arg(0) == "admin" || (arg(0) == 'outline_designer' && arg(1) == 'ajax'))) {
+    _outline_designer_book_admin_form_alter($form, $form_state, $form_id, 'outline_designer/ajax/');
+  }
+}
+
+/**
+ * Helper to allow other sub-sub projects to implement this
+ */
+function _outline_designer_book_admin_form_alter(&$form, $form_state, $form_id, $ajax_path) {
+  _outline_designer_setup($ajax_path);
+  $icon_path = base_path() . drupal_get_path('module', 'outline_designer') .'/images/';
+  $unavailableContextMenuItems = _outline_designer_book_get_unavailable($form['#node']->nid, $ajax_path);
+  $form['ahah'] = array(
+  '#type' => 'submit',
+  '#id' => 'reload_table',
+  '#value' => t('AHAH submit'),
+  '#weight' => 1,
+  '#submit' => array(),
+  '#ahah' => array(
+    'event' => 'change',
+    'path' => $ajax_path . drupal_get_token() .'/book/reload_table/'. $form['#node']->nid,
+    'wrapper' => 'od-book-edit',
+    'method' => 'replace',
+    'effect' => 'none',
+    'progress' => array(
+        'type' => 'throbber',
+        'message' => t('Loading..'),
+      ),
+    ),
+  );
+
+  $od_path = drupal_get_path('module', 'outline_designer');
+  // unset things so that the form renders with everything stripped off
+  // helps OD work in browsers that respect <enter> button for submitting the whole page/form
+  $form["#submit"] = '';
+  $form["#action"] =  $ajax_path . drupal_get_token() .'/book/reload_table/'. $form['#node']->nid;
+  $form["#method"] = 'POST';
+  $form["save"] ='';
+  $rendered_items = module_invoke_all('outline_designer_form_overlay');
+  $render = implode('', $rendered_items);
+  $form["#suffix"] = theme('outline_designer_overlay_suffix', $render);
+  $base_path = base_path();
+  $count = 0;
+  foreach ($form['table'] as $key => $row) {
+    $count++;
+    if ($key != '#theme' && $key != '#tree') {
+      $tmpnid = $row['nid']['#value'];
+      $type = db_result(db_query("SELECT type FROM {node} WHERE nid=%d", $tmpnid));
+      $form['table'][$key]['title']['#prefix'] = theme('outline_designer_prefix', $type, $tmpnid, $icon_path);
+      // if this has kids then give it a drop down
+      if ($form['table'][$key]['#item']['has_children'] == 1) {
+        $form['table'][$key]['title']['#suffix'] = theme('outline_designer_suffix', $tmpnid, $icon_path);
+      }
+    }
+  }
+  // this is to trap for a goofy Drupal js error that's core
+  if ($count == 2) {
+    // Select only those that the book module say can be outlined
+    $types_ary = variable_get('book_allowed_types', array('page'));
+
+    // make sure default is allowed by this user
+    if (node_access('create', variable_get('book_child_type', 'book'))) {
+      $default_type = variable_get('book_child_type', 'book');
+    }
+    else {
+      foreach ($types_ary as $current_type) {
+        if (node_access('create', $current_type)) {
+          $default_type = $current_type;
+        }
+      }
+    }
+    drupal_set_message(t('Books need to have at least one piece of content in them in order to work correctly with the outline designer'), 'error');
+    drupal_goto('node/add/'. $default_type, 'parent='. $form['#node']->book['mlid'] .'&destination='. $_GET['q']);
+  }
+  // check for quick add ability from context options
+  if (array_search('add_content', $unavailableContextMenuItems) === FALSE) {
+    $can_add = TRUE;
+  }
+  else {
+    $can_add = FALSE;
+  }
+  $form['table']['#prefix'] = theme('outline_designer_ui_prefix', $form['#node']->nid, $icon_path, $can_add);
+}
+
+
+
+/**
+ * Implementation of hook_menu().
+ */
+function outline_designer_book_menu() {
+  $items = array();
+  $items['admin/content/book/outline_designer'] = array(
+      'title' => 'Outline designer',
+      'description' => 'The Outline Designer settings allow you to associate icons to content types for use in structuring book content.',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('_outline_designer_book_settings'),
+      'type' => MENU_LOCAL_TASK,
+      'weight' => 9,
+      'access arguments' => array('administer site configuration')
+  );
+  return $items;
+}
+
+/**
+ * Helper function to make outline designer settings more obvious.
+ */
+function _outline_designer_book_settings_redirect() {
+  drupal_goto('admin/content/book/outline_designer');
+}
+
+/**
+ * Implementation of hook_settings().
+ */
+function _outline_designer_book_settings($form_state) {
+  // build out a list of the packaged icons
+  $icons = array('add_content', 'change_type', 'close', 'delete', 'duplicate', 'edit', 'folder', 'link', 'node', 'page', 'rename', 'save', 'settings', 'story', 'view');
+  $packaged_icons = '<label>'. t('Default Icon set') .':</label>';
+  foreach ($icons as $title) {
+    $packaged_icons .= '<img src="'. base_path() . drupal_get_path('module', 'outline_designer') .'/images/'. $title .'.png" title="'. $title .'" alt="'. $title .'" hspace="2px" />';
+  }
+  // add in archived icon set on a separate row
+  $packaged_icons .= '<br/><label>'. t('Additional icon') .':</label>';
+  foreach ($icons as $title) {
+    $packaged_icons .= '<img src="'. base_path() . drupal_get_path('module', 'outline_designer') .'/images/additional_icons/'. $title .'.png" title="'. $title .'" alt="'. $title .'" hspace="2px" />';
+  }
+  // create it just incase and make sure it's writable
+  $dir = file_create_path(file_directory_path() .'/outline_designer');
+  file_check_directory($dir, 1);
+  // make sure it can be opened
+  if ($handle = opendir('./'. file_directory_path() .'/outline_designer')) {
+    while (FALSE !== ($file = readdir($handle))) {
+      if ($file != "." && $file != "..") {
+        $uploaded_icons .='<img src="'. base_path() . file_directory_path() .'/outline_designer/'. $file .'" title="'. $file .'" alt="'. $file .'" hspace="2px" />';
+      }
+    }
+    closedir($handle);
+  }
+  // context menu settings
+  $form["context_menu"] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Context menu'),
+    '#collapsed' => FALSE,
+    '#collapsible' => TRUE,
+    '#description' => 'The selected items will appear in the Outline Designer context menu, depending on the user\'s roles. Users with several roles will cumulate the roles settings.<br />WARNING: only roles with permission \'administer book outlines\' or group admins (if outline_designer_og is activated) will be able to utilize these settings.',
+    '#theme' => 'outline_designer_context_menu_items_matrix',
+  );
+  $roles = user_roles(TRUE);
+  // build list of operations
+  $ops = _outline_designer_get_operations('book');
+  $saved_unchecked_items = variable_get('outline_designer_context_menu_exclusion_matrix', array());
+  // create a checkbox for each menu item for each role
+  foreach ($ops as $key => $op) {
+    foreach ($roles as $rid => $role) {
+      // if the checkbox is present in the 'outline_designer_context_menu_exclusion_matrix' variable,
+      // then we need to uncheck it (e.g. assign FALSE to #default_value)
+      $default_value = (isset($saved_unchecked_items[$rid][$key]['unchecked']))? FALSE : TRUE;
+      $form["context_menu"]["checkboxes"][$key]["outline_designer_context_menu_". $key ."_". $rid] = array(
+  '#name' => 'outline_designer_context_menu_'. $key .'_'. $rid,
+        '#type' => 'checkbox',
+        '#title' => $op['title'],
+        '#default_value' => $default_value,
+        '#return_value' => array(
+          'operation' => $key,
+          'rid' => $rid,
+        ),
+      );
+    }
+  }
+  // icons
+  $form["packaged_icons"] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Packaged icons'),
+    '#collapsed' => FALSE,
+    '#collapsible' => TRUE,
+  );
+  $form["packaged_icons"]["packaged"] = array(
+    '#type' => 'markup',
+    '#title' => 'packaged',
+    '#value' => $packaged_icons,
+  );
+  $form["uploaded_icons"] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Uploaded icons'),
+    '#collapsed' => FALSE,
+    '#collapsible' => TRUE,
+  );
+  $form["uploaded_icons"]["uploaded"] = array(
+    '#type' => 'markup',
+    '#value' => $uploaded_icons,
+  );
+  $result = db_query("SELECT type, name FROM {node_type}");
+  $types_ary = variable_get('book_allowed_types', array('page'));
+  while ($value = db_fetch_array($result)) {
+    // only show types that are allowed
+    if (in_array($value['type'], $types_ary)) {
+      // create a textfield incase they want to enter an icon that way
+      $img = '<img src="'. base_path() . variable_get("outline_designer_". $value['type'] ."_icon", drupal_get_path('module', 'outline_designer') ."/images/page.png") .'" style="display:inline !important" /> ';
+      $form["outline_designer_". $value['type']] = array(
+        '#type' => 'fieldset',
+        '#title' => $img . $value['name'],
+        '#collapsed' => TRUE,
+        '#collapsible' => TRUE,
+        '#description' => t("This icon will be associated to the content type in book outlines. The icon must be 16x16, unless an <a href=@toolkit>image toolkit</a> is installed, and in jpg, gif or png format.", array('@toolkit' => url('admin/settings/image-toolkit'))),
+      );
+      $form["outline_designer_". $value['type']]["outline_designer_". $value['type'] ."_icon_link"] = array(
+        '#type' => 'textfield',
+        '#title' => t("Icon path"),
+        '#default_value' => variable_get("outline_designer_". $value['type'] ."_icon",  drupal_get_path('module', 'outline_designer') ."/images/page.png"),
+        '#required' => FALSE,
+        );
+      // Create a upload field for each content type so icons can be added for them
+      $form["outline_designer_". $value['type']]["outline_designer_". $value['type'] ."_icon"] = array(
+        '#type' => 'file',
+        '#size' => '10',
+        '#title' => t("Upload icon"),
+        '#required' => FALSE,
+      );
+    }
+  }
+  $form['#attributes'] = array('enctype' => "multipart/form-data");
+  $form['submit'] = array('#type' => 'submit', '#value' => t('Save'));
+  return $form;
+}
+/**
+ * Implementation of hook_settings_submit().
+ */
+function _outline_designer_book_settings_submit($form, &$form_state) {
+  $checkboxes = array();
+  $items_unchecked = array();
+  // store the context menu settings
+  $form_values = array_filter($form_state['values']);
+  $menu_items = (array_keys($form["context_menu"]["checkboxes"]));
+  // collect all the ticked checkboxes
+  foreach ($form_values as $key => $val) {
+    if (strpos($key, "outline_designer_context_menu_") !== FALSE) {
+      $checkboxes[] = $key;
+    }
+  }
+  // extrapolate which items have unchecked by comparing the list of
+  // ticked checkboxes with the list of all the context menu checkboxes
+  foreach ($menu_items as  $item) {
+    if (drupal_substr($item, 0, 1) != "#") {
+      $item_checkboxes = $form["context_menu"]["checkboxes"][$item];
+      foreach ($item_checkboxes as $cb_name => $cb_properties) {
+        if ($cb_properties['#type'] == 'checkbox' && !in_array($cb_name, $checkboxes)) {
+          $items_unchecked[$cb_properties['#return_value']['rid']][$cb_properties['#return_value']['operation']]['unchecked'] = TRUE;
+        }
+      }
+    }
+  }
+  variable_set('outline_designer_context_menu_exclusion_matrix', array_filter($items_unchecked));
+
+  // store the checkbox value
+  variable_set('outline_designer_collapse_toggle', $form_state['values']["outline_designer_collapse_toggle"]);
+  // store theme selected
+  variable_set('outline_designer_theme', $form_state['values']["outline_designer_theme"]);
+  // take into account outline child pages
+  if (function_exists('outline_child_pages_menu')) {
+    variable_set('outline_child_pages_type', $form_state['values']["outline_child_pages_type"]);
+  }
+  // the rest is for files
+  $dir = file_create_path(file_directory_path() .'/outline_designer');
+  $is_writable = file_check_directory($dir,  1);
+  if ($is_writable) {
+    $validators = array(
+     'file_validate_is_image' => array(),
+     '_outline_designer_book_validate_image_resolution' => array('16x16'),
+     'file_validate_size' => array(30 * 1024),
+    );
+    $result = db_query("SELECT type, name FROM {node_type}");
+    while ($value = db_fetch_array($result)) {
+      if ($file = file_save_upload("outline_designer_". $value['type'] ."_icon",  $validators, $dir)) {
+        drupal_set_message(t('New @title icon saved.', array('@title' => $value['name'])));
+        variable_set("outline_designer_". $value['type'] ."_icon",  $file->filepath);
+      }
+      else {
+        // this is the case when there is no image uploaded to associate the textfield icon to the icon page to use,  this will allow for references to icons already used
+        $icon = check_plain($form_state['values']["outline_designer_". $value['type'] ."_icon_link"]);
+        $base_path = base_path();
+        // pull off the site name if it was included
+        if ($base_path != '/' && $base_path != '') {
+          if (strpos(' '. $icon, $base_path ) != 0) {
+            $pos = strpos($icon, $base_path) + drupal_strlen($base_path);
+            $icon = drupal_substr($icon, $pos);
+          }
+        }
+        // clean up the string incase those other two didn't do the trick
+        $icon = drupal_substr($icon, strpos($icon, drupal_get_path('module', 'outline_designer')));
+        $icon = drupal_substr($icon, strpos($icon, file_directory_path()));
+        // potentially this isn't a valid icon path on our server...need to still check this
+        variable_set("outline_designer_". $value['type'] ."_icon",  $icon);
+      }
+    }
+  }
+  drupal_set_message(t('Settings saved'));
+}
+
+// used in validating that an icon upload is the correct size
+function _outline_designer_book_validate_image_resolution(&$file, $dimensions) {
+  $errors = array();
+  // Check first that the file is an image.
+  if ($info = image_get_info($file->filepath)) {
+    // Check if the icon matches the given dimensions.
+    list($width, $height) = explode('x', $dimensions);
+    if ($info['width'] != $width || $info['height'] != $height) {
+      // Try to resize the image to fit the dimensions if it doesn't.
+      if (image_get_toolkit() && image_scale_and_crop($file->filepath, $file->filepath, $width, $height)) {
+        drupal_set_message(t('The image was resized to the allowed dimensions of %dimensions pixels.', array('%dimensions' => $dimensions)));
+        // Clear the cached filesize and refresh the image information.
+        clearstatcache();
+        $info = image_get_info($file->filepath);
+        $file->filesize = $info['file_size'];
+      }
+      else {
+        $errors[] = t('Image dimensions need to be %dimensions pixels.', array('%dimensions' => $maximum_dimensions));
+      }
+    }
+  }
+  return $errors;
+  }
+
+/**
+ * Implementation of hook_outline_designer_form_overlay().
+ */
+function outline_designer_book_outline_designer_form_overlay() {
+  // Select only those that the book module say can be outlined
+  $types_ary = variable_get('book_allowed_types', array('page'));
+  // make sure the user can submit these types via permissions
+  $result = db_query("SELECT type,name FROM {node_type} ORDER BY name");
+  $typeoutput = '<table><tr>';
+  $count = 0;
+  while ($value = db_fetch_array($result)) {
+    // ensure there is no permission escalation in type switching
+    if (array_search($value['type'], $types_ary) === FALSE) {
+    }
+    elseif (node_access('create', $value['type'])) {
+      $count++;
+      $typeoutput .= '<td><input type="radio" class="type_radio" name="content_type[]" value="'. $value['type'] .'"/> <img src="'. base_path() . variable_get("outline_designer_". $value['type'] ."_icon", drupal_get_path('module', 'outline_designer') ."/images/page.png") .'" />' . $value['name'] .'</td>';
+      if ($count % 3 == 0) {
+        $typeoutput .= '</tr><tr>';
+      }
+    }
+  }
+  $typeoutput .= '</tr></table>';
+  $duplicate_form['od_duplicate_number'] = array(
+    '#title' => t('How many copies would you like?'),
+    '#type' => 'select',
+    '#id' => 'od_duplicate_number',
+    '#description' => t('Duplicates will be performed one at a time to avoid load issues'),
+    '#options' => array(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15),
+    '#required' => TRUE,
+    '#default_value' => 1,
+    '#weight' => 0,
+  );
+  $duplicate_form['od_duplicate_multiple'] = array(
+   '#title' => t('Duplicate hierarchy'),
+   '#id' => 'od_duplicate_multiple',
+   '#type' => 'checkbox',
+   '#attributes' => array('checked' => 'checked'),
+   '#description' => t('If checked, the current content and all child pages will be duplicated'),
+   '#weight' => 1,
+  );
+  $duplicate_form['od_duplicate_title'] = array(
+   '#title' => t('Title format'),
+   '#id' => 'od_duplicate_title',
+   '#type' => 'textfield',
+   '#required' => TRUE,
+   '#size' => 20,
+   '#description' => t('Tokens: @title = content title; @i = duplicate number'),
+   '#weight' => 2,
+  );
+  // delete form
+  $delete_form['od_delete_multiple'] = array(
+   '#title' => t('Delete hierarchy'),
+   '#id' => 'od_delete_multiple',
+   '#type' => 'checkbox',
+   '#description' => t('Warning: This action cannot be undone.'),
+   '#weight' => 0,
+  );
+  // add form
+  $add_form['od_add_content_title'] = array(
+   '#title' => t('Title'),
+   '#id' => 'od_add_content_title',
+   '#type' => 'textfield',
+   '#required' => TRUE,
+   '#size' => 20,
+   '#description' => t('Make sure you edit content after creation if it has "required fields"
+'),
+   '#weight' => 0,
+   '#suffix' => $typeoutput,
+  );
+  $output = '<div id="od_duplicate" class="od_uiscreen">
+    '. drupal_render($duplicate_form) .'
+  </div>
+  <div id="od_delete" class="od_uiscreen">
+    '. drupal_render($delete_form) .'
+  </div>
+  <div id="od_change_type" class="od_uiscreen">
+<div class="description">'. t('Warning: Changing content types can have undesirable effects') .'</div>
+  '. $typeoutput .'
+  </div>
+  <div id="od_add_content" class="od_uiscreen">
+      '. drupal_render($add_form) .'
+  </div>';
+  return $output;
+}
+
+/**
+ * Implementation of hook_outline_designer_operations().
+ */
+function outline_designer_book_outline_designer_operations($type) {
+  // core API invoking functionality
+  switch ($type) {
+    case 'book':
+      $ops = array(
+      'drag_drop' => array(
+        'title' => '<<OUTLINE_DESIGNER_API_ONLY>>', 
+        'callback' => 'outline_designer_book_process_drag_drop',
+      ),
+      'reweight' => array(
+        'title' => '<<OUTLINE_DESIGNER_API_ONLY>>', 
+        'callback' => 'outline_designer_book_process_reweight',
+        ),
+      'reload_table' => array(
+        'title' => '<<OUTLINE_DESIGNER_API_ONLY>>', 
+        'callback' => 'outline_designer_book_process_reload_table',
+        ),
+      );
+    break;
+  }
+  return $ops;
+}
+
+
+/**
+ * Implementation of hook_outline_designer_operations_alter().
+ */
+function outline_designer_book_outline_designer_operations_alter(&$ops, $type) {
+  // seems silly but this way other hooked in actions are last
+  switch ($type) {
+    case 'book':
+      $icon_path = drupal_get_path('module', 'outline_designer') .'/images/';
+      $od_book_core = array(
+        'nid' => array('title' => t('Node id'), 'icon' => $icon_path .'node.png'),
+        'add_content' => array('title' => t('Add content'), 'icon' => $icon_path .'add_content.png', 'callback' => 'outline_designer_book_process_add_content'),
+        'rename' => array('title' => t('Rename'), 'icon' => $icon_path .'rename.png', 'callback' => 'outline_designer_book_process_rename'),
+        'edit' => array('title' => t('Edit'), 'icon' => $icon_path .'edit.png'),
+        'view' => array('title' => t('View'), 'icon' => $icon_path .'view.png'),
+        'delete' => array('title' => t('Delete'), 'icon' => $icon_path .'delete.png', 'callback' => 'outline_designer_book_process_delete'),
+        'duplicate' => array('title' => t('Duplicate'), 'icon' => $icon_path .'duplicate.png', 'callback' => 'outline_designer_book_process_duplicate'),
+        'change_type' => array('title' => t('Change type'), 'icon' => $icon_path .'change_type.png', 'callback' => 'outline_designer_book_process_change_type'),
+      );
+      $ops = array_merge($od_book_core, $ops);
+    break;
+  }
+}
+
+/**
+ * Implementation of hook_outline_designer_ops_js().
+ */
+function outline_designer_book_outline_designer_ops_js() {
+  drupal_add_js(drupal_get_path('module', 'outline_designer_book') .'/js/overrides.js', 'header');
+  drupal_add_js(drupal_get_path('module', 'outline_designer_book') .'/js/outline_designer_book.js', 'footer');
+    global $user;
+  // Select only those that the book module say can be outlined
+  $types_ary = variable_get('book_allowed_types', array('page'));
+
+  // Make sure default is allowed by this user.
+  if (node_access('create', variable_get('book_child_type', 'book'))) {
+    $default_type = variable_get('book_child_type', 'book');
+  }
+  else {
+    foreach ($types_ary as $current_type) {
+      if (node_access('create', $current_type)) {
+        $default_type = $current_type;
+      }
+    }
+  }
+  // create the array of menu items unavailable to the user by combining
+  // the unavailable menu items in common in all of the user's roles
+  $unchecked_menu_items = array();
+  $view_all = FALSE;
+  if ($user->uid == 1) { // user1 should always see all menu items
+    $view_all = TRUE;
+  }
+  else {
+    $saved_unchecked_items = variable_get('outline_designer_context_menu_exclusion_matrix', array());
+    // collect only the items unchecked in all of the user's roles
+    foreach (array_keys($user->roles) as $rid) {
+      if ($saved_unchecked_items[$rid] != NULL) {
+        $unchecked_menu_items = array_keys($saved_unchecked_items[$rid]);
+        if (isset($tmp)) {
+          $unchecked_menu_items = array_intersect($tmp, $unchecked_menu_items);
+        }
+        $tmp = $unchecked_menu_items;
+      }
+      else {
+        // role not found, they can see everything
+        $view_all = TRUE;
+      }
+    }
+  }
+  // the permission check found that this user should have access to view everything so ignore the unchecked metric
+  if ($view_all) {
+    $unchecked_menu_items = array();
+  }
+  // pass variables to js
+  $js_variables = array(
+    'outline_designer' => array(
+      'types' => array(),
+      'unavailableContextMenuItems' => array_values($unchecked_menu_items),
+      'operations' => _outline_designer_get_operations('book'),
+      'activeNid' => '',
+      'type' => 'book',
+      'rootNid' => $nid,
+      'defaultType' => $default_type,
+      'activeType' => $default_type,
+    ),
+  );
+  $result = db_query("SELECT type, name FROM {node_type} ORDER BY name");
+  while ($value = db_fetch_array($result)) {
+    // ensure there is no permission escalation
+    if (array_search($value['type'], $types_ary) === FALSE) {
+    }
+    elseif (node_access('create', $value['type'])) {
+      $js_variables['outline_designer_book']['types'][$value['type']] = array(
+        $value['name'],
+        variable_get("outline_designer_". $value['type'] ."_icon", drupal_get_path('module', 'outline_designer') ."/images/page.png"));
+    }
+  }
+  drupal_add_js($js_variables, "setting");
+  return 1;
+}
+
+/**
+ * Callback for add_content ajax call from outline designer.
+ */
+function outline_designer_book_process_add_content($title, $type, $parent_nid) {
+  global $user;
+  // need to account for the 3 weird characters in URLs
+  $title = str_replace("@2@F@", '/', $title);
+  $title = str_replace("@2@3@", '#', $title);
+  $title = str_replace("@2@B@", '+', $title);
+  $title = str_replace("@2@6@", '&', $title);
+  // set the node
+  $node = new stdClass();
+  $node->title = $title;
+  $node->type = $type;
+  $node->uid = $user->uid;
+  // load up the parent of this new item and then copy over the book structure stuff
+  $parent = node_load($parent_nid);
+  $node->book['weight'] = -15;
+  $node->book['plid'] = $parent->book['mlid'];
+  $node->book['bid'] = $parent->book['bid'];
+  $node->book['menu_name'] = $parent->book['menu_name'];
+  $node->book['module'] = $parent->book['module'];
+  // Allow other modules to alter the new book node.
+  drupal_alter('new_book_object', $node);
+  if (node_access('create', $node)) {
+    node_save($node);
+    watchdog('content', '%type: added %title.', array('%type' => $node->type, '%title' => $node->title));
+    return $parent->book['mlid'] .';msg:'. t('%type added (nid: %nid)', array('%type' => $node->type, '%nid' => $node->nid));
+  }
+  else {
+    return 0;
+  }
+}
+
+/**
+ * Callback for rename ajax call from outline designer.
+ */
+function outline_designer_book_process_rename($nid, $newtitle, $var3) {
+  // need to account for the 3 weird characters in URLs
+  $newtitle = str_replace("@2@F@", '/', $newtitle);
+  $newtitle = str_replace("@2@3@", '#', $newtitle);
+  $newtitle = str_replace("@2@B@", '+', $newtitle);
+  $newtitle = str_replace("@2@6@", '&', $newtitle);
+  $node = node_load($nid);
+  if (node_access('update', $node)) {
+    $node->log = t("Outline Designer -- node renamed from %title to %newtitle", array('%title' => $node->title, '%newtitle' => $newtitle));
+    $msg = t("Outline Designer -- node %nid renamed from %title to %newtitle", array('%nid' => $nid, '%title' => $node->title, '%newtitle' => $newtitle));
+    watchdog('content', $msg);
+    $oldtitle = $node->title;
+    $node->title = $newtitle;
+    $node->revision = 1;
+    node_save($node);
+    return t("Content renamed from %title to %newtitle", array('%title' => $oldtitle, '%newtitle' => $newtitle));
+  }
+  else {
+    return t("You don't have permissions to rename this content");
+  }
+}
+/**
+ * Callback for duplicate ajax call from outline designer.
+ */
+function outline_designer_book_process_duplicate($nid, $multiple, $dup_title) {
+  // need to account for the 3 weird characters in URLs
+  $dup_title = str_replace("@2@F@", '/', $dup_title);
+  $dup_title = str_replace("@2@3@", '#', $dup_title);
+  $dup_title = str_replace("@2@B@", '+', $dup_title);
+  // only duplicate 1 item
+  if ($multiple == 0) {
+    $node = node_load($nid);
+    $orig_node = $node;
+    $node->nid = NULL;
+    $node->created = NULL;
+    $node->book['mlid'] = NULL;
+    $node->book['has_children'] = 0;
+    $node->uid = $user->uid;
+    // swap out the title
+    $new_title = str_replace('@title', $node->title, $dup_title);
+    $node->title = $new_title;
+    if (node_access('create', $node) && node_access('view', $orig_node)) {
+      node_save($node);
+      $msg = t('%type: duplicated %title from node %nid.', array('%type' => $node->type, '%title' => $node->title, '%nid' => $nid));
+      watchdog('content', $msg);
+      return t('Content duplicated from %title (%nid).', array('%title' => $node->title, '%nid' => $nid));
+    }
+    else {
+      return 0;
+    }
+  }
+  else {
+    // snag the whole branch if multiple == 1
+    $permission_fail = FALSE;
+    $nids = $nid;
+    $map = array();
+    $node = node_load($nid);
+    // pull only the nodes that have the original node as a parent
+    $mlid = $node->book['mlid'];
+    // ensure this is a real value
+    if ($mlid != 0 && $mlid != '') {
+      $result = db_query("
+      SELECT link_path
+      FROM {menu_links}
+      WHERE p2=%d OR p3=%d OR p4=%d OR p5=%d OR p6=%d OR p7=%d OR p8=%d OR p9=%d
+      ORDER BY depth ASC", $mlid, $mlid, $mlid, $mlid, $mlid, $mlid, $mlid, $mlid);
+      while ($value = db_fetch_array($result)) {
+        $dup_node = node_load(str_replace('node/', '', $value['link_path']));
+        $orig_node = $dup_node;
+        $current_nid = $dup_node->nid;
+        $old_nid = $dup_node->nid;
+        $dup_node->nid = NULL;
+        $dup_node->created = NULL;
+        $dup_node->path = NULL;
+        $dup_node->uid = $user->uid;
+        $dup_node->revision = 1;
+        // swap out the title
+        $dup_node->title = str_replace('@title', $dup_node->title, $dup_title);
+        $old_mlid = $dup_node->book['mlid'];
+        $dup_node->book['mlid'] = NULL;
+        $dup_node->log = t("Outline Designer -- Duplicate of old node nid:%old_nid", array('%old_nid' => $old_nid));
+        if (isset($map[$dup_node->book['plid']]) ) {
+          $dup_node->book['plid'] = $map[$dup_node->book['plid']];
+        }
+        if (node_access('create', $dup_node) && node_access('view', $orig_node)) {
+          node_save($dup_node);
+          $map[$old_mlid] = $dup_node->book['mlid'];
+          watchdog('content', '%type: duplicated %title from node %current_nid.', array('%type' => $dup_node->type, '%title' => $dup_node->title, '%current_nid' => $current_nid));
+          $nids .= ', '. $old_nid;
+        }
+        else {
+          $permission_fail = TRUE;
+        }
+      }
+    }
+    else {
+      $permission_fail = TRUE;
+    }
+    // perm failure, blocked from happening
+    if ($permission_fail) {
+      return 0;
+    }
+    else {
+      return t('Content duplicated (nids:%nids)', array('%nids' => $nids));
+    }
+  }
+}
+/**
+ * Callback for delete ajax call from outline designer.
+ */
+function outline_designer_book_process_delete($nid, $multiple, $var3) {
+  // load node
+  $node = node_load($nid);
+  // check for multiple or single delete
+  if ($multiple == 0) {
+    // verify access for delete condition
+    if (node_access('delete', $node)) {
+      node_delete($nid);
+      return t('Content deleted (nid:%nid)', array('%nid' => $nid));
+    }
+    else {
+      return 0;
+    }
+  }
+  else {
+    // pull only the nodes that have this node as a parent
+    $mlid = $node->book['mlid'];
+    // make sure this isn't used to delete non book nodes
+    $del_count = 0;
+    $count = 0;
+    // verify this is in a menu, this is an additional form of protection
+    if ($mlid != 0 && $mlid != '') {
+      // select everything that has this mlid as a parent
+      // the verification previous to this ensures massive chaos isn't invoked
+      $result = db_query("SELECT link_path FROM {menu_links} WHERE module='book' AND (p1=%d OR p2=%d OR p3=%d OR p4=%d OR p5=%d OR p6=%d OR p7=%d OR p8=%d OR p9=%d)", $mlid, $mlid, $mlid, $mlid, $mlid, $mlid, $mlid, $mlid, $mlid);
+      // loop through deletes
+      while ($value = db_fetch_array($result)) {
+        $count++;
+        $node = node_load(str_replace('node/', '', $value['link_path']));
+        // ensure access even though this is largly an admin only routine
+        if (node_access('delete', $node)) {
+          $del_count++;
+          node_delete($node->nid);
+        }
+      }
+    }
+    // we didn't delete anything, return nothing
+    if ($del_count == 0) {
+      return 0;
+    }
+    // verify that all content that was deleted matched selected amount
+    elseif ($count != $del_count) {
+      return t("A multiple delete was commited but you didn't have the permissions to delete all content so some remain.");
+    }
+    else {
+      return t("All content deleted successfully.");
+    }
+  }
+}
+/**
+ * Callback for change_type ajax call from outline designer.
+ */
+function outline_designer_book_process_change_type($nid, $new_type, $var3) {
+  // load the node id we were passed
+  $node = node_load($nid);
+  // need update rights or do nothing
+  if (node_access('update', $node)) {
+    // make message, we put this a lot of places as type change is abnormal
+    $msg = t('Outline Designer -- Content Type changed from %type to %new_type', array('%type' => $node->type, '%new_type' => $new_type));
+    // add it to the log
+    $node->log = $msg;
+    $node->type = $new_type;
+    // write to the watch dog
+    watchdog('content', $msg);
+    node_save($node);
+    // return to the screen
+    return $msg;
+  }
+  else {
+    return 0;
+  }
+}
+
+/**
+ * Callback for drag_drop ajax call from outline designer.
+ */
+function outline_designer_book_process_drag_drop($nid, $parent_nid, $weight) {
+  // load the active node
+  $node = node_load($nid);
+  // make sure they can update this node
+  if (node_access('update', $node)) {
+    // load parent
+    $parent = node_load($parent_nid);
+    // set parent
+    $node->book['plid'] = $parent->book['mlid'];
+    $node->book['weight'] = $weight;
+    $node->revision = 1;
+    $node->log = t("Outline Designer -- nid:%nid parent nid changed to %parent_nid", array('%nid' => $nid, '%parent_nid' => $parent_nid));
+    node_save($node);
+    return t("Content position has been updated (nid:%nid)", array('%nid' => $nid));
+  }
+  else {
+    return t("Content position has not been updated due to invalid permissions!");
+  }
+}
+
+/**
+ * Callback for reweight ajax call from outline designer.
+ */
+function outline_designer_book_process_reweight($nid, $weight, $var3) {
+  $node = node_load($nid);
+  // make sure they can update this node
+  if (node_access('update', $node)) {
+    // set parent / weight
+    $node->book['weight'] = $weight;
+    node_save($node);
+    return t("Position has been updated (nid:%nid)", array('%nid' => $nid));
+  }
+  else {
+    return t("Position has not been updated due to invalid permissions!");
+  }
+}
+
+/**
+ * Callback for reload_table ajax call from outline designer.
+ */
+function outline_designer_book_process_reload_table($nid, $var2, $var3) {
+  module_load_include('inc', 'book', 'book.admin');
+  $output = drupal_get_form('book_admin_edit', node_load($nid));
+  drupal_json(array('status' => TRUE, 'data' => $output));
+  return '';
+}

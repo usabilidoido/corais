@@ -1,0 +1,662 @@
+<?php
+
+/**
+ * @file
+ * The co-ment module provides Drupal with an interface to co-ment®,
+ * a Web service for submitting texts to comments and annotations.
+ */
+
+/**
+ * Implementation of hook_node_info().
+ */
+function co_ment_node_info() {
+  return array(
+    'co_ment_text' => array(
+      'name' => t('co-ment text'),
+      'module' => 'co_ment',
+      'description' => t('This type of content allowed to view/create/edit texts in co-ment®, a Web service for submitting texts to comments and annotations.'),
+      'has_title' => TRUE,
+      'title_label' => t('Title'),
+      'has_body' => TRUE,
+      'body_label' => t('Body'),
+    )
+  );
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function co_ment_perm() {
+  $perms = array(
+    'administer co-ment',
+    'create co_ment_text nodes',
+    'edit own co_ment_text nodes',
+    'edit any co_ment_text nodes',
+    'delete own co_ment_text nodes',
+    'delete any co_ment_text nodes',
+    'post comments on co_ment_text nodes',
+  );
+
+  return $perms;
+}
+
+/**
+ * Implementation of hook_access().
+ */
+function co_ment_access($op, $node, $account = NULL) {
+  if (is_null($account)) {
+    global $user;
+    $account = $user;
+  }
+  switch ($op) {
+    case 'create':
+      return user_access('create co_ment_text nodes', $account) ? TRUE : NULL;
+      break;
+    case 'update':
+      return user_access('edit any co_ment_text nodes', $account) || (user_access('edit own co_ment_text nodes', $account) && (($node->uid == $account->uid) || (function_exists('og_is_wiki_type') && og_is_wiki_type($node->type)))) ? TRUE : NULL;
+      break;
+    case 'delete':
+      return user_access('delete any co_ment_text nodes', $account) || (user_access('delete own co_ment_text nodes', $account) && ($node->uid == $account->uid)) ? TRUE : NULL;
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function co_ment_menu() {
+  $items = array();
+  $items['admin/settings/co-ment'] = array(
+    'title' => 'co-ment settings',
+    'description' => 'Configure co-ment.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('co_ment_admin_settings'),
+    'access arguments' => array('administer co-ment'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  $items['co-ment/text/%node/pre_edit'] = array(
+    'title' => 'Ajax handler for pre-edit',
+    'page callback' => '_co_ment_pre_edit',
+    'page arguments' => array(2),
+    'access callback' => 'co_ment_access',
+    'access arguments' => array('update', 2),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['co-ment'] = array(
+    'title' => 'co-ment proxy',
+    'page callback' => '_co_ment_proxy',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Menu callback; Build the form presenting co-ment configuration options.
+ */
+function co_ment_admin_settings() {
+  $form['intro'] = array(
+    '#type' => 'item',
+    '#value' => t('The co-ment module provides Drupal with an interface to co-ment®, a Web service for submitting texts to comments and annotations. You should either have an account on <a href="http://www.co-ment.com/">co-ment website</a> or run your <a href="http://www.co-ment.org/">own instance of co-ment</a>. From your co-ment workspace, you should create an user for each role (Editor, Commentator and Observer). Then, enter information about your account or instance of co-ment below.'),
+  );
+
+  $form['co_ment_url'] = array(
+    '#type' => 'textfield',
+    '#title' => t('URL of your co-ment account.'),
+    '#default_value' => variable_get('co_ment_url', NULL),
+    '#description' => t('The URL of your co-ment account (ex. http://account.co-ment.com/).'),
+  );
+
+  $form['co_ment_editor_login'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Editor login'),
+    '#default_value' => variable_get('co_ment_editor_login', NULL),
+    '#description' => t('The login name of an editor user in your co-ment workspace.'),
+  );
+
+  $form['co_ment_editor_passwd'] = array(
+    '#type' => 'password',
+    '#title' => t('Editor password'),
+    '#default_value' => variable_get('co_ment_editor_passwd', NULL),
+    '#description' => t('The password of a editor user in your co-ment workspace.'),
+  );
+
+  $form['co_ment_commentator_login'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Commentator login'),
+    '#default_value' => variable_get('co_ment_commentator_login', NULL),
+    '#description' => t('The login name of an commentator user in your co-ment workspace.'),
+  );
+
+  $form['co_ment_commentator_passwd'] = array(
+    '#type' => 'password',
+    '#title' => t('Commentator password'),
+    '#default_value' => variable_get('co_ment_commentator_passwd', NULL),
+    '#description' => t('The password of a commentator user in your co-ment workspace.'),
+  );
+
+  $form['co_ment_observer_login'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Observer login'),
+    '#default_value' => variable_get('co_ment_observer_login', NULL),
+    '#description' => t('The login name of an observer user in your co-ment workspace.'),
+  );
+
+  $form['co_ment_observer_passwd'] = array(
+    '#type' => 'password',
+    '#title' => t('Observer password'),
+    '#default_value' => variable_get('co_ment_observer_passwd', NULL),
+    '#description' => t('The password of a observer user in your co-ment workspace.'),
+  );
+
+  return system_settings_form($form);
+}
+
+/**
+ * Implementation of hook_form().
+ */
+function co_ment_form(&$node, $form_state) {
+  // Check configuration is OK.
+  if (!(variable_get('co_ment_url', NULL))) {
+    drupal_set_message(t('No co-ment instance has been configured yet, please <a href="!co_ment_admin_url">configure your co-ment instance</a>.', array('!co_ment_admin_url' => url('admin/settings/co-ment'))), 'error');
+    return FALSE;
+  }
+  if (!(variable_get('co_ment_editor_login', NULL))) {
+    drupal_set_message(t('No co-ment editor user has been configured yet, please <a href="!co_ment_admin_url">configure your co-ment instance</a>.', array('!co_ment_admin_url' => url('admin/settings/co-ment'))), 'error');
+    return FALSE;
+  }
+
+  // The site admin can decide if this node type has a title and body, and how
+  // the fields should be labeled. We need to load these settings so we can
+  // build the node form correctly.
+  $type = node_get_types('type', $node);
+
+  if ($type->has_title) {
+    $form['title'] = array(
+      '#type' => 'textfield',
+      '#title' => check_plain($type->title_label),
+      '#required' => TRUE,
+      '#default_value' => $node->title,
+      '#weight' => -5
+    );
+  }
+
+  if ($type->has_body) {
+    // In Drupal 6, we can use node_body_field() to get the body and filter
+    // elements. This replaces the old textarea + filter_form() method of
+    // setting this up. It will also ensure the teaser splitter gets set up
+    // properly.
+    $form['body_field'] = node_body_field($node, $type->body_label, $type->min_word_count);
+  }
+
+  // When updating, load the form javascript to handle comments deletion.
+  if ($node->nid) {
+    $form['keep_comments'] = array('#type' => checkbox, '#title' => t('Keep comments (if not affected by the edition)'), '#default_value' => TRUE, '#weight' => -1);
+    // This only available if jquery_ui_dialog module is enabled.
+    if (module_exists('jquery_ui_dialog')) {
+      jquery_ui_dialog_parent_js();
+      $form['cancel_modified_scopes'] = array('#type' => hidden, '#default_value' => 2, '#suffix' => '<div id="remove_scope_choice_dlg"></div>');
+      $form['#pre_render'][] = '_co_ment_add_js';
+    }
+    // default to detach comments.
+    else {
+      $form['cancel_modified_scopes'] = array('#type' => hidden, '#value' => 1);
+    }
+  }
+
+  $form['#validate'] = array('co_ment_validate_handler');
+  return $form;
+}
+
+/*
+ * Helper function to load the form javascript to handle comments deletion.
+ */
+function _co_ment_add_js($form) {
+  static $added = FALSE; // Prevents settings to be added more than once;
+  drupal_add_css(drupal_get_path('module', 'co_ment') . '/co_ment.css');
+  drupal_add_js(drupal_get_path('module', 'co_ment') . '/co_ment.js');
+
+  if (! $added) {
+    global $base_url;
+    $pre_edit_url = $base_url . '/co-ment/text/' . $form["#node"]->nid . '/pre_edit';
+    $ret = drupal_add_js(array('co_ment' => array('pre_edit_url' => $pre_edit_url)), 'setting');
+    $added = TRUE;
+  }
+  return $form;
+}
+
+/*
+ * Ajax handler for pre-edit.
+ */
+function _co_ment_pre_edit($node) {
+  $url = variable_get('co_ment_url', NULL);
+  // Delete ending slash.
+  $url = rtrim($url, '/');
+  $cuser = variable_get('co_ment_editor_login', NULL);
+  $passwd = variable_get('co_ment_editor_passwd', NULL);
+  $url = preg_replace('!://!', "://$cuser:$passwd@", $url) . '/api/text/' . $node->co_ment_key . '/pre_edit/';
+  $headers = array('Content-Type' => 'application/x-www-form-urlencoded');
+  $data = array(
+    'new_format' => 'html',
+    'new_content' => $_POST['new_content'],
+  );
+  $response = drupal_http_request($url, $headers, 'POST', http_build_query($data, '', '&'));
+  if ($response->code != 200) {
+    drupal_set_header('HTTP/1.1 500 Internal Server Error');
+    drupal_json(array('co_ment_error' => t('Error while pre-updating text in co-ment server: !co_ment_error.', array('!co_ment_error' => $response->status_message))));
+    exit;
+  }
+  $return = json_decode($response->data);
+  if (!isset($return->nb_removed)) {
+    drupal_set_header('HTTP/1.1 500 Internal Server Error');
+    drupal_json(array('co_ment_error' => t('Error while pre-updating text in co-ment server: cannot check if some comments might be removed.')));
+    exit;
+  }
+
+  drupal_json(array('nb_removed' => $return->nb_removed));
+  exit;
+}
+
+/**
+ * Implementation of hook_form_alter().
+ *
+ * We do not want preview.
+ */
+function co_ment_form_alter(&$form, &$form_state, $form_id) {
+  if ($form_id == 'co_ment_text_node_form') {
+    // No preview
+    $form['buttons']['preview']['#attributes'] = array('style' => 'display: none;');
+  }
+}
+
+/**
+ * Validation handler.
+ *
+ * Cannot use hook_validate, since $form_state is needed
+ * to pass $co_ment_key and $co_ment_version to hook_insert
+ * and hook_update.
+ */
+function co_ment_validate_handler($form, &$form_state) {
+  $url = variable_get('co_ment_url', NULL);
+  // Delete ending slash.
+  $url = rtrim($url, '/');
+  $user = variable_get('co_ment_editor_login', NULL);
+  $passwd = variable_get('co_ment_editor_passwd', NULL);
+  $title = $form_state['values']['title'];
+  $body = $form_state['values']['body'];
+  $content = check_markup($body, $form_state['values']['format']);
+  $url = preg_replace('!://!', "://$user:$passwd@", $url) . '/api/text/';
+  $headers = array(
+    'Content-Type' => 'application/x-www-form-urlencoded',
+    'User-Agent' => 'co-ment Drupal Module',
+  );
+  $nid = $form_state['values']['nid'];
+
+  // Node creation.
+  if (is_null($nid)) {
+    $data = array(
+      'title' => $title,
+      'format' => 'html',
+      'content' => $content,
+    );
+    $response = drupal_http_request($url, $headers, 'POST', http_build_query($data, '', '&'));
+    if ($response->code != 200) {
+      form_set_error('title', t('Error while creating text in co-ment server: !co_ment_error.', array('!co_ment_error' => $response->status_message)));
+      return;
+    }
+    $return = json_decode($response->data);
+    if (!isset($return->key)) {
+      form_set_error('title', t('Error while creating text in co-ment server: no key generated.'));
+      return;
+    }
+    else {
+      $form_state['values']['co_ment_key'] = $return->key;
+      $form_state['values']['co_ment_version'] = $return->version_key;
+    }
+  }
+  // Node update.
+  else {
+    $node = node_load($nid);
+    $url .= $node->co_ment_key . '/edit/';
+    $data = array(
+      'title' => $title,
+      'format' => 'html',
+      'content' => $content,
+      'new_version' => $form_state['values']['revision'] ? 1 : NULL,
+      'keep_comments' => $form_state['values']['keep_comments'] ? 1 : NULL,
+      'cancel_modified_scopes' => $form_state['values']['cancel_modified_scopes'],
+    );
+    $response = drupal_http_request($url, $headers, 'POST', http_build_query($data, '', '&'));
+    if ($response->code != 200) {
+      form_set_error('title', t('Error while updating text in co-ment server: !co_ment_error.', array('!co_ment_error' => $response->status_message)));
+      return;
+    }
+    $return = json_decode($response->data);
+    if (!isset($return->version_key)) {
+      form_set_error('title', t('Error while updating text in co-ment server: no versionkey generated.'));
+      return;
+    }
+    else {
+      $form_state['values']['co_ment_key'] = $node->co_ment_key;
+      $form_state['values']['co_ment_version'] = $return->version_key;
+    }
+  }
+}
+
+/**
+ * Implementation of hook_insert().
+ *
+ * As a new node is being inserted into the database, the
+ * corresponding text has been created in co-ment during validation,
+ * the correspondance between Drupal node and co-ment text has now
+ * to be inserted in database.
+ */
+function co_ment_insert($node) {
+  db_query("INSERT INTO {co_ment} (nid, vid, co_ment_key, co_ment_version) VALUES (%d, %d, '%s', '%s')", $node->nid, $node->vid, $node->co_ment_key, $node->co_ment_version);
+}
+
+/**
+ * Implementation of hook_update().
+ *
+ * As a node is being updated into the database, the correspondance
+ * between Drupal node version and co-ment text has to be inserted
+ * in database if a new revision has bee created, otherwise IGNORE.
+ */
+function co_ment_update($node) {
+  // Revert revision.
+  if (!empty($node->revision)) {
+    $url = variable_get('co_ment_url', NULL);
+    // Delete ending slash.
+    $url = rtrim($url, '/');
+    $user = variable_get('co_ment_editor_login', NULL);
+    $passwd = variable_get('co_ment_editor_passwd', NULL);
+    $url = preg_replace('!://!', "://$user:$passwd@", $url) . '/api/text/' . $node->co_ment_key . '/' . $node->co_ment_version . '/revert/';
+    $headers = array(
+      'Content-Type' => 'application/x-www-form-urlencoded',
+      'User-Agent' => 'co-ment Drupal Module',
+    );
+    $response = drupal_http_request($url, $headers, 'POST');
+    if ($response->code != 200) {
+      form_set_error('title', t('Error while deleting text in co-ment server: !co_ment_error.', array('!co_ment_error' => $response->status_message)));
+      return;
+    }
+    $return = json_decode($response->data);
+    if (!isset($return->version_key)) {
+      form_set_error('title', t('Error while reverting version of text in co-ment server: no versionkey generated.'));
+      return;
+    }
+    else {
+      db_query("INSERT IGNORE INTO {co_ment} (nid, vid, co_ment_key, co_ment_version) VALUES (%d, %d, '%s', '%s')", $node->nid, $node->vid, $node->co_ment_key, $return->version_key);
+    }
+  }
+  else {
+    db_query("INSERT IGNORE INTO {co_ment} (nid, vid, co_ment_key, co_ment_version) VALUES (%d, %d, '%s', '%s')", $node->nid, $node->vid, $node->co_ment_key, $node->co_ment_version);
+  }
+}
+
+/**
+ * Implementation of hook_nodeapi().
+ *
+ * When a node revision is deleted, we need to remove the corresponding record
+ * from our table. The only way to handle revision deletion is by implementing
+ * hook_nodeapi().
+ */
+function co_ment_nodeapi(&$node, $op, $teaser, $page) {
+  switch ($op) {
+    case 'delete revision':
+      $url = variable_get('co_ment_url', NULL);
+      // Delete ending slash.
+      $url = rtrim($url, '/');
+      $user = variable_get('co_ment_editor_login', NULL);
+      $passwd = variable_get('co_ment_editor_passwd', NULL);
+      $url = preg_replace('!://!', "://$user:$passwd@", $url) . '/api/text/' . $node->co_ment_key . '/' . $node->co_ment_version . '/delete/';
+      $headers = array(
+        'Content-Type' => 'application/x-www-form-urlencoded',
+        'User-Agent' => 'co-ment Drupal Module',
+      );
+      $response = drupal_http_request($url, $headers, 'POST');
+      if ($response->code != 200) {
+        form_set_error('title', t('Error while deleting text in co-ment server: !co_ment_error.', array('!co_ment_error' => $response->status_message)));
+        return;
+      }
+      db_query('DELETE FROM {co_ment} WHERE nid = %d AND vid = %d', $node->nid, $node->vid);
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_delete().
+ *
+ * When a node is deleted, the corresponding text has to be
+ * deleted in co-ment, and the entry in database has to be deleted.
+ */
+function co_ment_delete($node) {
+  $url = variable_get('co_ment_url', NULL);
+  // Delete ending slash.
+  $url = rtrim($url, '/');
+  $user = variable_get('co_ment_editor_login', NULL);
+  $passwd = variable_get('co_ment_editor_passwd', NULL);
+  $url = preg_replace('!://!', "://$user:$passwd@", $url) . '/api/text/' . $node->co_ment_key . '/delete/';
+  $headers = array(
+    'Content-Type' => 'application/x-www-form-urlencoded',
+    'User-Agent' => 'co-ment Drupal Module',
+  );
+  $response = drupal_http_request($url, $headers, 'POST');
+  if ($response->code != 204) {
+    form_set_error('title', t('Error while deleting text in co-ment server: !co_ment_error.', array('!co_ment_error' => $response->status_message)));
+    return;
+  }
+  db_query('DELETE FROM {co_ment} WHERE nid = %d', $node->nid);
+}
+
+/**
+ * Implementation of hook_load().
+ *
+ * Add identifier of the corresponding text in co-ment when a node
+ * is loaded.
+ */
+function co_ment_load($node) {
+  $additions = db_fetch_object(db_query('SELECT co_ment_key, co_ment_version FROM {co_ment} WHERE nid = %d AND vid = %d', $node->nid, $node->vid));
+  return $additions;
+}
+
+/**
+ * Implementation of hook_view().
+ *
+ * Display co-ment embeded iframe.
+ */
+function co_ment_view($node, $teaser = FALSE, $page = FALSE) {
+  $node = node_prepare($node, $teaser);
+  // Do not show co-ment interface only when search module indexes the node.
+  $backtrace = array_map(create_function('$step', 'return $step["function"];'), debug_backtrace());
+  if (!in_array('search_cron', $backtrace)) {
+    if (!$teaser && isset($node->co_ment_key)) {
+      $node_current_revision = node_load($node->nid);
+      $is_current_revision = $node_current_revision->vid == $node->vid;
+      $node->content['body'] = array(
+        '#value' => theme('co_ment_body', $node->co_ment_key, $is_current_revision ? NULL : $node->co_ment_version, empty($_GET['comment_id_key']) ? NULL : $_GET['comment_id_key'], empty($_GET['comment_op']) ? NULL : $_GET['comment_op']),
+      );
+    }
+  }
+
+  return $node;
+}
+
+/**
+ * Implementation of hook_theme().
+ *
+ * This lets us tell Drupal about our theme functions and their arguments.
+ */
+function co_ment_theme() {
+  return array(
+    'co_ment_body' => array(
+      'arguments' => array('co_ment_key', 'comment_id', 'comment_op', 'nid'),
+    ),
+  );
+}
+
+/**
+ * Theme function for display co-ment iframe.
+ */
+function theme_co_ment_body($co_ment_key, $co_ment_version = NULL, $comment_id = NULL, $comment_op = NULL, $nid = NULL) {
+  $output = '<div class="co_ment_body" style="border: solid 1px #E7E7E7;">';
+  if (is_null($co_ment_version)) {
+    if (is_null($comment_id)) {
+      $output .= " <iframe  frameborder='0' src='" . base_path() . "co-ment/text/$co_ment_key/comments_frame?nid=$nid' style='height: 500px; width: 99.9%; position: relative; top: 0px;'></iframe>";
+    }
+    else {
+      $output .= " <iframe  frameborder='0' src='" . base_path() . "co-ment/text/$co_ment_key/comments_frame?nid=$nid&comment_id_key=$comment_id" . (is_null($comment_op) ? '' : "&comment_op=$comment_op") . "' style='height: 500px; width: 99.9%; position: relative; top: 0px;'></iframe>";
+    }
+  }
+  else {
+    $output .= " <iframe  frameborder='0' src='" . base_path() . "co-ment/text/$co_ment_key/comments/$co_ment_version?nid=$nid' style='height: 500px; width: 99.9%; position: relative; top: 0px;'></iframe>";
+  }
+  $output .= '</div>';
+  return $output;
+}
+
+/*
+ * Callback to send/receive requests to/from co-ment server.
+ */
+function _co_ment_proxy() {
+  $req = $_GET['q'];
+  $req_post = $_POST;
+  $url = variable_get('co_ment_url', NULL);
+  // Delete ending slash.
+  $url = rtrim($url, '/');
+
+  // Retrieve node.
+  if (!empty($_GET['nid'])) {
+    $nid = $_GET['nid'];
+    $node = node_load($nid);
+  }
+  elseif (count(arg()) == 5) {
+    $nid = db_result(db_query("SELECT nid FROM {co_ment} WHERE co_ment_key = '%s' AND co_ment_version = '%s'", arg(2), arg(4)));
+    $node = node_load($nid);
+  }
+  elseif (!empty($req_post) and !empty($req_post['key']) and !empty($req_post['version_key'])) {
+    $nid = db_result(db_query("SELECT nid FROM {co_ment} WHERE co_ment_key = '%s' AND co_ment_version = '%s'", $req_post['key'], $req_post['version_key']));
+    $node = node_load($nid);
+  }
+
+  // Choose appropriate commentator user.
+  global $user;
+  if ($nid && $node->uid == $user->uid) {
+    $co_ment_user = variable_get('co_ment_editor_login', NULL);
+    $passwd = variable_get('co_ment_editor_passwd', NULL);
+  }
+  elseif (user_access('post comments on co_ment_text nodes')) {
+    $co_ment_user = variable_get('co_ment_commentator_login', NULL);
+    $passwd = variable_get('co_ment_commentator_passwd', NULL);
+  }
+  else {
+    $co_ment_user = variable_get('co_ment_observer_login', NULL);
+    $passwd = variable_get('co_ment_observer_passwd', NULL);
+  }
+  $url = preg_replace('!://!', "://$co_ment_user:$passwd@", $url);
+  $url .= preg_replace('!^[^\/]+/!', "/api/", $req) . '/?prefix=' . base_path() . 'co-ment';
+  foreach ($_GET as $key => $val) {
+      if ($key != 'q' && $key != 'prefix') {
+        $url .= "&$key=$val";
+      }
+  }
+
+
+  $lang = $node->language ? $node->language : ($user->language ? $user->language : ($_SERVER['HTTP_ACCEPT_LANGUAGE'] ? $_SERVER['HTTP_ACCEPT_LANGUAGE'] : 'en'));
+  $headers = array(
+    'Accept-Language' => $lang,
+    'User-Agent' => 'co-ment Drupal Module',
+  );
+
+  if (! empty($req_post)) {
+    $headers['Content-Type'] = 'application/x-www-form-urlencoded';
+    $req_post['name'] = strip_tags(theme('username', $user));
+    $req_post['email'] = $user->mail;
+    $response = drupal_http_request($url, $headers, 'POST', http_build_query($req_post, '', '&'));
+
+    // Notifications when a new comment is added.
+    if (module_exists('notifications_co_ment') && $req_post['fun'] == 'addComment' && $response->code == 200) {
+      $nid = db_result(db_query("SELECT nid FROM {co_ment} WHERE co_ment_key = '%s' AND co_ment_version = '%s'", $req_post['key'], $req_post['version_key']));
+      if ($nid) {
+        $data = json_decode($response->data);
+        $comment = (object) array(
+          'author' => $data->comment->name,
+          'subject' => $data->comment->title,
+          'comment' => $data->comment->content,
+          'nid' => $nid,
+          'uid' => $user->uid,
+          'status' => 0,
+        );
+        $node = node_load($nid);
+        $event = array(
+          'uid' => $user->uid,
+          'module' => 'node',
+          'type' => 'node',
+          'action' => 'comment',
+          'node' => $node,
+          'comment' => $comment,
+          'params' => array(
+            'nid' => $nid,
+            'co_ment_id' => $data->comment->id_key,
+            'text_id' => $req_post['key'],
+          ),
+        );
+        notifications_event($event);
+      }
+    }
+  }
+  else {
+    $user_param = '&name=' . urlencode(strip_tags(theme('username', $user)));
+    if (!strpos($url, $user_param)) {
+      $url .= $user_param;
+    }
+    $response = drupal_http_request($url, $headers, 'GET');
+  }
+  foreach ($response->headers as $key => $val) {
+    // IE6 is buggy when Content-Type is text/javascript.
+    if ($req == 'co-ment/jsi18n') {
+      if ($key == 'Content-Type' && $val == 'text/javascript') {
+        $val = 'application/javascript';
+      }
+    }
+    header("$key: $val");
+  }
+  print $response->data;
+  exit();
+}
+
+/*
+ * API function to fetch comments from co-ment.
+ */
+function co_ment_fetch_comments($texts = array(), $uid = NULL, $limit = 10, $comment_key = NULL) {
+  $comments = array();
+  $url = variable_get('co_ment_url', NULL);
+  // Delete ending slash.
+  $url = rtrim($url, '/');
+  $co_ment_user = variable_get('co_ment_commentator_login', NULL);
+  $passwd = variable_get('co_ment_commentator_passwd', NULL);
+  $url = preg_replace('!://!', "://$co_ment_user:$passwd@", $url) . '/api/comments/';
+  $headers = array(
+    'User-Agent' => 'co-ment Drupal Module',
+  );
+  $data = array(
+    'limit' => $limit,
+  );
+  if (!empty($texts)) {
+    $data['keys'] = implode(',', $texts);
+  }
+  if (!is_null($uid)) {
+    $user = user_load(array('uid' => $uid));
+    $data['user'] = $user->name;
+  }
+  if (!is_null($comment_key)) {
+    $data['comment_key'] = $comment_key;
+  }
+  $url .= '?' .  http_build_query($data, '', '&');
+  $response = drupal_http_request($url, $headers, 'GET');
+
+  return (json_decode($response->data));
+}

@@ -1,0 +1,33 @@
+/* $Id: mc_webforms.css,v 1.1.2.2 2010/12/06 13:19:46 hutch Exp $ */
+
+input.form-autocomplete,
+.form-text#edit-payer,
+.form-text#edit-payee{
+  width:12em;
+}
+
+mc_3rdparty_form table,
+mc_3rdparty_form table tr,
+mc_3rdparty_form table tbody td{
+  border: 0;
+  padding: 0 0.3em 0 0;
+  margin: 0;
+  background-color: transparent;
+}
+mc_3rdparty_form .form-item{
+  margin: 0 0 1.5em 0;
+}
+/* all these '-1's are in case there are two instances of that id the page */
+.block #edit-title-1,
+.block #edit-title{
+  width:95%;
+  }
+
+.block #edit-next-1.form-submit{
+  float:right;
+  }
+
+.exchange.teaser{
+  margin: 1em 0;
+}
+#mc-1stparty-form .container-inline, #mc-3rdparty-form .container-inline{float:left;}

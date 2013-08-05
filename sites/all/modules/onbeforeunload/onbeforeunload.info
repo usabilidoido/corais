@@ -1,0 +1,12 @@
+; $Id: onbeforeunload.info,v 1.1.2.1 2009/03/28 10:48:05 markuspetrux Exp $
+name = onBeforeUnload API
+description = Provides an API to allow other modules use the onBeforeUnload event of the browser window.
+package = User interface
+core = 6.x
+
+; Information added by drupal.org packaging script on 2009-03-31
+version = "6.x-1.0"
+core = "6.x"
+project = "onbeforeunload"
+datestamp = "1238501166"
+

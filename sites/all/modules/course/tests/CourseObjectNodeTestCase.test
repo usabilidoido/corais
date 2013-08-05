@@ -1,0 +1,60 @@
+<?php
+
+require_once drupal_get_path('module', 'course') . '/tests/CourseTestCase.test';
+
+/**
+ * Description of CourseObjectNodeTestCase
+ */
+class CourseObjectNodeTestCase extends CourseTestCase {
+
+  public static function getInfo() {
+    // Note that getInfo() strings are not translated with t().
+    return array(
+      'name' => 'Node-based course objects',
+      'description' => 'Ensure that node based Course objects function properly.',
+      'group' => 'Course',
+    );
+  }
+
+  public function getModules() {
+    $modules = parent::getModules();
+    $modules[] = 'course_content';
+    $modules[] = 'content_access';
+    $modules[] = 'acl';
+    return $modules;
+  }
+
+  /**
+   * Test content privacy for node based course objects.
+   */
+  function testContentAccess() {
+    $user = $this->drupalLogin($this->student_user);
+
+    $courseNode = $this->createCourseNode();
+    $course = course_get_course($courseNode);
+
+    // Create the course object
+    $co1 = course_get_course_object('course_content', 'course_test_content');
+    $co1->setOption('private', 1);
+    $co1->setCourse($course);
+    $co1->setUser($this->admin_user);
+    $co1->save();
+
+    node_access_rebuild();
+
+    $co1->setUser($this->student_user);
+    course_enrol($courseNode, $user);
+
+    $this->drupalGet("node/" . $co1->getInstanceId());
+    $this->assertResponse(403, 'Check that node is protected outside the course.');
+
+    $co1->grant();
+    $this->drupalGet("node/" . $co1->getInstanceId());
+    $this->assertResponse(200, 'Check that node is accessible when user enters course object.');
+
+    $co1->revoke();
+    $this->drupalGet("node/" . $co1->getInstanceId());
+    $this->assertResponse(403, 'Check that node is protected outside the course, after revoke.');
+  }
+
+}

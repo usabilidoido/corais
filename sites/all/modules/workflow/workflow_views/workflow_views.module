@@ -1,0 +1,26 @@
+<?php
+// $Id$
+/**
+ * @file
+ * Provide views integration for workflows.
+ * Why it's own module? Some sites have views some don't,
+ * all prefer a lower code footprint and better performance.
+ */
+
+
+/**
+ * Implements hook_permission().
+ */
+function workflow_views_perm() {
+  return array('access workflow summary views');
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function workflow_views_views_api() {
+  return array(
+    'api' => 2,
+    'path' => drupal_get_path('module', 'workflow_views') . '/includes',
+  );
+}

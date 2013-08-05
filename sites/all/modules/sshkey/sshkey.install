@@ -1,0 +1,84 @@
+<?php
+
+/**
+ * Implements hook_schema().
+ */
+function sshkey_schema() {
+  $schema['sshkey'] = array(
+    'description' => 'Stores SSH public keys associated with entities.',
+    'fields' => array(
+      'key_id' => array(
+        'description' => 'The account associated with the key.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'entity_type' => array(
+        'description' => 'Primary key with entity_id; the type of entity (e.g. node, user, etc.).',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'entity_id' => array(
+        'description' => 'Primary key with entity_type; the ID of the entity.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'fingerprint' => array(
+        'description' => 'The unique fingerprint (MD5 hash) of the key.',
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+      ),
+      'title' => array(
+        'description' => 'The nickname of the key file.',
+        'type' => 'varchar',
+        'length' => 128,
+        'not null' => TRUE,
+        'default' => ''
+      ),
+      'value' => array(
+        'description' => 'The raw key value.',
+        'type' => 'text',
+        'size' => 'big',
+        'not null' => TRUE,
+      ),
+      'changed' => array(
+        'description' => 'The time that the key was created or updated, as a UNIX timestamp.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('key_id'),
+    'unique keys' => array(
+      'fingerprint' => array('fingerprint'),
+    ),
+    'indexes' => array(
+      'entity_type_id' => array('entity_type', 'entity_id'),
+    ),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function sshkey_install() {
+  drupal_install_schema('sshkey');
+}
+
+/**
+ * Impelements hook_uninstall().
+ */
+function sshkey_uninstall() {
+  drupal_uninstall_schema('sshkey');
+
+  // Remove variables.
+  variable_del('sshkey_help');
+}

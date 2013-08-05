@@ -1,0 +1,328 @@
+<?php
+/**
+ * UI  for Automatic AJAX forms validation, preview, and submission
+ *
+ * @see http://drupal.org/project/ajax
+ * @see irc://freenode.net/#drupy
+ * @depends Drupal 6
+ * @author brendoncrawford
+ * @note This file uses a 79 character width limit.
+ * @note Available hooks are:
+ *   hook_ajax_types
+ *
+ *
+ */
+
+/**
+ * hook_menu
+ *
+ * @return Assoc
+ */
+function ajax_ui_menu() {
+  $items['admin/settings/ajax'] = array(
+    'title' => t('Ajax Settings'),
+    'description' => t('Controls which forms should use AJAX submissions.'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ajax_ui_admin'),
+    'access arguments' => array('administer ajax forms'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_perm().
+ *
+ * @return Array
+ *
+ */
+function ajax_ui_perm() {
+  return array('administer ajax forms');
+}
+
+/**
+ * Get content types
+ *
+ * @return Assoc
+ */
+function ajax_ui_get_types() {
+  $types = array_merge(
+    ajax_ui_types_node(),
+    ajax_ui_types_user());
+  ajax_ui_invoke_types($types);
+  return $types;
+}
+
+/**
+ * Invokes hooks: ajax_types
+ *
+ * @param $types Assoc
+ * @return Bool
+ *
+ */
+function ajax_ui_invoke_types(&$types) {
+  $hook = 'ajax_types';
+  foreach (module_implements($hook) as $name) {
+    $function = $name . '_' . $hook;
+    $result = $function($types);
+  }
+  return TRUE;
+}
+
+/**
+ * Invokes hooks: ajax_types
+ *
+ * @param $types Assoc
+ * @return Bool
+ *
+ */
+function ajax_ui_invoke_options(&$options) {
+  $hook = 'ajax_options';
+  foreach (module_implements($hook) as $name) {
+    $function = $name . '_' . $hook;
+    $result = $function($options);
+  }
+  return TRUE;
+}
+
+/**
+ * Get node types
+ *
+ * @return Assoc
+ */
+function ajax_ui_types_node() {
+  $out = array();
+  $types = node_get_types();
+  foreach ($types as $k => $v) {
+    $out[$k . '_node_form'] = ucwords('Content Type: ' . $v->name);
+  }
+  return $out;
+}
+
+/**
+ * Get module types.
+ * This function currently unused.
+ *
+ * @return Assoc
+ */
+function ajax_ui_types_module() {
+  $out = array();
+  $funcs = get_defined_functions();
+  foreach ($funcs['user'] as $f) {
+    if (preg_match("/^([a-zA-Z][a-zA-Z0-9_]*?)_submit$/", $f, $func_name)) {
+      $out[$func_name[1]] = ucwords(str_replace('_', ' ', $func_name[1]));
+    }
+  }
+  return $out;
+}
+
+/**
+ * Get other default types
+ *
+ * @return Assoc
+ */
+function ajax_ui_types_user() {
+  return array(
+    'user_login' => t('User Login'),
+    'user_edit' => t('User Edit'),
+    'user_register' => t('User Register')
+  );
+}
+
+/**
+ * Display admin form
+ *
+ * @return Assoc
+ */
+function ajax_ui_admin() {
+  $settings = variable_get('ajax', NULL);
+  $types = ajax_ui_get_types();
+  $options = ajax_ui_get_options();
+  $form = array(
+    'submit' => array(
+      '#type' => 'submit',
+      '#value' => t('Submit')
+    ),
+    '#admin_options' => $options
+  );
+  foreach ($types as $type => $name) {
+    $form['types'][$type] = array(
+      '#value' => $name
+    );
+    $form['checkboxes'][$type] = array(
+      '#type' => 'checkboxes',
+      '#default_value' => array(),
+      '#options' => array()
+    );
+    foreach ($options as $option_k => $option_v) {
+      $form['checkboxes'][$type]['#options'][$option_k] = '';
+      // set default val for checkbox
+      if ($settings !== NULL) {
+        if (array_key_exists($type, $settings['types']['default'])) {
+          if (array_key_exists($option_k,
+              $settings['types']['default'][$type])) {
+            if ($settings['types']['default'][$type][$option_k]) {
+              $form['checkboxes'][$type]['#default_value'][$option_k] =
+                $option_k;
+            }
+          }
+        }
+      }
+    }
+  }
+  return $form;
+}
+
+/**
+ * Gets default UI/type options
+ *
+ * @return Array
+ */
+function ajax_ui_options_default() {
+  return array(
+    'enabled' => array(
+      '#value' => t('Enabled')
+    )
+  );
+}
+
+/**
+ * Get admin UI/type options
+ *
+ * @return Assoc
+ */
+function ajax_ui_get_options() {
+  $opts = ajax_ui_options_default();
+  ajax_ui_invoke_options($opts);
+  $out = array();
+  foreach ($opts as $opt_k => $opt_v) {
+    $out[$opt_k] = $opt_v;
+  }
+  return $out;
+}
+
+/**
+ * Handles admin submissions
+ *
+ * @param $form Assox
+ * @param $form_state Assoc
+ * @return unknown
+ */
+function ajax_ui_admin_submit($form, &$form_state) {
+  $out = array();
+  $out['types'] = array();
+  $out['types']['default'] = array();
+  foreach (element_children($form['checkboxes']) as $type) {
+    $out['types']['default'][$type] = array();
+    foreach (element_children($form['checkboxes'][$type]) as $option) {
+      $out['types']['default'][$type][$option] =
+        (bool)$form['checkboxes'][$type][$option]['#value'];
+    }
+  }
+  variable_set('ajax', $out);
+  return TRUE;
+}
+
+/**
+ * Theme for admin screen
+ *
+ */
+function theme_ajax_ui_admin($form) {
+  $header = array();
+  $rows = array();
+  $header[] = t('Form Name');
+  foreach ($form['#admin_options'] as $admin_option) {
+    $header[] = $admin_option['#value'];
+  }
+  foreach (element_children($form['types']) as $type) {
+    $row = array();
+    if (is_array($form['types'][$type])) {
+      $row[] = array('data' => drupal_render($form['types'][$type]));
+      foreach (element_children($form['checkboxes'][$type]) as $option) {
+        $row[] = array(
+          'data' => drupal_render($form['checkboxes'][$type][$option])
+        );
+      }
+      $rows[] = $row;
+    }
+  }
+  $output  = theme('table', $header, $rows);
+  $output .= drupal_render($form);
+  return $output;
+}
+
+/**
+ * Hook_theme
+ *
+ * @return Array
+ */
+function ajax_ui_theme() {
+  return array(
+    'ajax_ui_admin' => array(
+      'arguments' => array('form' => NULL)
+    )
+  );
+}
+
+/**
+ * Removes variable on uninstall
+ *
+ * @param $vars Array
+ *   List of ajax variable names
+ * @return Bool
+ *
+ */
+function ajax_ui_var_del($vars) {
+  $settings = variable_get('ajax', NULL);
+  if ($settings !== NULL) {
+    foreach ($settings['types']['default'] as $type_k => $type_v) {
+      foreach ($vars as $var) {
+        if (array_key_exists($var, $settings['types']['default'][$type_k])) {
+          unset($settings['types']['default'][$type_k][$var]);
+        }
+      }
+    }
+    variable_set('ajax', $settings);
+    return TRUE;
+  }
+  return FALSE;
+}
+
+/**
+ * Checks if form is a specified type
+ *
+ * @param $form Assoc
+ * @param $form_id String
+ * @return Bool
+ */
+function ajax_ui_is_type($form, $form_id, &$options) {
+  $settings = variable_get('ajax', NULL);
+  if ($settings !== NULL) {
+    if (array_key_exists($form_id, $settings['types']['default'])) {
+      if (array_key_exists('enabled',
+          $settings['types']['default'][$form_id])) {
+        if ($settings['types']['default'][$form_id]['enabled']) {
+          $options = $settings['types']['default'][$form_id];
+          return TRUE;
+        }
+      }
+    }
+  }
+  return FALSE;
+}
+
+/**
+ * hook_form_alter
+ *
+ * @param $form Assoc
+ * @param $form_state Assoc
+ * @param $form_id String
+ * @return Bool
+ */
+function ajax_ui_form_alter(&$form, $form_state, $form_id) {
+  //watchdog('AJAX Forms', 'Form ID: %form_id', array('%form_id'=>$form_id));
+  if (ajax_ui_is_type($form, $form_id, $options)) {
+    $form['#ajax'] = $options;
+  }
+  return TRUE;
+}

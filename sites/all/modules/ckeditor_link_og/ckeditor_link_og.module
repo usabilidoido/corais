@@ -1,0 +1,40 @@
+<?php
+//ELMS: CKEditor Link OG
+//Development Sponsored by The Pennsylvania State University
+//ELMS is Copyright (C) 2008-2011  The Pennsylvania State University
+//
+//Bryan Ollendyke
+//bto108@psu.edu
+//
+//Keith D. Bailey
+//kdb163@psu.edu
+//
+//12 Borland
+//University Park,  PA 16802
+/**
+ * @file
+ * Limit results to only links within the current group
+ */
+
+/**
+ * Implementation of hook_ckeditor_link_autocomplete_alter().
+ * take into account the group we're in currently and rewrite the results accordingly
+ */
+function ckeditor_link_og_ckeditor_link_autocomplete_alter(&$results, $string) {
+  $results = array();
+  //get current node to exclude self linking
+  $nid = arg(1);
+  //get current group to keep results in context
+  $group = og_get_group_context();
+  if ($string !== '') {
+    //select anything that's in this group, not this page, and not a book root
+    $sql = db_rewrite_sql("SELECT n.nid, n.title FROM {node} n JOIN {og_ancestry} og ON og.nid = n.nid JOIN {book} b ON b.nid=n.nid WHERE b.nid<>b.bid AND n.nid<>%d AND og.group_nid=%d AND n.title LIKE '%%%s%%' ORDER BY n.title, n.type");
+    //only return 10 items
+    $result = db_query_range($sql, array($nid, $group->nid, $string), 0, 10);
+    while ($node = db_fetch_object($result)) {
+      $results['node/'. $node->nid] = check_plain($node->title);
+    }
+  }
+
+  return $results;
+}

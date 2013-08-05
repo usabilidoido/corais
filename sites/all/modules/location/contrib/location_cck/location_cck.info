@@ -1,0 +1,13 @@
+name = Location CCK
+description = Defines a Location field type.
+core = 6.x
+package = CCK
+dependencies[] = location
+dependencies[] = content
+
+; Information added by drupal.org packaging script on 2012-07-25
+version = "6.x-3.2"
+core = "6.x"
+project = "location"
+datestamp = "1343220789"
+

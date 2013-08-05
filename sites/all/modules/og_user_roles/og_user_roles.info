@@ -1,0 +1,13 @@
+name = Organic groups user roles
+description = Assign additional user roles to members of organic groups within the group context.
+dependencies[] = og
+dependencies[] = og_views
+package = Organic groups
+core = 6.x
+
+; Information added by drupal.org packaging script on 2011-02-25
+version = "6.x-4.x-dev"
+core = "6.x"
+project = "og_user_roles"
+datestamp = "1298619815"
+

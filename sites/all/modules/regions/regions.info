@@ -1,0 +1,12 @@
+; $Id: regions.info
+name = "Regions"
+description = "API and scafolding to build regions that are cross theme compatible and can be used by Context."
+core = "6.x"
+package = "Regions"
+
+; Information added by drupal.org packaging script on 2012-06-21
+version = "6.x-1.0"
+core = "6.x"
+project = "regions"
+datestamp = "1340300816"
+

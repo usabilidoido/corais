@@ -1,0 +1,11 @@
+name = Time Estimate
+description = Provides time estimate functionality on a casetracker project node.
+package = Time Tracker
+core = 6.x
+dependencies[] = time_tracker
+; Information added by drupal.org packaging script on 2012-10-27
+version = "6.x-1.0-beta5"
+core = "6.x"
+project = "time_tracker"
+datestamp = "1351371733"
+

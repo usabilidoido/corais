@@ -1,0 +1,16 @@
+/* $Id */
+
+.notifications-team span.subscribed {
+  background:#FFEE88 url(images/checked.gif) no-repeat scroll 2px 0;
+  color:#000000;
+}
+.notifications-team span {
+  background:#D2E6F3 url(images/checked.gif) no-repeat scroll 2px 100%;
+  color:#666666;
+  cursor:pointer;
+  float:left;
+  line-height:15px;
+  margin:0 5px 5px 0;
+  padding:5px 5px 5px 20px;
+  white-space:nowrap;
+}

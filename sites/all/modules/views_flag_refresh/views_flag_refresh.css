@@ -1,0 +1,8 @@
+/* $Id: views_flag_refresh.css,v 1.1 2010/08/31 02:54:58 cpliakas Exp $ */
+
+img.views_flag_refresh-throbber {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  z-index: 100;
+}

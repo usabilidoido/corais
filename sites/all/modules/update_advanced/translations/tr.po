@@ -1,0 +1,83 @@
+# Turkish translation of Update status advanced settings (6.x-1.0)
+# Copyright (c) 2009 by the Turkish translation team
+# Generated from files:
+#  update_advanced.settings.inc,v 1.1 2007/07/11 16:07:00 dww
+#  update_advanced.module,v 1.3 2008/08/14 18:23:00 dww
+#  update_advanced.info,v 1.1 2007/07/11 16:07:00 dww
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Update status advanced settings (6.x-1.0)\n"
+"POT-Creation-Date: 2009-10-04 02:20+0000\n"
+"PO-Revision-Date: 2009-09-21 21:59+0000\n"
+"Language-Team: Turkish\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: update_advanced.settings.inc:83
+msgid "Project"
+msgstr "Proje"
+
+#: update_advanced.settings.inc:119
+msgid "Modules"
+msgstr "Eklentiler"
+
+#: update_advanced.settings.inc:88
+msgid "Notes"
+msgstr "Notlar"
+
+#: update_advanced.settings.inc:49
+msgid "Always"
+msgstr "Her zaman"
+
+#: update_advanced.settings.inc:51
+msgid "Ignore @version"
+msgstr "@version yoksay"
+
+#: update_advanced.settings.inc:53
+msgid "Never"
+msgstr "Asla"
+
+#: update_advanced.settings.inc:85
+msgid "Warn if out of date"
+msgstr "Eskidiyse uyar"
+
+#: update_advanced.settings.inc:120
+msgid "Themes"
+msgstr "Temalar"
+
+#: update_advanced.settings.inc:36
+msgid ""
+"These settings allow you to control if a certain project, or even a "
+"specific release of that project, should be ignored by the available "
+"updates report.  For each project, you can select if it should always "
+"warn you about a newer release, never warn you (ignore the project "
+"completely), or ignore a specific available release you do not want to "
+"upgrade to. You can also specify a note explaining why you are "
+"ignoring a specific project or version, and that will be displayed on "
+"the available updates report."
+msgstr ""
+
+#: update_advanced.settings.inc:118
+msgid "Drupal core"
+msgstr "Drupal çekirdeği"
+
+#: update_advanced.module:61
+msgid "Ignored from settings"
+msgstr ""
+
+#: update_advanced.module:65
+msgid "Administrator note"
+msgstr ""
+
+#: update_advanced.info:0
+msgid "Update status advanced settings"
+msgstr ""
+
+#: update_advanced.info:0
+msgid ""
+"Adds advanced settings and extra functionality to the Update status "
+"module in core."
+msgstr ""
+

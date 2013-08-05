@@ -1,0 +1,12 @@
+name = Quiz Progress
+package = Quiz Addon
+description = Implements a block to switch between the questions.
+dependencies[] = quiz
+core = 6.x
+
+; Information added by drupal.org packaging script on 2011-09-19
+version = "6.x-1.0-beta1"
+core = "6.x"
+project = "quiz_progress"
+datestamp = "1316451707"
+

@@ -1,0 +1,417 @@
+<?php
+// $Id: xmlsitemap.module,v 1.20.2.66 2009/06/23 11:54:41 earnie Exp $
+
+
+/**
+ * @file
+ * Creates a sitemap compatible with the sitemaps.org schema.
+ */
+
+/**
+ * @addtogroup xmlsitemap
+ * @{
+ */
+
+/*****************************************************************************
+ * Public constants.
+ ****************************************************************************/
+
+/**
+ * The date format used in the sitemap.
+ */
+if (!defined('DATE_W3C')) {
+  define('DATE_W3C', 'Y-m-d\TH:i:s+00:00');
+}
+
+/**
+ * The timestamp of server request to avoid repeatedly generating value.
+ */
+if (!defined('REQUEST_TIME')) {
+  if (isset($_SERVER['REQUEST_TIME'])) {
+    define('REQUEST_TIME', $_SERVER['REQUEST_TIME']);
+  }
+  else {
+    define('REQUEST_TIME', time());
+  }
+}
+
+/**
+ * The flag set when a sitemap link is not enabled.
+ */
+define('XMLSITEMAP_LINK_DISABLED', 1);
+
+/**
+ * The maximum number of links in one sitemap chunk file.
+ */
+define('XMLSITEMAP_MAX_SITEMAP_LINKS', 50000);
+
+/**
+ * The maximum filesize of a sitemap chunk file.
+ */
+define('XMLSITEMAP_MAX_SITEMAP_FILESIZE', 10485760);
+
+/**
+ * The maximum number of links in one sitemap index file.
+ */
+define('XMLSITEMAP_MAX_SITEMAP_INDEX_LINKS', 1000);
+
+/**
+ * The default number of links in one sitemap chunk file.
+ */
+define('XMLSITEMAP_DEFAULT_SITEMAP_LINKS', 1000);
+
+/*****************************************************************************
+ * Drupal hooks.
+ ****************************************************************************/
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function xmlsitemap_form_alter(&$form, &$form_state, $form_id) {
+  switch ($form_id) {
+    case 'locale_languages_configure_form':
+    case 'path_admin_form':
+    case 'pathauto_admin_settings':
+    case 'system_clean_url_settings':
+      $form['#submit'][] = 'xmlsitemap_settings_submit';
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_help().
+ */
+function xmlsitemap_help($path, $arg) {
+  switch ($path) {
+    case 'admin/settings/xmlsitemap':
+    case 'admin/settings/xmlsitemap/engines':
+      $output = t('The sitemap is located at <a href="@sitemap">@sitemap</a>.', array('@sitemap' => url('sitemap.xml', array('absolute' => TRUE))));
+      break;
+
+    case 'admin/help#xmlsitemap':
+      $output = '<p>'. t('XML sitemap automatically creates a sitemap that conforms to the <a href="@sitemaps.org">sitemaps.org specification</a>. This helps search engines keep their search results up to date.', array('@sitemaps.org' => 'http://www.sitemaps.org')) .'</p>';
+      $output .= '<h3>'. t('Supporting modules') .'</h3>';
+      $output .= '<p>'. t('By itself, the XML sitemap module adds only the front page of your site to the sitemap. Other types of links are handled by supporting modules.') .'</p>';
+      $optional = '';
+      foreach (module_implements('xmlsitemap_description', TRUE) as $module) {
+        $function = $module .'_xmlsitemap_description';
+        $optional .= $function();
+      }
+      if (!empty($optional)) {
+        $output .= "<dl>$optional</dl>";
+      }
+      $output .= '<p>'. t('Links may be assigned a priority between 0.0 and 1.0. The default priority is 0.5. A priority of <em>Not in sitemap</em> excludes a link from the sitemap.') .'</p>';
+      $output .= '<p>'. t('For more information, see the online handbook entry for <a href="@xmlsitemap">XML sitemap module</a>.', array('@xmlsitemap' => 'http://drupal.org/handbook/modules/gsitemap')) .'</p>';
+      break;
+
+    default:
+      $output = '';
+      break;
+  }
+  return $output;
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function xmlsitemap_menu() {
+  $items = array();
+  $access_config = array('administer site configuration');
+  $access_content = array('access content');
+  $items['admin/settings/xmlsitemap'] = array(
+    'title' => 'XML sitemap',
+    'description' => 'Configure the XML sitemap.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('xmlsitemap_settings'),
+    'access arguments' => $access_config,
+    'file' => 'xmlsitemap.admin.inc',
+  );
+  $items['admin/settings/xmlsitemap/sitemap'] = array(
+    'title' => 'Sitemap',
+    'description' => 'Configure the XML sitemap.',
+    'weight' => -1,
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'file' => 'xmlsitemap.admin.inc',
+  );
+  $items['admin/settings/xmlsitemap/tools'] = array(
+    'title' => 'Tools',
+    'description' => 'Sitemap tools.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('xmlsitemap_tools'),
+    'access arguments' => $access_config,
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'xmlsitemap.admin.inc',
+  );
+  $items['sitemap.xml'] = array(
+    'title' => 'Sitemap index',
+    'page callback' => 'xmlsitemap_output',
+    'access arguments' => $access_content,
+    'type' => MENU_CALLBACK,
+    'file' => 'xmlsitemap.pages.inc',
+  );
+  $chunk_size = variable_get('xmlsitemap_chunk_size', XMLSITEMAP_DEFAULT_SITEMAP_LINKS);
+  $link_count = xmlsitemap_link_count();
+  if ($link_count > $chunk_size) {
+    for ($chunk = 0; $chunk < $link_count / $chunk_size; ++$chunk) {
+      $items["sitemap$chunk.xml"] = array(
+        'title' => 'Sitemap !number',
+        'title arguments' => array('!number' => $chunk),
+        'page callback' => 'xmlsitemap_output',
+        'page arguments' => array((string) $chunk),
+        'access arguments' => $access_content,
+        'type' => MENU_CALLBACK,
+        'file' => 'xmlsitemap.pages.inc',
+      );
+    }
+  }
+  return $items;
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function xmlsitemap_perm() {
+  return array('override node settings', 'override profile settings');
+}
+
+/**
+ * Implementation of hook_robotstxt().
+ */
+function xmlsitemap_robotstxt() {
+  return array("Sitemap: ". url('sitemap.xml', array('absolute' => TRUE)));
+}
+
+/**
+ * Implementation of hook_xmlsitemap_operations().
+ */
+function xmlsitemap_xmlsitemap_operations() {
+  return array(
+    'delete_cache_files' => array(
+      'label' => t('Delete the sitemap cache files'),
+      'callback' => 'xmlsitemap_delete_cache_files',
+    ),
+    'flag_sitemap' => array(
+      'label' => t('Flag the sitemap as requiring update'),
+      'callback' => 'xmlsitemap_flag_sitemap',
+    ),
+  );
+}
+
+/*****************************************************************************
+ * Public functions.
+ ****************************************************************************/
+
+/**
+ * Batch callback called when the batch operations are completed.
+ */
+function xmlsitemap_batch_operations_finished($success, $results, $operations) {
+  if ($success) {
+    drupal_set_message(t('The update has been performed.'));
+  }
+  else {
+    drupal_set_message(t('An error occurred and processing did not complete.'), 'error');
+    $message = format_plural($count = count($results), '1 item successfully processed.', '@count items successfully processed.');
+    if ($count) {
+      $message .= theme('item_list', $results, t('Last items successfully processed:'));
+    }
+    drupal_set_message($message);
+  }
+}
+
+/**
+ * Return the language string used to identify the cache file for the sitemap
+ * content.
+ */
+function xmlsitemap_language_id() {
+  global $language;
+  return isset($language->language) ? $language->language : language_default('language');
+}
+
+/**
+ * Return the array for the cron limit options.
+ */
+function xmlsitemap_cron_options() {
+  return array(
+    '2000' => t('2000 rows'),
+    '1500' => t('1500 rows'),
+    '1000' => t('1000 rows'),
+    '500' => t('500 rows'),
+    '250' => t('250 rows'),
+    '100' => t('100 rows'),
+    '50' => t('50 rows'),
+    '25' => t('25 rows'),
+    '20' => t('20 rows'),
+    '15' => t('15 rows'),
+    '10' => t('10 rows'),
+    '5' => t('5 rows'),
+    '-1' => t('Do not process via cron'),
+  );
+}
+
+/**
+ * Delete the cache file used for the sitemap content, and mark the sitemap as
+ * changed.
+ */
+function xmlsitemap_delete_cache_files() {
+  $parent_directory = variable_get('xmlsitemap_cache_directory', file_directory_path() .'/xmlsitemap');
+  if (!is_dir($parent_directory)) {
+    return;
+  }
+  file_scan_directory($parent_directory, 'xsm-.*\.xml', array('.', '..', 'CVS'), 'file_delete', FALSE);
+  xmlsitemap_flag_sitemap();
+  return;
+}
+
+/**
+ * Mark the sitemap as changed, and the cache as needing update.
+ */
+function xmlsitemap_flag_sitemap() {
+  if (!variable_get('xmlsitemap_sitemap_is_changed', FALSE)) {
+    variable_set('xmlsitemap_sitemap_is_changed', TRUE);
+  }
+  if (!variable_get('xmlsitemap_sitemap_needs_update', FALSE)) {
+    variable_set('xmlsitemap_sitemap_needs_update', TRUE);
+  }
+}
+
+/**
+ * Return the number of links present in xmlsitemap table.
+ */
+function xmlsitemap_link_count() {
+  static $link_count;
+  if (!isset($link_count)) {
+    $link_count = db_result(db_query("SELECT COUNT(xsm.loc)". xmlsitemap_sitemap_query()));
+  }
+  return $link_count;
+}
+
+/**
+ * Return the number of chunk files.
+ */
+function xmlsitemap_chunk_count() {
+  $link_count = xmlsitemap_link_count();
+  $chunk_size = variable_get('xmlsitemap_chunk_size', XMLSITEMAP_DEFAULT_SITEMAP_LINKS);
+  return ceil($link_count / $chunk_size);
+}
+
+/**
+ * Return an array of sitemap priority options.
+ *
+ * @param $option
+ *  If not given, the array will include priority values from 0.0 to 1.0.
+ * - exclude: Add option to exclude item from sitemap.
+ * - default: Add option to use default priority. Only for cases where a
+ *   default priority exists.
+ * - both: Add both the default and exclude options.
+ *
+ * @return
+ *  An array of priority options.
+ */
+function xmlsitemap_priority_options($option = '') {
+  $options = array(
+    '1' => t('1.0'),
+    '0.9' => t('0.9'),
+    '0.8' => t('0.8'),
+    '0.7' => t('0.7'),
+    '0.6' => t('0.6'),
+    '0.5' => t('0.5'),
+    '0.4' => t('0.4'),
+    '0.3' => t('0.3'),
+    '0.2' => t('0.2'),
+    '0.1' => t('0.1'),
+    '0' => t('0.0'),
+  );
+  if ($option == 'exclude' || $option == 'both') {
+    $options['-1'] = t('Not in sitemap');
+  }
+  if ($option == 'default' || $option == 'both') {
+    $options['-2'] = t('Default');
+  }
+  return $options;
+}
+
+/**
+ * Determine the frequency of updates to a link.
+ *
+ * @param $interval
+ *  The number of seconds since the last change, or the number of seconds
+ *  between the last change, and the previous change.
+ *
+ * @return
+ *  A string representing the update frequency according to the sitemaps.org
+ *  protocol.
+ */
+function xmlsitemap_sitemap_frequency($interval) {
+  $frequencies = array(
+    'always' => 3600,
+    'hourly' => 86400,
+    'daily' => 604800,
+    'weekly' => 2419200,
+    'monthly' => 29030400,
+    'yearly' => 100000000,
+  );
+  if ($interval < 0 || !is_numeric($interval)) {
+    return 'never';
+  }
+  foreach ($frequencies as $frequency => $value) {
+    if ($interval < $value) {
+      break;
+    }
+  }
+  return $frequency;
+}
+
+/**
+ * Complete the query used to select rows from the xmlsitemap table.
+ */
+function xmlsitemap_sitemap_query() {
+  global $language;
+  $default = language_default();
+  $language_query = "AND xsm.language IN ('". $language->language ."', '')";
+  switch (variable_get('language_negotiation', LANGUAGE_NEGOTIATION_NONE)) {
+    case LANGUAGE_NEGOTIATION_NONE:
+      $language_query = '';
+      break;
+
+    case LANGUAGE_NEGOTIATION_PATH_DEFAULT:
+    case LANGUAGE_NEGOTIATION_PATH:
+      if (variable_get('xmlsitemap_all_links_to_default_language', 0) && $language->language == $default->language) {
+        $language_query = '';
+      }
+      break;
+  }
+  return "
+    FROM {xmlsitemap} xsm
+    INNER JOIN {system} s ON s.name = xsm.module
+    WHERE s.type = 'module'
+      AND s.status = 1
+      AND xsm.changefreq <> 0
+      AND xsm.changed <> 0
+      $language_query
+      AND (xsm.priority >= 0 AND xsm.priority <= 1)
+    ";
+}
+
+/**
+ * Return an array used to add additional form fields in the user form.
+ */
+function xmlsitemap_user_form_fieldset() {
+  static $done = FALSE;
+  $form = array();
+  if (!$done) {
+    $form['xmlsitemap'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('XML sitemap'),
+      '#collapsible' => TRUE,
+      '#access' => user_access('override profile settings') || user_access('administer users'),
+      '#weight' => 7,
+    );
+    $done = TRUE;
+  }
+  return $form;
+}
+
+/**
+ * @} End of "addtogroup xmlsitemap".
+ */
+

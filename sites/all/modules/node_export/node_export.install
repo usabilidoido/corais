@@ -1,0 +1,75 @@
+<?php
+
+/**
+ * @file
+ * The Node export install file.
+ */
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function node_export_uninstall() {
+  variable_del('node_export_format');
+  variable_del('node_export_code');
+  variable_del('node_export_filename');
+  variable_del('node_export_file_list');
+  variable_del('node_export_existing');
+  $types = node_get_types('names');
+  foreach ($types as $type => $name) {
+    variable_del('node_export_reset_'. $type);
+    variable_del('node_export_reset_created_'. $type);
+    variable_del('node_export_reset_menu_'. $type);
+    variable_del('node_export_reset_revision_timestamp_'. $type);
+    variable_del('node_export_reset_last_comment_timestamp_'. $type);
+    variable_del('node_export_reset_path_'. $type);
+    variable_del('node_export_reset_book_mlid_'. $type);
+  }
+
+  // Old variables.
+  variable_del('node_export_method');
+  variable_del('node_export_bulk_code');
+  variable_del('node_export_bulk_filename');
+  variable_del('node_export_omitted');
+  variable_del('node_export_nodes_without_confirm');
+}
+
+/**
+ * Implementation of hook_update_N().
+ *
+ * Update permission names.
+ *
+ * @see hook_update_N()
+ */
+function node_export_update_6300() {
+  $ret[] = update_sql("UPDATE {permission} SET perm = REPLACE(perm, 'export node', 'export nodes')");
+  $ret[] = update_sql("UPDATE {permission} SET perm = REPLACE(perm, 'export bulk nodes', 'export nodes')");
+  cache_clear_all();
+  drupal_set_message(
+    t(
+      "Node export <a href=\"!perms\">permissions</a> and <a href=\"!config\">settings</a> "
+      . "have changed, please take this opportunity to review these options to "
+      . "ensure the correct behavior and security of the module.  The import "
+      . "form is now located under <a href=\"!add\">Create content</a>.",
+      array(
+        '!perms' => url('admin/user/permissions'),
+        '!config' => url('admin/settings/node_export'),
+        '!add' => url('node/add'),
+      )
+    ),
+    'warning'
+  );
+  return $ret;
+}
+
+/**
+ * Disable node export CSV.
+ */
+function node_export_update_6301() {
+  if (module_exists('node_export_csv')) {
+    drupal_set_message('<em>Node export CSV</em> is deprecated.  Please delete the ' . drupal_get_path('module', 'node_export_csv') . ' directory from the Drupal installation.', 'warning');
+    module_disable(array('node_export_csv'), FALSE);
+  }
+  return array(
+    array('success' => TRUE, 'query' => 'Node export CSV is deprecated.'),
+  );
+}

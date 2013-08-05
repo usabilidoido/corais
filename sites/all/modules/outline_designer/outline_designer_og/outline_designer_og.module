@@ -1,0 +1,147 @@
+<?php
+// $Id: outline_designer_og.module
+/**
+ * Implementation of hook_form_alter().
+ */
+function outline_designer_og_form_alter(&$form, $form_state, $form_id) {
+  if ($form_id == 'book_admin_edit' && arg(0) == 'outline_designer' && (arg(1) == 'og_ajax' || arg(1) == 'book')) {
+    _outline_designer_book_admin_form_alter($form, $form_state, $form_id, 'outline_designer/og_ajax/');
+  }
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function outline_designer_og_menu() {
+  $items['node/%node/outline_designer'] = array(
+    'title' => t('Edit books'),
+    'page callback' => 'outline_designer_og_books',
+    'page arguments' => array(1),
+    'access callback' => '_outline_designer_og_books_access',
+    'access arguments' => array(1),
+    'weight' => 9,
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['outline_designer/book/%node'] = array(
+    'title' => t('Re-order book pages and change titles'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('book_admin_edit', 2),
+    'access callback' => '_outline_designer_og_book_access',
+    'access arguments' => array(2),
+    'type' => MENU_CALLBACK,
+    'file' => 'book.admin.inc',
+    'file path' => drupal_get_path('module', 'book'),
+  );
+  $items['outline_designer/og_ajax'] = array(
+    'access callback' => '_outline_designer_og_ajax_access',
+    'page callback'  => '_outline_designer_ajax',
+    'page arguments' => array(2, 3, 4, 5, 6),
+    'type'  => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * This function checks if the user accessign the ajax callback is a group admin
+ * for any group. It'd be better obviously if we were checking that they were
+ * admin for the group which books they are editing but that'd take rewritting
+ * more of outline_designer than I'd like to do now.
+ */
+function _outline_designer_og_ajax_access() {
+  global $user;
+  $result = db_result(db_query("SELECT uid
+                                  FROM {og_uid}
+                                  WHERE is_admin = 1
+                                  AND uid = %d", $user->uid));
+
+  if (!empty($result)) {
+    return 1;
+  }
+  else {
+    return 0;
+  }
+}
+
+function _outline_designer_og_books_access($node) {
+  global $user;
+
+  if (!og_is_group_type($node->type)) {
+    return 0;
+  }
+
+  // Check that there's books in this group
+  $val = db_result(db_query("SELECT bid
+                                 FROM {book} b
+                                 JOIN {og_ancestry} o
+                                 ON b.bid = o.nid
+                                 WHERE o.group_nid = %d
+                                 LIMIT 1", $node->nid));
+  if (empty($val)) {
+    return 0;
+  }
+
+  if ($user->uid == 1) {
+    return 1;
+  }
+
+  if (!og_is_group_admin($node, $user)) {
+    return 0;
+  }
+
+  return 1;
+}
+
+function _outline_designer_og_book_access($node) {
+  global $user;
+  if ($user->uid == 1) {
+    return 1;
+  }
+
+  $group_nodes = og_get_node_groups($node);
+  $is_group_admin = FALSE;
+  foreach ($group_nodes as $nid => $title) {
+    if (og_is_group_admin(node_load($nid), $user)) {
+      $is_group_admin = TRUE;
+    }
+  }
+  return $is_group_admin;
+}
+
+function outline_designer_og_books($group_node) {
+  $sql = "SELECT b.bid
+          FROM {book} b
+          JOIN {og_ancestry} o
+          ON b.bid = o.nid
+          WHERE o.group_nid = %d
+          GROUP BY b.bid";
+  $bids = db_query($sql, $group_node->nid);
+
+  $books = array();
+  while ($row = db_fetch_array($bids)) {
+    $books[$row['bid']] = node_load($row['bid']);
+  }
+
+  $item_list = array();
+  foreach ($books as $book) {
+    $item_list[] = l($book->title, "outline_designer/book/" . $book->nid);
+  }
+
+  return theme('item_list', $item_list, t("Books to rearrange in %group_name", array('%group_name' => $group_node->title)));
+}
+
+/**
+ * Implementation of hook_new_book_alter().
+ */
+function outline_designer_og_new_book_object_alter(&$node) {
+  // Load the group node.
+  $group_node = node_load(db_result(db_query("SELECT group_nid
+                                    FROM {og_ancestry}
+                                    WHERE nid = %d", $node->book['bid'])));
+  $is_public = TRUE;
+  if ($group_node->og_private) {
+    $is_public = FALSE;
+  }
+  $node->og_public = $is_public;
+  $node->og_groups[$group_node->nid] = $group_node->nid;
+}

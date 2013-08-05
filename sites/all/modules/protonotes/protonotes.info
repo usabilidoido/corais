@@ -1,0 +1,11 @@
+; $Id$
+name = Protonotes
+description = Allows users to add notes on pages with protonotes.
+core = 6.x
+package = CrossFunctional.net
+; Information added by drupal.org packaging script on 2011-05-25
+version = "6.x-1.x-dev"
+core = "6.x"
+project = "protonotes"
+datestamp = "1306284253"
+

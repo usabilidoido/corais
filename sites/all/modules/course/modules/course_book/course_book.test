@@ -1,0 +1,79 @@
+<?php
+
+require_once drupal_get_path('module', 'course') . '/tests/CourseTestCase.test';
+
+/**
+ * Tests for Book support in Course
+ */
+class CourseObjectBookTestCase extends CourseTestCase {
+
+  public static function getInfo() {
+    // Note that getInfo() strings are not translated with t().
+    return array(
+      'name' => 'Course object book',
+      'description' => 'Ensure that book Course object support functions properly.',
+      'group' => 'Course',
+    );
+  }
+
+  function getModules() {
+    $modules = parent::getModules();
+    $modules[] = 'book';
+    $modules[] = 'course_book';
+    return $modules;
+  }
+
+  function setUp() {
+    parent::setUp();
+
+    $this->book_admin = $this->drupalCreateUser(array('administer nodes') + book_perm());
+  }
+
+  function testBookCourseObject() {
+    $this->drupalLogin($this->book_admin);
+
+    // Create a course with 1 book.
+    $courseNode = $this->createCourseNode();
+    $co1 = course_get_course_object('course_book', 'book');
+    $co1->setOption('book_tracking', 'all');
+    $co1->setCourse($courseNode->nid);
+    $co1->setUser($this->book_admin);
+    $co1->save();
+    $this->assertTrue($co1->getInstanceId() > 0, 'book node created on course object save.');
+
+    $bookNode = node_load($co1->getInstanceId());
+    $this->assertTrue($bookNode->type == 'book', 'book node is a book.');
+
+    // Add some more book pages.
+    $bp1 = $this->drupalCreateNode(array(
+      'type' => 'book',
+      'book' => array(
+        'bid' => $co1->getInstanceId(),
+      )));
+
+    $bp2 = $this->drupalCreateNode(array(
+      'type' => 'book',
+      'book' => array(
+        'bid' => $co1->getInstanceId(),
+      )));
+
+    // Test fulfillment tracking, set to view all pages before complete.
+    $this->assertFalse($co1->getFulfillment()->isComplete(), 'Check that book object is not complete.');
+
+    // Visit the book parent
+    $this->drupalGet("node/" . $co1->getInstanceId());
+    // Visit the first book page
+    $this->drupalGet("node/{$bp1->nid}");
+
+    // Test that course object is not yet complete.
+    $co1 = course_get_course_object_by_id($co1->getId(), $this->book_admin);
+    $this->assertFalse($co1->getFulfillment()->isComplete(), 'Check that book object is not complete after visiting 2/3 pages.');
+
+
+    $this->drupalGet("node/{$bp2->nid}");
+    // Reload course object
+    $co1 = course_get_course_object_by_id($co1->getId(), $this->book_admin);
+    $this->assertTrue($co1->getFulfillment()->isComplete(), 'Check that book object is now complete after visiting 3/3 pages.');
+  }
+
+}

@@ -1,0 +1,90 @@
+<?php
+
+require_once drupal_get_path('module', 'course') . '/tests/CourseTestCase.test';
+
+/**
+ * Tests for Course enrollment
+ */
+class CourseGradeTestCase extends CourseTestCase {
+
+  public static function getInfo() {
+    // Note that getInfo() strings are not translated with t().
+    return array(
+      'name' => 'Course grading',
+      'description' => 'Ensure that Course grading functions normally.',
+      'group' => 'Course',
+    );
+  }
+
+  /**
+   * Test that the final grade is calculated correctly.
+   */
+  public function testCourseFinalGrade() {
+    $courseNode = $this->createCourseNode();
+
+    // Create a graded course object.
+    $co1 = $this->createCourseObject($courseNode, TRUE);
+
+    // Reload the course from DB.
+    $course = course_get_course($courseNode);
+    $courseObjects = $course->getObjects();
+    $co1 = $courseObjects[0];
+
+    // Set grade result.
+    $co1->getFulfillment()->setOption('grade_result', 80);
+
+    // Track object not included in final grade.
+    $co1->setOption('grade_include', FALSE);
+    $co1->getCourse()->getTracker()->track();
+    $this->assertNotEqual($co1->getCourse()->getTracker()->getOption('grade_result'), 80, 'Course grade was not given from course object');
+
+    // Track object included in final grade.
+    $co1->setOption('grade_include', TRUE);
+    $co1->getCourse()->getTracker()->track();
+    $this->assertEqual($co1->getCourse()->getTracker()->getOption('grade_result'), 80, 'Course grade was given from course object');
+  }
+
+  /**
+   * Test that the course grade access plugin functions properly.
+   */
+  public function testCourseGradeAccess() {
+    $courseNode = $this->createCourseNode();
+
+    // Create a graded course objects.
+    $this->createCourseObject($courseNode, TRUE);
+
+    // Add a non-graded course object.
+    $this->createCourseObject($courseNode);
+
+    // Reload the course from DB.
+    $course = course_get_course($courseNode, NULL, TRUE);
+    $courseObjects = $course->getObjects();
+    $co1 = $courseObjects[0];
+    $co2 = $courseObjects[1];
+
+    // Set object 1 to be included in the course grade.
+    $co1->setOption('grade_include', TRUE);
+
+    // Set object 2 to require a course grade of 80.
+    $co2->addOptions(array(
+      'plugins' => array(
+        'access' => array(
+          'grade' => array(
+            'course_grade' => 80,
+          ),
+        ),
+      ),
+    ));
+
+    // Complete but don't hit the grade requirement.
+    $co1->getFulfillment()->setOption('grade_result', 79)->setComplete(1);
+    $course->getTracker()->track();
+    $this->assertFalse($co2->access('take'), 'User cannot take course object with lower grade.');
+
+    // Hit the grade requirement.
+    $co1->getFulfillment()->setOption('grade_result', 80)->setComplete(1);
+    $course->getTracker()->track();
+    $this->assertTrue($co2->access('take'), 'User can take course object with required grade.');
+  }
+
+}

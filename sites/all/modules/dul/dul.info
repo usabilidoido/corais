@@ -1,0 +1,12 @@
+; $Id: dul.info,v 1.1.2.1 2009/02/05 14:50:32 kiam Exp $
+name = Disable user language
+description = Disables the language selector in the user profile form.
+dependencies[] = locale
+core = 6.x
+
+; Information added by drupal.org packaging script on 2010-05-21
+version = "6.x-1.6"
+core = "6.x"
+project = "dul"
+datestamp = "1274404208"
+

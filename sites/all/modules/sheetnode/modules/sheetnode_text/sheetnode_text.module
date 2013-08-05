@@ -1,0 +1,189 @@
+<?php
+
+/**
+ * Implementation of hook_menu().
+ */
+function sheetnode_text_menu() {
+  $items['node/add/sheetnode_text'] = array(
+    'title' => 'Sheetnode import from text table',
+    'access arguments' => array('create sheetnode'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('sheetnode_text_import_form'),
+    'description' => 'Create a new sheetnode with content from a text table.',
+  );
+  return $items;
+}
+
+/**
+ * Callback for import form.
+ */
+function sheetnode_text_import_form() {
+  $form['title'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Title'),
+    '#description' => t('Spreadsheet title.'),
+  );
+  $form['text'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Text'),
+    '#description' => t('Text representation of table to import.'),
+    '#required' => TRUE,
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+  );
+  return $form;
+}
+
+/**
+ * Submit handler for import form.
+ */
+function sheetnode_text_import_form_submit($form, &$form_state) {
+  module_load_include('inc', 'node', 'node.pages');
+  global $user;
+  $title = $form_state['values']['title'];
+  $text = $form_state['values']['text'];
+  $options = array(
+    'ignore_spans' => variable_get('sheetnode_text_ignore_spans', FALSE),
+    'process_dividers' => variable_get('sheetnode_text_process_dividers', TRUE),
+  );
+  $sc = sheetnode_text_import($text, $options);
+
+  $node = new StdClass;
+  $node->type = 'sheetnode';
+
+  node_object_prepare($node);
+
+  $node->title = $title;
+  $node->name = $user->name;
+  $node->sheetnode['value'] = $sc;
+  $node->sheetnode['template'] = NULL;
+
+  $context = array('text' => $text, 'options' => $options);
+  $params = array();
+  drupal_alter('sheetnode_import', $node, $params, $context);
+
+  // Save the sheetnode.
+  $node = node_submit($node);
+  node_save($node);
+  if (!empty($node->nid)) {
+    $form_state['redirect'] = 'node/'. $node->nid;
+  }
+}
+
+/**
+ * API function to import a URL.
+ */
+function sheetnode_text_import($text, $options = array()) {
+  require_once(drupal_get_path('module', 'sheetnode') . '/socialcalc.inc');
+  $sheet = array();
+  sheetnode_text_import_table($text, $sheet, $options);
+  $socialcalc = array(
+    'sheet' => $sheet,
+    'edit' => socialcalc_default_edit($sheet),
+    'audit' => socialcalc_default_audit($sheet),
+  );
+  return socialcalc_save($socialcalc);
+}
+
+/**
+ * API function to import a single table.
+ */
+function sheetnode_text_import_table($table, &$sheet, $options = array()) {
+  // 1. Split text into lines->ranges.
+  //    Consider row with maximum number of ranges = header
+  $rows = array();
+  $maxcols = 0;
+  foreach (preg_split("/(\r?\n)|<br\s*\/>/", $table) as $line) {
+    $elements = preg_split("/\s{2,}/", $line, -1, PREG_SPLIT_OFFSET_CAPTURE | PREG_SPLIT_NO_EMPTY);
+    $row = array();
+    foreach ($elements as $element) {
+      $text = $element[0];
+      $start  = $element[1];
+      $row[] = array(
+        'start' => $start,
+        'end' => $start + strlen($text) - 1,
+        'text' => $text,
+      );
+    }
+    if (count($row) > $maxcols) {
+      $maxcols = count($row);
+      $header = $row;
+    }
+    $rows[] = $row;
+  }
+
+  // 2. Match ranges to cells.
+  $pos = $maxpos = array(1, @$sheet['attribs']['lastrow'] + 1); // col, row
+  $cell = $cells = $spans = array();
+  foreach ($rows as $row) {
+    foreach ($row as $range) {
+      // Find column of this range.
+      $pos[0] = count($header)-1; 
+      foreach ($header as $c => $h) {
+        if ($range['start'] <= $h['end']) {
+          $pos[0] = $c+1;
+          break;
+        }
+      }
+     
+      // Find colspan of this range.
+      $colspan = 1;
+      for ($i = $c; $i < count($header); $i++) {
+        $h = $i < count($header)-1 ? $header[$i+1] : NULL;
+        if (empty($h)) {
+          break;
+        }
+        if ($range['end'] < $h['start']) {
+          break;
+        }
+        $colspan++;
+      }
+      $colspan = min($colspan, count($header));
+
+      // TODO: Find rowspan of this range.
+      $rowspan = 1;
+
+      // Create cell.
+      $value = _sheetnode_text_import_value($range['text']);
+      if (!empty($options['process_dividers']) && preg_match('/^-+$/', $value)) {
+        $value = NULL;
+      }
+      $cell = array();
+      $cell['pos'] = $pos;
+      $cell['datavalue'] = $value;
+      $cell['datatype'] = is_numeric($value) ? 'v' : 't';
+      $cell['valuetype'] = is_numeric($value) ? 'n' : 'th';
+      if ($colspan > 1 && empty($options['ignore_spans'])) {
+        $cell['colspan'] = $colspan;
+      }
+      if (!empty($value)) {
+        $cells[socialcalc_cr_to_coord($pos[0], $pos[1])] = $cell;
+      }
+      for ($r = $pos[1]; $r < $pos[1]+$rowspan; $r++) {
+        $spans[socialcalc_cr_to_coord($pos[0], $r)] = TRUE;
+      }
+      $pos[0] += $colspan;
+      $maxpos[0] = max($maxpos[0], $pos[0]);
+    }
+
+    // Advance to next row.
+    if ($pos[0] > 1) $pos[1]++;
+    $maxpos[1] = max($maxpos[1], $pos[1]);
+  }
+
+  $sheet['cells'] = isset($sheet['cells']) ? $sheet['cells'] + $cells : $cells;
+  $sheet['attribs']['lastcol'] = max(@$sheet['attribs']['lastcol'], $maxpos[0]-1);
+  $sheet['attribs']['lastrow'] = max(@$sheet['attribs']['lastrow'], $maxpos[1]-1);
+}
+
+/**
+ * Utility function to import a cell value.
+ */
+function _sheetnode_text_import_value($val) {
+  $val = trim($val);
+  $num = parse_formatted_number($val);
+  return $num === FALSE ? $val : $num;
+}
+

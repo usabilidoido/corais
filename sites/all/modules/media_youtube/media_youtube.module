@@ -1,0 +1,590 @@
+<?php
+// $Id: media_youtube.module,v 1.1.2.28 2011/02/04 18:48:05 aaron Exp $
+
+/**
+ *  @file
+ *  Embedded Video Field provider file for YouTube.com.
+ */
+
+/* ***************************************** */
+/* INCLUDES                                  */
+/* ***************************************** */
+
+// A registry of variable_get defaults.
+include_once('includes/media_youtube.variables.inc');
+
+/**
+ * Implementation of hook_menu().
+ */
+function media_youtube_menu() {
+  return array(
+    'admin/settings/media_youtube' => array(
+      'title' => 'Media: YouTube',
+      'description' => 'Administer the Media: YouTube module.',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('media_youtube_settings'),
+      'access arguments' => array('administer site configuration'),
+      'file' => 'includes/media_youtube.admin.inc',
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function media_youtube_theme($existing, $type, $theme, $path) {
+  return array(
+    'media_youtube_video_rejected' => array(
+      'file' => 'media_youtube.theme.inc',
+      'path' => $path .'/themes',
+      'arguments' => array('message' => NULL, 'status' => array()),
+    ),
+    'media_youtube_video_upload_failed' => array(
+      'file' => 'media_youtube.theme.inc',
+      'path' => $path .'/themes',
+      'arguments' => array('message' => NULL, 'status' => array()),
+    ),
+    'media_youtube_video_unavailable' => array(
+      'file' => 'media_youtube.theme.inc',
+      'path' => $path .'/themes',
+      'arguments' => array('message' => NULL, 'status' => array()),
+    ),
+    'media_youtube_video_duplicate' => array(
+      'file' => 'media_youtube.theme.inc',
+      'path' => $path .'/themes',
+      'arguments' => array('message' => NULL, 'status' => array()),
+    ),
+    'media_youtube_flash'  => array(
+      'arguments' => array('variables' => array()),
+      'path' => $path .'/themes',
+      'file' => 'media_youtube.theme.inc',
+      'template' => 'media-youtube-flash',
+    ),
+    'media_youtube_html5'  => array(
+      'arguments' => array('variables' => array()),
+      'path' => $path .'/themes',
+      'file' => 'media_youtube.theme.inc',
+      'template' => 'media-youtube-html5',
+    ),
+    'media_youtube_default_external' => array(
+      'arguments' => array('variables' => array()),
+      'path' => $path .'/themes',
+      'file' => 'media_youtube.theme.inc',
+      'template' => 'media-youtube-default-external',
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_flush_caches().
+ */
+function media_youtube_flush_caches() {
+  if (db_table_exists('cache_media_youtube_status')) {
+    return array('cache_media_youtube_status');
+  }
+}
+
+/**
+ * Implementation of hook_cron().
+ */
+function media_youtube_cron() {
+  // Recheck the status of any unavailable videos.
+
+  // See if we need to check video status.
+  $status_update_frequency = media_youtube_variable_get('status_update_frequency');
+  if ($status_update_frequency != MEDIA_YOUTUBE_STATUS_UPDATE_NONE) {
+    // Include the _media_youtube_save_status_data() function.
+    module_load_include('inc', 'media_youtube', 'includes/media_youtube.api');
+
+    // Build our SQL for the query of metadata.
+    $sql = "SELECT value, status, last_touched FROM {media_youtube_metadata}";
+
+    // Only get items that haven't been updated in awhile.
+    $where = array(
+      "last_touched < %d",
+    );
+    $arguments = array(
+      time() - (media_youtube_variable_get('cron_time') * 60),
+    );
+
+    // If we only care about unavailable videos, then filter out the rest.
+    if ($status_update_frequency == MEDIA_YOUTUBE_STATUS_UPDATE_FROM_UNAVAILABLE) {
+      $where[] = "status = %d";
+      $arguments[] = EMFIELD_STATUS_UNAVAILABLE;
+    }
+
+    // We'll either grab a range or all required items.
+    if ($limit = media_youtube_variable_get('cron_limit')) {
+      $results = db_query_range($sql .' WHERE '. implode(' AND ', $where) .' ORDER BY last_touched ASC', $arguments, 0, $limit);
+    } else {
+      $results = db_query($sql .' WHERE '. implode(' AND ', $where) .' ORDER BY last_touched ASC', $arguments);
+    }
+
+    while ($media = db_fetch_array($results)) {
+      // See if the status has changed.
+      $status = media_youtube_check_status($media['value']);
+      if ($status != $media['status']) {
+        $media['status'] = $status;
+
+        // Write the new metadata.
+        drupal_write_record('media_youtube_metadata', $media, 'value');
+
+        // Now record each node that uses this video.
+        $data = db_query("SELECT value, vid, field_name, delta FROM {media_youtube_node_data} WHERE value = '%s'", $media['value']);
+        while ($item = db_fetch_array($data)) {
+          $node = node_load(array('vid' => $item['vid']));
+          $node->{$item['field_name']}[$item['delta']]['status'] = $media['status'];
+          node_save($node);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Implement hook_emfield_field_extra().
+ */
+function media_youtube_emfield_field_extra($op, &$node, $field, &$items, $teaser, $page, $module) {
+  if (in_array($op, array('insert', 'update'))) {
+    // Store the metadata for any YouTube videos stored in this field.
+    foreach ($items as $delta => $item) {
+      if ($item['provider'] == 'youtube') {
+        $item['status'] = media_youtube_check_status($item['value']);
+        // Store the metadata for the video if we don't already have it.
+        if (!db_result(db_query("SELECT value FROM {media_youtube_metadata} WHERE value = '%s'", $item['value']))) {
+          $item['last_touched'] = time();
+          drupal_write_record('media_youtube_metadata', $item);
+        }
+
+        // Delete any existing associations for this field delta.
+        db_query("DELETE FROM {media_youtube_node_data} WHERE value = '%s' AND vid = %d AND field_name = '%s' AND delta = %d", $item['value'], $node->vid, $field['field_name'], $delta);
+
+        // Associate this field delta to the specific metadata.
+        $item['vid'] = $node->vid;
+        $item['field_name'] = $field['field_name'];
+        $item['delta'] = $delta;
+        drupal_write_record('media_youtube_node_data', $item);
+      }
+    }
+  }
+}
+
+/**
+ * Implementation of hook_emfield_status().
+ */
+function media_youtube_emfield_status($item, $field = NULL, $module = 'emvideo') {
+  // Return the availability of the video.
+  $status = media_youtube_check_status($item['value']);
+  return $status;
+}
+
+/**
+ * Implementation of hook_emfield_providers().
+ */
+function media_youtube_emfield_providers($module, $provider = NULL) {
+  // We know this module only includes the main provider file, avoid needless
+  // PHP warnings.
+  if ($module == 'emvideo' && (!isset($provider) || ($provider == 'youtube'))) {
+    static $path;
+    // Cache the result for later.
+    if (!isset($path)) {
+      $found = drupal_system_listing("$provider\.inc$", drupal_get_path('module', 'media_youtube') ."/providers/$module", 'name', 0);
+      if (is_array($found) && !empty($found)) {
+        $path = $found;
+      }
+    }
+    return $path;
+  }
+}
+
+/**
+ * Implementation of media_mover hook
+ * @param $op is the operator to return
+ * @param $action is which action is being called
+ * @param $verb is the verb being run
+ * @param $configuration is the specific configuration saved for the action for this configuration
+ * @param $file is the file in use
+ * @param $job is the full configuration data currently running
+ */
+function media_youtube_media_mover($op = NULL, $action = NULL, $configuration = NULL, &$file=array(), $job = NULL, $nid = NULL) {
+  switch ($op) {
+    case 'name':
+      return t('Media: YouTube');
+      break;
+
+    case 'actions':
+      return array(
+        'process' => array(
+          1 => t('Upload video to YouTube.'),
+        ),
+        'storage' => array(
+          2 => t('Upload video to YouTube.'),
+        ),
+      );
+      break;
+
+    case 'process':
+    case 'storage':
+      module_load_include('inc', 'media_youtube', 'includes/media_youtube.media_mover');
+      return media_youtube_upload_video($file, $configuration);
+      break;
+
+    case 'config':
+      switch ($action) {
+        case '1':
+        case '2':
+          module_load_include('inc', 'media_youtube', 'includes/media_youtube.media_mover');
+          return media_youtube_config($configuration);
+      }
+      break;
+  }
+}
+
+/**
+ * Return the direct URL to this video.
+ *
+ * @param string $id
+ *  The YouTube video id.
+ *
+ * @return string
+ *  The direct URL to the video in question.
+ */
+function media_youtube_video_url($id) {
+  if (strpos($id, 'PLAYLIST_') === 0) {
+    // This is a youtube playlist.
+    return 'http://youtube.com/p/'. substr($id, 9);
+  }
+  return url('http://www.youtube.com/watch', array('query' => 'v='. $id));
+}
+
+/**
+ * Validation function for Media: YouTube's Media Mover configuration form.
+ *
+ * @see media_youtube_config().
+ */
+function media_youtube_validate_configuration($element, &$form_state) {
+  if ($values = media_mover_api_extract_form_data($element, $form_state)) {
+    foreach (array('media_youtube_default_title' => t('Default title'), 'media_youtube_default_description' => t('Default description')) as $field => $field_name) {
+      if (empty($values[$field])) {
+        // @TODO: Need to use 1 or 2 as specified by the configuration.
+        form_set_error('storage--media_youtube--1--'. $field, t('%field field is required.', array('%field' => $field_name)));
+      }
+    }
+  }
+//   if (strlen($values['media_youtube_default_description']) > media_youtube_variable_get('description_length')) {
+//     form_set_error('storage--media_youtube--1--media_youtube_default_description', t('The default description must be @length characters or less.', array('@length' => media_youtube_variable_get('description_length'))));
+//   }
+}
+
+/**
+ * Implementation of hook_init().
+ */
+function media_youtube_init() {
+  // Autoload the Zend_Loader class when needed.
+  spl_autoload_register('media_youtube_autoload');
+}
+
+/**
+ * Autoload the Zend_Loader class when needed.
+ */
+function media_youtube_autoload($class_name) {
+  if ($class_name == 'Zend_Loader') {
+    include_once(media_youtube_zend_path() .'/Zend/Loader.php');
+  }
+}
+
+/**
+ * Return the path to the Zend library.
+ *
+ * If media_youtube_variable_get('zend_path') has not yet been set, then
+ * this will attempt to autodiscover the path if the Gdata.php file exists
+ * within sites/all/libraries/* or sites/example.com/libraries/*. It will also
+ * set the path to media_youtube_variable_get('zend_path').
+ *
+ * The library is available from http://framework.zend.com/download/gdata/.
+ *
+ * @param boolean $reset
+ *  (Optional) If TRUE, then reset the variable and attempt a new autodiscovery.
+ * @return string
+ *  The path to the Zend Gdata.php and related files.
+ */
+function media_youtube_zend_path($reset = FALSE) {
+  static $path;
+
+  if (!isset($path) || $reset) {
+    if (!($path = media_youtube_variable_get('zend_path')) || $reset) {
+      $files = drupal_system_listing('^Gdata\.php$', 'libraries', 'basename', 0);
+      if (isset($files['Gdata.php'])) {
+        $path = dirname($files['Gdata.php']->filename);
+        $path = substr($path,0,-strlen(strrchr($path,"/")));
+        media_youtube_variable_set('zend_path', $path);
+      }
+      else {
+        $path = '';
+      }
+    }
+    if ($path) {
+      _media_youtube_set_include_path($path);
+    }
+  }
+
+  return $path;
+}
+
+/**
+ * Add the Zend path to PHP class includes.
+ */
+function _media_youtube_set_include_path($path = NULL) {
+  static $path_set;
+
+  if (!isset($path_set)) {
+    if (!isset($path)) {
+      $path = media_youtube_zend_path();
+    }
+    $path_set = set_include_path(get_include_path() . PATH_SEPARATOR . $path);
+  }
+}
+
+/**
+ *  Ensure we're able to run YouTube videos from the JW FLV Media Player.
+ *  This requires that we both have the player installed, and the included
+ *  yt.swf file is located in the same folder.
+ *  @return boolean
+ *    Returns TRUE if both checks are TRUE.
+ */
+function _media_youtube_check_flv_player_setup() {
+  static $check;
+
+  if (is_null($check)) {
+    // We set up a static cache.
+
+    // First check that the JW FLV Player is installed.
+    $flv_path = emfield_flvmediaplayer_url();
+    if (!$flv_path || !file_exists($flv_path)) {
+      // There's no player installed, so yt.swf is moot.
+      $check = FALSE;
+    }
+    else {
+      // Now check that the yt.swf file is also present in the same folder.
+      $path = dirname($flv_path);
+      $check = file_exists($path . '/yt.swf');
+    }
+  }
+  return $check;
+}
+
+/**
+ * Check the availability of a video.
+ */
+function media_youtube_check_status($video_id, $reset = FALSE) {
+  static $status;
+
+  if ($reset || !isset($status)) {
+    $status = array();
+  }
+
+  if (!isset($status[$video_id])) {
+    if (($cache = cache_get('media_youtube:status:'. $video_id, 'cache_media_youtube_status')) && !$reset) {
+      $status[$video_id] = $cache->data;
+    }
+    else {
+      if ($path = media_youtube_zend_path()) {
+        Zend_Loader::loadClass('Zend_Gdata_YouTube', $path);
+        Zend_Loader::loadClass('Zend_Gdata_App_HttpException', $path);
+        Zend_Loader::loadClass('Zend_Gdata_AuthSub', $path);
+        Zend_Loader::loadClass('Zend_Gdata_ClientLogin', $path);
+        Zend_Loader::loadClass('Zend_Uri_Http', $path);
+
+        $yt = new Zend_Gdata_YouTube();
+        try {
+          $videoEntry = $yt->getVideoEntry($video_id);
+          $status[$video_id] = EMFIELD_STATUS_AVAILABLE;
+        }
+        catch (Exception $e) {
+          $status[$video_id] = EMFIELD_STATUS_UNAVAILABLE;
+          $message = 'Video unavailable at !link: @error.';
+          $variables = array('@error' => $e->getMessage(), '!link' => l(media_youtube_video_url($video_id), media_youtube_video_url($video_id)));
+          watchdog('media_youtube', $message, $variables, WATCHDOG_ERROR);
+        }
+      }
+      else {
+        // We don't have the Zend library, so there's no way to know for certain.
+        $status[$video_id] = EMFIELD_STATUS_AVAILABLE;
+      }
+      cache_set('media_youtube:status:'. $video_id, $status[$video_id], 'cache_media_youtube_status', CACHE_TEMPORARY);
+    }
+  }
+  return $status[$video_id];
+}
+
+function media_youtube_video_full_status($video_id, $youtube_username = NULL, $youtube_password = NULL) {
+  static $status;
+
+  if ($reset || !isset($status)) {
+    $status = array();
+  }
+
+  if (!isset($status[$video_id])) {
+    if (($cache = cache_get('media_youtube:full-status:'. $video_id, 'cache_media_youtube_status')) && !$reset) {
+      $status[$video_id] = $cache->data;
+    }
+    else {
+      if (media_youtube_check_status($video_id) == EMFIELD_STATUS_UNAVAILABLE) {
+        $status[$video_id] = media_youtube_check_upload($video_id, $youtube_username, $youtube_password);
+      }
+      else {
+        $status[$video_id] = array('status' => 'ok', 'message' => 'Video is available.');
+      }
+      cache_set('media_youtube:full-status:'. $video_id, $status[$video_id], 'cache_media_youtube_status', CACHE_TEMPORARY);
+    }
+  }
+  return $status[$video_id];
+}
+
+function media_youtube_video_is_duplicate($video_id) {
+  $status = media_youtube_video_full_status($video_id);
+  return (($status['status'] == t('rejected')) && ($status['message'] == t('Duplicate video')));
+}
+
+function media_youtube_video_was_rejected($video_id) {
+  $status = media_youtube_video_full_status($video_id);
+  return ($status['status'] == t('rejected'));
+}
+
+function media_youtube_video_upload_failed($video_id) {
+  $status = media_youtube_video_full_status($video_id);
+  return ($status['status'] == t('failed'));
+}
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ */
+function media_youtube_form_emfield_module_settings_alter(&$form, &$form_state) {
+  if ($form['#parameters'][2] == 'emvideo') {
+    array_unshift($form['#submit'], 'media_youtube_settings_submit');
+  }
+}
+
+/**
+ * Preserve the YouTube password if previously set and now blank.
+ */
+function media_youtube_settings_submit($form, &$form_state) {
+  if ($form_state['values'][media_youtube_variable_name('youtube_password')] === '') {
+    $form_state['values'][media_youtube_variable_name('youtube_password')] = media_youtube_variable_get('youtube_password');
+  }
+}
+
+/**
+ * Check the upload status of a video
+ *
+ * @param string $video_id
+ *  The video to check.
+ * @param string $youtube_username
+ *  The youtube username owning the video to check.
+ * @param string $youtube_password
+ *  The password of the youtube user.
+ * @return array
+ *  An associative array, keyed as follows:
+ *    'status'  => The status returned from YouTube.
+ *    'message' => A message describing the video's status.
+ */
+function media_youtube_check_upload($video_id, $youtube_username = NULL, $youtube_password = NULL) {
+  module_load_include('inc', 'media_youtube', 'includes/media_youtube.api');
+  return _media_youtube_check_upload($video_id, $youtube_username, $youtube_password);
+}
+
+function media_youtube_token_values($type, $object = NULL, $options = array()) {
+  if ($type == 'media_youtube_status') {
+    $status = $object;
+    $tokens['status']       = check_plain($status['status']);
+    $tokens['status-raw']   = $status['status'];
+    $tokens['message']      = check_plain($status['message']);
+    $tokens['message-raw']  = $status['message'];
+    return $tokens;
+  }
+}
+
+function media_youtube_token_list($type = 'media_youtube_status') {
+  if ($type == 'media_youtube_status' || $type == 'all') {
+    $tokens['media_youtube_status']['status']      = t("The YouTube video status.");
+    $tokens['media_youtube_status']['status-raw']      = t("The YouTube video status. Warning: raw data.");
+    $tokens['media_youtube_status']['message']      = t("The YouTube video status message.");
+    $tokens['media_youtube_status']['message-raw']      = t("The YouTube video status message. Warning: raw data.");
+    return $tokens;
+  }
+}
+
+/**
+ * this is a wrapper for emvideo_request_xml that includes youtube's api key
+ */
+function media_youtube_request_metadata($video_id, $cached = TRUE) {
+  $args['dev_id'] = trim(media_youtube_variable_get('api_key'));
+  $args['method'] = $method;
+
+  $request = emfield_request_xml('youtube', MEDIA_YOUTUBE_REST_ENDPOINT .'/'. $video_id, array('video' => $video_id, 'v' => '2'), $cached);
+  return $request;
+}
+
+function media_youtube_emfield_data($video_id) {
+  $data = array();
+
+  // Create some 'field' version control.
+  $data['emvideo_youtube_version'] = $data['emvideo_data_version'] = MEDIA_YOUTUBE_DATA_VERSION;
+
+  // Store the raw data from YouTube's API.
+  $raw = media_youtube_request_metadata($video_id);
+  if (media_youtube_variable_get('store_raw_metadata')) {
+    $data['raw'] = $raw;
+  }
+
+  // Store the video's duration.
+  $data['duration'] = intval($raw['MEDIA:GROUP']['YT:DURATION'][1]['SECONDS']);
+
+  // Gather info about the item's raw flash video.
+  // RSS / MRSS feeds with the item would have enough info.
+  // Alternatively try getting the minimum from an HTTP get.
+  // Get info from a youtube playlist.
+  if (strpos($video_id, 'PLAYLIST_') === 0) {
+    $playlist_id = substr($video_id, 9);
+    $url = 'http://youtube.com/p/'. $playlist_id;
+    $data['playlist'] = 1;
+
+    // Get the large thumbnail of the first video.
+    // Use the Youtube Google API to get this data.
+    $api_url = 'http://gdata.youtube.com/feeds/api/playlists/' . $playlist_id;
+    $result = drupal_http_request($api_url);
+    if ($result->code == 200) {
+      $parser = drupal_xml_parser_create($result->data);
+      $vals = array();
+      $index = array();
+      xml_parse_into_struct($parser, $result->data, $vals, $index);
+      xml_parser_free($parser);
+      if (count($vals)) {
+        foreach ($vals as $val) {
+          if ($val['tag'] == 'MEDIA:THUMBNAIL' && $val['attributes']['HEIGHT'] >= 240) {
+            $data['thumbnail']['url'] = $val['attributes']['URL'];
+            break;
+          }
+        }
+      }
+    }
+  }
+  // Get info from a single video.
+  else {
+    $url = 'http://youtube.com/v/'. $video_id;
+    $data['playlist'] = 0;
+    // Get the large thumbnail.
+    $data['thumbnail']['url'] = 'http://img.youtube.com/vi/'. $video_id .'/0.jpg';
+  }
+
+  $response = emfield_request_header('youtube', $url);
+
+  if ($response->code == 200) {
+    // Don't give the 303 path.
+    $data['flash']['url'] = $url;
+    $data['flash']['size'] = $response->headers['Content-Length'];
+    $data['flash']['mime'] = $response->headers['Content-Type'];
+  }
+
+  return $data;
+}

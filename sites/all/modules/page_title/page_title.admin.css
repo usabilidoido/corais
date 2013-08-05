@@ -1,0 +1,10 @@
+table#page-title-settings th.showfield { text-align:center; }
+table#page-title-settings th.scope { text-align:center; }
+table#page-title-settings th.page-type { text-align:right; }
+
+table#page-title-settings td.showfield { width:10%; text-align:center; }
+table#page-title-settings td.scope { text-align:center; }
+table#page-title-settings td.page-type { text-align:right; }
+
+div.view-list-page-titles th.views-field-nid       { width:5%; }
+div.view-list-page-titles th.views-field-edit-node { width:20%; }

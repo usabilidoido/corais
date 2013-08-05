@@ -1,0 +1,6 @@
+span.spaces-feature.feature-atrium_shoutbox {
+  background: url(icon_shoutbox.png) 0 0;
+}
+#features-menu li a.icon-shoutbox span.icon {
+  background: url(icon_shoutbox.png);
+}

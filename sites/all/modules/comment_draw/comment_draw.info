@@ -1,0 +1,5 @@
+; $Id$
+name = Comment Draw
+description = Adds a drawing/sketching field to the comment form through the drupal form api
+core = 6.x
+dependencies[] = comment

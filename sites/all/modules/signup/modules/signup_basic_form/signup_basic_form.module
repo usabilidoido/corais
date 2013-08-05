@@ -1,0 +1,97 @@
+<?php
+/**
+ * @file signup_basic_form.module
+ * Provides a basic signup form pane to collect participant name and phone.
+ *
+ * Comments a-plenty as this is also the example of how to use the API.
+ */
+
+/**
+ * Implementation of hook_signup_pane_info().
+ *
+ * Defines panes available to signup forms.
+ * 
+ * @param $node
+ *  (optional) The node being considered for panes.
+ *  Most modules won't need to look at this, but you may need to only return
+ *  panes if the node satisfies certain properties.
+ *
+ * @return
+ *  An associative array of data about signup form panes. 
+ *  The key is the pane ID. The value is itself an associative array of the
+ *  following form:
+ *    - label: A label for the admin UI.
+ *    - description: A longer description for the admin UI.
+ *    - callback: A callback function to generate the form.
+ *  The callback function should have the following signature:
+ *   function my_callback(&$signup_form, &$form_state, $node, $signup, $pane_id, $signup_type = 'auth')
+ *  where the parameters are:
+ *  - $signup_form: Incoming form array, for information only.
+ *  - $form_state: Incoming array from the form builder function.
+ *  - $node: The fully loaded node object.
+ *  - $signup: The fully loaded signup object; or NULL if this is a new signup.
+ *  - $pane_id: The id of the pane currently being invoked. This allows a module
+ *    to use one callback for several panes.
+ *  - $signup_type: The type of signup, which may influence what form is returned:
+ *    - 'auth' -- regular authenticated user signup form
+ *    - 'anon' -- anonymous user signup form (main form includes required email field).
+ *    - 'admin' -- admin form to signup another user (main form includes user selector).
+ */
+function signup_basic_form_signup_pane_info($node = NULL) {
+  return array(
+    'basic' => array(
+      'label' => t('Name and phone number'),
+      'description' => t('Collects name and phone number.'),
+      'callback' => 'signup_basic_form_form',
+    ),
+  );
+}
+
+/**
+ * Signup form pane callback for the basic name and phone form.
+ *
+ * @param &$signup_form
+ *   The form array for the whole signup. You should not alter this, but it
+ *   contains useful data depending on circumstances.
+ * @param &$form_state
+ *   Likewise. You might need this, but you probably don't.
+ * @param $node
+ *   The fully loaded node object.
+ * @param $signup
+ *   If this is an existing signup, the fully loaded signup object. If this is a 
+ *   new signup, this is just NULL.
+ * @param $pane_id
+ *   The pane ID being invoked. This allows a module to implement multiple panes
+ *   with one callback.
+ * @param $signup_type
+ *   Determines what kind of signup to generate a form for. Possible values:
+ *    'auth' -- regular authenticated user signup form
+ *    'anon' -- anonymous user signup form (includes required email field).
+ *    'admin' -- admin form to signup another user (includes user selector).
+ * @return
+ *   A form API array for insertion into the signup form. 
+ */
+function signup_basic_form_form(&$signup_form, &$form_state, $node, $signup, $pane_id, $signup_type = 'auth') {
+  global $user;
+  $form = array();
+
+  $form['Name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Name'),
+    '#size' => 40, '#maxlength' => 64,
+    '#required' => TRUE,
+  );
+  $form['Phone'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Phone'),
+    '#size' => 40, '#maxlength' => 64,
+  );
+
+  // If the user is logged in, fill in their name by default,
+  // except in the special case where the admin user is adding other users.
+  if ($user->uid && $signup_type != 'admin') {
+    $form['Name']['#default_value'] = $user->name;
+  }
+
+  return $form;
+}

@@ -1,0 +1,42 @@
+<html>
+<head><title>InputDraw - Background Example</title></head>
+<script src="swfobject.js" type="text/javascript"></script>
+<script src="inputdraw.js" type="text/javascript"></script>  
+<body>
+	<h1>InputDraw - Example</h1>
+<h2>How can I put an InputDraw with advance features?</h2>
+
+<p>Here is an example of a page with more advance features so it is all easy to understand.</p>
+<p>Following is the example code:</p>
+<textarea   readonly  COLS="75"  ROWS="10" >
+<div  id="place" style="width:600, height:225"></div><br/><br/>
+<input type="hidden" id="svgdraw" /><br/><br/>
+<div  id="place2" style="width:450, height:168"></div><br/><br/>
+<input value="&lt;svg version=&quot;1.1&quot; xmlns=&quot;http://www.w3.org/2000/svg&quot; viewBox=&quot;0 0 600 225&quot;&gt;&lt;g fill=&quot;none&quot; stroke-miterlimit=&quot;6&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;&gt;&lt;/g&gt;&lt;/svg&gt;" id="svgdraw2" type="hidden">
+
+<br/><br/>
+<script type="text/javascript">
+var draw = new InputDraw("inputdraw.non-commercial.v1.5.swf", "place", {id:"svgdraw",  width:"600", height:"225",stroke_style:"6 1 rgb(255,0,0)", animation:60, background_image:"eyes.jpg" ,tools_color:"0xd6c004", clean:"clear.png", undo:"undo.png", disable:"color"});
+var view = new InputDraw("inputdraw.non-commercial.v1.5.swf", "place2", {src_id:"svgdraw2",  width:"450", height:"168",stroke_style:"1 1 rgb(255,0,0)", animation:60, background_image:"eyes.jpg"});
+draw.OnPath('view.AddPath')
+</script>
+</textarea>
+<p>Here we have an example with a drawing pad and a view canvas. Both have "eyes.jpg" as background. As you can see for the drawing pad we defined the stroke style and disable the possibility to change the Stroke Color.We also change the icons and the tools color.</p>
+<p>Using the Javascript API we enable the view area so that every stroke the user does on the draw pad will also appear on the View. Notice that we set the initial SVG for the View so that it emulates the size of the Draw and draw everything on the right place.</p>
+<input type="hidden" id="svgdraw" />
+<h3>Example</h3>
+<p>Here is the drawing area.</p>
+<input value="&lt;svg version=&quot;1.1&quot; xmlns=&quot;http://www.w3.org/2000/svg&quot; viewBox=&quot;0 0 600 225&quot;&gt;&lt;g fill=&quot;none&quot; stroke-miterlimit=&quot;6&quot; stroke-linecap=&quot;round&quot; stroke-linejoin=&quot;round&quot;&gt;&lt;/g&gt;&lt;/svg&gt;" id="svgdraw2" type="hidden">
+
+<div  id="place" style="width:600, height:225"></div><br/><br/>
+<br/><br/>And the smaller View where all stroke will end up.<br/>
+<div  id="place2" style="width:450, height:168"></div><br/><br/>
+<br/>
+<script type="text/javascript">
+var draw = new InputDraw("inputdraw.non-commercial.v1.5.swf", "place", {id:"svgdraw",  width:"600", height:"225",stroke_style:"6 1 rgb(255,0,0)", animation:60, background_image:"eyes.jpg" ,tools_color:"0xd6c004", clean:"clear.png", undo:"undo.png", disable:"color"});
+var view = new InputDraw("inputdraw.non-commercial.v1.5.swf", "place2", {src_id:"svgdraw2",  width:"450", height:"168",stroke_style:"1 1 rgb(255,0,0)", animation:60, background_image:"eyes.jpg"});
+draw.OnPath('view.AddPath');
+</script>
+
+<p>Enjoy.</p>
+</body>

@@ -1,0 +1,28 @@
+***************
+*** 8,23 ****
+   * Implementation of template_process for views-view-timeline.
+   */
+  function template_preprocess_views_view_timeline(&$vars) {
+- 
+-   if (!empty($vars['view']->live_preview)) {
+-     drupal_set_message(t('The timeline cannot be viewed in the preview.'), 'warning');
+-     return;
+-   }
+- 
+    if (isset($vars['options']['debug'])) {
+      $vars['debug'] = theme('timeline_debug', array('debug_array' => $vars['options']['debug']));
+    }
+-     
+    // check if data is available
+    if ($vars['options']['timeline']['data_count'] > 0) {
+      // create actual timeline
+--- 8,16 ----
+   * Implementation of template_process for views-view-timeline.
+   */
+  function template_preprocess_views_view_timeline(&$vars) {
+    if (isset($vars['options']['debug'])) {
+      $vars['debug'] = theme('timeline_debug', array('debug_array' => $vars['options']['debug']));
+    }
+    // check if data is available
+    if ($vars['options']['timeline']['data_count'] > 0) {
+      // create actual timeline

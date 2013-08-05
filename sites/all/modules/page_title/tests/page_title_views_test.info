@@ -1,0 +1,13 @@
+name = Page Title Views SimpleTest
+description = SimpleTest dependency modue for testing Views with Page Title
+core = 6.x
+package = Development
+dependencies[] = page_title
+dependencies[] = views
+
+; Information added by drupal.org packaging script on 2011-06-30
+version = "6.x-2.5"
+core = "6.x"
+project = "page_title"
+datestamp = "1309438921"
+

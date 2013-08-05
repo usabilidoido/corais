@@ -1,0 +1,64 @@
+
+OG User Roles x.x-x.x, xxxx-xx-xx
+---------------------------------
+
+
+OG User Roles 6.x-4.x, xxxx-xx-xx
+---------------------------------
+#866130 by itsnotme, sun: Fixed default group role cannot be reset to default.
+
+
+OG User Roles 6.x-4.1, 2010-03-11
+---------------------------------
+#613530 by Gábor Hojtsy, miro_dietiker, sun: Fixed not respecting custom group
+  context.
+#632304 by pwolanin, sun: Fixed group role form deletes default admin roles.
+#632304 by sun: Fixed tests and added a new one for group administrators.
+#571306 by pwolanin: Fixed 'Configure roles' tab only visible on 'Add members'.
+#632342 by pwolanin: Fixed role names are not escaped before being displayed.
+#541062 by sun: Fixed privilege escalation does not work for menu access
+  callbacks that statically cache their own results.
+#542958 by sun: Fixed (regular) roles can no longer be deleted.
+#519794 by stella, sun: Added option for group nodes to allow group admins to
+  define default role for new members.
+#441776 by recrit, sun: Fixed all roles removed from group admin on update.
+#500006 by corey.aufang, sun: Fixed wrong default value for group node roles.
+
+
+OG User Roles 6.x-4.0, 2009-06-16
+---------------------------------
+#441776 by sun: Updated README.txt.
+#484888 by Amitaibu: Fixed usage of integer instead of core role constant.
+#441776 by sun: Fixed documentation for og_user_roles_init().
+#441776 by sun: Minor clean-ups.
+#441776 by sun: Added clean-up and removal of obsolete variables.
+#441776 by sun: Major rewrite.
+#441776 by sun: Code clean-up.
+#441776 by sun: Removed orphan code #2.
+#441776 by sun: Removed obsolete documentation.
+#441776 by sun: Removed feature: taxonomy ('multinode') access integration.
+#441776 by sun: Removed orphan code.
+#441776 by sun: Removed hack to clear menu cache.
+#441776 by sun: Removed feature: restricted role assignment.
+#441776 by sun: Removed hacks for OG group menu.
+#441776 by sun: Removed feature: disallow public posts in a group.
+#441776 by sun: Removed hacks for og_vocab.
+#441776 by sun: Removed feature: debugging.
+#441776 by sun: Removed feature: OG group menu customization.
+#441776 by sun: Removed feature: nodes to put in all groups.
+#441776 by sun: Removed feature: e-mail notification about new subscriber.
+#441776 by sun: Removed feature: custom auto-assigned group role per group.
+#441776 by sun: Removed feature: auto-assign user role upon subscription.
+#441776 by sun: Removed feature: user group subscription approval.
+#441776 by sun: Removed feature: default group founder role.
+#441776 by sun: Removed feature: default role per OG content-type.
+#441776 by sun: Removed hacks for modr8.
+#441776 by sun: Removed feature: group logo.
+#441776 by sun: Removed feature: registration code.
+#441776 by sun: Removed code for og_subgroups.
+#441776 by sun: Fixed basic module functionality.
+#441776 by sun: Removed hook_help(); reverted some wrong clean-ups.
+#441776 by sun: Fixed PHP notices (partial).
+#441776 by sun: Fixed coding-style (partial).
+#441776 by sun: Fixed coding-style using coder_format.
+

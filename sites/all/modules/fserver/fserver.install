@@ -1,0 +1,51 @@
+<?php
+/**
+ * @file fserver.install
+ */
+
+/**
+ * Split the extraversion release column into separate fields to allow for more consistent ordering.
+ */
+function fserver_update_6001() {
+   $ret = array();
+
+  // Don't process this update until the fields exist.
+  if (db_column_exists('content_type_fserver_release', 'field_fserver_versionextranum_value')
+      && db_column_exists('content_type_fserver_release', 'field_fserver_versionextratype_value')) {
+
+    $count = 0;
+    $result = db_query('SELECT vid, field_fserver_versionextra_value from {content_type_fserver_release}');
+    while ($row = db_fetch_array($result)) {
+      $extraversion = $row['field_fserver_versionextra_value'];
+      if (empty($extraversion)) {
+        $type = 50;
+        $num = NULL;
+      }
+      else {
+        $types = fserver_cck_options('extratype');
+        $types = array_flip($types);
+        preg_match('/^(?P<type>[A-Za-z]+)(?P<num>\d+)$/', $extraversion, $matches);
+        $type = array_key_exists($matches['type'], $types) ? $types[$matches['type']] : 0;
+        $num = !empty($matches['num']) ? $matches['num'] : 1;
+      }
+
+      db_query('UPDATE {content_type_fserver_release}
+                SET field_fserver_versionextratype_value = %d,
+                    field_fserver_versionextranum_value = %d
+                WHERE vid = %d', array($type, $num, $row['vid']));
+      $count++;
+    }
+    $ret[] = array(
+      'success' => TRUE,
+      'query' => "Updated $count releases."
+    );
+  }
+  else {
+    $ret['#abort'] = array(
+      'success' => FALSE,
+      'query' => 'Extra version number and Extra version type have not been created yet.'
+    );
+  }
+
+  return $ret;
+}

@@ -1,0 +1,105 @@
+<?php
+
+/**
+ * Comment Login - a module to allow users to simultaneously log in and post a comment on a node form.
+ * Copyright 2009, Matt Johnson, Observer Media Group (johnson.matthew.david@gmail.com)
+ * License: GPL v2 (http://www.gnu.org/licenses/gpl-2.0.html)
+ */
+
+define('COMMENT_LOGIN_NO_FORM', 0);
+define('COMMENT_LOGIN_FORM_ABOVE', 1);
+define('COMMENT_LOGIN_FORM_BELOW', 2);
+
+/**
+ * Implementation of hook_form_alter.
+ */
+function comment_login_form_alter(&$form, $form_state, $form_id) {
+  global $user;
+  
+  switch ($form_id) {
+    // Configuration: Add an element to the node type edit form to choose the location of the login form.
+    // This will be automatically run through variable_set in this form's submit function.
+    case 'node_type_form':
+      $form['comment']['comment_login_form'] = array(
+        '#type' => 'radios',
+        '#title' => t('Location of login form'),
+        '#description' => t('If enabled, will embed a user login form within the comment form so users can log in and comment in a single form submit'),
+        '#default_value' => variable_get('comment_login_form_' . $form['#node_type']->type, 0),
+        '#options' => array(
+          COMMENT_LOGIN_NO_FORM => t('Do not display a login form'),
+          COMMENT_LOGIN_FORM_ABOVE => t('Display above comment form'),
+          COMMENT_LOGIN_FORM_BELOW => t('Display below comment form'),
+        ),
+      );
+      break;
+    
+    case 'comment_form':
+      // If the user is logged in, bail out now before we have to do any DB queries.
+      // TODO allow logging in (on an optional basis) if anonymous commenting is allowed
+      if ($user->uid) {
+        break;
+      }
+    
+      $node = node_load($form['nid']['#value']);
+      
+      // Bail out now if we're not enabled in the node type form.
+      if (!variable_get('comment_login_form_' . $node->type, 0)) {
+        break;
+      }
+      
+      // If the comment form is displayed on the node view page,
+      // prevent the preview button from sending the user out to /comment/reply/nid and losing login form data
+      if (variable_get('comment_form_location_' . $node->type, 0)) {
+        $form['#action'] = url('node/' . $form['nid']['#value'], array('fragment' => 'comment'));
+      }
+      
+      // Add a user login form. Yes, I created a variable called "null" because only variables can be passed by reference.
+      // user_login does require a $form_state parameter by reference, but it is unused as of D6.9.
+      $null = NULL;
+      $login = user_login($null);
+      // Since we're pulling this form directly from its form function instead of through drupal_get_form, 
+      // we have to fire hook_form_alter manually.
+      foreach (module_implements('form_alter') as $module) {
+        $func = $module . '_form_alter';
+        $func($login, $null, 'user_login');
+      }
+      
+      // Store the login validators for later; we will need them.
+      // However, we don't want them in the direct validator stack for this form because that would prematurely log users in
+      // upon hitting the preview button. We also have no use for the login form submit button here.
+      $form['#login_validate'] = $login['#validate'];
+      unset($login['submit'], $login['#validate']);
+      
+      // Splice in the login form elements.
+      if (variable_get('comment_login_form_' . $node->type, 0) == COMMENT_LOGIN_FORM_ABOVE) {
+        $form = array_merge($login, $form);
+      }
+      else if (variable_get('comment_login_form_' . $node->type, 0) == COMMENT_LOGIN_FORM_BELOW) {
+        $form = array_merge($form, $login);
+      }
+      
+      // Add our validator to handle previews; it must be called first.
+      array_unshift($form['#validate'], 'comment_login_validate');
+      
+      break;
+  }
+}
+
+/**
+ * Custom validator function for the comment form.
+ */
+function comment_login_validate(&$form, &$form_state) {
+  global $user;
+  if ($form_state['clicked_button']['#value'] != 'Preview') {
+    // Call the user_login validator functions. Conveniently, these actually do *all* the login session and cookie operations.
+    // So we don't even need to worry about the login submit function as long as this is done.
+    foreach ($form['#login_validate'] as $func) {
+      $func($form, $form_state);
+      if ($user->uid) {
+        // Login was successful. The user won't find out about it via any other method, so inform them here.
+        // If the login failed the validator functions will set messages explaining the problem.
+        drupal_set_message(t('You are now logged in.'), 'status', FALSE);
+      }
+    }
+  }
+}

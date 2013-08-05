@@ -1,0 +1,22 @@
+
+.better-select div.form-checkboxes {
+  margin: 0;
+}
+
+.better-select div.form-checkboxes-scroll {
+  border: 1px solid #666;
+  max-height: 150px;
+  overflow: auto;
+}
+
+.better-select div.form-checkboxes-noscroll {
+  overflow: hidden;
+}
+
+.better-select div.form-checkboxes .form-item {
+  margin: 0;
+}
+
+.hilight {
+  background-color: #DDD;
+}

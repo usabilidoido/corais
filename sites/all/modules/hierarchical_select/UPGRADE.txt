@@ -1,0 +1,7 @@
+
+Upgrading (from Drupal 5 to 6)
+------------------------------
+1) Upgrade this module just like any other: overwrite existing files and run
+   update.php.
+
+2) That's it. :)

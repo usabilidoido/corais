@@ -1,0 +1,173 @@
+<?php
+
+/**
+ * @file
+ * Allow users to register while commenting.
+ */
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function comment_registration_form_alter(&$form, $form_state, $form_id) {
+  if ($form_id == 'node_type_form' && isset($form['identity']['type'])) {
+    if ($form['comment']['comment_anonymous']['#disabled'] || $form['comment']['comment_anonymous']['#default_value'] == 0 ) {
+      $disabled = TRUE;
+    }
+    else {
+      $disabled = FALSE;
+    }
+    $form['comment']['comment_registration_enabled'] = array(
+      '#title' => 'Enable comment registration',
+      '#description' => t('Allow users to register for accounts via the comment form (requires "Anonymous commenting" set to "Anonymous posters may leave their contact information" or "Anonymous posters must leave their contact information").'),
+      '#type' => 'checkbox',
+      '#default_value' => variable_get('comment_registration_enabled_' . $form['#node_type']->type, 0),
+      '#weight' => -1,
+      '#disabled' => $disabled,
+    );
+    $form['comment']['comment_anonymous']['#weight'] = -1;
+    if (!user_access('post comments', drupal_anonymous_user())) {
+      $form['comment']['comment_registration_enabled']['#disabled'] = TRUE;
+    }
+  }
+}
+
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ */
+function comment_registration_form_comment_form_alter(&$form, $form_state) {
+
+  // if user is not anonymous, or account creation is set to admin only, or anonymus commenters can't leave contact info,
+  // or commment registration is not enabled for this content type, do nothing and return.
+  global $user;
+  $node_type = node_load($form['nid']['#value'])->type;
+  if ($user->uid != 0 || variable_get('user_register', 1) == '0' || variable_get('comment_registration_enabled_' . $node_type, 0) == '0' || variable_get('comment_anonymous_' . $node_type, 0) == '0') {
+    return;
+  }
+
+  drupal_add_js(drupal_get_path('module', 'comment_registration') . '/comment_registration.js');
+  drupal_add_css(drupal_get_path('module', 'comment_registration') . '/comment_registration.css');
+  $form['name']['#weight'] = -4;
+  $form['name']['#title'] = 'Name';
+  $form['mail']['#weight'] = -3;
+  if(isset($form['name']['#default_value']))  {
+    $form['name']['#default_value'] = '';
+  }
+
+  $form['comment_registration_register'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Register for account with comment.'),
+    '#default_value' => '0',
+    '#weight' => -2,
+  );
+  $form['comment_registration_form'] = array(
+    '#type' => 'fieldset',
+    '#title' => 'Register',
+    '#weight' => -1,
+    '#attributes' => array('class' => 'comment-registration'),
+  );
+
+  //.get the user registration form
+  $user_form_id = 'user_register';
+  $form['comment_registration_form']['form'] = drupal_retrieve_form($user_form_id, $form_state);
+
+  // allow modules to _form_alter the user registration form (taken from drupal_prepare_form)
+  drupal_alter('form', $form['comment_registration_form']['form']);
+
+  // remove the user registration form submit button (will use comment submit)
+  unset($form['comment_registration_form']['form']['submit']);
+
+  // remove the username and email fields from the user registration form (will use comment form fields)
+  unset($form['comment_registration_form']['form']['account']['name']);
+  unset($form['comment_registration_form']['form']['account']['mail']);
+
+  // unset the account fieldset if it's empty
+  if (count($form['comment_registration_form']['form']['account']) <= 3) {
+    unset($form['comment_registration_form']['form']['account']);
+  }
+
+  // add afterbuild handler to remove unnecessary user registration form validation
+  $form['comment_registration_form']['form']['#after_build'][] = 'comment_registration_form_after_build';
+
+  // insert custom validation as first item.
+  $form['#validate'][] = 'comment_registration_validate';
+  $form['#validate'] = array_reverse($form['#validate']);
+
+  // insert custom submit as first item.
+  $form['#submit'][] = 'comment_registration_submit';
+  $form['#submit'] = array_reverse($form['#submit']);
+}
+
+
+/*
+ * After build handler.
+ * Need to disable form validation for user register form elements when not registering a user
+ * during comment submission.
+ */
+function comment_registration_form_after_build($form, &$form_state) {
+  if ($form_state['values']['comment_registration_register'] != 1) {
+    _comment_registration_disable_validation($form);
+  }
+  return $form;
+}
+
+/*
+ * Recursive function.
+ * Removes required validation for a specified form element and all of its children.
+ */
+function _comment_registration_disable_validation(&$element) {
+  // bypass validation on password_confirm fapi elements
+  isset($element['#element_validate']) ? $element['#element_validate'] = NULL : NULL;
+
+  // bypass validation on other fapi elements
+  isset($element['#needs_validation']) ? $element['#needs_validation'] = NULL : NULL;
+
+  foreach (element_children($element) as $key) {
+    _comment_registration_disable_validation($element[$key]);
+  }
+}
+
+
+/**
+ * Validation handler for comment registration form.
+ */
+function comment_registration_validate($form, &$form_state) {
+ if ($form_state['values']['comment_registration_register'] == 1) {
+   if (empty($form_state['values']['name'])) {
+     form_set_error('name', t('You cannot register while commenting without providing a name.'));
+   }
+   if (empty($form_state['values']['mail'])) {
+     form_set_error('mail', t('You cannot register while commenting without providing an e-mail address.'));
+   }
+   
+   // perform standard user validation
+   unset($form_state['values']['uid']);
+   user_module_invoke('validate', $form_state['values'], $form_state['values'], 'account');
+  }
+}
+
+
+/**
+ * Submit handler for comment registration form.
+ */
+function comment_registration_submit($form, &$form_state) {
+  if ($form_state['values']['comment_registration_register'] == 1) {
+
+    // setup the user registration form and submit via the user registration submit function
+    $form['comment_registration_form']['form']['account']['name'] = $form_state['values']['name'];
+    $form['comment_registration_form']['form']['account']['mail'] = $form_state['values']['mail'];
+    $form['comment_registration_form']['form']['account']['pass'] = $form_state['values']['pass'];
+    unset($form_state['values']['uid']);
+
+    user_register_submit($form['comment_registration_form']['form'], $form_state);
+
+    // change the author of the current comment to the newly create user
+    global $user;
+    if ($user->uid > 0) {
+      $form_state['values']['uid'] = $user->uid;
+    }
+    elseif ($account = user_load(array('mail' => $form['comment_registration_form']['form']['account']['mail']))) {
+      $form_state['values']['uid'] = $account->uid;
+    }
+  }
+}

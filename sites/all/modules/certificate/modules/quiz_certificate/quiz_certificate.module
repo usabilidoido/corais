@@ -1,0 +1,15 @@
+<?php
+
+/**
+ * Implementation of hook_access_certificate().
+ */
+function quiz_certificate_access_certificate($node, $user) {
+  if ($node->type == 'quiz') {
+    $results = _quiz_get_results($node->nid, $user->uid);
+    foreach ($results as $rid => $result) {
+      if ($result['time_end'] && $result['score'] >= $node->pass_rate) {
+        return TRUE;
+      }
+    }
+  }
+}

@@ -1,0 +1,22 @@
+<?php
+
+/**
+ * Implements hook_requirements().
+ */
+function sshkey_blacklist_requirements($phase) {
+
+}
+
+function sshkey_blacklist_install() {
+  $vulnkey_default_path = '/usr/bin/ssh-vulnkey';
+  if (is_file($vulnkey_default_path) && is_executable($vulnkey_default_path)) {
+    variable_set('sshkey_blacklist_vulnkey_path', $vulnkey_default_path);
+  }
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function sshkey_blacklist_uninstall() {
+  variable_del('sshkey_blacklist_vulnkey_path');
+}

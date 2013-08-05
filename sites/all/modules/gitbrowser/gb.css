@@ -1,0 +1,77 @@
+
+.heads a, .tags a, .remotes a,
+.heads a:visited, .tags a:visited, .remotes a:visited,
+.heads a:link, .tags a:link, .remotes a:link {
+  color: white;
+  font-weight: bold;
+  padding: 0 3px;
+  margin: 0 3px;
+  font-size: 75%;
+  border-style: outset;
+}
+
+.heads a {
+  background-color: blue;
+  border-color: blue;
+}
+
+.tags a {
+  background-color: red;
+  border-color: red;
+}
+
+.remotes a {
+  background-color: green;
+  border-color: green;
+}
+
+.commit .header div {
+  margin-left: 7em;
+}
+
+.commit .header label {
+  margin-left: -7em;
+  width: 7em;
+  display: -moz-inline-stack;
+  display: -inline-block;
+  font-weight: bold;
+}
+
+.commit .description {
+  border-top: 1px solid;
+  margin-top: 0.5em;
+  padding-top: 0.25em;
+}
+
+.commit-diff {
+  font-family: monospace;
+  color: #000000;
+}
+
+.commit-diff .diff-add {
+  background-color: #67E667;
+}
+
+.commit-diff .diff-delete {
+  background-color: #FF0000;
+}
+
+.commit-diff .diff-command {
+  background-color: cyan;
+}
+
+.gb-short-log .commit td {
+  vertical-align: top;
+}
+
+.gb-short-log .date-break {
+  background-color: grey;
+  color: #FFFFFF;
+  font-weight: bold;
+}
+
+.gb-short-log .commit .description {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 0;
+}

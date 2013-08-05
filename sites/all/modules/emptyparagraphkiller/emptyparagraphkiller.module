@@ -1,0 +1,52 @@
+<?php
+// $Id: emptyparagraphkiller.module,v 1.1 2010/11/26 10:01:29 siliconmeadow Exp $
+
+/**
+ * @file
+ * Empty paragraph killer: because users are sometimes overzealous
+ * with the return key.
+ */
+
+/**
+ * Implementation of hook_filter().
+ */
+function emptyparagraphkiller_filter($op, $delta = 0, $format = -1, $text = '', $cache_id = 0) {
+  switch ($op) {
+    case 'list':
+      return array(t('Empty paragraph filter'));
+
+    case 'description':
+      return t('When entering more than one carriage return, only the first will be honored.');
+
+    case 'no cache':
+      // This case can be removed for most filters, but returning TRUE is useful for development.
+      return FALSE;
+
+    case 'prepare':
+      return $text;
+
+    case 'process':
+      // Run the text through regex.
+      $text = preg_replace('#<p[^>]*>(\s|&nbsp;?)*</p>#', '', $text);
+      return $text;
+
+    case 'settings':
+      // OPTIONAL: Add additional settings for filter. At this stage, it would appear that we don't
+      // yet need this.
+      return;
+  }
+}
+
+/**
+ * Implementation of hook_filter_tips().
+ */
+function emptyparagraphkiller_filter_tips($delta, $format, $long = FALSE) {
+  // OPTIONAL: If more than one filter was defined in hook_filter, perform switch on $delta
+  switch ($long) {
+    case FALSE:
+      return t('Empty paragraph killer - multiple returns will not break the site\'s style.');
+    case TRUE:
+      return '<p>' . t('Your typing habits may include hitting the return key twice when completing a paragraph. This site will accomodate your habit, and ensure the content is in keeping with the the stylistic formatting of the site\'s theme.') . '</p>';
+  }
+}
+

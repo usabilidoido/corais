@@ -1,0 +1,140 @@
+<?php
+/**
+ * @file
+ *   Views provider for Taskbar.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function taskbar_views_menu() {
+  $items['taskbar/provider/views/ahah'] = array(
+    'page callback' => 'taskbar_views_ahah_callback',
+    'access arguments' => array('administer site configuration'),
+    'file' => 'taskbar_views.admin.inc',
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_taskbar_provider().
+ */
+function taskbar_views_taskbar_provider() {
+  return array(
+    array(
+      'name' => 'views',
+      'title' => 'Views',
+      'ajax' => TRUE,
+      'realtime' => TRUE,
+      'callback' => 'taskbar_views_provider_views',
+      'early prepare' => 'taskbar_views_early_prepare',
+      'settings form' => 'taskbar_views_settings',
+      'settings form submit' => 'taskbar_views_settings_submit',
+      'file' => 'taskbar_views.admin.inc',
+      'path' => drupal_get_path('module', 'taskbar_views'),
+    ),
+  );
+}
+
+/**
+ * Callback for item 'early prepare'.
+ *
+ * Prepares JavaScript for AJAX Views. Happens in 'early prepare', because
+ * if not, it will be too late in hook_footer() to add JS.
+ */
+function taskbar_views_early_prepare($item) {
+  if (!$view = views_get_view($item->settings['view'])) {
+    return;
+  }
+
+  $view->set_display($item->settings['display']);
+  $view->dom_id = $item->name;
+  $view->use_ajax = TRUE;
+
+  $settings = array(
+    'views' => array(
+      'ajax_path' => url('views/ajax'),
+      'ajaxViews' => array(
+        array(
+          'view_name' => $view->name,
+          'view_display_id' => $view->current_display,
+          'view_args' => check_plain(implode('/', $view->args)),
+          'view_path' => check_plain($_GET['q']),
+          'view_base_path' => $view->get_path(),
+          'view_dom_id' => $view->dom_id,
+          'pager_element' => $view->pager['element'],
+        ),
+      ),
+    ),
+  );
+
+  drupal_add_js($settings, 'setting');
+  views_add_js('ajax_view');
+}
+
+/**
+ * Taskbar item callback.
+ */
+function taskbar_views_provider_views($item, $action = 'status', $full_page = FALSE) {
+  global $user;
+  if (!$view = views_get_view($item->settings['view'])) {
+    return;
+  }
+
+  $view->set_display($item->settings['display']);
+  $view->dom_id = $item->name;
+  $view->use_ajax = TRUE;
+  $output = array();
+
+  if ($action == 'status') {
+    $output['content'] = $item->settings['text'];
+
+    if (!empty($item->settings['tracking']) && $field = taskbar_views_get_primary_field($view)) {
+      $last_id = db_result(db_query("SELECT last_id FROM {taskbar_views_update} WHERE name = '%s' AND uid = %d", $item->name, $user->uid));
+      if ($view->result[0]->$field != $last_id) {
+        $count = 0;
+        while ($count < count($view->result) && $view->result[$count]->$field != $last_id) {
+          $count++;
+        }
+        $output['count'] = $count;
+      }
+    }
+  }
+
+  if ($action == 'display' || !$item->settings['ajax']) {
+    $output['extra'] = $view->preview();
+  }
+
+  if ($action == 'display' && !empty($item->settings['tracking']) && $field = taskbar_views_get_primary_field($view)) {
+    db_query("REPLACE INTO {taskbar_views_update} (name, uid, last_id) VALUES ('%s', %d, %d)", $item->name, $user->uid, $view->result[0]->$field);
+  }
+
+  return $output;
+}
+
+/**
+ * Try to guess the "primary" field.
+ * @param object $view
+ * @return string $key
+ */
+function taskbar_views_get_primary_field($view) {
+  $view->pre_execute();
+  $view->execute();
+  if (!$view->result) {
+    return;
+  }
+  if ($view->base_table == 'node' && !empty($view->result[0]->nid)) {
+    return 'nid';
+  }
+  elseif ($view->base_table == 'comments' && !empty($view->result[0]->cid)) {
+    return 'cid';
+  }
+  elseif ($view->base_table == 'activity' && !empty($view->result[0]->aid)) {
+    return 'aid';
+  }
+  elseif ($value = array_keys((array) $view->result[0])) {
+    return array_shift($value);
+  }
+  return;
+}

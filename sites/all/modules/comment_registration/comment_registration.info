@@ -1,0 +1,10 @@
+name = "Comment Registration"
+description = "Allows users to register inline when submitting comments."
+core = 6.x
+
+; Information added by drupal.org packaging script on 2012-05-19
+version = "6.x-2.x-dev"
+core = "6.x"
+project = "comment_registration"
+datestamp = "1337386111"
+

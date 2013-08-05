@@ -1,0 +1,14 @@
+#footers .block-og_vocab .item-list {
+  float: left;
+  margin: 0px 10px !important;
+}
+#space-tools .block-og_vocab .item-list li {
+  overflow: hidden;
+  height: 20px;
+}
+#space-tools .block-og_vocab .block-title {
+  padding-left: 25px !important;
+  background-image: url(boat_icon.png);
+  background-repeat: no-repeat;
+  background-position: 2px 5px;
+}

@@ -1,0 +1,97 @@
+<?php
+
+class SSHKeyTestCaseHelper extends DrupalWebTestCase {
+  public function setUp() {
+    list($modules) = func_get_args() + array(0 => array());
+
+    $modules[] = 'sshkey';
+    parent::setUp($modules);
+  }
+
+  public function randomSSHPublicKey($type = 'ssh-rsa', $length = 276) {
+    $key = new stdClass();
+    $key_value = '';
+    for ($i = 0; $i <= $length; $i++) {
+      $key_value .= chr(mt_rand(32, 122));
+    }
+    $key->value = $type . ' ' . base64_encode($key_value);
+    $key->fingerprint = md5($key_value);
+    return $key;
+  }
+}
+
+class SSHKeyFunctionalTestCase extends SSHKeyTestCaseHelper {
+  public static function getInfo() {
+    return array(
+      'name' => 'SSH key functional test',
+      'description' => 'Tests generic module functionality.',
+      'group' => 'SSH key',
+    );
+  }
+
+  public function setUp() {
+    parent::setUp();
+    $this->normal_user = $this->drupalCreateUser(array('view own SSH public keys', 'manage own SSH public keys', 'access user profiles'));
+    $this->admin_user = $this->drupalCreateUser(array('administer users', 'administer SSH public keys'));
+  }
+
+  public function testUserKeys() {
+    $this->drupalLogin($this->normal_user);
+    $this->clickLink('SSH keys');
+    $this->clickLink('Add a public key');
+
+    $edit['value'] = '';
+    $this->drupalPost(NULL, $edit, 'Save');
+    $this->assertText('Key field is required.');
+
+    $edit['value'] = $this->randomName();
+    $this->drupalPost(NULL, $edit, 'Save');
+    $this->assertText('The key is invalid.');
+
+    $edit['value'] = 'ssh-foo ' . $this->randomName();
+    $this->drupalPost(NULL, $edit, 'Save');
+    $this->assertText('The key is invalid. It must begin with ssh-rsa or ssh-dss.');
+
+    // Add a key only using its key value, so its title should then be
+    // auto-generated from the key value.
+    $key = $this->randomSSHPublicKey();
+    $key->title = substr($key->value, 0, 26);
+    $edit['value'] = $key->value;
+    $this->drupalPost(NULL, $edit, 'Save');
+    $this->assertText("The SSH public key {$key->title} has been saved.");
+    $this->assertText($key->fingerprint);
+
+    // Edit the key to use a comment as the title.
+    $this->clickLink('Edit', 1);
+    $edit['title'] = '';
+    $edit['value'] = $key->value . ' Test comment';
+    $this->drupalPost(NULL, $edit, 'Save');
+    $this->assertText("The SSH public key Test comment has been saved.");
+    $this->assertText($key->fingerprint);
+
+    // Edit the key to use a comment as the title.
+    $this->clickLink('Edit', 1);
+    $edit['title'] = 'Test title';
+    $edit['value'] = $key->value;
+    $this->drupalPost(NULL, $edit, 'Save');
+    $this->assertText("The SSH public key Test title has been saved.");
+    $this->assertText($key->fingerprint);
+
+    // Attempt to insert a duplicate key.
+    $this->clickLink('Add a public key');
+    $edit['value'] = $key->value . ' Duplicate key';
+    $this->drupalPost(NULL, $edit, 'Save');
+    $this->assertText("The public key with fingerprint {$key->fingerprint} is already in use.");
+    $this->clickLink('Cancel');
+
+    $this->clickLink('Delete');
+    $this->assertText("Are you sure you want to delete the public key Test title?");
+    $this->drupalPost(NULL, array(), 'Delete');
+    $this->assertText("The SSH public key Test title has been deleted.");
+    $this->assertNoText($key->fingerprint);
+
+    // Check that a normal user cannot access another users's SSH key page.
+    $this->drupalGet("user/{$this->admin_user->uid}/ssh-keys");
+    $this->assertResponse(403);
+  }
+}

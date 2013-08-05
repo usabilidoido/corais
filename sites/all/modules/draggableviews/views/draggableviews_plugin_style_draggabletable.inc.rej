@@ -1,0 +1,17 @@
+***************
+*** 259,265 ****
+        '#options' => array('repair' => t('Repair broken structures.')),
+        '#description' => t('Uncheck this option if you don\'t want DraggableViews to repair broken structures.'),
+        '#title' => t('Structure'),
+-       '#default_value' => $current['draggableviews_repair'],
+      );
+  
+      if (strcmp($this->view->base_table, 'node') == 0) {
+--- 259,265 ----
+        '#options' => array('repair' => t('Repair broken structures.')),
+        '#description' => t('Uncheck this option if you don\'t want DraggableViews to repair broken structures.'),
+        '#title' => t('Structure'),
++       '#default_value' => !empty($current['draggableviews_repair']['repair']) ? array('repair') : array(),
+      );
+  
+      if (strcmp($this->view->base_table, 'node') == 0) {

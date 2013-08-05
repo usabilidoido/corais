@@ -1,0 +1,11 @@
+; $Id: taxonomy_hide.info,v 1.1.4.1 2008/05/11 04:38:51 brmassa Exp $
+core            = "6.x"
+name            = "Taxonomy hide"
+description     = "Hides and groups vocabulary terms in node views."
+dependencies[]  = taxonomy
+; Information added by drupal.org packaging script on 2008-10-27
+version = "6.x-1.02"
+core = "6.x"
+project = "taxonomy_hide"
+datestamp = "1225150823"
+

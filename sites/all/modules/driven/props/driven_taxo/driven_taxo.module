@@ -1,0 +1,90 @@
+<?php
+// $Id: driven_taxo.module,v 1.1 2010/03/27 22:56:52 arhak Exp $
+
+if (module_exists('driven_diff')) {
+  // don't include code that depends on a disabled module
+  module_load_include('inc', 'driven_taxo', 'driven_taxo.diff');
+}
+
+/**
+ * Implements hook_driven_properties().
+ */
+function driven_taxo_driven_properties($node_type) {
+  $available_props = array();
+  
+  $vocabularies = taxonomy_get_vocabularies($node_type);
+  foreach ($vocabularies as $voc) {
+    $vid = $voc->vid;
+    $name = $voc->name;
+    $hierarchy = $voc->hierarchy;
+    $multiple = $voc->multiple;
+    $tags = $voc->tags;
+    
+    // pack info for later use
+    $meta = compact('vid', 'hierarchy', 'multiple', 'tags');
+    $available_props['taxo:' . $vid] = array(
+      'meta' => $meta,
+      'target_title' => $name, // @TODO: translate? with t or i18n's tt?
+    );
+  }
+  
+  foreach ($available_props as $property_id => &$prop) {
+    $prop['realm_title'] = t('Taxonomy');
+  }
+  return $available_props;
+}
+
+// helper function (peer to taxonomy_get_term_by_name)
+function driven_taxo_get_term_by_name($vid, $term_name, $single = FALSE) {
+  $result = db_query("SELECT * FROM {term_data} t WHERE t.vid = %d AND LOWER(t.name) = LOWER('%s')", $vid, trim($term_name));
+  $candidates = array();
+  while ($term = db_fetch_object($result)) {
+    if ($single) {
+      return $term; // found, return it
+    }
+    $candidates[] = $term; // accumulated
+  }
+  
+  if ($single || empty($candidates)) {
+    // tags shouldn't complain about unexistency
+    // since taxonomy module renders them for preview
+    // lets support the same here
+    //$msg = 'Tag %tag couldn\'t be fetched from vocabulary %vid.';
+    //$args = array(
+    //  '%tag' => $tag, 
+    //  '%vid' => $vid,
+    //);
+    //driven_diff_warn_inaccurate_diff($msg, $args);
+    return FALSE; // not found
+  } 
+  return $candidates; // accumulated
+}
+
+// $vid is only needed for error reporting
+function driven_taxo_get_term($tid, $vid) {
+  $term = taxonomy_get_term($tid);
+  if ($term) {
+    return $term;
+  }
+  
+  $msg = 'Term %tid couldn\'t be fetched from vocabulary %vid.';
+  $args = array(
+    '%tid' => $tid, 
+    '%vid' => $vid,
+  );
+  driven_diff_warn_inaccurate_diff($msg, $args);
+  return FALSE;
+}
+
+// $node_type is only needed for error reporting
+function driven_taxo_get_vocabulary($vid, $node_type) {
+  $voc = taxonomy_vocabulary_load($vid);
+  if ($voc) {
+    return $voc;
+  }
+  
+  // second argument will be %id
+  $msg = 'Vocabulary %id couldn\'t be fetched';
+  driven_diff_warn_property_gone($node_type, $vid, $msg);
+  return FALSE;
+}

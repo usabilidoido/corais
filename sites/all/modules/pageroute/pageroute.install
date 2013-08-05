@@ -1,0 +1,102 @@
+<?php
+// $Id: pageroute.install,v 1.10.2.8 2009/10/29 12:07:50 sgilits Exp $
+
+/**
+ * @file
+ * Install
+ */
+
+function pageroute_schema() {
+
+  $schema = array();
+
+  $schema['pageroute_routes'] = array(
+    'fields' => array(
+      'prid' =>     array('type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE),
+      'path' =>     array('type' => 'varchar', 'length' => 127, 'not null' => TRUE),
+      'options' =>  array('type' => 'text', 'size' => 'medium', 'not null' => TRUE)
+    ),
+    'primary key' => array('prid')
+  );
+
+  $schema['pageroute_pages'] = array(
+    'fields' => array(
+      'prid' =>      array('type' => 'int', 'length' => 10, 'unsigned' => TRUE, 'not null' => TRUE),
+      'name' =>      array('type' => 'varchar', 'length' => 63, 'not null' => TRUE),
+      'module' =>    array('type' => 'varchar', 'length' => 32, 'not null' => TRUE),
+      'type' =>      array('type' => 'varchar', 'length' => 32, 'not null' => TRUE),
+      'title' =>     array('type' => 'varchar', 'length' => 255, 'not null' => TRUE),
+      'options' =>   array('type' => 'text', 'size' => 'medium', 'not null' => TRUE),
+      'weight' =>    array('type' => 'int', 'size' => 'small', 'not null' => TRUE)
+    ),
+    'primary key' => array('prid', 'name')
+  );
+
+  return $schema;
+}
+
+function pageroute_install() {
+  drupal_install_schema('pageroute');
+}
+
+function pageroute_uninstall() {
+  drupal_uninstall_schema('pageroute');
+}
+
+/**
+ * d5 to d6 upgrade
+ */
+function pageroute_update_6001() {
+  $ret = array();
+
+  if (db_table_exists('pageroute_pages') && !db_column_exists('pageroute_pages', 'module')) {
+    db_add_field($ret, 'pageroute_pages', 'module', array('type' => 'varchar', 'length' => 32, 'not null' => TRUE));
+
+    drupal_load('module', 'pageroute');
+
+    $page_types = module_invoke_all('pageroute_info');
+    $check_single = array();
+
+    foreach ($page_types as $module => $type_ids) {
+      foreach ($type_ids as $type_id => $file) {
+        update_sql("UPDATE {pageroute_pages} SET module = '%s' WHERE type = '%s'", $module, $type_id);
+      }
+    }
+  }
+
+  $ret[] = update_sql("ALTER TABLE {pageroute_pages} MODIFY type varchar(32) NOT NULL");
+
+  $result = db_query("SELECT * FROM {pageroute_pages}");
+  while ($page = db_fetch_object($result)) {
+    switch ($page->type) {
+      case 'add':
+        $new_type = 'add';
+        $module = 'pageroute';
+        break;
+      case 'view':
+        $new_type = 'view';
+        $module = 'pageroute';
+        break;
+      case 'edit':
+        $new_type = 'edit';
+        $module = 'pageroute';
+        break;
+      case 'manage':
+        $new_type = 'manage';
+        drupal_set_message(t("Manage page types are no longer supported in pageroute 6, please delete pages" .
+          "with this page types, otherwise you'll get an error message!", 'warning'));
+        break;
+      case 'user_edit':
+        $new_type = 'useredit';
+        $module = 'pageroute';
+        break;
+      default:
+        break 2;
+    }
+    $prid = intval($page->prid);
+    $name = db_escape_string($page->name);
+    update_sql("UPDATE {pageroute_pages} SET type = '%s', module = '%s' WHERE prid = '%d' AND name = '%s'", $new_type, $module, $prid, $name);
+  }
+  
+  return $ret;
+}

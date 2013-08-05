@@ -1,0 +1,524 @@
+<?php
+// $Id$
+
+/**
+ * Missing description.
+ *
+ * Changelog:
+ * BW @ 2010-09-21: Fixed bug where additional HTML classes set in PHP prevented
+ *                  menu from working with javascript.
+ * 
+ *                  Added settings page for administrators. Settings are passed into
+ *                  the Drupal.settings javascript object as Drupal.settings.booknav.<name>
+ * 
+ *                  Settings are loaded into jQuery plugin Treeview and merged with default values.
+ * 
+ */
+
+require_once "includes/constants.inc.php";
+
+/**
+ * Implements hook_menu
+ *
+ * @return array
+ * @author Børge Warvik
+ */
+function booknav_menu() {
+  $ítems = array();
+  
+  $items['admin/settings/booknav'] = array(
+    'title' => t('Booknav settings'),
+    'description' => t('Change settings for the Booknav module'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array( 'booknav_admin' ),
+    'access arguments' => array( 'access administration pages' ),
+    'type' => MENU_NORMAL_ITEM,
+  );
+  
+  return $items;
+}
+
+
+/**
+ * Creates settings form for module.
+ *
+ * @return array The form structure
+ * @author Børge Warvik
+ */
+function booknav_admin() {
+  $form = array();
+  
+  $form['booknav'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Settings for the Booknav module'),
+    '#tree' => true,
+  );
+  
+  $form['booknav'][BOOKNAV_GENERATE_BLOCK_PER_BOOK] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Generate a block per book'),
+    '#description' => t('If checked, it will generate a unique block per book.'),
+    '#default_value' => variable_get(BOOKNAV_GENERATE_BLOCK_PER_BOOK, BOOKNAV_GENERATE_BLOCK_PER_BOOK_DEFAULT),
+  );
+  
+  $form['booknav'][ BOOKNAV_USE_TOP_BOOK_NODE_AS_BLOCK_TITLE] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Use top book node as block title'),
+    '#description' => t('If checked, book node will be shown in menu, but will instead used as block title and not be clickable.'),
+    '#default_value' => variable_get( BOOKNAV_USE_TOP_BOOK_NODE_AS_BLOCK_TITLE,  BOOKNAV_USE_TOP_BOOK_NODE_AS_BLOCK_TITLE_DEFAULT),
+  );
+  
+  $form['treeview'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Settings for jQuery Treeview Plugin'),
+    '#tree' => true,
+  );
+  
+  $persistent_states = array( 'cookie' => 'Cookie', 'location' => 'Location' );
+  $form['treeview'][BOOKNAV_TREEVIEW_PERSISTENT] = array(
+    '#type' => 'select',
+    '#title' => t('Set persistent state'),
+    '#description' => t('Persist the tree state in cookies or the page location. If set to "location", looks for the anchor that matches location.href and activates that part of the treeview it. Great for href-based state-saving. If set to "cookie", saves the state of the tree on each click to a cookie and restores that state on page load.'),
+    '#options' => $persistent_states,
+    '#default_value' => variable_get(BOOKNAV_TREEVIEW_PERSISTENT, BOOKNAV_TREEVIEW_PERSISTENT_DEFAULT),
+  );
+  
+  $form['treeview'][BOOKNAV_TREEVIEW_COOKIE_ID] = array(
+    '#type' => 'textfield',
+    '#title' => t('Cookie name'),
+    '#description' => t('The cookie name to use when persisting via persist:"cookie".'),
+    '#default_value' => variable_get(BOOKNAV_TREEVIEW_COOKIE_ID, BOOKNAV_TREEVIEW_COOKIE_ID_DEFAULT),
+  );
+  
+  $form['treeview'][BOOKNAV_TREEVIEW_SHOW_EXPAND_COLLAPSE_LINKS] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Show expand/collapse all links'),
+    '#description' => t('If checked, links above the menu with "Expand all"/"Collapse all" will be visible.'),
+    '#default_value' => variable_get(BOOKNAV_TREEVIEW_SHOW_EXPAND_COLLAPSE_LINKS, BOOKNAV_TREEVIEW_SHOW_EXPAND_COLLAPSE_LINKS_DEFAULT),
+  );
+  
+  $animate_values = array( 'none' => 'None', 'fast' => 'Fast', 'slow' => 'Slow' );
+  $form['treeview'][BOOKNAV_TREEVIEW_ANIMATE] = array(
+    '#type' => 'radios',
+    '#options' => $animate_values,
+    '#title' => t('Animate'),
+    '#description' => t('Speed of animation. None will disable animation.'),
+    '#default_value' => variable_get(BOOKNAV_TREEVIEW_ANIMATE, BOOKNAV_TREEVIEW_ANIMATE_DEFAULT),
+  );
+  
+  $form['treeview'][BOOKNAV_TREEVIEW_COLLAPSED] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Collapsed'),
+    '#description' => t('Start with all branches collapsed.'),
+    '#default_value' => variable_get(BOOKNAV_TREEVIEW_COLLAPSED, BOOKNAV_TREEVIEW_COLLAPSED_DEFAULT),
+  );
+  
+  $form['treeview'][BOOKNAV_TREEVIEW_UNIQUE] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Unique'),
+    '#description' => t('Set to allow only one branch on one level to be open (closing siblings which opening).'),
+    '#default_value' => variable_get(BOOKNAV_TREEVIEW_UNIQUE, BOOKNAV_TREEVIEW_UNIQUE_DEFAULT),
+  );
+  
+  // Function to call on form submit
+  $form['#submit'][] = 'booknav_admin_submit';
+  
+  return system_settings_form( $form );
+}
+
+/**
+ * Implementation of _form_validate
+ *
+ * @param array $form 
+ * @param array &$form_state A reference to the $form_state array. 
+ * @return void
+ * @author Børge Warvik
+ */
+function booknav_admin_validate( $form, &$form_state ) {
+
+  // We cant have empty cookie name, revert back to default value
+  if( trim($form_state['values']['treeview'][BOOKNAV_TREEVIEW_COOKIE_ID]) === "" ) {
+    $form_state['values']['treeview'][BOOKNAV_TREEVIEW_COOKIE_ID] = BOOKNAV_TREEVIEW_COOKIE_ID_DEFAULT;
+  }
+  
+}
+
+/**
+ * Stores changes made with submit from administration configuration settings
+ *
+ * @param array $form 
+ * @param array $form_state 
+ * @return void
+ * @author Børge Warvik
+ */
+function booknav_admin_submit( $form, &$form_state) {
+  variable_set(BOOKNAV_GENERATE_BLOCK_PER_BOOK, $form_state['values']['booknav'][BOOKNAV_GENERATE_BLOCK_PER_BOOK]);
+  variable_set(BOOKNAV_USE_TOP_BOOK_NODE_AS_BLOCK_TITLE, $form_state['values']['booknav'][ BOOKNAV_USE_TOP_BOOK_NODE_AS_BLOCK_TITLE]);
+  
+  variable_set(BOOKNAV_TREEVIEW_PERSISTENT, $form_state['values']['treeview'][BOOKNAV_TREEVIEW_PERSISTENT]);
+  variable_set(BOOKNAV_TREEVIEW_SHOW_EXPAND_COLLAPSE_LINKS, $form_state['values']['treeview'][BOOKNAV_TREEVIEW_SHOW_EXPAND_COLLAPSE_LINKS]);
+  variable_set(BOOKNAV_TREEVIEW_COOKIE_ID, $form_state['values']['treeview'][BOOKNAV_TREEVIEW_COOKIE_ID]);
+  variable_set(BOOKNAV_TREEVIEW_ANIMATE, $form_state['values']['treeview'][BOOKNAV_TREEVIEW_ANIMATE]);
+  variable_set(BOOKNAV_TREEVIEW_COLLAPSED, $form_state['values']['treeview'][BOOKNAV_TREEVIEW_COLLAPSED]);
+  variable_set(BOOKNAV_TREEVIEW_UNIQUE, $form_state['values']['treeview'][BOOKNAV_TREEVIEW_UNIQUE]);
+}
+
+
+/**
+* Implementation of hook_block
+* @param string $op one of "list", "view", "save" and "configure"
+* @param integer $delta code to identify the block
+* @param array $edit only for "save" operation
+**/
+function booknav_block($op = 'list', $delta = 0, $edit = array()) {
+
+  $block = array();
+  
+  switch ($op) {
+    
+    case 'list':
+      
+      // Check if we should return a block per book or not
+      if( variable_get(BOOKNAV_GENERATE_BLOCK_PER_BOOK, BOOKNAV_GENERATE_BLOCK_PER_BOOK_DEFAULT) ) {
+        foreach (book_get_books() as $book_id => $book) {
+          $block[$book_id]['info'] = $book['title'] . " " . t("navigation");
+          $block[$book_id]['cache'] = BLOCK_CACHE_PER_PAGE | BLOCK_CACHE_PER_ROLE;
+        }
+      }
+
+      $block['booknav']['info'] = t("Book navigation expanded");
+      $block['booknav']['cache'] = BLOCK_CACHE_PER_PAGE | BLOCK_CACHE_PER_ROLE;
+      
+      $block['booknavbt']['info'] = t("Book navigation buttons first");
+      $block['booknavbt']['cache'] = BLOCK_CACHE_PER_PAGE | BLOCK_CACHE_PER_ROLE;
+
+      $block['booknavbb']['info'] = t("Book navigation buttons second");
+      $block['booknavbb']['cache'] = BLOCK_CACHE_PER_PAGE | BLOCK_CACHE_PER_ROLE;
+      
+      $block['booknavcurrent']['info'] = t("Current book navigation");
+      $block['booknavcurrent']['cache'] = BLOCK_CACHE_PER_PAGE | BLOCK_CACHE_PER_ROLE;
+
+      return $block;
+    
+    case 'view':
+  
+      $block = array();
+      
+      if ($delta == 'booknav') {
+        $current_bid = 0;
+        if ($node = menu_get_object()) { // I'm on a book!
+          $current_bid = empty($node->book['bid']) ? 0 : $node->book['bid'];
+        }
+
+        if (variable_get('book_block_mode', 'all pages') == 'all pages') { // List all books at all pages
+          $books = book_get_books();
+          if (count($books) >= 2) { // Several books, list all
+            $block['subject'] = t('Book navigation');
+            $block['content'] = '';
+            foreach ($books as $book_id => $book) {
+              $tree = menu_tree_all_data(book_menu_name($book_id));
+              #$block['content'] .= menu_tree_output($tree);
+              $block['content'] .=  booknav_jquerify_tree($tree, true);
+            }
+          } else if (count($books)==1) { // One book
+            reset($books);
+            $oldtree = menu_tree_all_data(book_menu_name(key($books)));
+            $tree = array();
+            foreach ($oldtree as $bookkey => $booknode) {
+              foreach ($booknode['below'] as $treekey => $treenode) {
+                $tree[$treekey] = $treenode;
+              }
+              $block['subject'] = $booknode['link']['link_title']; // TODO: We probably want a flag for wether we strip the book frontpage or not
+            }
+            #$block['content'] = menu_tree_output($tree);
+            
+            $block['content'] =  booknav_jquerify_tree($tree, true);
+          } // else nothing to show, probably no books
+
+          //$block['content'] = theme('book_all_books_block', $book_menus);
+        }
+        elseif ($current_bid) { // Else only list when we're in a book
+          $oldtree = menu_tree_all_data(book_menu_name($current_bid));
+          $tree = array();
+          foreach ($oldtree as $bookkey => $booknode) {
+            foreach ($booknode['below'] as $treekey => $treenode) {
+              $tree[$treekey] = $treenode;
+            }
+            $block['subject'] = $booknode['link']['link_title']; // TODO: We probably want a flag for wether we strip the book frontpage or not
+          }
+          #$block['content'] = menu_tree_output($tree);
+          $block['content'] =  booknav_jquerify_tree($tree, true);
+        }
+
+      } else if ($delta == "booknavbt" || $delta == "booknavbb") {
+        
+        $current_bid = 0;
+        if ($node = menu_get_object()) { // I'm on a book!
+          $current_bid = empty($node->book['bid']) ? 0 : $node->book['bid'];
+        }
+
+        if ($current_bid) {
+          $booklink = book_link_load($node->book['mlid']);
+          $block['content'] = theme('booknav_buttons', $booklink);
+        }
+      } else if ($delta == 'booknavcurrent') {
+        $block = booknav_block_current();
+      } else {
+        
+        $oldtree = menu_tree_all_data(book_menu_name($delta));
+        $tree = array();
+        
+        
+        if( variable_get( BOOKNAV_USE_TOP_BOOK_NODE_AS_BLOCK_TITLE,  BOOKNAV_USE_TOP_BOOK_NODE_AS_BLOCK_TITLE_DEFAULT) ) {
+          // Remove topnode (book) out of array, we only want subpages
+          foreach ($oldtree as $bookkey => $booknode) {
+            foreach ($booknode['below'] as $treekey => $treenode) {
+              $tree[$treekey] = $treenode;
+            }
+            $block['subject'] = $booknode['link']['link_title'];
+          }
+        } else {
+          $block['subject'] = t('Book navigation');
+          $tree = $oldtree;
+        }
+        
+        
+        
+        // Create menu compatible with jquery-treeview module
+        $block['content'] =  booknav_jquerify_tree($tree, true);
+      }
+
+      return $block;
+      
+    case 'configure':
+    
+      if ($delta == 'booknav') {
+        $options = array(
+          'all pages' => t('Show block on all pages'),
+          'book pages' => t('Show block only on book pages'),
+        );
+        $form['book_block_mode'] = array(
+          '#type' => 'radios',
+          '#title' => t('Book navigation block display'),
+          '#options' => $options,
+          '#default_value' => variable_get('book_block_mode', 'all pages'),
+          '#description' => t("If <em>Show block on all pages</em> is selected, the block will contain the automatically generated menus for all of the site's books. If <em>Show block only on book pages</em> is selected, the block will contain only the one menu corresponding to the current page's book. In this case, if the current page is not in a book, no block will be displayed. The <em>Page specific visibility settings</em> or other visibility settings can be used in addition to selectively display this block."),
+          );
+        return $form;
+      }
+      return array();
+      
+    case 'save':
+    
+      variable_set('book_block_mode', $edit['book_block_mode']);
+      break;
+  }
+
+
+} // function booknav_block
+
+/**
+ * booknav_block_current()
+ *
+ * Returns a navigation menu for the current book inside a block.
+ *
+ * @return array
+ *  
+ */
+function booknav_block_current() {
+  $block = array();
+  
+  $current_bid = 0;
+  if ($node = menu_get_object()) { // I'm on a book!
+    $current_bid = empty($node->book['bid']) ? 0 : $node->book['bid'];
+  }
+  
+  $oldtree = menu_tree_all_data(book_menu_name($current_bid));
+  $tree = array();
+  foreach ($oldtree as $bookkey => $booknode) {
+    foreach ($booknode['below'] as $treekey => $treenode) {
+      $tree[$treekey] = $treenode;
+    }
+    $block['subject'] = $booknode['link']['link_title'];
+  }
+
+  $block['content'] =  booknav_jquerify_tree($tree, true);
+  
+  return $block;
+}
+
+/**
+ * Takes an array of nodes and returns an html menu 
+ * 
+ * Makes HTML that is compatible with the jQuery Treeview
+ * plugin (http://bassistance.de/jquery-plugins/jquery-plugin-treeview/).
+ * 
+ * @author Børge Warvik
+ *
+ * @param array $tree The tree of nodes to print 
+ * @param bool $first True indicates that we are on first node.
+ * @return string Unordered HTML list
+ */
+function booknav_jquerify_tree( $tree=array(), $first=false ) {
+  load_required_javascript();
+  $nodes=array();
+  $output="";
+  
+  $show_expand_collapse_all = variable_get(BOOKNAV_TREEVIEW_SHOW_EXPAND_COLLAPSE_LINKS, BOOKNAV_TREEVIEW_SHOW_EXPAND_COLLAPSE_LINKS_DEFAULT);
+  if( $first && $show_expand_collapse_all ) {
+    $output .= '<div class="treeview-controller"><a href="#">Collapse all</a> / <a href="#">Expand all</a> / <a href="#">Toggle all</a></div>';
+  }
+  
+  // Strip hidden nodes
+  foreach( $tree as $data ) {
+    if(!$data['link']['hidden'])
+    {
+      $nodes[]=$data;
+    }
+  }
+  
+  // No nodes, return empty
+  if(count($nodes)==0) return $output;
+  
+  // Add class "treeview" only to top ul
+  $output .= '<ul id="booknavtree"' . ($first ? ' class="treeview filetree"' : '' ) . '>'; 
+  
+  // Loop through all nodes and build menu
+  foreach( $nodes as $node )   {
+    $output .= '<li>';    
+    $output .= l($node['link']['title'], $node['link']['href']);
+    if( $node['link']['has_children'] ) {
+      $output .= booknav_jquerify_tree( $node['below'] );
+    }
+    $output .= "</li>";
+  }
+  
+  $output .= "</ul>";
+  
+  return $output;
+}
+
+/**
+ * Loads required javascript for the jQuery Treeview plugin and 
+ * passes in settings for the treeview menu.
+ *
+ * @return void
+ * @author Børge Warvik
+ */
+function load_required_javascript() {
+  
+  static $settings = array('treeview'=>array());
+  
+  // Only apply required javascript and settings once. 
+  if( count($settings['treeview']) === 0 ) {
+    drupal_add_js(drupal_get_path('module', 'booknav') . '/jquery-treeview/jquery.treeview.min.js');
+    drupal_add_js(drupal_get_path('module', 'booknav') . '/jquery.treeview.loader.js');
+    drupal_add_css(drupal_get_path('module', 'booknav') . '/jquery-treeview/jquery.treeview.css');
+
+    $settings['treeview']['persist'] = variable_get(BOOKNAV_TREEVIEW_PERSISTENT, BOOKNAV_TREEVIEW_PERSISTENT_DEFAULT);
+
+    if($settings['treeview']['persist'] == 'cookie' ) {
+      $settings['treeview']['cookieId'] = variable_get(BOOKNAV_TREEVIEW_COOKIE_ID, BOOKNAV_TREEVIEW_COOKIE_ID_DEFAULT );
+    }
+    
+    $settings['treeview']['unique'] = variable_get(BOOKNAV_TREEVIEW_UNIQUE, BOOKNAV_TREEVIEW_UNIQUE_DEFAULT);
+    
+    $animate = variable_get(BOOKNAV_TREEVIEW_ANIMATE, BOOKNAV_TREEVIEW_ANIMATE_DEFAULT);
+    
+    if( $animate != 'none' )
+    {
+      $settings['treeview']['animated'] = $animate;
+    }
+    
+    $settings['treeview']['collapsed'] = variable_get(BOOKNAV_TREEVIEW_COLLAPSED, BOOKNAV_TREEVIEW_COLLAPSED);
+    
+    //BOOKNAV_TREEVIEW_SHOW_EXPAND_COLLAPSE_LINKS
+    $show_expand_collapse = variable_get(BOOKNAV_TREEVIEW_SHOW_EXPAND_COLLAPSE_LINKS, BOOKNAV_TREEVIEW_SHOW_EXPAND_COLLAPSE_LINKS_DEFAULT);
+    
+    if( $show_expand_collapse ) {
+     $settings['treeview']['control'] = '.treeview-controller'; 
+    }
+
+    drupal_add_js( $settings, 'setting' ); 
+  }
+}
+
+/**
+* Implementation of hook_link().
+*/
+function booknav_link($type, $object, $teaser = FALSE) {
+  $links = array();
+  if ($type == 'node' && isset($object->book)) { /* Add link to book pages */
+    if (!$teaser) {
+      if (user_access('add content to books') && $object->status == 1) {
+//        $parent = book_link_load($object->book['plid']);
+//        $pid = $parent['nid'];
+        $pid = $object->book['plid'];
+        $links['book_add_sibling'] = array(
+          'title' => t('Add sibling page'),
+          'href' => "node/add/book",
+          'query' => array('parent' => $pid)
+        );
+      }
+    }
+  }
+  return $links;
+}
+
+/**
+* Implementation of hook_theme().
+*/
+function booknav_theme() {
+  return array(
+    'booknav_buttons' => array(
+      'template' => 'booknav-buttons',
+      'arguments' => array('book_link' => NULL),
+    ),
+  );
+}
+
+function template_preprocess_booknav_buttons(&$variables) {
+  $book_link = $variables['book_link'];
+  if ($book_link['mlid']) {
+
+    $show_previous = $prev = book_prev($book_link);
+    
+    // Hide previous link if top book node is used as title and previous links PLID == 0
+    // PLID == 0 means that the book node has no parent.
+    $allow_navigate_to_top_node = variable_get( BOOKNAV_USE_TOP_BOOK_NODE_AS_BLOCK_TITLE,  BOOKNAV_USE_TOP_BOOK_NODE_AS_BLOCK_TITLE_DEFAULT);    
+    if( $allow_navigate_to_top_node ) {
+      $show_previous = (($prev && $prev['plid'] != "0") ? true : false );
+    }
+    
+    if ($show_previous) {
+      $prev_href = url($prev['href']);
+      drupal_add_link(array('rel' => 'prev', 'href' => $prev_href));
+      $variables['prev_url'] = $prev_href;
+      $variables['prev_title'] = check_plain($prev['title']);
+    }
+
+    if ($next = book_next($book_link)) {
+      $next_href = url($next['href']);
+      drupal_add_link(array('rel' => 'next', 'href' => $next_href));
+      $variables['next_url'] = $next_href;
+      $variables['next_title'] = check_plain($next['title']);
+    }
+  }
+
+  $variables['has_links'] = FALSE;
+  // Link variables to filter for values and set state of the flag variable.
+  $links = array('prev_url', 'prev_title', 'next_url', 'next_title');
+  foreach ($links as $link) {
+    if (isset($variables[$link])) {
+      // Flag when there is a value.
+      $variables['has_links'] = TRUE;
+    }
+    else {
+      // Set empty to prevent notices.
+      $variables[$link] = '';
+    }
+  }
+
+}
+
+

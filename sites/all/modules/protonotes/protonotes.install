@@ -1,0 +1,26 @@
+<?php
+// $Id$
+
+/**
+ * Implementation of hook_install().
+ */
+function protonotes_install() {
+  // There is no new tables to install
+  
+  // Please add these variables to the variables table.
+  variable_set('protonotes_enabled', '');
+  variable_set('protonotes_groupnumber', '');
+  variable_set('protonotes_notes_default', '');
+  variable_set('protonotes_menubar_default', '');
+  variable_set('protonotes_database_key', '');
+  
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function protonotes_uninstall() {
+  // Delete our module's variable from the variables table.
+  variable_del('protonotes_*');
+}
+

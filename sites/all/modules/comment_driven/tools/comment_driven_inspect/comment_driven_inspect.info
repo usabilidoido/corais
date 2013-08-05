@@ -1,0 +1,21 @@
+; $Id: comment_driven_inspect.info,v 1.1 2010/03/27 23:02:25 arhak Exp $
+
+name = Comment driven inspect
+description = Troubleshooting tool which compares two arbitrary node revisions and displays different phases.
+
+package = Driven
+; @d6
+core = 6.x
+
+dependencies[] = driven_inspect
+
+; @d7
+files[] = comment_driven_inspect.module
+files[] = comment_driven_inspect.admin.inc
+
+; Information added by drupal.org packaging script on 2010-05-01
+version = "6.x-1.0-alpha3"
+core = "6.x"
+project = "comment_driven"
+datestamp = "1272741906"
+

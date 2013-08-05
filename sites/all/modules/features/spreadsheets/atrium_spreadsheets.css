@@ -1,0 +1,10 @@
+span.spaces-feature.node-sheetnode {
+  background: url(icon20.png);
+}
+span.spaces-feature.node-xls {
+  background: url(xls_icon.png);
+}
+
+#features-menu li a.icon-spreadsheets span.icon {
+  background: url(icon40.png);
+}

@@ -1,0 +1,12 @@
+name = Boost
+description = Caches text (html, ajax, xml) outputted by Drupal as static files for performance and scalability purposes.
+recommends[] = nodereferrer
+package = Performance and scalability
+core = 6.x
+
+; Information added by drupal.org packaging script on 2012-10-08
+version = "6.x-1.21"
+core = "6.x"
+project = "boost"
+datestamp = "1349667069"
+

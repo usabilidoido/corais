@@ -1,0 +1,25 @@
+span.spaces-feature.feature-atrium_answers {
+  background: url(question-20.png);
+}
+#features-menu li a.icon-suggestions span.icon {
+  background: url(question-40.png);
+}
+
+
+.usernametag {
+  background-color: #f8f8f8;
+  -moz-border-radius: 0.3em;
+  -webkit-border-radius: 0.3em;
+  border: 0.1em solid #eee;
+  padding: 0.2em;
+}
+#header div.block-toggle div.block-content .usernametag a {
+  color: #000000;
+}
+.usernametag .userpoints {
+  color: #aaa;
+}
+
+.updown-score {
+ background: Red;
+}

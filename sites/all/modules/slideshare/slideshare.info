@@ -1,0 +1,14 @@
+
+name = "Slideshare"
+description = "Provides SlideShare support to the Embedded Media Field video module."
+core = 6.x
+package = Media
+dependencies[] = emfield
+dependencies[] = emvideo
+dependencies[] = content
+; Information added by drupal.org packaging script on 2012-03-22
+version = "6.x-1.0-beta4"
+core = "6.x"
+project = "slideshare"
+datestamp = "1332460249"
+

@@ -1,0 +1,466 @@
+<?php
+
+/**
+ * Implementation of cck hook_field_info()
+ */
+function computed_field_field_info() {
+  return array(
+    'computed' => array(
+      'label' => t('Computed'),
+      'description' => t('Create field data via PHP code.'),
+      'callbacks' => array(
+        'tables' => CONTENT_CALLBACK_DEFAULT,
+        'arguments' => CONTENT_CALLBACK_DEFAULT,
+        ),
+      ),
+    );
+}
+
+/**
+ * Implementation of cck hook_field_settings()
+ */
+function computed_field_field_settings($op, $field) {
+  switch ($op) {
+    case 'form':
+      $form = array();
+      $compute_func = 'computed_field_'. $field['field_name'] .'_compute';
+      $display_func = 'computed_field_'. $field['field_name'] .'_display';
+      // these next 3 have been moved from widget to field, so they copy default values from widget
+      $form['code'] = array(
+        '#type' => 'textarea',
+        '#rows' => 15,
+        '#title' => t('Computed Code'),
+        '#description' => '<p>'. t('The variables available to your code are: ') .'<code>&amp;$node, $field, and &amp;$node_field</code>'. t('. To set the value of the field, set ') .'<code>$node_field[0][\'value\']</code>.'. '</p><p>'. t('Here\'s a simple example which sets the computed field\'s value to the value of the sum of the number fields field_a and field_b: ') .'<code>$node_field[0][\'value\'] = $node->field_a[0][\'value\'] + $node->field_b[0][\'value\'];</code>. '. '</p><p>'. t('Alternately, this code can be supplied by your own custom function named @compute_func($node, $field, $node_field). Any code entered above will be ignored if the function is defined.', array('@compute_func' => $compute_func)) .'</p>',
+        '#default_value' => !empty($field['code']) ? $field['code'] : '$node_field[0][\'value\'] = "";',
+        '#access' => !function_exists($compute_func),
+      );
+      if (function_exists($compute_func)) {
+        $form['compute_func'] = array(
+        '#type' => 'item',
+        '#value' => t('This field is computed using @compute_func().', array('@compute_func' => $compute_func)),
+        );
+      }
+      $form['display_format'] = array(
+        '#type' => 'textarea',
+        '#title' => t('Display Format'),
+        '#description' => '<p>' . t('This code should assign a string to the $display variable, which will be printed as the value of the field.') . '</p><p>'. t('The stored value of the field is in $node_field_item[\'value\']. The node is available at $node') .'</p><p>'. t('Note: this code has no effect if you use the "Computed Value" formatter option.') .'</p><p>'. t('Alternately, this code can be supplied by your own custom function named @display_func($field, $element, $node). Any code entered above will be ignored if the function is defined.', array('@display_func' => $display_func)) .'</p>' ,
+        '#default_value' => !empty($field['display_format']) ? $field['display_format'] : '$display = $node_field_item[\'value\'];',
+        '#access' => !function_exists($display_func),
+      );
+      if (function_exists($display_func)) {
+        $form['display_func'] = array(
+          '#type' => 'item',
+          '#value' => t('This field is computed using @display_func().', array('@display_func' => $display_func)),
+          );
+      }
+      $form['store'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Store using the database settings below (required for Views use)'),
+        '#default_value' => is_numeric($field['store']) ? $field['store'] : 1 ,
+      );
+      $form['database'] = array('#type' => 'fieldset', '#title' => t('Database Storage Settings'));
+      $form['database']['data_type'] = array(
+        '#type' => 'radios',
+        '#title' => t('Data Type'),
+        '#description' => t('The SQL datatype to store this field in.'),
+        '#default_value' => !empty($field['data_type']) ? $field['data_type'] : 'varchar',
+        '#options' => array('varchar' => 'varchar', 'text' => 'text', 'longtext' => 'longtext', 'int' => 'int', 'float' => 'float', 'numeric' => 'decimal'),
+        '#required' => FALSE,
+      );
+      $form['database']['data_length'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Data Length (varchar/text only)'),
+        '#description' => t('<strong>Only</strong> valid for <strong>varchar</strong> or <strong>text</strong> fields. The length of the field stored in the database.'),
+        '#default_value' => !empty($field['data_length']) ? $field['data_length'] : NULL,
+        '#required' => FALSE,
+      );
+      $form['database']['data_size'] = array(
+        '#type' => 'select',
+        '#title' => t('Data Size (int/float)'),
+        '#description' => t('<strong>Only</strong> valid for <strong>int</strong> or <strong>float</strong> fields. The size of the field stored in the database.'),
+        '#default_value' => !empty($field['data_size']) ? $field['data_size'] : 'normal',
+        '#options' => array('tiny' => 'tiny', 'small' => 'small', 'medium' => 'medium', 'normal' => 'normal', 'big' => 'big'),
+        '#required' => FALSE,
+      );
+      $form['database']['data_precision'] = array(
+        '#type' => 'select',
+        '#title' => t('Decimal Precision (decimal)'),
+        '#description' => t('<strong>Only</strong> valid for <strong>decimal</strong> fields. The total number of digits to store in the database, including those to the right of the decimal.'),
+        '#options' => drupal_map_assoc(range(10, 32)),
+        '#default_value' => !empty($field['data_precision']) ? $field['data_precision'] : 10,
+        '#required' => FALSE,
+      );
+      $form['database']['data_scale'] = array(
+        '#type' => 'select',
+        '#title' => t('Decimal Scale (decimal)'),
+        '#description' => t('<strong>Only</strong> valid for <strong>decimal</strong> fields. The number of digits to the right of the decimal. '),
+        '#options' => drupal_map_assoc(range(0, 10)),
+        '#default_value' => !empty($field['data_scale']) ? $field['data_scale'] : 2,
+        '#required' => FALSE,
+      );      
+      $form['database']['data_default'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Default Value'),
+        '#default_value' => $field['data_default'],
+        '#required' => FALSE,
+      );
+      $form['database']['data_not_NULL'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Not NULL'),
+        '#default_value' => is_numeric($field['data_not_NULL']) ? $field['data_not_NULL'] : FALSE,
+      );
+      $form['database']['data_sortable'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Sortable in Views'),
+        '#default_value' => is_numeric($field['data_sortable']) ? $field['data_sortable'] : TRUE,
+      );
+      return $form;
+    case 'validate':
+      if ($field['store']) {
+        if (empty($field['data_type'])) {
+          form_set_error('data_type', t('To store this field in the database, please specify a data type.'));
+        }
+        if (($field['data_type'] == 'text' || $field['data_type'] == 'varchar') && empty($field['data_length'])) {
+          form_set_error('data_length', t('To store this field in the database, please specify the data length.'));
+        }
+      }
+      break;
+    case 'save':
+      return array('code', 'display_format', 'store', 'data_type', 'data_length', 'data_size', 'data_precision', 'data_scale', 'data_not_NULL', 'data_default', 'data_sortable');
+    case 'database columns':
+      if (!is_numeric($field['store'])) {
+        // Initial field creation! - CCK initially creates the field in the DB before the user is given a chance to configure it.
+        // Thus we don't know any of the field's data settings for this initial creation. Yet, if we don't set something, CCK will
+        // return SQL errors when trying to "migrate" the data column after configuration (in several senarios). So, we'll 
+        // give CCK our most basic "default" data column to work with.  After the user configures the field, it will be updated by
+        // CCK to match their chosen field data settings.
+        $columns = array(
+          'value' => array(
+            'type' => 'varchar',
+            'length' => '32',
+          ),
+        );
+      }
+      elseif ($field['store']) {
+        // User has decided to store values in the DB, so we'll gather up information on their chosen data type.
+        $columns = array('value' => array());
+        if ($field['data_type'] == 'longtext') {
+          $columns['value']['type'] = 'text';
+          $columns['value']['size'] = 'big';
+        }
+        else {
+          $columns['value']['type'] = isset($field['data_type']) ? $field['data_type'] : 'varchar';
+        }
+        // 'text' and 'varchar' fields get length settings
+        if ($field['data_type'] == 'text' || $field['data_type'] == 'varchar') {
+          $columns['value']['length'] = isset($field['data_length']) ? $field['data_length'] : 32;
+        }
+        // 'int' and 'float' fields get size settings
+        if ($field['data_type'] == 'int' || $field['data_type'] == 'float') {
+          $columns['value']['size'] = isset($field['data_size']) ? $field['data_size'] : 'normal';
+        }
+        // 'decimal' fields get precision and scale settings
+        if ($field['data_type'] == 'numeric') {
+          $columns['value']['precision'] = isset($field['data_precision']) ? $field['data_precision'] : 10;
+          $columns['value']['scale'] = isset($field['data_scale']) ? $field['data_scale'] : 2;
+        }
+        // Add 'not null' settings
+        $columns['value']['not null'] = isset($field['data_not_NULL']) ? $field['data_not_NULL'] : TRUE;
+        // Allow Views sorting if set
+        $columns['value']['sortable'] = isset($field['data_sortable']) ? $field['data_sortable'] : FALSE;
+        // Add default values if set
+        if ($field['data_default'] != '')  {
+          $columns['value']['default'] = $field['data_default'];
+        }
+      }
+      else {
+      // User has chosen NOT to store values in the DB for their field, yet CCK is NOT comfortable having a field without a data
+      // column.  Without a column, SQL errors will pop up on multi-value fields and other field modification senarios. (Such as the 
+      // user later choosing to store the field in the DB.)  To avoid SQL errors we'll create a small dummy field for CCK that is 
+      // never populated with data.
+        $columns = array(
+          'value' => array(
+            'type' => 'int',
+            'size' => 'tiny',
+          ),
+        );
+      }
+      return $columns;
+
+    case 'filters':
+      return array(
+        'default' => array(
+          'name' => t('Default'),
+          'operator' => 'views_handler_operator_gtlt',
+        ),
+      );
+    case 'callbacks':
+      return array(
+        'view' => CONTENT_CALLBACK_CUSTOM,
+      );
+    case 'views data':
+      $allowed_values = content_allowed_values($field);
+      if (count($allowed_values)) {
+        $data = content_views_field_views_data($field);
+        $db_info = content_database_info($field);
+        $table_alias = content_views_tablename($field);
+
+        // Swap the filter handler to the 'in' operator.
+        $data[$table_alias][$field['field_name'] .'_value']['filter']['handler'] = 'content_handler_filter_many_to_one';
+        return $data;
+      }
+  }
+}
+
+function _computed_field_compute_value(&$node, $field, &$node_field) {
+  // Allow the value to be computed from code not stored in DB
+  $compute_func = 'computed_field_'. $field['field_name'] .'_compute';
+  if (function_exists($compute_func)) {
+    $compute_func($node, $field, $node_field);
+  }
+  else {
+    if (isset($field['code'])) {
+      eval($field['code']);
+    }
+  }
+}
+
+/**
+ * Implementation of cck hook_field()
+ */
+function computed_field_field($op, &$node, $field, &$node_field, $teaser, $page) {
+  switch ($op) {
+    case 'load':
+      // compute field on load if it isn't stored in the database
+      if (!$field['store']) {
+        _computed_field_compute_value($node, $field, $node_field);
+        return array($field['field_name'] => $node_field);
+      }
+      break;
+    case 'sanitize':
+      // compute field for node previews
+      if ($node->build_mode == NODE_BUILD_PREVIEW) {
+        _computed_field_compute_value($node, $field, $node_field);
+      }
+      break;
+    case 'view':
+      $items = array();
+      foreach ($node_field as $delta => $item) {
+        $items[$delta]['view'] = content_format($field, $item, 'default', $node);
+      }
+      return theme('field', $node, $field, $items, $teaser, $page);
+      break;
+    case 'validate':
+      break;
+    case 'insert':
+    case 'update':
+      _computed_field_compute_value($node, $field, $node_field);
+      break;
+  }
+}
+
+/**
+ * Implementation of cck hook_widget_info()
+ */
+function computed_field_widget_info() {
+  return array(
+    'computed' => array(
+      'label' => t('Computed'),
+      'field types' => array('computed'),
+      'multiple values' => CONTENT_HANDLE_MODULE,
+    ),
+  );
+}
+
+/**
+ * Implementation of cck hook_widget()
+ */
+function computed_field_widget(&$form, &$form_state, $field, $items, $delta = 0) {
+  $elements = array();
+  foreach($items as $delta => $item) {
+    $elements[$delta]['value'] = array (
+      '#type' => 'value',
+      '#tree' => TRUE,
+      '#default_value' => isset($item['value']) ? $item['value'] : NULL,
+    );
+  }
+  return $elements;
+}
+
+/**
+ * Implementation of cck hook_view_item (obsolete, retained for backward compatibility with older cck)
+ */
+function computed_field_view_item($field, $node_field_item, $node = NULL) {
+  global $base_url;
+
+  $display = '';
+  eval($field['display_format']);
+  return $display;
+}
+
+/**
+ * Implementation of hook_theme()
+ */
+function computed_field_theme() {
+  return array(
+    'computed_field_formatter_default' => array(
+      'arguments' => array('element' => NULL),
+    ),
+    'computed_field_formatter_plain' => array(
+      'arguments' => array('element' => NULL),
+    ),
+    'computed_field_formatter_markup' => array(
+      'arguments' => array('element' => NULL),
+    ),
+    'computed_field_formatter_computed_value' => array(
+      'arguments' => array('element' => NULL),
+    ),
+  );
+}
+
+/**
+ * Implementation of cck hook_field_formatter_info()
+ */
+function computed_field_field_formatter_info() {
+  return array(
+    'default' => array(
+      'label' => t('Raw text'),
+      'field types' => array('computed'),
+    ),
+    'plain' => array(
+      'label' => t('Plain text'),
+      'field types' => array('computed'),
+    ),
+    'markup' => array(
+      'label' => t('Markup'),
+      'field types' => array('computed'),
+    ),
+    'computed_value' => array(
+      'label' => t('Computed Value'),
+      'field types' => array('computed'),
+    ),
+  );
+}
+
+/**
+ * Theme function for 'default' text field formatter.
+ */
+function theme_computed_field_formatter_default($element) {
+  // Make $node easily available
+  $node = $element['#node'];
+  // Grab the field
+  $field = content_fields($element['#field_name']);
+  // For "some" backwards compatibility
+  $node_field_item['value'] = $element['#item']['value'];
+
+  // Allow the value to be formated from code not stored in DB
+  $display_func = 'computed_field_'. $field['field_name'] .'_display';
+  if (function_exists($display_func)) {
+    $display = $display_func($field, $element, $node);
+  }
+  else {
+    eval($field['display_format']);
+  }
+  return $display;
+}
+
+/**
+ * Theme function for 'plain' text field formatter.
+ */
+function theme_computed_field_formatter_plain($element) {
+  // Make $node easily available
+  $node = $element['#node'];
+  // Grab the field
+  $field = content_fields($element['#field_name']);
+  // For "some" backwards compatibility
+  $node_field_item['value'] = $element['#item']['value'];
+
+  // Allow the value to be formated from code not stored in DB
+  $display_func = 'computed_field_'. $field['field_name'] .'_display';
+  if (function_exists($display_func)) {
+    $display = $display_func($field, $element);
+  }
+  else {
+    eval($field['display_format']);
+  }
+  return check_plain($display);
+}
+
+/**
+ * Theme function for 'markup' text field formatter.
+ */
+function theme_computed_field_formatter_markup($element) {
+  // Make $node easily available
+  $node = $element['#node'];
+  // Grab the field
+  $field = content_fields($element['#field_name']);
+  // For "some" backwards compatibility
+  $node_field_item['value'] = $element['#item']['value'];
+
+  // Allow the value to be formated from code not stored in DB
+  $display_func = 'computed_field_'. $field['field_name'] .'_display';
+  if (function_exists($display_func)) {
+    $display = $display_func($field, $element);
+  }
+  else {
+    eval($field['display_format']);
+  }
+  return check_markup($display);
+}
+
+/**
+ * Theme function for 'computed_value' text field formatter.
+ */
+function theme_computed_field_formatter_computed_value($element) {
+  return $element['#item']['value'];
+}
+
+/**
+ * Implementation of cck hook_content_is_empty().
+ */
+function computed_field_content_is_empty($item, $field) {
+  if ($field['data_type'] == 'int' || $field['data_type'] == 'float') {
+    return !is_numeric($item['value']);
+  }
+  return empty($item['value']);
+}
+
+/**
+ * Implementation of hook_token_list()
+ */
+function computed_field_token_list($type = 'all') {
+  if ($type == 'field' || $type == 'all') {
+    $tokens = array();
+
+    $tokens['computed_field']['raw']       = t("Raw, unfiltered text.");
+    $tokens['computed_field']['formatted'] = t("Formatted and filtered text.");
+
+    return $tokens;
+  }
+}
+
+/**
+ * Implementation of hook_token_values()
+ */
+function computed_field_token_values($type, $object = NULL, $options = array()) {
+  if ($type == 'field') {
+    $item = $object[0];
+    $tokens['raw']  = $item['value'];
+    $tokens['formatted'] = $item['view'];
+    return $tokens;
+  }
+}
+
+/**
+ * Implementation of hook_content_multigroup_allowed_widgets().
+ */
+function computed_field_content_multigroup_allowed_widgets() {
+  return array('computed');
+}
+
+/**
++ * Implementation of hook_content_multigroup_no_remove_widgets().
++ */
+function computed_field_content_multigroup_no_remove_widgets() {
+  return array('computed');
+}

@@ -1,0 +1,14 @@
+<?php
+// $Id: taxonomy_hide.install,v 1.1.2.2 2008/10/27 14:32:21 brmassa Exp $
+
+/**
+ * @file
+ */
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function taxonomy_hide_uninstall() {
+  variable_del('taxonomy_hide_vocabularies');
+  variable_del('taxonomy_hide_group_by_vocabulary');
+}

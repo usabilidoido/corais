@@ -1,0 +1,698 @@
+<?php
+
+/**
+ * @file nodequeue_annotate.module
+ * Provide annotations for nodes in nodequeues.
+ */
+
+
+/**
+ * Hooks.
+ */
+
+/**
+ * Implementation of hook_menu().
+ */
+function nodequeue_annotate_menu() {
+  $items = array();
+  
+  $items['admin/content/nodequeue/%nodequeue/annotate/%subqueue/%node'] = array(
+    'title' => 'Annotate',
+    'access arguments' => array(6, 3, 5),
+    'access callback' => 'nodequeue_node_and_queue_access',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('nodequeue_annotate_edit_form', 3, 5, 6),
+    'type' => MENU_CALLBACK,
+  );
+  
+  $items['admin/content/nodequeue/%nodequeue/annotate-js/%subqueue/%node'] = array(
+    'title' => 'Annotate postback',
+    'access arguments' => array(6, 3, 5),
+    'access callback' => 'nodequeue_node_and_queue_access',
+    'page callback' => 'nodequeue_annotate_ajax_form_postback',
+    'page arguments' => array(3, 5, 6),
+    'type' => MENU_CALLBACK,
+    'file' => 'includes/js.inc',
+  );
+  
+  $items['admin/content/nodequeue/annotate_settings'] = array(
+    'title' => 'Settings for annotations',
+    'access arguments' => array('administer nodequeue'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('nodequeue_annotate_admin_settings'),
+    'type' => MENU_LOCAL_TASK
+  );
+  
+  return $items;
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function nodequeue_annotate_theme() {
+  $path = drupal_get_path('module', 'nodequeue_annotate') . '/theme';
+  
+  return array(
+    'nodequeue_annotate_views_links' => array(
+      'arguments' => array('links' => array(), 'attributes' => array()),
+      'file' => 'theme.inc',
+      'path' => $path,
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_link_alter().
+ */
+function nodequeue_annotate_link_alter(&$links, $node) {
+  // We will be changing keys so a new array for links is needed
+  $new_links = array();
+  
+  foreach ($links as $key => $link) {
+    
+    $call_js = FALSE;
+    
+    $matches = array();
+    if (preg_match('%^admin/content/nodequeue/(?P<qid>\d+)/(?P<action>add|remove-node)/(?P<sqid>\d+)/(?P<nid>\d+)$%', $link['href'], $matches)) {
+      // This is a link to add/remove a node from a subqueue.
+      $qid = (int)$matches['qid']; $action = $matches['action']; $sqid = (int)$matches['sqid']; $nid = (int)$matches['nid'];
+      $queue = nodequeue_load($qid);
+      $subqueue = subqueue_load($sqid);
+      
+      // We want to call the file to handle the javascript UI
+      $call_js = TRUE;
+      
+      // The new key
+      $new_key = "nodequeue-annotate-ajax-toggle nodequeue-toggle-q-$qid nodequeue-toggle-sq-$sqid";
+      
+      // Start by copying the existing link and allow HTML tags
+      $new_links[$new_key] = $links[$key];
+      $new_links[$new_key]['html'] = TRUE;
+      
+      // Change the link to point to the annotator and set the class to the key
+      $new_links[$new_key]['href'] = "admin/content/nodequeue/$qid/annotate/$sqid/$nid";
+      $new_links[$new_key]['attributes']['class'] = $new_key;
+      
+      // Check if the node is already in this subqueue
+      $annotation = nodequeue_annotate_get_annotation($qid, $sqid, $nid);
+      if ($action == 'remove-node') {
+        
+        // If so, get the current annotation and display it
+        if ($annotation) {
+          $truncate_length = _nodequeue_annotate_variable_get('truncate_length');
+          if ($truncate_length > 0) {
+            $truncated_annotation = truncate_utf8($annotation, $truncate_length, TRUE, TRUE);
+            $new_links[$new_key]['title'] .= t(' / %annotation', array('%annotation' => $truncated_annotation));
+          }
+        }
+        $new_links[$new_key]['attributes']['title'] = t(_nodequeue_annotate_variable_get('link_title'), array('@subqueue' => $subqueue->title));
+        
+      }
+      
+      // Add javascript data to this link. This will be hidden/silenced with css.
+      $new_links[$new_key]['title'] .= ' <span class="nodequeue-annotate-javascript-data">' . drupal_to_js(nodequeue_annotate_link_json($queue, $subqueue, $node, $annotation, $action)) . '</span>';
+    }
+  }
+  
+  if ($call_js) {
+    nodequeue_annotate_call_js();
+  }
+  
+  // Replace $links with $new_links
+  $links = $new_links;
+}
+
+/**
+ * Implementation of hook_nodequeue_table().
+ */
+function nodequeue_annotate_nodequeue_table($table_id, &$header, &$rows, &$attributes, &$caption, $queues = NULL, $subqueues = NULL, $node = NULL) {
+  $nid = $node->nid;
+  
+  switch ($table_id) {
+    case 'nodequeue_node_tab':
+      // Add annotation column
+      array_splice($header, -1, 0, array(array('data' => t(_nodequeue_annotate_variable_get('tab_column')), 'class' => 'nodequeue-annotation')));
+      
+      // Find the index of the operations column
+      foreach ($rows[0] as $operations_row => $row) {
+        if ($row['class'] == 'nodequeue-operation') {
+          break;
+        }
+      }
+      
+      $call_js = FALSE;
+      
+      // Add annotations
+      
+      $i = 0;
+      foreach ($subqueues as $sqid => $subqueue) {
+        $qid = $subqueue->qid;
+        
+        // Only add if the "Remove" operation exists, because that means this assignment exists.
+        if (strpos($rows[$i][$operations_row]['data'], "admin/content/nodequeue/$qid/remove-node/$sqid/$nid") !== FALSE) {
+          $call_js = TRUE;
+          
+          $annotation = nodequeue_annotate_get_annotation($qid, $sqid, $nid);
+          if ($annotation) {
+            $content = theme('placeholder', $annotation) . ' ' . l(t(_nodequeue_annotate_variable_get('tab_edit')), "admin/content/nodequeue/$qid/annotate/$sqid/$nid", array('query' => 'destination='.$_GET['q']));
+          }
+          else {
+            $content = l(t(_nodequeue_annotate_variable_get('tab_add')), "admin/content/nodequeue/$qid/annotate/$sqid/$nid", array('query' => 'destination='.$_GET['q']));
+          }
+        }
+        else {
+          // Otherwise add an empty cell
+          $content = ' ';
+        }
+        
+        array_splice($rows[$i], -1, 0, array(array('class' => 'nodequeue-annotation', 'data' => $content)));
+        $i++;
+      }
+      
+      if ($call_js) {
+        drupal_add_js(drupal_get_path('module', 'nodequeue_annotate') . '/nodequeue_annotate.js');
+      }
+      
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_views_api().
+ */
+function nodequeue_annotate_views_api() {
+  return array(
+    'api' => 2.0,
+    'path' => drupal_get_path('module', 'nodequeue_annotate') .'/includes/views',
+  );
+}
+
+
+/**
+ * Forms.
+ */
+
+/**
+ * Form to add/edit an annotation.
+ */
+function nodequeue_annotate_edit_form($form_state, $queue, $subqueue, $node) {
+  $form = array();
+  $qid = $queue->qid; $sqid = $subqueue->sqid; $nid = $node->nid;
+  
+  drupal_set_title(t(_nodequeue_annotate_variable_get('form_page_title')));
+  
+  // This form has two version - One when the node is present in the subqueue and another when it isn't.
+  $in_subqueue = (bool)nodequeue_get_subqueue_position($sqid, $nid);
+  
+  $form['qid'] = array(
+    '#type' => 'value',
+    '#value' => $qid,
+  );
+  $form['sqid'] = array(
+    '#type' => 'value',
+    '#value' => $sqid,
+  );
+  $form['nid'] = array(
+    '#type' => 'value',
+    '#value' => $nid,
+  );
+  
+  $form['annotation'] = array(
+    '#type' => 'textfield',
+    '#title' => t(_nodequeue_annotate_variable_get('form_title')),
+    '#description' => t(_nodequeue_annotate_variable_get('form_description')),
+    '#default_value' => nodequeue_annotate_get_annotation($qid, $sqid, $nid),
+    '#maxlength' => 255,
+  );
+  
+  // Set the destination string
+  $destination = isset($_GET['destination']) ? $_GET['destination'] : "admin/content/nodequeue/$qid/view/$sqid";
+  
+  // Create a container for the form actions (submit button and links)
+  $form['actions'] = array(
+    '#prefix' => '<div class="container-inline">',
+    '#suffix' => '</div>',
+  );
+  
+  // These base form elements appear for both forms
+  $form['actions']['action'] = array(
+    '#type' => 'value',
+  );
+  $form['actions']['submit'] = array(
+    '#type' => 'submit',
+  );
+  $form['actions']['links'] = array('#value' => ' | ');
+  
+  // Split behaviour for the two forms here
+  if ($in_subqueue) {
+    $form['actions']['action']['#value'] = 'edit';
+    $form['actions']['submit']['#value'] = t(_nodequeue_annotate_variable_get('form_submit_edit'));
+    $form['actions']['links']['#value'] .=
+      l(t(_nodequeue_annotate_variable_get('form_link_remove')),
+        "admin/content/nodequeue/$qid/remove-node/$sqid/$nid",
+        array('query' => array('destination' => $destination, 'token' => $_GET['token']))
+      );
+  }
+  else {
+    $form['actions']['action']['#value'] = 'add';
+    $form['actions']['submit']['#value'] = t(_nodequeue_annotate_variable_get('form_submit_add'));
+    $form['actions']['links']['#value'] .=
+      l(t(_nodequeue_annotate_variable_get('form_link_add')),
+        "admin/content/nodequeue/$qid/add/$sqid/$nid",
+        array('query' => array('destination' => $destination, 'token' => $_GET['token']))
+      );
+  }
+  
+  // Again, the cancel link will appear for both forms.
+  $form['actions']['links']['#value'] .= ' | ' . l(t('Cancel'), $destination);
+  
+  $form['#redirect'] = $destination;
+  return $form;
+}
+
+/**
+ * Submission for the form to add/edit an annotation.
+ */
+function nodequeue_annotate_edit_form_submit($form, &$form_state) {
+  // Export variables for easier handling.
+  $qid = $form_state['values']['qid'];
+  $sqid = $form_state['values']['sqid'];
+  $nid = $form_state['values']['nid'];
+  $annotation = $form_state['values']['annotation'];
+  $action = $form_state['values']['action'];
+  
+  if ($action == 'add') {
+    $queue = nodequeue_load($qid); $subqueue = subqueue_load($sqid);
+    nodequeue_subqueue_add($queue, $subqueue, $nid);
+  }
+  
+  if (!empty($annotation)) {
+    // The annotation is not empty - Set it.
+    nodequeue_annotate_set_annotation($qid, $sqid, $nid, $annotation);
+    drupal_set_message('Annotation has been set.');
+  }
+  else if ((bool)(nodequeue_annotate_get_annotation($qid, $sqid, $nid))) {
+    // The annotation is empty, but the assignment already has an annotation - Remove it.
+    nodequeue_annotate_unset_annotation($qid, $sqid, $nid);
+    drupal_set_message('Annotation has been removed.');
+  }
+}
+
+/**
+ * Form to change settings for this module.
+ */
+function nodequeue_annotate_admin_settings($form_state) {
+  $form = array();
+  
+  $form['js'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Dynamic (javascript)'),
+  );
+  
+  $form['js']['js_title_add'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Title: Add'),
+    '#description' => t('Title for the dynamic form to add a node to a subqueue. Possible variables: <em>%node_title</em>, <em>%subqueue_title</em>'),
+    '#default_value' => _nodequeue_annotate_variable_get('js_title_add'),
+  );
+  $form['js']['js_title_edit'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Title: Edit'),
+    '#description' => t("Title for the dynamic form to edit a node's annotation inside a subqueue, or to remove this node from a subqueue. Possible variables: <em>%node_title</em>, <em>%subqueue_title</em>"),
+    '#default_value' => _nodequeue_annotate_variable_get('js_title_edit'),
+  );
+  $form['js']['js_textarea_label'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Textarea: Label'),
+    '#description' => t("Label for the text area in the dynamic form to add or edit a node's annotation inside a subqueue"),
+    '#default_value' => _nodequeue_annotate_variable_get('js_textarea_label'),
+  );
+  $form['js']['js_button_cancel'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Button: Cancel'),
+    '#description' => t('Button to cancel adding or editing a node in a subqueue.'),
+    '#default_value' => _nodequeue_annotate_variable_get('js_button_cancel'),
+  );
+  $form['js']['js_button_add'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Button: Add'),
+    '#description' => t('Button to add and (optionally) annotate a node to a subqueue.'),
+    '#default_value' => _nodequeue_annotate_variable_get('js_button_add'),
+  );
+  $form['js']['js_button_edit'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Button: Edit'),
+    '#description' => t('Button to edit the annotation of a node inside a subqueue.'),
+    '#default_value' => _nodequeue_annotate_variable_get('js_button_edit'),
+  );
+  $form['js']['js_button_remove'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Button: Remove'),
+    '#description' => t('Button to remove a node from a subqueue.'),
+    '#default_value' => _nodequeue_annotate_variable_get('js_button_remove'),
+  );
+  $form['js']['js_success_add'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Success message: Add'),
+    '#description' => t('Message to display after successfully adding a node to a subqueue. Possible variables: <em>%node_title</em>, <em>%subqueue_title</em>'),
+    '#default_value' => _nodequeue_annotate_variable_get('js_success_add'),
+  );
+  $form['js']['js_success_edit'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Success message: Edit'),
+    '#description' => t('Message to display after successfully editing an annotation. Possible variables: <em>%node_title</em>, <em>%subqueue_title</em>'),
+    '#default_value' => _nodequeue_annotate_variable_get('js_success_edit'),
+  );
+  $form['js']['js_success_remove'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Success message: Remove'),
+    '#description' => t('Message to display after successfully removing a node from a subqueue. Possible variables: <em>%node_title</em>, <em>%subqueue_title</em>'),
+    '#default_value' => _nodequeue_annotate_variable_get('js_success_remove'),
+  );
+  $form['js']['js_added_link_replacement'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Link: Added replacement'),
+    '#description' => t('If the nodequeue\'s "remove from queue" text is empty this text will be displayed as-is (after running through t()) once a node is dynamically added to a subqueue. Leave empty to completely remove the link. Possible variables: <em>%node_title</em>, <em>%subqueue_title</em>, <em>%annotation</em>'),
+    '#default_value' => _nodequeue_annotate_variable_get('js_added_link_replacement'),
+  );
+  
+  $form['fallback'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Fallback (no javascript)'),
+  );
+  
+  $form['fallback']['link_title'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Link title attribute'),
+    '#description' => t('Title attribute for the node links to annotate. Possible variables: <em>@subqueue</em>'),
+    '#default_value' => _nodequeue_annotate_variable_get('link_title'),
+  );
+  $form['fallback']['tab_column'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Tab: Title'),
+    '#description' => t('Title for the column in the nodequeue tab.'),
+    '#default_value' => _nodequeue_annotate_variable_get('tab_column'),
+  );
+  $form['fallback']['tab_add'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Tab: Add'),
+    '#description' => t('Text for the link to add an annotation in the nodequeue tab.'),
+    '#default_value' => _nodequeue_annotate_variable_get('tab_add'),
+  );
+  $form['fallback']['tab_edit'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Tab: Edit'),
+    '#description' => t('Text for the link to edit an annotation in the nodequeue tab.'),
+    '#default_value' => _nodequeue_annotate_variable_get('tab_edit'),
+  );
+  $form['fallback']['form_page_title'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Form: Page title'),
+    '#description' => t('Title for the page of the fallback form to add/edit an annotation.'),
+    '#default_value' => _nodequeue_annotate_variable_get('form_page_title'),
+  );
+  $form['fallback']['form_title'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Form: Title'),
+    '#description' => t('Title for the textfield in the fallback form to add/edit an annotation.'),
+    '#default_value' => _nodequeue_annotate_variable_get('form_title'),
+  );
+  $form['fallback']['form_description'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Form: Description'),
+    '#description' => t('Description text for the fallback form to add/edit an annotation.'),
+    '#default_value' => _nodequeue_annotate_variable_get('form_description'),
+  );
+  $form['fallback']['form_submit_add'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Form: Add button'),
+    '#description' => t('Text on the button to add a node with annotation to a sbuqeue in the fallback form.'),
+    '#default_value' => _nodequeue_annotate_variable_get('form_submit_add'),
+  );
+  $form['fallback']['form_submit_edit'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Form: Edit button'),
+    '#description' => t('Text on the button to edit an annotation in the fallback form.'),
+    '#default_value' => _nodequeue_annotate_variable_get('form_submit_edit'),
+  );
+  $form['fallback']['form_link_add'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Form: Add link'),
+    '#description' => t('Text on the link to add a node without annotation to a subqueue in the fallback form.'),
+    '#default_value' => _nodequeue_annotate_variable_get('form_link_add'),
+  );
+  $form['fallback']['form_link_remove'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Form: Add link'),
+    '#description' => t('Text on the link to remove a node from a subqueue in the fallback form.'),
+    '#default_value' => _nodequeue_annotate_variable_get('form_link_remove'),
+  );
+  
+  $form['truncate_length'] = array(
+    '#type' => 'select',
+    '#title' => t('Link: Truncate length'),
+    '#description' => t('The length to cut the annotation to when displaying it in a link. Select 0 to remove the annotation from the link completely. Select 255 to never truncate, as it is the maximum length of an annotation.'),
+    '#default_value' => _nodequeue_annotate_variable_get('truncate_length'),
+    '#options' => range(0, 255),
+  );
+  
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+  );
+  
+  return $form;
+}
+
+/**
+ * Submission for the form to change settings for this module.
+ */
+function nodequeue_annotate_admin_settings_submit($form, &$form_state) {
+  _nodequeue_annotate_variable_set('js_title_add', $form_state['values']['js_title_add']);
+  _nodequeue_annotate_variable_set('js_title_edit', $form_state['values']['js_title_edit']);
+  _nodequeue_annotate_variable_set('js_textarea_label', $form_state['values']['js_textarea_label']);
+  _nodequeue_annotate_variable_set('js_button_cancel', $form_state['values']['js_button_cancel']);
+  _nodequeue_annotate_variable_set('js_button_add', $form_state['values']['js_button_add']);
+  _nodequeue_annotate_variable_set('js_button_edit', $form_state['values']['js_button_edit']);
+  _nodequeue_annotate_variable_set('js_button_remove', $form_state['values']['js_button_remove']);
+  _nodequeue_annotate_variable_set('js_success_add', $form_state['values']['js_success_add']);
+  _nodequeue_annotate_variable_set('js_success_edit', $form_state['values']['js_success_edit']);
+  _nodequeue_annotate_variable_set('js_success_remove', $form_state['values']['js_success_remove']);
+  _nodequeue_annotate_variable_set('js_added_link_replacement', $form_state['values']['js_added_link_replacement']);
+  _nodequeue_annotate_variable_set('link_title', $form_state['values']['link_title']);
+  _nodequeue_annotate_variable_set('tab_column', $form_state['values']['tab_column']);
+  _nodequeue_annotate_variable_set('tab_add', $form_state['values']['tab_add']);
+  _nodequeue_annotate_variable_set('tab_edit', $form_state['values']['tab_edit']);
+  _nodequeue_annotate_variable_set('form_page_title', $form_state['values']['form_page_title']);
+  _nodequeue_annotate_variable_set('form_title', $form_state['values']['form_title']);
+  _nodequeue_annotate_variable_set('form_description', $form_state['values']['form_description']);
+  _nodequeue_annotate_variable_set('form_submit_add', $form_state['values']['form_submit_add']);
+  _nodequeue_annotate_variable_set('form_submit_edit', $form_state['values']['form_submit_edit']);
+  _nodequeue_annotate_variable_set('form_link_add', $form_state['values']['form_link_add']);
+  _nodequeue_annotate_variable_set('form_link_remove', $form_state['values']['form_link_remove']);
+  _nodequeue_annotate_variable_set('truncate_length', $form_state['values']['truncate_length']);
+  
+  drupal_set_message(t('The configuration options have been saved.'));
+}
+
+
+/**
+ * Annotations manipulations.
+ */
+
+/**
+ * Call the javascript and css functions required for this module.
+ */
+function nodequeue_annotate_call_js() {
+  static $nodequeue_annotate_first_js_call = TRUE;
+  
+  if ($nodequeue_annotate_first_js_call) {
+    $path = drupal_get_path('module', 'nodequeue_annotate');
+    $settings = array(
+      'nodequeue_annotate' => array(
+        'js_title_add' => _nodequeue_annotate_variable_get('js_title_add'),
+        'js_title_edit' => _nodequeue_annotate_variable_get('js_title_edit'),
+        'js_textarea_label' => _nodequeue_annotate_variable_get('js_textarea_label'),
+        'js_button_cancel' => _nodequeue_annotate_variable_get('js_button_cancel'),
+        'js_button_add' => _nodequeue_annotate_variable_get('js_button_add'),
+        'js_button_edit' => _nodequeue_annotate_variable_get('js_button_edit'),
+        'js_button_remove' => _nodequeue_annotate_variable_get('js_button_remove'),
+        'js_success_add' => _nodequeue_annotate_variable_get('js_success_add'),
+        'js_success_edit' => _nodequeue_annotate_variable_get('js_success_edit'),
+        'js_success_remove' => _nodequeue_annotate_variable_get('js_success_remove'),
+        'link_replacement' => _nodequeue_annotate_variable_get('js_added_link_replacement'),
+        'truncate_length' => _nodequeue_annotate_variable_get('truncate_length'),
+      ),
+    );
+    
+    drupal_add_css("$path/nodequeue_annotate.css");
+    drupal_add_js($settings, 'setting');
+    drupal_add_js("$path/nodequeue_annotate.js");
+    
+    $nodequeue_annotate_first_js_call = FALSE;
+  }
+}
+
+/**
+ * Get the annotation for the given assignment.
+ *
+ * @return String or NULL on empty or invalid assignment.
+ */
+function nodequeue_annotate_get_annotation($qid, $sqid, $nid) {
+  return (string)db_result(db_query('SELECT annotation FROM {nodequeue_nodes} WHERE qid = %d AND sqid = %d AND nid = %d LIMIT 1', $qid, $sqid, $nid));
+}
+
+/**
+ * Set the annotation for the given assignment.
+ */
+function nodequeue_annotate_set_annotation($qid, $sqid, $nid, $annotation) {
+  db_query("UPDATE {nodequeue_nodes} SET annotation = '%s' WHERE qid = %d AND sqid = %d AND nid = %d", $annotation, $qid, $sqid, $nid);
+}
+
+/**
+ * Unset the annotation for the given assignment.
+ */
+function nodequeue_annotate_unset_annotation($qid, $sqid, $nid) {
+  db_query("UPDATE {nodequeue_nodes} SET annotation = NULL WHERE qid = %d AND sqid = %d AND nid = %d", $qid, $sqid, $nid);
+}
+
+
+/**
+ * Private functions.
+ */
+
+/**
+ * Return an array to make a JSON compatible string with that contains data
+ * relevant to the javascript widget.
+ */
+function nodequeue_annotate_link_json($queue, $subqueue, $node, $annotation, $action) {
+  $js_data = array(
+    'qid' => $queue->qid,
+    'sqid' => $subqueue->sqid,
+    'nid' => $node->nid,
+    'action' => $action,
+    'node_title' => $node->title,
+    'subqueue_title' => nodequeue_title_substitute($queue->subqueue_title, $queue, $subqueue),
+    'link_add' => (!empty($queue->link)) ? nodequeue_title_substitute($queue->link, $queue, $subqueue) : '',
+    'link_remove' => (!empty($queue->link_remove)) ? nodequeue_title_substitute($queue->link_remove, $queue, $subqueue) : '',
+    'annotation' => $annotation,
+  );
+  
+  return $js_data;
+}
+
+/**
+ * Nodequeue Annotate's persistent variables helper getter function.
+ */
+function _nodequeue_annotate_variable_get($var) {
+  // If a value is returned by variable_get, return that value
+  if (($value = variable_get("nodequeue_annotate_$var", NULL)) !== NULL) {
+    return $value;
+  }
+  
+  // Otherwise, return the default value for this variable
+  switch ($var) {
+    case 'js_title_add':
+      return 'Adding %node_title to %subqueue_title';
+      break;
+      
+    case 'js_title_edit':
+      return 'Editing %node_title in %subqueue_title';
+      break;
+      
+    case 'js_textarea_label':
+      return 'Annotation (optional)';
+      break;
+      
+    case 'js_button_cancel':
+      return 'Cancel';
+      break;
+      
+    case 'js_button_add':
+      return 'Save';
+      break;
+      
+    case 'js_button_edit':
+      return 'Save';
+      break;
+      
+    case 'js_button_remove':
+      return 'Remove';
+      break;
+      
+    case 'js_success_add':
+      return '%node_title has been added to %subqueue_title.';
+      break;
+      
+    case 'js_success_edit':
+      return 'The annotation of %node_title has been changed.';
+      break;
+      
+    case 'js_success_remove':
+      return 'Removed %node_title from %subqueue_title.';
+      break;
+      
+    case 'js_added_link_replacement':
+      return '';
+      break;
+      
+    case 'link_title':
+      return 'Click to edit annotation or to remove this node from @subqueue';
+      break;
+      
+    case 'tab_column':
+      return 'Annotation';
+      break;
+      
+    case 'tab_add':
+      return 'Add Annotation';
+      break;
+      
+    case 'tab_edit':
+      return '(Edit Annotation)';
+      break;
+      
+    case 'form_page_title':
+      return 'Annotate';
+      break;
+      
+    case 'form_title':
+      return 'Annotation';
+      break;
+      
+    case 'form_description':
+      return 'Enter a short description for the reasoning behind this nodequeue assignment.';
+      break;
+      
+    case 'form_submit_add':
+      return 'Add node with annotation';
+      break;
+      
+    case 'form_submit_edit':
+      return 'Save annotation';
+      break;
+      
+    case 'form_link_add':
+      return 'Add node without annotation';
+      break;
+      
+    case 'form_link_remove':
+      return 'Remove node from queue';
+      break;
+      
+    case 'truncate_length':
+      return 30;
+      break;
+      
+    default:
+      return NULL;
+      break;
+  }
+}
+
+/**
+ * Nodequeue Annotate's persistent variables helper getter function.
+ */
+function _nodequeue_annotate_variable_set($var, $value) {
+  variable_set("nodequeue_annotate_$var", $value);
+}

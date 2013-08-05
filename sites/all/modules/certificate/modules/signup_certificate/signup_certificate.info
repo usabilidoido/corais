@@ -1,0 +1,12 @@
+name = Signup Certificate
+core = 6.x
+description = Grants access to certificate if user is marked attended for a signup.
+dependencies[] = "certificate"
+dependencies[] = "signup"
+
+; Information added by drupal.org packaging script on 2012-10-15
+version = "6.x-2.0"
+core = "6.x"
+project = "certificate"
+datestamp = "1350332167"
+

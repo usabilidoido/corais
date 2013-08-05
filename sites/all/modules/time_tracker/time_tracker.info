@@ -1,0 +1,13 @@
+name = Time Tracker
+description = Provides time tracking functionality nodes and comments.
+package = Time Tracker
+core = 6.x
+dependencies[] = views
+dependencies[] = views_calc
+dependencies[] = date_popup
+; Information added by drupal.org packaging script on 2012-10-27
+version = "6.x-1.0-beta5"
+core = "6.x"
+project = "time_tracker"
+datestamp = "1351371733"
+

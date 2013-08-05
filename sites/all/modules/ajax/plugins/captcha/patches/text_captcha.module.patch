@@ -1,0 +1,18 @@
+--- text_captcha/text_captcha.module.orig	2008-11-14 09:46:15.000000000 -0800
++++ text_captcha/text_captcha.module	2008-11-14 02:40:50.000000000 -0800
+@@ -52,11 +52,14 @@ function text_captcha_captcha($op, $capt
+         $key = array_rand($words, 1);
+         $answer = $words[$key];
+         // store the answer and build the form elements
++        $query = t('What is the @nth word in the phrase "@words"?', array('@nth' => _text_captcha_ordinal($key+1), '@words' => implode(' ', $words)));
+         $result = array();
+         $result['solution'] = $answer;
++        $result['query'] = $query;
++        $result['type'] = 'text';
+         $result['form']['captcha_response'] = array(
+           '#type' => 'textfield',
+-          '#title' => t('What is the @nth word in the phrase "@words"?', array('@nth' => _text_captcha_ordinal($key+1), '@words' => implode(' ', $words))),
++          '#title' => $query,
+           '#weight' => 0,
+           '#size' => 15,
+           '#required' => TRUE,

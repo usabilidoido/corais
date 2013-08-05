@@ -1,0 +1,15 @@
+<?php
+
+include_once('features_webform.features.inc');
+
+/**
+  Implementation of hook_init().
+  [project name] = featurename.info => project = "features_task"
+  [CSS Filename]
+*/
+function features_webform_init() {
+    drupal_add_css(drupal_get_path('module', 'features_webform') .'/features_webform.css');
+}
+
+
+

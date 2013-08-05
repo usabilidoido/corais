@@ -1,0 +1,58 @@
+<?php
+
+/**
+ * @file
+ * Cool Aid module install file.
+ */
+
+
+/**
+ * Implementation of hook_install().
+ */
+function coolaid_install() {
+  drupal_install_schema('coolaid');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function coolaid_uninstall() {
+  variable_del('coolaid_existing_help_theme_function');
+  variable_del('coolaid_thickbox');
+  variable_del('coolaid_name');
+  drupal_uninstall_schema('coolaid');
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function coolaid_schema() {
+  $schema['coolaid_help'] = array(
+    'fields' => array(
+      'hid' => array('type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE),
+      'help' => array('type' => 'text', 'size' => 'big', 'not null' => TRUE),
+      'path' => array('type' => 'varchar', 'length' => '255', 'default' => NULL, 'not null' => FALSE),
+      'position' => array('type' => 'varchar', 'length' => '255', 'default' => NULL, 'not null' => FALSE),
+      'weight' => array('type' => 'int', 'unsigned' => FALSE, 'not null' => TRUE, 'default' => 0),
+      'format' => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+    ),
+    'primary key' => array('hid'),
+  );
+  $schema['coolaid_roles'] = array(
+    'fields' => array(
+      'hid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+      'role' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+    ),
+    'primary key' => array('hid', 'role'),
+  );
+  return $schema;
+}
+
+/**
+ * Implementation of hook_update_N().
+ */
+function coolaid_update_6100() {
+  $ret = array();
+  db_add_field($ret, 'coolaid_help', 'format', array('type' => 'int', 'not null' => TRUE, 'default' => 0));
+  return $ret;
+}

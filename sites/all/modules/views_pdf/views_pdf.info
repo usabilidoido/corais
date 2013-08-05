@@ -1,0 +1,15 @@
+name = Views PDF Display
+description = "Views plugin to export a view as a PDF file."
+dependencies[] = views
+dependencies[] = jquery_update
+package = Views
+core = 6.x
+
+
+
+; Information added by drupal.org packaging script on 2013-03-08
+version = "6.x-1.1"
+core = "6.x"
+project = "views_pdf"
+datestamp = "1362752443"
+

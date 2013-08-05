@@ -1,0 +1,17 @@
+
+6.x-1.x-dev
+====================
+
+The development branch introduces new features for the module. Notes below detail changes since last release.
+
+- Introduce new hook_elements, hook_theme implementations to provide new form api elements - markup_widget & markup_element, to give more control over themeing.
+- Add Display Style setting to allow a choice over whether the markup field gets shown with/without a field wrapper and label.
+- Add Ability to execute php code in the markup field.
+- New companion module, markup_view for embedding a view on the node edit form.
+
+6.x-1.0 (2010-12-14)
+====================
+
+This is the first stable release of the Markup module. Notes below detail changes made since initial checkin of D6 version to CVS.
+
+- Bug Fix: #753006 Fix Cannot unset string reference errors by making the actual markup element a child of the form element.

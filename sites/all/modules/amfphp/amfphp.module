@@ -1,0 +1,59 @@
+<?php
+// $Id: amfphp.module,v 1.10.2.8 2010/03/14 01:05:25 snelson Exp $
+
+/*
+ * Implementation of hook_requirements()
+ */
+function amfphp_requirements($phase) {
+  $t = get_t();
+  
+  // Test AMFPHP version 
+  $requirements['amfphp'] = array( 
+    'title' => $t('AMFPHP'), 
+    'value' => $t('1.9'), 
+  );
+  
+  if (!file_exists(realpath(dirname(__FILE__) . '/amfphp/globals.php'))) { 
+    $requirements['amfphp']['value'] = $t('Not found or wrong version');
+    $requirements['amfphp']['description'] = $t('You must dowload <a href="http://downloads.sourceforge.net/project/amfphp/amfphp/amfphp%201.9.zip?use_mirror=voxel">AMFPHP 1.9</a>, and extract to modules/amfphp/amfphp, or respective site modules directory.');
+    $requirements['amfphp']['severity'] = REQUIREMENT_ERROR; 
+  }
+  
+  return $requirements;
+}
+
+
+/**
+ * Implemenation of hook_menu().
+ */
+function amfphp_menu() {
+  $items['admin/build/services/settings/amfphp'] = array(
+    'title'             => 'AMFPHP',
+    'page callback'     => 'drupal_get_form',
+    'page arguments'    => array('amfphp_settings'),
+    'access arguments'  => array('administer services'),
+    'type'              => MENU_LOCAL_TASK,
+    'description'       => 'AMFPHP module settings.',
+    'file'              => 'amfphp.admin.inc',
+  );
+  return $items;
+}
+
+/*
+ * Implementation of hook_server_info()
+ */
+function amfphp_server_info() {
+  return array(
+    '#name' => 'AMFPHP',
+    '#path' => 'amfphp'
+  );
+}
+
+/*
+ * Implementation of hook_server()
+ * here we include the contents of a gateway.php
+ */
+function amfphp_server() {
+	module_load_include('inc', 'amfphp');
+	amfphp_server_exec();
+}

@@ -1,0 +1,11 @@
+name = Make Meeting - Simple poll node
+description = Create a simple scheduler-like poll.
+core = 6.x
+dependencies[] = makemeeting
+
+; Information added by drupal.org packaging script on 2011-06-28
+version = "6.x-1.1"
+core = "6.x"
+project = "makemeeting"
+datestamp = "1309254119"
+

@@ -1,0 +1,52 @@
+<?php
+// $Id: pg_showtransactions.install,v 1.2 2009/11/25 19:59:05 gor Exp $
+
+/**
+ * Implementation of hook_install().
+ */
+
+function pg_showtransactions_install() {
+  drupal_install_schema('pg_showtransactions');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+
+function pg_showtransactions_uninstall() {
+  drupal_uninstall_schema('pg_showtransactions');
+  variable_del('pg_showtransactions_lasttime');
+}
+
+
+/**
+ * Implementation of hook_schema().
+ */
+
+function pg_showtransactions_schema() {
+  $schema['pg_showtransactions_stats'] = array(
+    'description' => 'Transaction stats information.',
+    'fields' => array(
+      'id'     => array('type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE),
+      'day'    => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+      'month'  => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+      'year'   => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+      'status' => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+      'count'  => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+    ),
+    'primary key' => array('id'),
+  );
+  $schema['pg_showtransactions_amount'] = array(
+    'description' => 'Transaction stats information.',
+    'fields' => array(
+      'id'     => array('type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE),
+      'day'    => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+      'month'  => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+      'year'   => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+      'amount'   => array('type' => 'numeric', 'size' => 'normal', 'precision' => 6, 'scale' => 2, 'default' => 0),
+    ),
+    'primary key' => array('id'),
+  );
+  return $schema;
+}
+

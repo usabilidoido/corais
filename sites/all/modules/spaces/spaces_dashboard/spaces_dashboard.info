@@ -1,0 +1,19 @@
+core = "6.x"
+dependencies[] = "context"
+dependencies[] = "context_ui"
+dependencies[] = "ctools"
+dependencies[] = "features"
+dependencies[] = "jquery_ui"
+description = "A dashboard space on user pages."
+features[context][] = "spaces_dashboard"
+features[ctools][] = "context:context:3"
+name = "Spaces Dashboard"
+package = "Features"
+spaces[types] = "all"
+
+; Information added by drupal.org packaging script on 2012-07-25
+version = "6.x-3.6"
+core = "6.x"
+project = "spaces"
+datestamp = "1343253485"
+

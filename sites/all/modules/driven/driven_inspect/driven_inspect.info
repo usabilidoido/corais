@@ -1,0 +1,21 @@
+; $Id: driven_inspect.info,v 1.1 2010/03/27 22:56:51 arhak Exp $
+
+name = Driven inspect API
+description = Exposes an API to compare two node revisions with respect to driven property definitions.
+
+package = Driven
+; @d6
+core = 6.x
+
+dependencies[] = driven_diff
+dependencies[] = driven_props
+
+; @d7
+files[] = driven_inspect.module
+
+; Information added by drupal.org packaging script on 2010-05-01
+version = "6.x-1.0-alpha3"
+core = "6.x"
+project = "driven"
+datestamp = "1272741606"
+

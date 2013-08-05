@@ -1,0 +1,787 @@
+<?php
+// $Id: mcapi.module,v 1.1.2.6 2010/12/22 19:30:29 matslats Exp $: exchanges.module,v 1.1.2.4 2009/10/14 10:03:54 matslats Exp $
+
+/**
+ * @file
+ * exchanges are a simple nodetype, stored in the database and balances & other stats are cached.
+ *
+ * This .module file contains only the hooks and functions which might be called when the module is passive
+ * If the module is doing anything such as generating a block or a page, the inc is included
+ *
+ * NOTES ON THE EXCHANGE QUANTITY
+ * Quantity is stored as a decimal in the DB for easy calculation
+ * The exchange object stores the amount as a decimal fraction
+ * In preprocessing  an hour currency the decimal is multiplied by 0.6 to become hours:minutes,
+ * The theme_money function then attaches the icon or currency name
+ *
+ * if the multiple currencies module is not installed, the default currency id ('cid') is 0
+ *
+ * API consists of the following functions (more documentation on the way)
+ *
+ * node_load($nid) //get an exchange object (drupal core)
+ * node_delete($nid) //delete an exchange object (drupal core)
+ * mc_api_add_node($node) //create an exchange and return success message
+ * mc_api_update_node($node) //same as add, but with a $nid given
+ * mc_api_check_user_limits()
+ *
+ */
+
+//it might not be necessary to include this all the time. Depends how large it gets as well.
+module_load_include('api.inc', 'mcapi');
+
+//states are mutually exclusive
+define ('EXCHANGE_STATE_FINISHED', 0);
+define ('EXCHANGE_STATE_PENDING', 1);
+define ('EXCHANGE_STATE_ERASED', -1);
+define ('MC_NOTIFICATION_DEFAULT_LEVEL', 2);
+
+/**
+ * http://api.drupal.org/api/function/hook_help/6
+ */
+function mcapi_help($section) {
+  switch ($section) {
+    case 'admin/help#exchange':
+      return t('Defines a contentType called exchanges, manages them and does the accounting.');
+    case 'admin/mc':
+      return '<p>'. t("This module, its development and implementations at !cforge,", array('!cforge' => l('Community Forge', 'http://communityforge.net')))  .' '.
+        t("have been the full time commitment of one person since Spring 2008, and another since spring 2009.") . ' '.
+        t("The results of this work are offered freely to all.") .'</p><p>'.
+        t("We give all possible resources to this work, and live by reciprocal gifting as much as possible.") .' '.
+        t("We look forward to the day when support is robust enough to pay staff and provide a reliable nonprofit public service.") .' '.
+        t("Please consider supporting this work by:") . ' '.
+        theme('item_list', array(
+          t("sending some scarce hard currency to the developer"),
+          t("allying with us to build a global complementary currency ecosystem"),
+          t("offering board and lodging for a month or two")
+        )
+      );
+    case 'admin/mc/notification':
+      return '<p>'. t('Mail templates can use the following tokens:') .
+        ' !username, !site, !uri, !uri_brief, !mailto, !date, !login_uri, !edit_uri, !login_url, !creator, !exchange_uri, !summary</p>';
+  }
+}
+
+/**
+ * http://api.drupal.org/api/function/hook_init/6
+ */
+function mcapi_init() {
+  currencies_load();
+}
+/*
+ * Needed for the views 2 module
+ */
+function mcapi_views_api() {
+  return array(
+    'api' => 2,
+    'path' => drupal_get_path('module', 'exchanges') .'/views',
+  );
+}
+
+/**
+ * Implementation of hook_node_info.
+ * http://api.drupal.org/api/function/hook_node_info/6
+ */
+function mcapi_node_info(){
+  return array(
+    'currency' => array(
+      'name' => t('currency'),
+      'module' => 'mcapi',
+      'description' => t('A unit of value'),
+      'has_title' => TRUE,
+      'title_label' => t('Currency Name'),
+      'has_body' => TRUE,
+      'body_label' => t('Rationale'),
+      'locked' => TRUE
+    ),
+    'exchange' => array(
+      'name' => t('exchange'),
+      'module' => 'mcapi',
+      'description' => t('A record of an exchange between two users, denominated in a currency'),
+      'has_title' => TRUE,
+      'title_label' => t('Description of entity traded'),
+      'has_body' => FALSE,
+      'locked' => TRUE
+    )
+  );
+  variable_set('comment_currency', 0);
+}
+
+/**
+ * http://api.drupal.org/api/function/hook_menu/6
+ */
+function mcapi_menu() {
+  module_load_include('inc', 'mcapi');
+  $items['admin/mc'] = array(
+    'title' => 'Complementary Currencies',
+    'description' => 'Complementary currency options',
+    'page callback' => 'mc_admin_menu_block_page',
+    'access arguments' => array('configure currencies'),
+    'file' => 'mcapi.inc',
+  );
+  $items['admin/mc/currencies'] = array(
+    'title' => 'Currencies',
+    'description' => 'List of currency nodes',
+    'page callback' => 'currency_list',
+    'access arguments' => array('configure currencies'),
+    'file' => 'mcapi.inc',
+    'weight' => 2
+  );
+  $items['admin/mc/notification'] = array(
+    'title' => 'Mail notification templates',
+    'description' => 'Compose the notification emails',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('mc_mail_template'),
+    'access arguments' => array('administer site configuration'),
+    'file' => 'mcapi.inc',
+    'weight' => 3
+  );
+  return $items;
+}
+
+
+/**
+ * http://api.drupal.org/api/function/hook_access/6
+ * this function is called by node_access
+ * $ops can be array('view', 'update', 'delete', 'create')
+ */
+function mcapi_access($op, $node, $account = NULL) {
+  if (user_access('edit all exchanges') OR user_access('declare currency') ) {
+    return TRUE;
+  }
+  if (empty($account)) {
+    $account = $GLOBALS['user'];
+  }
+  $participant = $account->uid == $node->payee_uid || $account->uid == $node->payer_uid;
+  switch ($op) {
+    case 'view'://users can always view their own pages
+      return user_access('view all exchanges') || $participant;
+    case 'update': 
+      return ($account->uid == $node->uid && $node->state == EXCHANGE_STATE_PENDING);
+    case 'delete':
+      //pending exchanges can be deleted only by the node owner
+      return $node->uid == $account->uid && $node->state == EXCHANGE_STATE_PENDING;
+  }
+}
+
+/**
+ * http://api.drupal.org/api/function/hook_perm/6
+ * This hook can supply permissions that the module defines,
+ */
+function mcapi_perm() {
+  return array(
+    'exchange',
+    'view all exchanges',
+    'edit own finished exchanges',
+    'edit all exchanges',
+    'configure currencies',
+    'declare currency'
+  );
+}
+
+/**
+ * http://api.drupal.org/api/function/hook_load/6
+ */
+function mcapi_load($node) {
+  //retrieve the extra fields from the node-specific tables, and return them to be added to the node
+  $table = $node->type == 'exchange' ? 'mc_exchanges' : 'mc_currencies';
+  $fields = db_fetch_array(db_query("SELECT * FROM {$table} WHERE nid = $node->nid"));
+  //while drupal_write record and schema API will serialize an array into a serialized field
+  //it can't unserialize them on the way out of the db since there is no function drupal_read_record
+  $fields['data'] = unserialize($fields['data']);
+  if ($node->type == 'currency') {
+    if (is_string($fields['data']['divisions'])) {//a bad upgrade meant this bit of data was broken
+      $lines = array_filter(explode("\n", $fields['data']['divisions']));
+    }
+    else $lines = array();
+    $fields['divisions'] = array();
+    //ensure all the array keys are saved as humbers
+    if (count($lines)) {
+      foreach($lines as $line) {
+        $vals = explode('|', $line);
+        $key  = intval($vals[0]);
+        $val = trim($vals[1]);
+        $fields['divisions'][$key] = $val;
+      }
+    }
+  }
+  return $fields;
+}
+
+
+/**
+ * implements hook_form
+ * Because we have a special multistep form creating the exchanges, this hook_form is only used for node editing
+ */
+function mcapi_form(&$node) {
+  module_load_include('inc', 'mcapi');
+  if ($node->type == 'exchange') {
+    //reload the whole exchange, which will include all the other fields
+   //it's in a separate function so that other modules can access it.
+    $form = mcapi_form_exchange($node);
+    if (!isset($node->exchange_type)) $node->exchange_type = 'api';
+    $form['exchange_type'] = array(
+      '#type' => 'hidden',
+      '#default_value' => $node->exchange_type,
+    );
+    return $form;
+  }
+  else {
+    return mcapi_form_currency($node);
+  }
+}
+
+
+/**
+ * implements node hook_insert
+ */
+function mcapi_insert(&$node) {
+  $table = $node->type == 'exchange'? 'mc_exchanges' : 'mc_currencies';
+  drupal_write_record($table, $node);
+}
+
+/**
+ * implements node hook_update
+ */
+function mcapi_update($node) {
+  $table = $node->type == 'exchange'? 'mc_exchanges' : 'mc_currencies';
+  drupal_write_record($table, $node, array('nid'));
+}
+
+/**
+ * implements node hook_delete
+ */
+function mcapi_delete($node) {
+  if ($node->type == 'exchange') {
+    //the node is deleted, but it leaves this trace in the mc_exchanges table
+    db_query("UPDATE {mc_exchanges} set state = %d WHERE nid = %d", EXCHANGE_STATE_ERASED, $node->nid);
+  }
+  elseif ($node->type == 'currency') {
+    //the currency can only be deleted if there are no exchanges in it (or if all users have zero!)
+    //but validation will have checked this, I hope
+    db_query("DELETE FROM {mc_currencies} WHERE nid = %d", $node->nid);
+    db_query("DELETE FROM {mc_cache} WHERE cid = %d", $node->cid);
+  }
+}
+
+function mcapi_view($node, $teaser = FALSE, $page = FALSE) {
+  if (!empty($node->body)) {
+    $node->content['body']['#value'] = "<p>$node->body</p>";
+  }
+  return $node;
+}
+
+function mcapi_nodeapi(&$node, $op) {
+  if ($node->type == 'exchange') {
+    switch ($op) {
+      case 'insert':
+      case 'update':
+        mcapi_update_balances($node);
+        mcapi_notify($op, $node);
+        break;
+      case 'delete':
+        mcapi_update_balances($node);
+    }
+  }
+  elseif($node->type == 'currency' && $op == 'presave') {
+    module_load_include('inc', 'mcapi');
+    mcapi_node_presave_currency($node);
+  }
+}
+
+
+/**
+ * implements hook_user
+ */
+function mcapi_user($op, &$edit, &$account, $category = NULL) {
+  switch ($op) {
+    case 'form':
+      if ($category != 'account') return;
+    case 'register':
+      $form = array();
+      if (variable_get('mc_notification_option', TRUE)) {
+        if (!module_exists('contact')) { //buggers up if the fieldset is declared twice
+          $form['contact']['#type'] = 'fieldset';
+          $form['contact']['#title'] = t('Contact preferences');
+          $form['contact']['#prefix'] = '<a id="notifications"></a>';
+        }
+        module_load_include('inc', 'mcapi');
+        $form['contact']['mc_notification_throttle'] = notification_throttle();
+        $form['contact']['mc_notification_throttle']['#default_value'] =
+          isset($account->mc_notification_throttle) ?
+          $account->mc_notification_throttle :
+          MC_NOTIFICATION_DEFAULT_LEVEL;
+      }
+      return $form;
+    case 'load':
+      if (!variable_get('mc_notification_option', TRUE) || !isset($account->mc_notification_throttle)) {
+        $account->mc_notification_throttle = variable_get('mc_notification_throttle_default', MC_NOTIFICATION_DEFAULT_LEVEL);
+      }
+  }
+}
+
+function mcapi_action_info() {
+  return array(
+    'mcapi_autopay_from' => array(
+      'description' => t('Automatically pay a user from a given account'),
+      'type' => 'user',
+      'configurable' => TRUE,
+      'hooks' => array(),
+    ),
+    'mcapi_autopay_to' => array(
+      'description' => t('Automatically charge a user to a given account'),
+      'type' => 'user',
+      'configurable' => TRUE,
+      'hooks' => array(),
+    ),
+  );
+}
+/*
+ * Callbacks for action config
+ */
+function mcapi_autopay_from_form($context) {
+  //this form should really have a validation function to ensure that at least one participant is provided
+  $form = mcapi_form_exchange((object)$context);
+  unset($form['payee'], $form['state']);
+  $form['quantity']['#required'] = TRUE;
+  return $form;
+}
+function mcapi_autopay_to_form($context) {
+  //this form should really have a validation function to ensure that at least one participant is provided
+  $form = mcapi_form_exchange((object)$context);
+  unset($form['payer'], $form['state']);
+  $form['quantity']['#required'] = TRUE;
+  return $form;
+}
+/*
+ * submit callback for action config
+ */
+function mcapi_autopay_from_submit($form, $form_state) {
+  return $form_state['values'];
+}
+function mcapi_autopay_to_submit($form, $form_state) {
+  return $form_state['values'];
+}
+/*
+ * callback to execute the action
+ */
+function record_exchange_action($node, $context) {
+  $options['title'] = $context['title'];
+  $result = mcapi_add_node(
+    !empty($context['payer_uid']) ? $context['payer_uid'] : $GLOBALS['user']->uid,
+    !empty($context['payee_uid']) ? $context['payee_uid'] : $GLOBALS['user']->uid,
+    $context['quantity'], 
+    $options
+  );
+}
+
+function mcapi_theme() {
+  $items = array(
+    'money' => array(
+      'arguments' => array(
+        'quantity' => 0,
+        'cid' => 0,
+        'richtext' => TRUE //better for mails not to include currency icons
+      )
+    ),
+    //this should be discovered automatically but drupal 6 was badly designed
+    //http://drupal.org/node/279573
+    'currency_node_form' => array(
+      'file' => drupal_get_path('module', 'mcapi') . '/mcapi.inc',
+      'arguments' => array('form' => NULL),
+    ),
+    'currency_range' => array(
+      'file' => drupal_get_path('module', 'mcapi') . '/mcapi.inc',
+      'arguments' => array(
+        'currency' => NULL,
+      )
+    ),
+    'currency_division_array' => array(
+      'file' => drupal_get_path('module', 'mcapi') . '/mcapi.inc',
+      'arguments' => array(
+        'currency' => NULL,
+      )
+    ),
+    'exchange_summary' => array(
+      'file' => drupal_get_path('module', 'mcapi') . '/mcapi.inc',
+      'arguments' => array('exchange'),
+    )
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_theme_registry_alter
+ * this is to make the 'node' theme callback include this module's theme directory
+ * and hence to find the provided node-exchange.php and node-currency in its list of paths
+*/
+function mcapi_theme_registry_alter(&$items) {
+  $node_theme_paths = $items['node']['theme paths'];
+  $node_path_suggestion = array_search('modules/node', $node_theme_paths);
+  if ($node_path_suggestion !== FALSE) {
+    $theme_path = drupal_get_path('module', 'mcapi') . '/theme';
+    array_splice($items['node']['theme paths'], $node_path_suggestion+1, 0, $theme_path);
+  }
+}
+
+
+function theme_money($quant, $cid, $richtext = TRUE) {
+  static $currencies;
+  if (!isset($currencies[$cid])) {
+    $currencies[$cid] = node_load($cid);
+  }
+  $subdivision = '';
+  $integer = abs(intval($quant));
+  if ($currencies[$cid]->sub) {
+    $fraction = 100 * round(abs($quant) - abs($integer), 2);
+    if (isset($currencies[$cid]->divisions[$fraction])) {
+      $subdivision = $currencies[$cid]->divisions[$fraction];
+    }
+    else $subdivision = $fraction;
+  }
+  $sign = $quant < 0 ? '-' : '';
+  $icon = isset($currencies[$cid]->icon) ? theme('image', $currencies[$cid]->icon) : '';
+
+  return strtr(
+    $currencies[$cid]->symbol,
+    array(
+      '@minus' => $sign,
+      '@integer' => $integer,
+      '@icon' => $icon,
+      '@subdivision' => $subdivision
+    )
+  );
+}
+
+
+/*
+ * Validations - first the node hook, then all the form element validators
+ * have to be in the .module file otherwise form.inc won't see them before they are included
+ */
+
+//this is a node hook, but remember mc_webforms don't use node forms, and must call this explicitly
+function mcapi_validate($node) {
+  module_load_include('inc', 'mcapi');
+  if ($node->type == 'currency') {
+    //check that the title is unique amongst currencies
+    $result = db_query("SELECT nid FROM {node} where type = 'currency' AND title = '%s' AND nid != %d",
+      array(':title' => $node->title, ':nid' => $node->nid)
+    );
+
+    if ($nid = db_result($result)) {
+      form_set_error('title', t('A currency called !name already exists.', array('!name' => l($node->title, 'node/'.$nid))));
+    }
+
+    //check that the objective value is either blank or numeric
+    if ($node->value && !is_numeric($node->value)) {
+      form_set_error('value', t("Currency value must be a number"));
+    }
+
+  }
+  //if we don't have the $node->type it's because it wasn't set in the exchange forms which might be borrowing this validate function
+  elseif ($node->type == 'exchange') {
+    if (!isset($node->exchange_type)) {
+      form_set_error('', t("Hidden field '@field' needs to be added to form. This value is intended to identify the module or form which created the exchange", array('@field' => 'exchange_type')));
+    }
+    if ($node->payer_uid == $node->payee_uid && $node->payer_uid != 0 ) {
+      //no usecase is currently envisaged where someone might pay themselves
+      form_set_error('', t('An exchange must involve two different users'));
+      return;
+    }
+    if (!count(form_get_errors()) && $node->payer_uid && $node->payee_uid) {
+      $errors[] = mc_api_check_user_limits(user_load($node->payer_uid), -$node->quantity, intval($node->cid), $node->nid);
+      $errors[] = mc_api_check_user_limits(user_load($node->payee_uid), +$node->quantity, intval($node->cid), $node->nid);
+      $errors = array_filter($errors);
+      if (count($errors)) {
+        //users with 'edit all exchanges' permission only get a warning about balance limits
+        //but most users will get an error
+        //this decision should be moved towards configuration level, but how?
+        if (user_access('edit all exchanges')) {
+          foreach ($errors as $error) {
+            drupal_set_message($error, 'warning');
+          }
+        }
+        else {
+          foreach ($errors as $error) {
+            form_set_error('quantity', $error);
+          }
+        }
+      }
+      //an exchange can only be complete if all the fields are filled in.
+      if ($node->state == EXCHANGE_STATE_FINISHED) {
+        if (!$node->payer_uid && !$node->payee_uid) {
+          form_set_error('payer_uid', t('Payee or payer required for completed exchange'));
+        }
+        if (!$node->quantity) {
+          form_set_error('quantity', t('Quantity required for completed exchange'));
+        }
+        if (!$node->title) {
+          form_set_error('title', t('Description required for completed exchange'));
+        }
+        if (!$node->cid) {
+          form_set_error('cid', t('Currency ID required for completed exchange'));
+        }
+      }
+    }
+  }
+}
+
+
+//validates the min and max values
+//this could be done in javascript also, on the form
+//values have already been validated as numeric
+function mc_validate_limits(&$element, $form_state) {
+  $min_subelement = &$element['min'];
+  $max_subelement = &$element['max'];
+  if (strlen($min_subelement['#value'])){
+    if (strlen($min_subelement['#value']) && $min_subelement['#value'] > 0) {
+      form_error($min_subelement, t('Minimum balance must not be larger than 0'));
+    }
+  }
+  if (strlen($max_subelement['#value'])){
+    if ($max_subelement['#value'] < 1) {
+      form_error($max_subelement, t('Maximum balance must be larger than 1'));
+    }
+  }
+}
+
+function mc_validate_title(&$element, $form_state) {
+  if (!check_plain($element['#value'])) {
+    form_error($element, t('Plain text only in exchange descriptions.'));
+  }
+  $min = intval(db_result(db_query("SELECT min_word_count FROM {node_type} WHERE type = 'exchange'")));
+  if ($min && str_word_count($element['#value']) < $min) {
+    form_error($element, t('Please describe the exchange with at least @count words', array('@count' => $min)));
+  }
+}
+
+function mc_validate_cid(&$element, $form_state) {
+  if (isset($element['#value']) && $node = node_load($element['#value'])) {
+    if ($node->type != 'currency') {
+      form_error($element, t('Invalid currency specified: @num',array('@num' => $element['#value'])));
+    }
+  }
+}
+
+//the api module will validate any number or username or email as a user with permission to trade
+//this function permits blank values
+function mc_validate_trader(&$element, &$form_state) {
+  if (!empty($element['#value'])) {
+    _mc_check_trader($element['#value'], $element);
+  }
+}
+
+//we have to make at least 3x2 calls on this in on form submission
+//so the static variable will help, a little
+function _mc_check_trader($value, &$element = NULL) {
+  if (is_numeric($value)) {
+    $field = 'uid';
+  }
+  elseif (valid_email_address($value)) {
+    $field = 'mail';
+  }
+  elseif (is_string($value) && strlen($value)) {
+    $field = 'name';
+  }
+  $criterion = array($field => $value);
+  $account = user_load($criterion);
+  if (isset($account->uid)) {
+    if (user_access('exchange', $account)  && $account->status) {
+      return $account->uid;
+    }
+    else {
+      if ($element) {
+        form_error($element, t("@user is not permitted to trade", array("@user" => $account->name)));
+      }
+    }
+  }
+  else {
+    if ($element) {
+      form_error($element, t("@data is not a known user", array("@data" => $value)));
+    }
+  }
+}
+
+function mc_validate_currency_divisions(&$element, $form_state) {
+  if ($text = $element['#value']) { //blank is not validated, because it means use hundredths
+    $lines = explode("\n", $text);
+    if (count($lines) < 2) {
+      form_error($element, t("There should be at least two lines in field '@fieldname'", array('@fieldname' => $element['#title'])));
+    }
+    foreach ($lines as $line) {
+      if (strpos($line, '|') === FALSE) {
+        form_error($element, t('line "@val" should contain a pipe character, |', array('@val' => $line)));
+      }
+      $vals = explode('|', $line);
+      if (!is_numeric($vals[0]) || !strlen($lines[0]) || $vals[1] != check_plain($vals[1]) || !strlen($vals[1] || !is_integer($vals[1]))) {
+        form_error($element,
+          t("'@val' should be an integer from  0 to 99, followed directly by a pipe, |, followed directly by a word or phrase with no unusual characters",
+            array('@val' => $line)
+          )
+        );
+      }
+    }
+  }
+}
+/*
+ * Default form element validate callback
+ */
+function mc_validate_quantity(&$element, &$form_state) {
+  $value = $element['#value'] + 0;
+  //null values allowed
+  if (!$value) return;
+  if ($value < 0 ) {
+    form_error($element, t("Negative values not allowed for '@fieldname'", array('@fieldname' => $element['#title'])));
+  }
+  if (isset($form_state['values']['cid']) && $currency = node_load($form_state['values']['cid'])) {
+    $division = ($value - intval($value))*100;
+    if ($division) {
+      if ($currency->sub) {
+        if ($division && isset($currency->divisions) && !isset($currency->divisions[$division])) {echo 1;
+          form_error($element, t("Invalid fraction for '@fieldname'", array('@fieldname' => $element['#title'])));
+        }
+      }
+      else{
+        form_error($element, t("Integer values only for '@currency'", array('@currency' => $currency->title)));
+      }
+    }
+  }
+}
+
+
+function mc_validate_icon_upload(&$element, &$form_state) {
+  $validators = array(
+    'file_validate_extensions' => array('png', 'jpg', 'gif')
+  );
+
+  $dest = file_directory_path() .'/currencies';
+  $file = file_save_upload('icon', $validators);
+  if (!$file) {
+    return;
+  }
+
+  if ($err = array_pop (file_validate_is_image($file))) {
+    form_error($element, $err);
+    return;
+  }
+  $form_state['values']['upload_icon'] = $file;
+}
+function mc_validate_color($element, $form_state) {
+  preg_match('/^[0-9a-f]{6}$/', $element['#value'], $matches);
+  if (!count($matches)) {
+    form_error($element, t('Color field must be 6 hex characters'));
+  }
+}
+
+function mc_validate_integer(&$element, $form_state) {
+  if (!is_numeric($element['#value']) ||
+    is_numeric($element['#value'] && !is_integer($element['#value'] + 0))) {
+    form_error($element, t('Must be an integer'));
+  }
+}
+
+//Some currency properties need to be identical if they are to rendered into the exchange form
+//this returns the field only if it is the same in all the passed currencies
+//takes top-level fieldnames or data fieldnames
+//this is a bit complicated by the design of the currency object, but it works fine
+function get_common_currency_properties($currencies, $fieldname) {
+  $first = array_pop($currencies);
+
+  foreach ($currencies as $currency) {
+    if (isset($first->$fieldname)) {
+      if ($first->$fieldname != $currency->$fieldname) return;
+      $val = $first->$fieldname;
+    }
+    elseif (isset($first->data[$fieldname])) {
+      if ($first->data[$fieldname] != $currency->data[$fieldname]) return;
+      $val = $first->data['$fieldname'];
+    }
+  }
+  if (isset($val))return $val;
+  elseif (isset($first->$fieldname)) return $first->$fieldname;
+  elseif (isset($first->data[$fieldname])) return $first->data[$fieldname];
+}
+
+//standard exchange form builder function. $currencies can be NULL, a $nid, or an array of currencies
+function mcapi_form_exchange($node, $currencies = array()) {
+  //certain currencies may be visisble to the form, not necessarily all the currencies on the system
+  //or one currency might be passed by the url
+  $form['#currencies'] = empty($currencies) ? currencies_load() : $currencies;
+  if (count($form['#currencies']) == 1) {
+    $currency = current($form['#currencies']);
+    $node->cid = $currency->nid;
+  }
+  module_load_include('inc', 'mcapi');
+  //this is in the other file purely for optimisation
+  return mcapi_form_exchange_inc($form, $node);
+}
+
+
+//takes an array of nodes, with the nid as array keys and returns an array with just the titles
+//for preparing form field select options
+function mc_node_select_options($nodes, $zero_val = '') {
+  $options = array();
+  if ($zero_val) {
+    $options[] = $zero_val;
+  }
+  foreach ($nodes as $nid => $node) {
+    if (is_array($node)) {
+      $options[$nid] = $node['title'];
+    }
+    else {
+      $options[$nid] = $node->title;
+    }
+  }
+  return $options;
+}
+
+/**
+ * implementation of hook_form_{form_id}_alter
+ */
+function mcapi_form_node_delete_confirm_alter(&$form, $form_state) {
+  if ($form['#parameters'][2]->type == 'exchange') {
+    drupal_set_title(t('Are you sure you want to delete this exchange?'));
+    $form['#prefix'] ='<blockquote>'. $form['#parameters'][2]->title .'</blockquote>';
+    if ($form['#parameters'][2]->state == EXCHANGE_STATE_PENDING) {
+      $form['description']['#value'] = t('The transation had not been confirmed');
+    }
+    elseif ($form['#parameters'][2]->state == EXCHANGE_STATE_FINISHED) {
+      $form['description']['#value'] = t('This exchange was confirmed, so the balances of both users will be affected');
+    }
+  }
+  $form['#redirect'] = 'user';
+}
+
+/**
+ * implementation of hook_form_{form_id}_alter
+ */
+function mcapi_form_currency_node_form_alter(&$form, $form_state) {
+  //prevent deletion of the last currency
+  if (!db_result(db_query("SELECT nid FROM {node} WHERE type = 'currency' LIMIT 1,2"))) {
+    $form['buttons']['delete']['#access'] = FALSE;
+    $form['buttons']['delete']['#suffix'] = t('This is the only currency and thus cannot be deleted.');
+  }
+  unset($form['buttons']['preview']);
+  $form['buttons']['submit']['#submit'][] = 'redirect_to_currencies';
+}
+function redirect_to_currencies($form, &$form_state) {
+  $form_state['redirect'] = 'admin/mc/currencies';
+}
+
+//this function is built in to v7
+function ajax_form_callback() {
+  $form_state = array('storage' => NULL, 'submitted' => FALSE);
+  $form_build_id = $_POST['form_build_id'];
+  $form = form_get_cache($form_build_id, $form_state); 
+  $args = $form['#parameters'];
+  $form_id = array_shift($args);
+  $form_state['post'] = $form['#post'] = $_POST;
+  $form['#programmed'] = $form['#redirect'] = FALSE;
+  return drupal_rebuild_form($form_id, $form_state, $args, $form_build_id);
+}
+
+function mcapi_update_balances($exchange) {
+  module_load_include('inc', 'mcapi');
+  _refresh_mc_cache($exchange->payer_uid, $exchange->cid);
+  _refresh_mc_cache($exchange->payee_uid, $exchange->cid);
+}
+

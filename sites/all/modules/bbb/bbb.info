@@ -1,0 +1,10 @@
+name = Big Blue Button
+description = Enables universities and colleges to deliver a high-quality learning experience.
+package = Big Blue Button
+core = 6.x
+; Information added by drupal.org packaging script on 2011-02-25
+version = "6.x-1.x-dev"
+core = "6.x"
+project = "bbb"
+datestamp = "1298618876"
+

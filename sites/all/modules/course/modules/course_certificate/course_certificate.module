@@ -1,0 +1,86 @@
+<?php
+
+/**
+ * Implements hook_course_outline_completion_links_alter().
+ *
+ * Add a download certificate link.
+ */
+function course_certificate_course_outline_completion_links_alter(&$links, $node, $account) {
+  $course = course_get_course($node);
+  if (course_certificate_course_has_certificate($course)) {
+    $links['certificate'] = array(
+      'Download certificate',
+      "node/$node->nid/certificate",
+      'Download a PDF of your certificate.',
+    );
+  }
+}
+
+/**
+ * Check if there is a Certificate on this Course.
+ */
+function course_certificate_course_has_certificate($course) {
+  foreach ($course->getObjects() as $courseObject) {
+    if ($courseObject->getComponent() == 'certificate') {
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
+/**
+ * Implements hook_access_certificate().
+ *
+ * If something entered a complete record into the reports table, return TRUE.
+ */
+function course_certificate_access_certificate($node, $user) {
+  if (course_node_is_course($node)) {
+    $course = course_get_course($node);
+    $has_certificate = course_certificate_course_has_certificate($course);
+    $sql = "SELECT 1 FROM {course_report} WHERE nid = %d AND uid = %d AND complete = %d";
+    return $has_certificate && (bool) db_result(db_query($sql, $node->nid, $user->uid, 1));
+  }
+}
+
+/**
+ * Implements hook_token_list().
+ */
+function course_certificate_token_list($type = 'all') {
+  if ($type == 'certificate') {
+    $tokens = array();
+    $tokens['certificate']["certificate-date_completed"] = t('Date of course completion');
+    $tokens['certificate']['certificate-number'] = 'Generated certificate number';
+    return $tokens;
+  }
+}
+
+/**
+ * Implements hook_token_values().
+ */
+function course_certificate_token_values($type, $object = NULL, $options = array()) {
+  if ($type == 'certificate') {
+    $values = array();
+    $sql = 'SELECT * FROM {course_report} WHERE nid = %d AND uid = %d';
+    if ($report = db_fetch_object(db_query($sql, $object['node']->nid, $object['user']->uid))) {
+      $values['certificate-date_completed'] = date(variable_get('course_report_certificate_time_format', 'F jS, Y'), $report->date_completed);
+    }
+    $values['certificate-number'] = time() . '-' . $object['node']->nid;
+    return $values;
+  }
+}
+
+/**
+ * Implements hook_course_handlers().
+ */
+function course_certificate_course_handlers() {
+  // Expose certificate as a course object.
+  return array(
+    'object' => array(
+      'certificate' => array(
+        'name' => t('Certificate'),
+        'description' => t('A certificate course object.'),
+        'class' => 'CourseObjectCertificate',
+      ),
+    ),
+  );
+}

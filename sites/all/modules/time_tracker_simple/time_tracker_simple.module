@@ -1,0 +1,311 @@
+<?php
+/**
+ * Implementation of hook_menu().
+ *
+ * @return An array of menu items.
+ */
+function time_tracker_simple_menu() {
+  $items = array();
+
+  // @todo - should there a different to access time tracking?
+  /*  $items['time-tracker-simple/page'] = array(
+   'title' => 'Time Tracking',
+   'description' => 'Simple Page for tracking time',
+   'page callback' => 'time_tracker_simple_page',
+   'page arguments' => array(2),
+   'access arguments' => array('manually enter time'),
+   'type' => MENU_CALLBACK,
+   );*/
+  $items['user/%/time-tracker'] = array(
+    'title' => 'Time Tracking',
+    'description' => 'Simple Page for tracking time',
+    'page callback' => 'time_tracker_simple_page',
+    'page arguments' => array(4),
+    'access callback' => 'time_tracker_simple_access',
+    'access arguments' => array(1, 'add time tracker entries'),
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['time-tracker-simple/continue'] = array(
+    'title' => 'Time Tracking',
+    'description' => 'Continue a timer entry',
+    'page callback' => 'time_tracker_simple_continue',
+    'page arguments' => array(2),
+    'access arguments' => array('add time tracker entries'),
+  );
+  return $items;
+}
+function time_tracker_simple_atrium_account_links_alter(&$links){
+  global $user;
+  $links[] = array(
+    'href' => "user/{$user->uid}/time-tracker",
+    'title' => 'Time Tracker',
+  );
+}
+
+/**
+ * Access function for seeing time tracking page
+ * User should only ever see this time tracking page under their own account
+ * @param int $uid
+ * @param string $permission
+ * @return boolean
+ */
+function time_tracker_simple_access($uid, $permission) {
+  global $user;
+  if (isset($user->uid) && $user->uid == $uid && user_access($permission)) {
+    return TRUE;
+  }
+  return FALSE;
+}
+/**
+ * Implementation of hook_views_api().
+ */
+function time_tracker_simple_views_api() {
+  return array(
+    'api' => 2,
+    'path' => drupal_get_path('module', 'time_tracker_simple'),
+  );
+}
+function time_tracker_simple_continue($teid) {
+  $results = db_query("SELECT * FROM {time_tracker_entry} WHERE teid = %d", $teid);
+  $time_tracker_data = db_fetch_array($results);
+  if (!$time_tracker_data) {
+    drupal_set_message(t('This is not a valid timer entry'));
+  }
+  else {
+    _time_tracker_simple_start($time_tracker_data);
+  }
+  drupal_goto(_time_tracker_simple_main_page());
+}
+function _time_tracker_simple_main_page() {
+  global $user;
+  return "user/" . $user->uid . "/time-tracker";
+}
+function time_tracker_simple_page($nid = NULL) {
+  if ($nid) {
+    _time_tracker_simple_start(array('nid' => $nid));
+    drupal_goto(_time_tracker_simple_main_page());
+  }
+  $row[] = array(
+    'data' => drupal_get_form('time_tracker_simple_timer_form'),
+    'class' => 'new_timer_control timer_control',
+  );
+  $active_timer = _time_tracker_simple_get_timer();
+  if ($active_timer && $timer->stop == 0) {
+    $row[] = array(
+      'data' => theme('time_tracker_timer_active_timers_block', array($active_timer)),
+      'class' => 'new_timer_time timer_time',
+    );
+  }
+  $output .= theme('table', NULL, array($row), array('class' => 'time_tracker_timer'));
+  //allow view to be overridden
+  // @todo - config page to choose view?
+  $view = variable_get('simple_time_tracker_view', '');
+  if (empty($view)) {
+    if (module_exists('casetracker')) {
+      $view['name'] = 'recent_time_trackers';
+    }
+    else {
+      $view['name'] = 'recent_time_trackers_node';
+    }
+    $view['display_id'] = 'default';
+  }
+  $output .= views_embed_view($view['name'], $view['display_id']);
+  return $output;
+}
+
+function _time_tracker_simple_get_timer() {
+  global $user;
+  $resource = db_query("SELECT * FROM {time_tracker_timer} where uid = %d", $user->uid);
+  return db_fetch_object($resource);
+}
+function time_tracker_simple_timer_form($form_state) {
+  global $user;
+  $active_timer = _time_tracker_simple_get_timer();
+  //*** Both start and start buttons must actually be on the form for #submit to work correctly
+  $form['stop'] = array(
+    '#value' => t('Stop'),
+    '#type' => 'submit',
+    '#weight' => 20,
+    '#access' => FALSE,
+    '#button_type' => 'timer_control_stop',
+    '#submit' => array('time_tracker_simple_timer_stop'),
+  );
+  $form['start'] = array(
+    '#value' => t('Start'),
+    '#type' => 'submit',
+    '#access' => FALSE,
+    '#weight' => 20,
+    '#submit' => array('time_tracker_simple_timer_start'),
+    '#button_type' => 'timer_control_start',
+  );
+  $activities = array();
+  $activities[] = '(none)';
+  $results = db_query("SELECT * FROM {time_tracker_activity} ORDER BY weight ASC");
+  while ($result = db_fetch_object($results)) {
+    $activities[$result->taid] = $result->name;
+  }
+  if (count($activities) > 1) {
+    // The activity choser
+    $form['activity'] = array(
+      '#title' => t('Activity'),
+      '#type' => 'select',
+      '#weight' => 5,
+      '#options' => $activities,
+    );
+  }
+
+  $form['note'] = array(
+    '#title' => t('Note'),
+    '#type' => 'textarea',
+    '#weight' => 6,
+    '#rows' => 1,
+    '#resizable' => FALSE,
+  );
+
+  if ($active_timer && $timer->stop == 0) {
+    //only deal with timer that hasn't stop
+    $form['stop']['#access'] = TRUE;
+
+    $form['nid'] = array(
+      '#type' => 'hidden',
+      '#value' => $active_timer->nid,
+    );
+    $form['activity']['#default_value'] = $active_timer->activity;
+    $form['note']['#default_value'] = $active_timer->note;
+  }
+  else {
+    $form['start']['#access'] = TRUE;
+    $types = _time_tracker_simple_get_tracked_types();
+    $nodes = array();
+    if(empty($types)){
+            drupal_set_message(t('There is currently no content types that can be tracked track.'), 'warning');
+      return array();
+    }
+    foreach ($types as $type) {
+      $nodes = array_merge($nodes, views_get_view_result('current_open_cases', 'default', $type));
+    }
+    if (empty($nodes)) {
+      drupal_set_message(t('There is currently no content to track.'), 'warning');
+      return array();
+
+    }
+    foreach ($nodes as $node) {
+      $full_title = $node->node_title;
+      if (!empty($node->node_casetracker_case_title)) {
+        $full_title = $node->node_casetracker_case_title . " - " . $full_title;
+      } 
+      if (!empty($node->node_og_ancestry_title )) {
+        $full_title = $node->node_og_ancestry_title . " - " . $full_title;
+      }
+      $options[$node->nid] = $full_title;
+    }
+    $form['nid'] = array(
+      '#type' => 'select',
+      '#weight' => 4,
+      '#options' => $options,
+      '#title' => t('Case'),
+    );
+  }
+  return $form;
+}
+function _time_tracker_simple_get_tracked_types() {
+  static $types;
+  if (!$types) {
+    $type_keys = array_keys(node_get_types());
+    foreach ($type_keys as $type) {
+      if (variable_get('time_tracker_nodes_' . $type, 0)) {
+        $types[] = $type;
+      }
+    }
+  }
+  return $types;
+}
+function time_tracker_simple_timer_stop($form, &$form_state) {
+  global $user;
+  $active_timer = _time_tracker_simple_get_timer();
+  if (!$active_timer) {
+    drupal_set_message(t('You have no current timer'));
+    return;
+  }
+  // Our submitted form values
+  $values = $form_state['values'];
+
+  $node = node_load($values['nid']);
+  // The rest of the time entry;
+  $time['uid'] = $user->uid;
+  $time['nid'] = $values['nid'];
+  $time['pid'] = $node->casetracker->pid;
+  $time['activity'] = $values['activity'];
+  $time['note'] = $values['note'];
+  $start = $active_timer->start;
+  $time['timestamp'] = $start;
+  $stop = time();
+
+  $time['duration'] =  _time_tracker_parse_duration(convert_phptime_to_duration($start, $stop));
+  if (variable_get('time_entry_method', 'duration') != 'duration') {
+    $time['start'] = $start;
+    $time['end'] = $stop;
+  }
+  // Update the db and send a message to the user
+  drupal_write_record('time_tracker_entry', $time);
+  drupal_set_message(t('Time Entry Recorded'));
+  //delete timer
+  $success = db_query('DELETE FROM {time_tracker_timer} WHERE nid = %d AND uid = %d', $time['nid'], $time['uid']);
+  if ($success) {
+    drupal_set_message(t('Timer reset'), 'message');
+  }
+  else {
+    drupal_set_message(t('Could not reset timer'), 'error');
+  }
+  return;
+  // If we're logging time by interval
+
+  $time_spent = format_interval(time() - $form_state['values']['start_time'], "1");
+  //Let the user know if the write was successful (Timer was stopped)
+  if ($success) {
+    drupal_set_message(t('Timer stopped at: @time', array('@time' => $time_spent)), 'message');
+  }
+  else {
+    drupal_set_message(t('Could not stop timer'), 'error');
+  }
+}
+function time_tracker_simple_timer_start($form, &$form_state) {
+
+  $timer = array(
+    'nid' => $form_state['values']['nid'], // may need to use clicked_button?
+    'note' => $form_state['values']['note'],
+    'activity' => $form_state['values']['activity'],
+  );
+  _time_tracker_simple_start($timer);
+
+
+}
+function _time_tracker_simple_start($timer) {
+  global $user;
+  $active_timer = _time_tracker_simple_get_timer();
+  if ($active_timer) {
+    drupal_set_message(t("You already have an active timer.  You cannot start a new one."), 'warning');
+    return FALSE;
+  }
+  $timer['uid']  = $user->uid;
+  $timer['start'] = time();
+  //Write the new record
+  $success = drupal_write_record('time_tracker_timer', $timer);
+  return $success;
+}
+/**
+ * Implementation of hook_schema_alter().
+ *
+ * @param &$schema Nested array describing the schemas for all modules.
+ */
+function time_tracker_simple_schema_alter(&$schema) {
+  $schema['time_tracker_timer']['fields']['note'] = array(
+    'type' => 'text',
+    'not null' => FALSE,
+  );
+  $schema['time_tracker_timer']['fields']['activity'] = array(
+    'type' => 'int',
+    'not null' => FALSE,
+    'unsigned' => TRUE,
+  );
+}

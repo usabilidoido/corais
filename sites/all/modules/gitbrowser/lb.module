@@ -1,0 +1,218 @@
+<?php
+// $Id: lb.module,v 1.4 2009/11/04 06:23:36 gordon Exp $
+/**
+ * @file
+ * Provide module to allow the browsing of the git repository which was used
+ * to provide the current installation of drupal
+ */
+
+/**
+ * Implementation of hook_menu().
+ */
+function lb_menu() {
+  $params = array(
+    'title' => 'Local Repository',
+    'path' => 'admin/srm',
+    'repos' => './.git',
+    'module' => 'lb',
+  );
+  $items = lb_build_git_menus($params);
+  
+  $items['admin/srm']['options']['admin'] = TRUE;
+
+  return $items;
+}
+
+/**
+ * Build menu links
+ */
+function lb_build_git_menus($params = array()) {
+  module_load_include('inc', 'gb', 'gb');
+  $default = array(
+    'title' => 'Git Repository',
+    'repos' => './.git',
+  );
+  $params+= $default;
+  $path = $params['path'];
+  $path_count = count(explode('/', $path));
+  
+  $items = array();
+
+  $items[$path] = array(
+    'title' => $params['title'],
+    'page callback' => 'gb_summary',
+    'page arguments' => array($path, $params['repos']),
+    'access arguments' => array('access repository'),
+    'file' => 'gb.inc',
+  );
+  
+  $hash_arg = count(explode('/', $path))+1;
+  
+  $items[$path .'/commit/%'] = array(
+    'title' => 'Commit Info',
+    'page callback' => 'gb_commit_page',
+    'page arguments' => array($path, $params['repos'], $hash_arg),
+    'access arguments' => array('access commit log'),
+    'file' => 'gb.inc',
+    'type' => MENU_CALLBACK,
+  );
+  $items[$path .'/commit/%/details'] = array(
+    'title' => 'Details',
+    'access arguments' => array('access commit'),
+    'page callback' => 'gb_commit_page',
+    'page arguments' => array($path, $params['repos'], $hash_arg),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'file' => 'gb.inc',
+    'weight' => -9,
+  );
+  $items[$path .'/commit/%/diff'] = array(
+    'title' => 'Commit Diff',
+    'access arguments' => array('access commit diff'),
+    'page callback' => 'gb_commit_diff',
+    'page arguments' => array($path, $params['repos'], $hash_arg),
+    'file' => 'gb.inc',
+    'type' => MENU_LOCAL_TASK,
+  );
+  for ($i = 0; $i < 5; $i++) {
+    $items[$path .'/commit/%/diff/'. $i] = array(
+      'title callback' => '_gb_parent_hash_title',
+      'title arguments' => array($params['repos'], $hash_arg, (string)$i),
+      'access callback' => '_gb_access_parent',
+      'access arguments' => array($params['repos'], $hash_arg, (string)$i, 'access commit diff'),
+      'page callback' => 'gb_commit_diff',
+      'page arguments' => array($path, $params['repos'], $hash_arg, (string)$i),
+      'file' => 'gb.inc',
+      'type' => $i ? MENU_LOCAL_TASK : MENU_DEFAULT_LOCAL_TASK,
+    );
+  }
+  
+  $items[$path .'/commit/%/tag'] = array(
+    'title' => 'Tag',
+    'access arguments' => array('access create commit tag'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('gb_create_tag', $path, $params['repos'], $hash_arg),
+    'file' => 'gb.inc',
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items[$path .'/download/%'] = array(
+    'title' => 'Download',
+    'access arguments' => array('download archive'),
+    'page callback' => 'gb_download',
+    'page arguments' => array($params['repos'], $hash_arg, $hash_arg+1),
+    'file' => 'gb.inc',
+    'type' => MENU_CALLBACK,
+  );
+  $items[$path .'/fetch/%'] = array(
+    'title' => 'Download',
+    'access arguments' => array('fetch commits'),
+    'page callback' => 'gb_fetch',
+    'page arguments' => array($params['repos'], $hash_arg),
+    'file' => 'gb.inc',
+    'type' => MENU_CALLBACK,
+  );
+  
+  $items[$path .'/checkout/%'] = array(
+    'title' => 'Checkout',
+    'access arguments' => array('checkout tag'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('gb_checkout', $params['repos'], $hash_arg),
+    'file' => 'gb.inc',
+    'type' => MENU_CALLBACK,
+  );
+  
+  $items[$path .'/tag/%'] = array(
+    'title' => 'Tag Info',
+    'page callback' => 'gb_tag_page',
+    'page arguments' => array($path, $params['repos'], $hash_arg),
+    'access arguments' => array('access tag details'),
+    'file' => 'gb.inc',
+    'type' => MENU_CALLBACK,
+  );
+  
+  $items+= lb_build_git_tabs($path, $params['repos'], $path, 'HEAD');
+
+  $info = gb_get_commit_info($params['repos'], 'HEAD');
+  foreach (gb_show_ref($params['repos']) as $head) {
+    if ($head['hash'] != $info['hash']) {
+      $items[$path .'/'. $head['path']] = array(
+        'title' => $head['name'],
+        'page callback' => 'gb_summary',
+        'page arguments' => array($path, $params['repos'], $head['fullname']),
+        'access arguments' => array('access repository'),
+        'file' => 'gb.inc',
+        'type' => ($head['type'] == 'heads' ? MENU_NORMAL_ITEM : MENU_CALLBACK),
+      );
+    
+      $items+= lb_build_git_tabs($path, $params['repos'], $path .'/'. $head['path'], $head['fullname']);
+    }
+  }
+
+  foreach ($items as $path => $item) {
+    if (isset($params['menu options'])) {
+      $items[$path]+= $params['menu options'];
+    }
+  }
+  return $items;
+}
+
+function lb_build_git_tabs($menu_path, $repos, $path, $head = 'HEAD') {
+  $items = array();
+  
+  $items[$path .'/summary'] = array(
+    'title' => 'Summary',
+    'page callback' => 'gb_summary',
+    'page arguments' => array($menu_path, $repos, $head),
+    'access arguments' => array('access repository'),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -1,
+    'file' => 'gb.inc',   
+  );
+  $items[$path .'/shortlog'] = array(
+    'title' => 'Short log',
+    'page callback' => 'gb_shortlog',
+    'page arguments' => array($menu_path, $repos, $head),
+    'access arguments' => array('access commit log'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'gb.inc',
+  );
+  $items[$path .'/tag'] = array(
+    'title' => 'Tag',
+    'access arguments' => array('access create head tag'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('gb_create_tag', $path, $repos, $head),
+    'file' => 'gb.inc',
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items[$path .'/tools'] = array(
+    'title' => 'Tools',
+    'access arguments' => array('access git tools'),
+    'page callback' => 'gb_tools',
+    'page arguments' => array($path, $repos, $head),
+    'file' => 'gb.inc',
+    'type' => MENU_LOCAL_TASK,
+  );
+  
+  return $items;
+}
+
+/**
+ * Implementation of hook_xmlrpc().
+ */
+function lb_xmlrpc() {
+  return array(
+    array(
+      'git.pull',
+      'lb_xmlrpc_pull',
+      array(),
+      t('Handle request for git to pull from the origin repository'),
+    ),
+  );
+}
+
+function lb_xmlrpc_pull() {
+  if (gb_real_git('pull', $output, './.git')) {
+    return xmlrpc_error(100, t('Problems pulling changes.'));
+  }
+  
+  return TRUE;
+}

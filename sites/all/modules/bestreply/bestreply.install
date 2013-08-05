@@ -1,0 +1,44 @@
+<?php
+
+/**
+ * @file
+ * The bestreply install file
+ */
+
+/**
+ * Implementation of hook_install().
+ */
+function bestreply_install() {
+  // Create tables.
+  drupal_install_schema('bestreply');
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function bestreply_schema() {
+  $schema['bestreply'] = array(
+    'fields' => array(
+      'nid' => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+      'cid' => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+      'aid' => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+      'uid' => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+      'dt' => array('type' => 'int', 'not null' => TRUE, 'default' => 0)
+    ),
+    'primary key' => array('nid'),
+  );
+  return $schema;
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function bestreply_uninstall() {
+  drupal_uninstall_schema('bestreply');
+  variable_del('bestreply_name');
+  variable_del('bestreply_userpoints_tid');
+  variable_del('userpoints_bestreply_mark');
+  variable_del('userpoints_bestreply_author');
+  variable_del('bestreply_movetotop');
+  variable_del('bestreply_collapse');
+}

@@ -1,0 +1,160 @@
+<?php
+
+/**
+ * @file
+ * The finder search module.
+ */
+
+/**
+ * Implementation of hook_theme().
+ *
+ * @see hook_theme()
+ */
+function finder_search_theme() {
+  return array(
+    'finder_search_results' => array(
+      'arguments' => array(
+        'results' => NULL,
+        'finder' => NULL,
+        'form_state' => NULL,
+        'no_results' => NULL,
+      ),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ *
+ * @see hook_form_FORM_ID_alter()
+ */
+function finder_search_form_finder_admin_edit_alter(&$form, $form_state) {
+  $finder = &$form_state['storage']['finder'];
+
+  $form['settings']['advanced']['search'] = array(
+    '#type' => 'radios',
+    '#title' => t('Use search module'),
+    '#default_value' => isset($finder->settings['advanced']['search']) ? $finder->settings['advanced']['search'] : 0,
+    '#weight' => 50,
+    '#options' => array(
+      0 => t('Do not use search module.'),
+      1 => t('Attempt to fetch results from a content search when finder results are empty.'),
+    ),
+  );
+  $form['settings']['advanced']['search_tab'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Search module tab'),
+    '#default_value' => isset($finder->settings['advanced']['search_tab']) ? $finder->settings['advanced']['search_tab'] : 'node',
+    '#required' => TRUE,
+    '#weight' => 55,
+    '#description' => t('Which tab to use in the search module.  Default is <em>node</em>.'),
+  );
+
+}
+
+/**
+ * Implementation of hook_theme_registry_alter().
+ *
+ * @see hook_theme_registry_alter()
+ */
+function finder_search_theme_registry_alter(&$theme_registry) {
+  global $theme_info;
+  $theme_funcs = variable_get('finder_search_finder_results_theme', array());
+
+  // This is to fix upgrade from <= 1.5 to 1.7
+  if (!is_array($theme_funcs)) {
+    $theme_funcs = array();
+  }
+
+  $theme_funcs[$theme_info->name] = $theme_registry['finder_results']['function'];
+  variable_set('finder_search_finder_results_theme', $theme_funcs);
+  $theme_registry['finder_results']['function'] = 'finder_search_preprocess_finder_results';
+}
+
+/**
+ * Intervene before theme function.
+ *
+ * Kind of like a template preprocess, except not for a template.
+ *
+ * @see finder_search_theme_registry_alter()
+ */
+function finder_search_preprocess_finder_results($results, $finder, $keywords, $pager, $params, $form_state, $no_results) {
+  global $theme_info;
+  $theme_funcs = variable_get('finder_search_finder_results_theme', array());
+  $theme_func = !empty($theme_funcs[$theme_info->name]) ? $theme_funcs[$theme_info->name] : 'theme_finder_results';
+
+  if ($finder->settings['advanced']['search'] && empty($results)) {
+    $keys = array();
+    foreach ($keywords as $finder_element_id => $finder_element_keywords) {
+      foreach ((array)$finder_element_keywords as $keyword) {
+        $keys[] = $keyword;
+      }
+    }
+    $results_array = finder_search_get_result(implode(' ', $keys), $finder->settings['advanced']['search_tab']);
+    $results = theme('finder_search_results', $results_array, $finder, $form_state, $no_results);
+
+    // search module has it's own pager
+    $pager = 0;
+  }
+
+  return $theme_func($results, $finder, $keywords, $pager, $params, $form_state, $no_results);
+
+}
+
+/**
+ * Get results array from search module.
+ */
+function finder_search_get_result($keys = NULL, $type = 'node') {
+  if (isset($keys)) {
+    if (module_hook($type, 'search')) {
+      return module_invoke($type, 'search', 'search', $keys);
+    }
+  }
+}
+
+/**
+ * Get themed version of search results.
+ *
+ * @param $results
+ *   An array of result objects.
+ * @return
+ *   Themed output from search module's hooks.
+ */
+function finder_search_get_themed_results($results) {
+  $output = '';
+  if (isset($results) && is_array($results) && count($results)) {
+    if (module_hook($type, 'search_page')) {
+      $output .= module_invoke($type, 'search_page', $results);
+    }
+    else {
+      $output .= theme('search_results', $results, $type);
+    }
+  }
+  return $output;
+}
+
+/**
+ * Theme search results for finder.
+ *
+ * @param $results
+ *   An array of result objects.
+ * @param $finder
+ *   The finder object.
+ * @param $form_state
+ *   The Forms API form state.
+  * @param $no_results
+ *   The output to show when there are no results.
+ */
+function theme_finder_search_results($results, $finder, $form_state, $no_results) {
+  $output = '';
+  if ($results) {
+    $output .= finder_search_get_themed_results($results);
+  }
+  else {
+    $output .= $no_results;
+  }
+  return $output;
+}
+
+// to do:
+// - ability to exclude certain fields/elements from being included in the search keywords

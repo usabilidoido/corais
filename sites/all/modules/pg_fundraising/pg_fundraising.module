@@ -1,0 +1,681 @@
+<?php
+// $Id: pg_fundraising.module,v 1.1.2.1 2011/02/18 02:15:35 dokumori Exp $
+/**
+ * @file
+ * Provides fundraising feature through PG API module
+ *
+ */
+//constants
+define('T_FUNDRAISING_NODES', 'fundraising_nodes'); //table for storing fundraising node configs
+define('T_FUNDRAISING_RECORD', 'fundraising_nodes'); //table for storing donation history
+
+/**
+ * Implemetation of hook_perm()
+ */
+function pg_fundraising_perm() {
+  return array('administer fundraising tools');
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function pg_fundraising_menu() {
+  $items = array();
+
+  //admin
+  $items['admin/pgdata/fundraising'] = array(
+      'title'            => 'Fundraising module settings',
+      'description'      => 'Configure Fundraising module.',
+      'page callback'    => 'drupal_get_form',
+      'page arguments'   => array('pg_fundraising_admin'),
+      'access callback'  => 'user_access',
+      'access arguments' => array('administer fundraising tool'),
+      'file'             => 'includes/pg_fundraising.admin.inc',
+      'type'             => MENU_NORMAL_ITEM,
+  );
+  
+  //transaction complete
+  $items['fundraising/complete/%txnid'] = array(
+      'title'           => 'Payment completed',
+      'page callback'   => 'pg_fundraising_complete',
+      'page arguments'  => array(2),
+      'access callback' => TRUE,
+      'type'            => MENU_CALLBACK,
+  );
+
+  //transaction failed
+  $items['fundraising/fail/%txnid'] = array(
+      'title'           => 'Payment failed',
+      'page callback'   => 'pg_fundraising_fail',
+      'page arguments'  => array(2),
+      'access callback' => TRUE,
+      'type'            => MENU_CALLBACK,
+  );  
+  return $items;
+}
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function pg_fundraising_form_alter(&$form, $form_state, $form_id) {
+  // If the node is of a content type used for fundraising,
+  // load fundraising config form to node edit view  
+  
+  if (isset($form['type']) && $form['type']['#value'] .'_node_form' == $form_id && variable_get('pg_fundraising_allowed_'. $form['type']['#value'], 0)) {
+    
+    $form['pg_fundraising_form'] = pg_fundraising_preset_amount($form['nid']['#value']);
+    
+      
+    //call a tax_related function if the variable is set
+    //TODO: make this multiple in the future
+    $name = variable_get('pg_fundraising_tax_feature_'. $nid, '');
+    if ($name) {
+      $function = $name;
+      $form = $function($form);
+    }
+
+    //add a custom validation function
+    $form['#validate'][] = 'pg_fundraising_preset_amount_validate';
+
+  }
+} 
+
+/**
+ * Implementation of hook_form_FORM_ID_alter()
+ * Adds necessary selectors to fieldsets
+ */
+function pg_fundraising_form_pg_fundraising_donation_form_alter(&$form, $form_state) {
+
+  $form['pg_fundraising']['amount']['#attributes'] = array('id' => 'donation-amount');
+  $form['pg_fundraising']['personal_details']['#attributes'] = array('id' => 'personal-details');
+  $form['pg_fundraising']['personal_email']['#attributes'] = array('id' => 'personal-email');
+
+}
+
+
+/**
+ * Implementation of hook_form_FORM_ID_alter()
+ * Adds a checkbox to content type config form (admin/content/node-type/[name])
+ * When ticked, the content type can be used as a fundraising tool
+ */
+function pg_fundraising_form_node_type_form_alter(&$form, $form_state) {
+  //Add a checkbox to content type config form
+   $form['pg_fundraising'] = array(
+    '#type'        => 'fieldset',
+    '#title'       => t('Fundraising settings'),
+    '#collapsible' => TRUE,
+    '#collapsed'   => TRUE,
+    '#weight'      => 15,
+  );
+  $form['pg_fundraising']['pg_fundraising_allowed'] = array(
+    '#type'          => 'checkbox',
+    '#title'         => t('Use this content type to set up fundraising pages'),
+    '#default_value' => variable_get('pg_fundraising_allowed_'. $form['#node_type']->type, 0),
+  );
+
+}
+
+/**
+ * Implementation of hook_nodeapi().
+ */
+function pg_fundraising_nodeapi(&$node, $op, $teaser = NULL, $page = NULL) {
+  switch ($op) {
+    case 'load':
+     
+      
+      break;
+
+    case 'view':
+    
+      if (variable_get('pg_fundraising_allowed_'. $node->type, 0)) {
+        drupal_add_css(drupal_get_path('module', 'pg_fundraising') .'/pg_fundraising.css');
+        $node->content['fundraising_menu'] = array(
+          '#value' => theme('pg_fundraising_donation_menu', $node),
+        );
+        $node->content['fundraising_form'] = array(
+          '#value'  => drupal_get_form('pg_fundraising_donation_form'),
+          '#weight' => 20,
+        );
+        
+      }
+      break;
+      
+    case 'alter':
+      // The $node->content array has been rendered, so the node body or teaser
+      // is filtered and now contains HTML. This op should only be used when text
+      // substitution, filtering, or other raw text operations are necessary.
+      break;
+    case 'insert':
+      // The config needs to be saved at this timing
+      // because if a custom submit function is used, no nid is availalbe
+      if (variable_get('pg_fundraising_allowed_'. $node->type, 0)) {
+        pg_fundraising_preset_amount_submit($node);
+      }
+      break;
+    case 'update':
+      if (variable_get('pg_fundraising_allowed_'. $node->type, 0)) {
+        pg_fundraising_preset_amount_submit($node);
+      }
+      break;
+    case 'validate':
+    
+      break;
+    case 'delete':
+      // The node is being deleted.
+      
+      break;
+  }
+}
+
+
+/**
+ * Implementation of hook_theme()
+ */
+function pg_fundraising_theme() {
+  
+  $path = drupal_get_path('module', 'pg_fundraising') .'/includes';
+  return array(
+    'pg_fundraising_complete' => array(
+      'file'      => 'pg_fundraising_theme.inc',
+      'path'      => $path,
+      'arguments' => array('t' => array()),
+    ), 
+    'pg_fundraising_fail' => array(
+      'file'      => 'pg_fundraising_theme.inc',
+      'path'      => $path,
+      'arguments' => array('t' => array()),
+    ),
+    //theme function for donation menu
+    'pg_fundraising_donation_menu' => array(
+      'file'      => 'pg_fundraising_theme.inc',
+      'path'      => $path,
+      'template'  => 'pg_fundraising_donation_menu',
+      'arguments' => array('node' => array()),
+      
+    ),
+    'pg_fundraising_donation_menu_box' => array(
+      'file'      => 'pg_fundraising_theme.inc',
+      'path'      => $path,
+      'arguments' => array(
+      'images'  => array(),
+      'amount_arr'   => array(),
+      'descriptions' => array(),
+      
+      ),
+    ),
+  );
+}
+
+
+/**
+ *  Fundraising view: form for collecting personal information
+ */
+function pg_fundraising_donation_form() {
+  if (arg(0) == 'node' && is_numeric(arg(1))) {
+    $nid = arg(1);
+  }
+  else {
+    return FALSE;
+  }
+  
+  $options = pg_fundraising_node_settings_oneoff_get($nid);
+  $options[] = 'Other';
+    
+  $form['pg_fundraising']['amount'] = array(
+    '#type'        => 'fieldset',
+    '#title'       => t('Donation options'),
+    '#collapsible' => FALSE,
+    '#collapsed'   => FALSE,
+    '#weight'      => 8,
+  );
+  $form['pg_fundraising']['amount']['options'] = array(
+     '#type'      => 'radios',
+     '#title'     => t('Amount'),
+     '#options'   => $options,
+     '#default_value' => 3,
+  );
+  $form['pg_fundraising']['amount']['manual'] = array(
+      '#type'          => 'textfield',
+      //'#title'         => t('Title'),
+      '#default_value' => '',
+      '#maxlength' => 5,
+      '#required' => FALSE,
+  );
+  
+  //personal information
+  $form['pg_fundraising']['personal_details'] = array(
+    '#type'        => 'fieldset',
+    '#title'       => t('Personal information'),
+    '#collapsible' => FALSE,
+    '#collapsed'   => FALSE,
+    '#weight'        => 10,
+  );
+  $form['pg_fundraising']['personal_details']['title'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Title'),
+    '#default_value' => '',
+    '#maxlength' => 128,
+    '#required' => TRUE,
+  );
+  $form['pg_fundraising']['personal_details']['forename'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Forename'),
+    '#default_value' => '',
+    '#maxlength' => 128,
+    '#required' => TRUE,
+  );  
+  $form['pg_fundraising']['personal_details']['surname'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Surname'),
+    '#default_value' => '',
+    '#maxlength' => 128,
+    '#required' => TRUE,
+  );
+  $form['pg_fundraising']['personal_details']['address_1'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Flat/House name or number'), //TODO: make the label changeable
+    '#default_value' => '',
+    '#maxlength' => 128,
+    '#required' => TRUE,
+  );
+  $form['pg_fundraising']['personal_details']['address_2'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Street'),
+    '#default_value' => '',
+    '#maxlength' => 128,
+    '#required' => TRUE,
+  );
+  $form['pg_fundraising']['personal_details']['city'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('City'),
+    '#default_value' => '',
+    '#maxlength' => 128,
+    '#required' => TRUE,
+  );
+  $form['pg_fundraising']['personal_details']['postcode'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Post code'), //TODO: make the label changeable
+    '#default_value' => '',
+    '#maxlength' => 128,
+    '#required' => TRUE,
+  );
+//TODO: add a country dropdown field
+
+  $tax_feature = variable_get('pg_fundraising_tax_feature', '');
+  foreach (module_implements('pg_fundraising_tax') as $module) {
+    if ($module == $tax_feature){
+    
+      if ($module_data = module_invoke($module, 'pg_fundraising_tax', 'form')) {
+        
+        $form['pg_fundraising']['tax_feature'] = array(
+          '#type'        => 'fieldset',
+          '#title'       => $module_data['name'],
+          '#description' => filter_xss($module_data['description']),
+          '#collapsible' => FALSE,
+          '#collapsed'   => FALSE,
+          '#weight'      => 20,
+        );
+        
+        $form['pg_fundraising']['tax_feature']['form'] = $module_data['form'];
+      }  
+    }
+  } 
+  
+  //Email
+  global $user;
+  $form['pg_fundraising']['personal_email'] = array(
+    '#type'        => 'fieldset',
+    '#title'       => t('Email'),
+    '#collapsible' => FALSE,
+    '#collapsed'   => FALSE,
+    '#weight'      => 30,
+  );
+  $form['pg_fundraising']['personal_email']['email'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Email address'),
+    '#default_value' => $user->mail,
+    '#required'      => TRUE,
+  );
+  
+  //submit
+  $form['buttons']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => 'Donate',
+    '#weight' => 50,
+  );
+  $form['#validate'][] = 'pg_fundraising_form_donate_validate';
+  $form['#submit'][] = 'pg_fundraising_form_donate_submit';
+  return $form;
+}
+
+
+////////////////////////////
+//  Callback functions
+////////////////////////////
+/**
+ * Validation function for donation form submitted by users
+ */
+function pg_fundraising_form_donate_validate(&$form_values, $form_state) {
+  
+  //email field validation
+  if (!valid_email_address($form_values['#post']['email'])) {
+    form_set_error('email', t('Please enter a valid email address.'));
+  }
+  
+  //postcode: currently UK only
+  //TODO: add a country dropdown box
+  //check if it's valid
+  // $result = _pg_fundraising_uk_postcode_validate($form_values['#post']['postcode']);
+  //   if (empty($result)) {
+  //     form_set_error('postcode', t('This is not a valid UK postcode.'));
+  //   }
+  
+  //manually entered amount
+  if ($form_values['#post']['options'] == 6) {
+    if (empty($form_values['#post']['manual'])) {
+      form_set_error('manual', t('Please specify the amount.'));
+    }
+  }
+  
+}
+
+
+/**
+ * Submit function for the donation form
+ */
+function pg_fundraising_form_donate_submit(&$form_values, $form_state) {
+  //drupal_set_message(print_r($form_values, 1));
+  //FIXME: why is variable name 'form_values' used here?
+  //FIXME: use hook_form to use a custom function that accepts nid rather than checking arg(1) here!
+  $node = node_load(arg(1));
+  
+  //Get the donation value
+  if ($form_values['#post']['options'] == 6) {
+    $amount = $form_values['#post']['manual']; 
+  }
+  else {
+    $amount = pg_fundraising_get_selected_amount($node->nid, $form_values['#post']['options']);
+  }
+
+  $transaction_info = pg_fundraising_prepay($node, $amount);
+
+  //write personal information to fundraising_record table
+  $donation_record = (object)(NULL);
+  $donation_record->txnid = $transaction_info['txnid'];
+  $donation_record->nid = arg(1);
+//  $donation_record->user_info = serialize(array(
+//    $form_values['#post']['title'],
+//    $form_values['#post']['forename'],
+//    $form_values['#post']['surname'],
+//    $form_values['#post']['address_1'],
+//    $form_values['#post']['address_2'],
+//    $form_values['#post']['postcode'],
+//    )
+//  );
+  $donation_record->title = $form_values['#post']['title'];
+  $donation_record->forename = $form_values['#post']['forename'];
+  $donation_record->surname = $form_values['#post']['surname'];
+  $donation_record->address_1 = $form_values['#post']['address_1'];
+  $donation_record->address_2 = $form_values['#post']['address_2'];
+  $donation_record->city = $form_values['#post']['city'];
+  $donation_record->postcode = $form_values['#post']['postcode'];
+//  $donation_record->country = $form_values['#post']['country'];
+  
+  $donation_record->email = $form_values['#post']['email'];
+  drupal_write_record('fundraising_record', $donation_record);
+  
+  //invoke a hook and write to tax-related options
+  $tax_feature = variable_get('pg_fundraising_tax_feature', '');
+  foreach (module_implements('pg_fundraising_tax') as $module) {
+    if ($module == $tax_feature){
+      $module_data = module_invoke($module, 'pg_fundraising_tax', 'save', array('nid' => $donation_record->nid, 'txnid' => $donation_record->txnid), $form_state);
+    }
+  } 
+  
+  //forward the user to payment/[txnid]
+  drupal_goto($transaction_info['url']);
+}
+
+/**
+ * Returns a form to preset amount
+ */
+
+function pg_fundraising_preset_amount($nid) {
+
+  $conf = pg_fundraising_node_settings_oneoff_get($nid);
+  //drupal_set_message(print_r($conf, 1));
+  $form = array();
+  $form['pg_fundraising_amount'] = array(
+    '#type'        => 'fieldset',
+    '#title'       => t('Fundraising settings'),
+    '#collapsible' => TRUE,
+    '#collapsed'   => FALSE,
+    '#weight'        => 0,
+  );
+
+  for ($i = 1; $i < 7 ; $i++) { 
+    $form['pg_fundraising_amount']["preset_amount_$i"] = array(
+      '#type'          => 'textfield',
+      '#title'         => t("Amount") . $i,
+      '#default_value' => $conf[$i - 1],
+      '#maxlength' => 4,
+      '#size' => 4,
+      '#weight' => $i,
+      '#required' => TRUE,
+    );
+
+  }  
+
+  return $form;
+}
+
+
+/**
+ * Validation function for preset amount
+ */
+function pg_fundraising_preset_amount_validate(&$form_values, $form_state) {
+  //print_r($form_state['values']);
+  for ($i = 1; $i < 7 ; $i++) {
+    $val = $form_state['values']["preset_amount_$i"];
+    if ($val && !is_numeric($val)) {
+      form_set_error("preset_amount_$i", $message = 'Please enter the amount in numeric.');
+    }
+
+    //the amount needs to increase
+    $prev = $i - 1;
+    if ($prev && $val <= $form_state['values']['preset_amount_'. $prev]) {
+      
+      form_set_error("preset_amount_$i", $message = 'The amount needs to be bigger than the precedent amount.');
+    }
+  }
+}
+/**
+ * Submit function for preset amount
+ */
+function pg_fundraising_preset_amount_submit($node) {
+
+  $preset_amount = array();
+  for ($i = 1; $i < 7 ; $i++) {
+    $preset_amount[] = $node->{'preset_amount_'. $i};
+  }
+  $conf = serialize($preset_amount);
+
+  //check if the record exists
+  $result = pg_fundraising_node_settings_exists($node->nid);
+  //TODO: replace with drupal_write_record
+  //yes: update the existing value
+  if ($result) {
+    _pg_fundraising_node_settings_update($node->nid, $conf);
+  }
+  //no: insert
+  else {
+    _pg_fundraising_node_settings_insert($node->nid, $conf);
+  }
+
+}
+
+function pg_fundraising_fail($t) {
+  global $user;
+  if ($user->uid != 1 && $user->uid != $t->uid) {
+    drupal_access_denied();
+  }
+
+  return theme('pg_fundraising_fail', $t);
+}
+
+
+function pg_fundraising_complete($t) {
+  global $user;
+  if ($user->uid != 1 and $user->uid != $t->uid) {
+   drupal_access_denied();
+  }
+  
+  return theme('pg_fundraising_complete', $t);
+}
+
+
+/**
+ * Get the amount of a selected donation option
+ *
+ * @param $nid
+ * @return $amount
+ *   Donation amount set by the admin
+ */
+function pg_fundraising_get_selected_amount($nid, $selected, $field = 'amount_oneoff') {
+  $sql = "SELECT `%s` FROM {fundraising_nodes} WHERE nid = %d";
+  $result = db_result(db_query($sql, $field, $nid));
+  $options = unserialize($result);
+
+  return $options[$selected];
+  
+}
+
+
+function pg_fundraising_prepay($node, $amount = 1) {
+  global $user;
+  $t = (object)(NULL);
+  $t->amount = $amount;
+  $t->type = 'pg_fundraising';
+  $t->uid = $user->uid;
+  //$t->title = t('You have been ordered !title ', array('!title' => l($node->title, 'node/'.$node->nid.'', array('html' => true))));
+  $t->title = t('Thank you for your donation!');
+  
+  $ses = $_COOKIE[session_name()];
+
+  $t->extra = array(
+    'nid' => $node->nid,
+    'session' => $ses,
+  );
+  
+  //Save the transaction data to table pgapi_transaction
+  $t = pgapi_transaction_save($t);
+  //drupal_set_message(print_r($t, 1));
+  $transaction_info = array();
+  $transaction_info['txnid'] = $t->txnid;
+  $transaction_info['url'] = url('payment/'. $t->txnid, array('absolute' => TRUE));
+
+  return $transaction_info;
+}
+
+/**
+ * Checks if the config for a given node exists
+ */
+function pg_fundraising_node_settings_exists($nid) {
+  return db_result(db_query("SELECT nid FROM {fundraising_nodes} WHERE nid = %d", $nid));
+}
+
+/**
+ * Updates existing fundraising node config
+ */
+function _pg_fundraising_node_settings_update($nid, $conf) {
+  //FIXME: use drupal_write_record() !!!
+  db_query("UPDATE {fundraising_nodes} SET amount_oneoff = '%s' WHERE nid = %d", $conf, $nid);
+}
+ 
+/**
+ * Inserts new fundraising node config
+ */
+function _pg_fundraising_node_settings_insert($nid, $conf) {
+  //FIXME: use drupal_write_record() !!!
+  db_query("INSERT INTO {fundraising_nodes} (nid, amount_oneoff) VALUES (%d, '%s')", $nid, $conf);
+  
+}
+
+
+function pg_fundraising_node_settings_oneoff_get($nid) {
+  //TODO: cache the result
+  $conf = db_result(db_query("SELECT amount_oneoff FROM {fundraising_nodes} WHERE nid = %d", $nid));
+  if ($conf) {
+    $result = unserialize($conf);
+  }
+  return $result;
+}
+
+
+/**
+ * Validates UK postcode
+ *   taken from http://www.php.net/manual/en/function.ereg.php#69322
+ * @param $postcode
+ * @return $result
+ *   returns TRUE if it is a valid UK postcode. FALSE otherwise
+ */
+function _pg_fundraising_uk_postcode_validate($postcode) {
+  $postcode = strtoupper(str_replace(chr(32), '', $postcode));
+
+  $pattern = "/^([A-PR-UWYZ0-9][A-HK-Y0-9][AEHMNPRTVXY0-9]?[ABEHMNPRVWXY0-9]? {1,2}[0-9][ABD-HJLN-UW-Z]{2}|GIR 0AA)$/";
+   
+  if (preg_match($pattern, $postcode)) {
+    return TRUE;
+  }
+  else {
+    return FALSE;
+  }
+}
+
+////////////////////////////
+//  Implementation of PG API Hooks
+////////////////////////////
+
+function pg_fundraising_pgapi_format_price() {
+  $format['decimals']      = variable_get('pg_fundraising_decimal_places', 2);
+  $format['dec_point']     = variable_get('pg_fundraising_decimal', '.');
+  $format['thousands_sep'] = variable_get('pg_fundraising_thousands', ',');
+  $format['position']      = variable_get('pg_fundraising_position', TRUE);
+  return $format;
+}
+
+function pg_fundraising_pgapi_transaction($op, &$t) {
+  switch ($op) {
+    case PG_COMPLETED:
+        $simple_access['nid']     = $t->extra['nid'];
+        $simple_access['uid']     = $t->uid;
+        $simple_access['txnid']   = $t->txnid;
+        $simple_access['created'] = time();
+        if ($t->uid == 0 ) {
+          $simple_access['session'] = $t->extra['session'];
+        }
+        drupal_write_record('pg_simplepay_payment', $simple_access);
+        $t->workflow = pgapi_get_workflow_id('completed');
+        
+      break;
+    case PG_DENIED:
+        $t->workflow = pgapi_get_workflow_id('security violation');
+      break;
+    case PG_FAILED:
+        $t->workflow = pgapi_get_workflow_id('canceled');
+      break;
+  }
+  return $t;
+}
+
+function pg_fundraising_pgapi_callback($t) {
+  switch ($t->status) {
+    case PG_COMPLETED:
+        return 'fundraising/complete/'. $t->txnid;
+    default:
+        return 'fundraising/fail/'. $t->txnid;
+
+      break;
+  }
+}
+

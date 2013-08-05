@@ -1,0 +1,11 @@
+name = Stylistics
+description = Utility module to ensure JS and CSS files are reloaded after a form error.
+package = Other
+core = 6.x
+
+; Information added by drupal.org packaging script on 2010-06-19
+version = "6.x-1.0"
+core = "6.x"
+project = "stylistics"
+datestamp = "1276962907"
+

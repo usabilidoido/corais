@@ -1,0 +1,455 @@
+<?php
+// $Id: driven.module,v 1.3 2010/04/03 23:18:07 arhak Exp $
+
+// these constant are used for assertions,
+// but other modules might use them as well
+// to determine the level of error reporting
+// (e.g. driven_diff_warn_inaccurate_diff)
+define('DRIVEN__REPORT__NONE', 0);
+define('DRIVEN__REPORT__DISPLAY', 1);
+define('DRIVEN__REPORT__LOG', 2);
+define('DRIVEN__REPORT__BOTH', 3); // (1 | 2)
+// unequivocal administrative varnames with colon over CSS compliant ids (back-end only)
+define('DRIVEN__VAR_GRANT_IN_DEPTH', 'driven:grant_in_depth');
+define('DRIVEN__VAR_DENY_IN_DEPTH', 'driven:deny_in_depth');
+define('DRIVEN__VAR_ASSERTION_LEVEL', 'driven:assertion_level');
+define('DRIVEN__VAR_ASSERTION_BACKTRACE_LOG', 'driven:assertion_backtrace_log');
+
+/**
+ * Implements hook_menu().
+ */
+function driven_menu() {
+  // @d6
+  $config_root = 'admin/settings/';
+  
+  $menu[$config_root . 'driven'] = array(
+    'title' => 'Driven API',
+    'description' => 'Global settings for modules relying on driven API',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('driven_settings_form', 'driven'),
+    'access arguments' => array('administer site configuration'),
+    //'file' => 'driven.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+  $menu[$config_root . 'driven/common'] = array(
+    'title' => 'Common',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
+  );
+  
+  $global_settings = driven_invoke_global_settings();
+  if (!empty($global_settings)) {
+    // @d6
+    $types = node_get_types();
+    foreach ($global_settings as $driver_mod => $settings) {
+      $uri = str_replace('_', '-', $driver_mod);
+      $full_uri = $config_root . 'driven/' . $uri;
+      $task_title = isset($settings['#menu_title']) ? $settings['#menu_title'] : $driver_mod;
+      $menu[$full_uri] = array(
+        'title' => $task_title,
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('driven_settings_form', $driver_mod),
+        'access arguments' => array('administer site configuration'),
+        //'file' => 'driven.admin.inc',
+        'type' => MENU_LOCAL_TASK,
+      );
+    }
+  }
+  
+  return $menu;
+}
+
+function driven_settings_form($form_state, $driver_mod) {
+  // the easiest first
+  if ($driver_mod != 'driven') {
+    $hook = 'driven_global_settings_form';
+    $form = module_invoke($driver_mod, $hook);
+  }
+  else {
+    $form['access'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Access Control modifications'),
+      '#description' => t('When granting/denying access to a driven property, reaching its level should be enough. However, these options let you control what should be done regarding access beneath the property level when it is being changed by access control utilities.')
+        . '<br/>' . t('Note that the sealing algorithm will always use "paranoia" when denying access to elements outside the scope of an enabled driven property, regardless of the choice made for "deny in depth".'),
+      '#collapsible' => TRUE,
+    );
+    $form['access'][DRIVEN__VAR_DENY_IN_DEPTH] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Deny in depth (aka paranoia)'),
+      // @d6
+      '#default_value' => variable_get(DRIVEN__VAR_DENY_IN_DEPTH, 1),
+    );
+    $form['access'][DRIVEN__VAR_GRANT_IN_DEPTH] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Grant in depth (aka trust breach)'),
+      // @d6
+      '#default_value' => variable_get(DRIVEN__VAR_GRANT_IN_DEPTH, 0),
+    );
+    
+    $form['assertions'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Assertions'),
+      '#collapsible' => TRUE,
+    );
+    
+    $form['assertions'][DRIVEN__VAR_ASSERTION_BACKTRACE_LOG] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Log backtrace on assertion failed'),
+      '#description' => t('Only if assertion level includes "log", ignored otherwise.'),
+      // @d6
+      '#default_value' => variable_get(DRIVEN__VAR_ASSERTION_BACKTRACE_LOG, 0),
+    );
+    $form['assertions'][DRIVEN__VAR_ASSERTION_LEVEL] = array(
+      '#type' => 'radios',
+      '#title' => t('Level'),
+      // @TODO: change to DRIVEN__REPORT__LOG for beta stage
+      // @d6
+      '#default_value' => variable_get(DRIVEN__VAR_ASSERTION_LEVEL, DRIVEN__REPORT__BOTH),
+      '#options' => array(
+        DRIVEN__REPORT__BOTH => t('Log and display message'),
+        DRIVEN__REPORT__LOG => t('Log only'),
+        DRIVEN__REPORT__DISPLAY => t('Display message only'),
+        DRIVEN__REPORT__NONE => t('None'),
+      ),
+    );
+  }
+  
+  $form += driven_form_signature();
+  return system_settings_form($form);
+}
+
+function driven_invoke_global_settings() {
+  $settings = array();
+  $hook = 'driven_global_settings_form';
+  // sort by module name
+  // don't let modules' weigth interfere
+  // with the order of menu's local tasks
+  // (see hook_menu)
+  foreach (module_implements($hook, TRUE) as $module) {
+    $settings[$module] = module_invoke($module, $hook); 
+  }
+  return $settings;
+}
+
+function driven_is_grant_in_depth() {
+  return variable_get(DRIVEN__VAR_GRANT_IN_DEPTH, 0);
+}
+
+function driven_is_deny_in_depth() {
+  return variable_get(DRIVEN__VAR_DENY_IN_DEPTH, 1);
+}
+
+function driven_access_control_to_form(&$ned_form, $driven_props, $apply_mask = TRUE) {
+  module_load_include('inc', 'driven', 'driven.ac');
+  return _driven_access_control_to_form($ned_form, $driven_props, $apply_mask);
+}
+
+function driven_full_access_apply_to_properties(&$driven_props) {
+  foreach ($driven_props as $property_id => &$prop) {
+    $prop['#access'] = TRUE;
+  }
+}
+
+function _driven_access_in_depth(&$element, $allowed) {
+  _driven_prop_in_depth($element, '#access', $allowed);
+}
+
+function _driven_prop_in_depth(&$element, $key, $value) {
+  foreach (element_children($element) as $child) {
+    _driven_prop_in_depth($element[$child], $key, $value);
+    $element[$child][$key] = $value;
+  }
+}
+
+// see form_set_value at form.inc
+function driven_form_state_value($parents, $form_values) {
+  $parent = array_shift($parents);
+  if (empty($parents)) {
+    $value = $form_values[$parent];
+  }
+  else {
+    if (isset($form_values[$parent])) {
+      $value = driven_form_state_value($parents, $form_values[$parent]);
+    }
+    else {
+      $value = NULL;
+    }
+  }
+  return $value;
+}
+
+
+function driven_properties_available($node_type, $refresh = FALSE) {
+  // @d6 static cache
+  static $available_properties = array();
+  
+  if ($refresh) {
+    $available_properties = array();
+  }
+  
+  // a refresh request might pass a first NULL argument
+  // also content type creation will deliver an empty $node_type
+  if (empty($node_type)) {
+    return array();
+  }
+  
+  if (!isset($available_properties[$node_type])) {
+    $driven_props = array();
+    $hook = 'driven_properties';
+    foreach (module_implements($hook) as $module) {
+      $function = $module . '_' . $hook;
+      $props_def = $function($node_type);
+      foreach ($props_def as $property_id => &$prop) {
+        list($realm, $target) = explode(':', $property_id, 2);
+        //$prop['property_id'] = $property_id;
+        $prop['realm'] = $realm;
+        $prop['target'] = $target;
+        $prop['node_type'] = $node_type;
+        // a property can be defined on behalf of other module
+        if (empty($prop['provider'])) {
+          // by default the declaring module
+          $prop['provider'] = $module;
+        }
+        if (empty($prop['realm_title'])) {
+          // by default use the machine name realm 
+          $prop['realm_title'] = $realm;
+        }
+        if (!isset($prop['target_title'])) {
+          // by default a minimum readable title
+          $prop['target_title'] = str_replace(':', ' » ', $target);
+        }
+        // IMPORTANT: diff_render must use what it is capable to figure out
+        // otherwise, live_render would be degraded not being able to reflect updated info
+        // it can't rely on diff_values, since they won't be computed when loading from DB
+        // therefore, the only chance to get extra info would be into $meta
+        if (empty($prop['meta'])) {
+          $prop['meta'] = array();
+        }
+        // copy into meta the most useful info
+        // without making property definitions to explicitly pack it
+        // this will allow modules to discriminate
+        // if a property is of their own or being delegated
+        foreach (array('node_type', 'realm', 'target', 'provider') as $key) {
+          $prop['meta'][$key] = $prop[$key];
+        }
+      }
+      $driven_props = array_merge($driven_props, $props_def);
+    }
+    
+    // 3rd party modules might want to add more settings
+    // or twist existing ones, but it is highly recommended
+    // to restrict altering for their own use
+    // e.g. comment_driven to disable unsupported cck properties
+    // but that can be achieved in another fashion
+    // (see comment_driven_unsupported_driven_props used by driven_props)
+    // it also can be done in form_alter,
+    // but that only ensures UI displaying disabled checkboxes
+    // and not actually whipping out properties that might become unsupported
+    // e.g. due to a changed CCK widget
+    //drupal_alter($hook, $driven_props, $node_type);
+    
+    // lets allow safely extending meta
+    // e.g. driven_diff to flag unsupported cck properties
+    // and add voc_override meta for content_taxonomy
+    // BUT then driven_diff will require extended properties
+    // i.e. it won't work with sets of driven properties
+    // not extended to meet its needs
+    // (see driven_diff_driven_properties_meta_extension)
+    $hook = 'driven_properties_meta_extension';
+    foreach (module_implements($hook) as $module) {
+      $function = $module . '_' . $hook;
+      $meta_extensions = $function($driven_props);
+      foreach ($meta_extensions as $property_id => $meta_ext) {
+        $prop = &$driven_props[$property_id];
+        $meta = &$prop['meta'];
+        $meta[$module] = $meta_ext;
+      }
+    }
+    
+    $available_properties[$node_type] = $driven_props;
+  }
+  return $available_properties[$node_type];
+}
+
+// @per-module-discrimination: support fieldgroup/content_multigroup
+function driven_build_properties_map($driven_props, $ned_form = NULL, $additions = FALSE) {
+  $property_map = array();
+  // property paths match the target in the property id (realm:target)
+  // EXCEPT for CCK's fieldgroup/multigroup
+  // without multigroups this mapping wouldn't be needed at all
+  // since standard fieldgroups can be mapped a priori
+  // (as well as taxonomy being free tag or not)
+  // 
+  // with CCK fieldgroup the property path would be group:target
+  // (since target is the field_name)
+  // and for CCK multigroup it might have different paths
+  // depending on whether it is form_alter (before after_build)
+  // or validate/submit (beyond after_build)
+  //
+  // beyond after_build multigroups are removed as if they never existed
+  // just leaving normal fields with their deltas synchronized
+  //
+  // the tough problem is before after_build,
+  // when the form is altered in such a fashion
+  // that makes a single property available at different paths
+  // multigroup->delta->field instead of field->delta
+  // i.e. group:#:target where the number doesn't have to be consecutive
+  // since there might be multigroup instances removed
+  // therefore, the node_form should be provided
+  // if those are the desired paths (i.e. to walk through the node_form)
+  
+  foreach ($driven_props as $property_id => $prop) {
+    $realm = $prop['realm'];
+    $target = $prop['target'];
+    $meta = $prop['meta'];
+    // the easiest case first
+    if (!empty($meta['bundle'])) {
+      // @per-module-discrimination: support workflow
+      // in passing by, normalize old body_field's wrapper_joint to the more generic case
+      // (e.g. node:body_field:bundled & workflow:workflow:bundled_schedule)
+      $bundle = $meta['bundle'];
+      // drop last part, which is only the bundle's holder
+      $prefix = explode(':', $target);
+      array_pop($prefix);
+      $prefix = implode(':', $prefix);
+      // map each bundled sub-element beneath the target
+      foreach ($bundle as $sub_target) {
+        $property_map[$prefix . ':' . $sub_target] = $prop;
+      }
+    }
+    elseif ($realm == 'taxo') {
+      $property_path = 'taxonomy:' . ($meta['tags'] ? 'tags:' : '') . $meta['vid'];
+      $property_map[$property_path] = $prop;
+    }
+    elseif ($realm != 'cck') {
+      $property_map[$target] = $prop;
+    }
+    else {
+      // CCK's meta:
+      // $node_type, $realm, $target, $provider,
+      // $group_name/type, $field_name/type/module/multiple, $widget_type/module/handle_multiple_values
+      // $driven_diff (note that driven_diff was added in driven_diff_driven_properties_meta_extension)
+      
+      $field_name = $target;
+      // it will be always set (at least to FALSE)
+      $group_name = $meta['group_name'];
+      
+      // the easiest case first
+      if (!$group_name) {
+        $property_map[$field_name] = $prop;
+      }
+      else {
+        $group_type = $meta['group_type'];
+        if ($group_type == 'standard') {
+          $property_map[$group_name . ':' . $field_name] = $prop;
+        }
+        elseif ($group_type == 'multigroup') {
+          // @per-module-discrimination: support content_multigroup
+          
+          // handle multigroups if $ned_form was provided
+          if (isset($ned_form)) {
+            if ($additions) {
+              // the add_more button is shared,
+              // it has to be marked by some property
+              // or won't be available due to driven_access_mask
+              $xkey = $group_name . '_add_more';
+              if (isset($ned_form[$group_name][$xkey])) {
+                // last property passing over here will be the one flagging it
+                // which will be incompatible partially enabling/disabling
+                // properties withing a multigroup
+                $property_map[$group_name . ':' . $xkey] = $prop;
+              }
+            }
+            foreach (element_children($ned_form[$group_name]) as $key) {
+              // only care about deltas (e.g. not group's add_more)
+              if (is_numeric($key)) {
+                $property_map[$group_name . ':' . $key . ':' . $field_name] = $prop;
+                if ($additions) {
+                  // the remove button and drag and drop weight,
+                  // have to be marked as well
+                  // or won't be available due to driven_access_mask
+                  foreach (array('_weight', '_remove') as $xkey) {
+                    if (isset($ned_form[$group_name][$key][$xkey])) {
+                      $property_map[$group_name . ':' . $key . ':' . $xkey] = $prop;
+                    }
+                  }
+                }
+              }
+            }
+          }
+          else {
+            // its path beyond after_build is desired
+            // (despite it is within a multigroup)
+            // therefore, it would be the same as with no group at all
+            $property_map[$field_name] = $prop;
+            // $property_map[$group_name . ':' . $field_name] = $prop; ??
+          }
+        }
+        else {
+          driven_assertion_failed('Unknown CCK\'s group_type: ' . $group_type);
+        }
+      }
+    }
+  }
+  
+  return $property_map;
+}
+
+function driven_build_property_paths_tree($properties_map, $attach_leaf = FALSE) {
+  // IMPORTANT: top level won't have associated #path
+  // to recognize it with empty($tree['#path'])
+  $tree = array();
+  foreach ($properties_map as $property_path => $leaf) {
+    $path_parts = explode(':', $property_path);
+    $branch = &$tree;
+    foreach ($path_parts as $key) {
+      if (empty($branch[$key])) {
+        $branch[$key] = array();
+      }
+      $branch[$key] += array(
+        '#path' => empty($branch['#path']) ? $key : ($branch['#path'] . ':' . $key),
+      );
+      $branch = &$branch[$key];
+    }
+    if ($attach_leaf) {
+      // property_paths_tree operates over property paths
+      // the rhs $leaf might be anything
+      // (usually the property itself if the $properties_map comes from driven_build_properties_map)
+      $branch['#leaf'] = $leaf;
+    }
+  }
+  return $tree;
+}
+
+function driven_form_signature() {
+  $form['driven_form_signature'] = array(
+    '#type' => 'markup',
+    '#value' => '<img id="driven-form-signature" style="float:right;" title="Powered by Driven API" alt="" src="' . drupal_get_path('module', 'driven') . '/driven-logo.jpg" />',
+  );
+  return $form;
+}
+
+function driven_assertion_failed($assertion, $driver_mod = 'driven') {
+  // @TODO: change to DRIVEN__REPORT__LOG for beta stage
+  $assertion_level = variable_get(DRIVEN__VAR_ASSERTION_LEVEL, DRIVEN__REPORT__BOTH);
+  if ($assertion_level) {
+    $msg = t('Assertion failed: "@assertion".', array('@assertion' => $assertion));
+    $msg .= ' ' . t('Please <a href="!url">report this bug</a>.', array('!url' => 'http://drupal.org/project/issues/' . $driver_mod));
+    
+    if ($assertion_level & DRIVEN__REPORT__DISPLAY) {
+      drupal_set_message($msg, 'error', FALSE);
+    }
+    if ($assertion_level & DRIVEN__REPORT__LOG) {
+      if (variable_get(DRIVEN__VAR_ASSERTION_BACKTRACE_LOG, 0)) {
+        // I rather prefer debug_print_backtrace() which is alredy formated
+        // than debug_backtrace() which dumps an unformated array structure
+        ob_start();
+        debug_print_backtrace();
+        $printed_backtrace = ob_get_contents();
+        ob_end_clean();
+        $msg .= '<br/><code>' . nl2br($printed_backtrace) . '</code>';
+      }
+      watchdog($driver_mod, $msg, NULL, WATCHDOG_ERROR);
+    }
+  }
+}

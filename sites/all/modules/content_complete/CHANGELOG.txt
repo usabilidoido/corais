@@ -1,0 +1,48 @@
+// $Id: CHANGELOG.txt,v 1.1.2.4 2010/10/08 14:33:54 pvhee Exp $
+
+Content Complete 1.4, 2010-08-10
+--------------------------------
+- Note: this will be the last D6 release of Content Complete; all new development will be for D7 only;
+  there might still be bug fix releases or releases with back-ports from D7
+- #898532 - checked if array parameters exist in node type
+- #893896 by Urme, fixed bug in nextfield translation
+- #860668 by WorldFallz, added complete/incomplete views filter
+
+Content Complete 1.3, 2010-16-05
+--------------------------------
+- fixed bug in the update procedure that occurred when content complete was not configured
+- #682972 by phayes, added caching for data array next to percentage; upgrade path provided
+- added views handler for new completeness data, and added data calculations for the views completeness plugin
+- #704464 by eMPee584, PHP_ALL
+- First unit test added, check completeness of a single node (title and body field)
+- #596978 by sinasquax, fixed problem in delete query
+- #791722 by artscoop, always set nextfield so it does not get unwanted values when no nextfield is set
+- #751796 by tedfordgif, fixed checking for emptiness of CCK fields
+
+Content Complete 1.2, 2009-18-10
+--------------------------------
+- Complete calculation per node
+- Settings are stored along with the content type instead of in a separate
+  table
+- Completeness values are cached in the database
+- Views integration to retrieve completeness per node + style plugin to 
+  compute completeness over a series of nodes
+- Batch API integration to rebuild cache
+- To rebuild the cache, go to the settings menu at 
+  admin/content/content_complete
+- Blocks can be hidden when 100% is reached. This is configurable
+  in the block.
+- Rules integration now works on the current node, no content type
+  needs to be passed in the configuration
+
+Content Complete 1.1, 2009-04-22 
+--------------------------------
+- Theming options added to make the complete bar fully customizable 
+  (see README.txt for instructions)
+
+Content Complete 1.1, 2009-03-09 
+--------------------------------
+- First version of Content Complete released
+- Rules integration
+- Content Complete calculation per node content type, only first node
+  considered

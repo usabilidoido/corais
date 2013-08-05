@@ -1,0 +1,64 @@
+<?php
+// $Id: gmapfield.install,v 1.1.2.2 2009/11/22 18:24:01 zzolo Exp $
+
+/**
+ * @file
+ * Install file for the Image Mapper Module
+ *
+ * @notes
+ *
+ * @todo
+ */
+
+/**
+ * Implementation of hook_enable().
+ */
+function gmapfield_enable() {
+  // CCK prep
+  drupal_load('module', 'content');
+  content_notify('enable', 'gmapfield');
+  // Set a message to the user
+  $t_array = array(
+    '@module' => 'GMap Field',
+  );
+  drupal_set_message(t('@module enabled;', $t_array));
+}
+
+/**
+ * Implementation of hook_disable().
+ */
+function gmapfield_disable() {
+  // CCK prep
+  drupal_load('module', 'content');
+  content_notify('disable', 'gmapfield');
+  // Set message
+  drupal_set_message(t('@module disabled.', array('@module' => 'GMap Field')));
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function gmapfield_install() {
+  // CCK prep
+  drupal_load('module', 'content');
+  content_notify('install', 'gmapfield');
+  // Set message
+  drupal_set_message(st('@module installed.', array('@module' => 'GMap Field')));
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function gmapfield_uninstall() {
+  // CCK prep
+  drupal_load('module', 'content');
+  content_notify('uninstall', 'gmapfield');
+  // Get module variables
+  $results = db_query("SELECT v.name FROM {variable} as v WHERE name like '%s%%'", 'gmapfield');
+  // Remove variables
+  while ($row = db_fetch_array($results)) {
+    variable_del($row['name']);
+  }
+  // Set message
+  drupal_set_message(st('@module uninstalled; Variables removed.', array('@module' => 'GMap Field')));
+}

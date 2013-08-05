@@ -1,0 +1,13 @@
+; $Id: gmapfield.info,v 1.1 2008/11/06 06:07:19 binarybill Exp $
+name = GMap Field
+description = "Create CCK field for GMaps.  Input a GMap Macro and then it will be centered at the node's coordinates via Location or other CCK fields."
+core = 6.x
+package = CCK
+dependencies[] = content
+dependencies[] = gmap
+; Information added by drupal.org packaging script on 2009-11-22
+version = "6.x-1.0-beta1"
+core = "6.x"
+project = "gmapfield"
+datestamp = "1258914669"
+

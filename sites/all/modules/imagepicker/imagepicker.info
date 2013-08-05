@@ -1,0 +1,12 @@
+; $Id: imagepicker.info,v 1.2.2.1 2009/03/07 21:19:34 hutch Exp $
+name = Imagepicker
+description = Upload, browse and add images to your nodes.
+package = Other
+core = 6.x
+
+; Information added by drupal.org packaging script on 2010-12-01
+version = "6.x-2.10"
+core = "6.x"
+project = "imagepicker"
+datestamp = "1291236369"
+

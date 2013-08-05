@@ -1,0 +1,10 @@
+name = Node access rebuild bonus
+description = "Additions to the 'content access rebuild' functionality."
+core = 6.x
+dependencies[] = node
+; Information added by drupal.org packaging script on 2011-11-21
+version = "6.x-1.4"
+core = "6.x"
+project = "node_access_rebuild_bonus"
+datestamp = "1321874744"
+

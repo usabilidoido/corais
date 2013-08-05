@@ -1,0 +1,95 @@
+
+a.coolaid-launch {
+  display: block;
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  z-index: 400;
+  width: 32px;
+  height: 32px;
+  background: transparent url(coolaid.png) no-repeat 0 0;
+  _background: transparent url(coolaid.gif) no-repeat 0 0;
+  text-decoration: none;
+  border: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  text-indent: -10000px;
+  line-height: 0px;
+  outline: none;
+  cursor: pointer;
+  cursor: hand;
+}
+
+a.coolaid-launch:hover {
+  background-position: 0 -32px;
+}
+
+a.coolaid-add-message {
+  background-position: -64px 0;
+}
+
+a.coolaid-add-message:hover {
+  background-position: -64px -32px;
+}
+
+div#coolaid-overlay {
+  background-color: black;
+  z-index: 100000;
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  display: none;
+}
+
+div.coolaid {
+  width: 100%;
+}
+
+div.coolaid-sup {
+  z-index: 100500;
+  max-height: 80%;
+  overflow: auto;
+  background-color: white;
+  margin: 0 auto;
+}
+
+div.coolaid div.help {
+  padding: 32px 16px;
+}
+
+div.coolaid-sup div.help {
+  padding: 32px 16px;
+  margin: 0;
+}
+
+a.coolaid-admin {
+  display: block;
+  text-align: right;
+}
+
+a.coolaid-close {
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  display: block;
+  width: 32px;
+  height: 32px;
+  background: transparent url(coolaid.png) no-repeat -32px 0;
+  _background: transparent url(coolaid.gif) no-repeat -32px 0;
+  text-decoration: none;
+  border: none;
+  margin: 4px 4px;
+  padding: 0;
+  overflow: hidden;
+  text-indent: -10000px;
+  line-height: 0px;
+  outline: none;
+  z-index: 105000;
+  cursor: pointer;
+  cursor: hand;
+}
+
+a.coolaid-close:hover {
+  background-position: -32px -32px;
+}

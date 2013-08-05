@@ -1,0 +1,88 @@
+<?php
+// $Id: purl_test.module,v 1.1.2.2 2009/12/18 17:25:16 jmiccolis Exp $
+
+/**
+ * Implementation of hook_menu().
+ */
+function purl_test_menu() {
+  return array(
+    'admin/build/testing/purl' => array(
+      'page callback' => 'purl_test_page',
+      'page arguments' => array(),
+      'access callback' => 'user_access',
+      'access arguments' => array('administer site configuration'),
+      'type' => MENU_CALLBACK,
+    ),
+  );
+}
+
+/**
+ * Test page callback.
+ */
+function purl_test_page() {
+  $tests = array();
+  $tests[] = t('Rewrite: !link', array('!link' => purl_test_remove_base_path(url('node'))));
+  $tests[] = t('Disable providers: !link', array('!link' => purl_test_remove_base_path(url('node', array('purl' => array('disabled' => TRUE))))));
+  $tests[] = t('Remove provider: !link', array('!link' => purl_test_remove_base_path(url('node', array('purl' => array('remove' => array('purl_test')))))));
+  $tests[] = t('Add provider: !link', array('!link' => purl_test_remove_base_path(url('node', array('purl' => array('add' => array(array('provider' => 'purl_alt', 'id' => 'sweden'))))))));
+  return implode('<br/>', $tests);
+}
+
+/**
+ * Helper function to remove $base_path from testing links.
+ */
+function purl_test_remove_base_path($link) {
+  global $base_path;
+  if ($base_path != '/') {
+    return substr($link, strlen($base_path) - 1);
+  }
+  return $link;
+}
+
+/**
+ * Implementation of hook_purl_provider().
+ */
+function purl_test_purl_provider() {
+  $items = array();
+  $items['purl_test'] = array(
+    'name' => t('PURL test'),
+    'description' => t('Provider for use with PURL tests.'),
+    'callback' => 'purl_test_activate',
+    'callback arguments' => array(),
+    'example' => 'foo',
+  );
+  $items['purl_alt'] = array(
+    'name' => t('PURL test (alternate provider)'),
+    'description' => t('Alternate provider for use with PURL tests.'),
+    'callback' => 'purl_test_activate',
+    'callback arguments' => array(),
+    'example' => 'sweden',
+  );
+  return $items;
+}
+
+/**
+ * PURL callback for test providers.
+ */
+function purl_test_activate($value) {
+  $modifiers = purl_test_purl_modifiers();
+  drupal_set_message(t('PURL test ID: @id', array('@id' => $value)));
+}
+
+/**
+ * Implementation of hook_purl_modifiers().
+ */
+function purl_test_purl_modifiers() {
+  return array(
+    'purl_test' => array(
+      array('value' => 'foo', 'id' => 'foo'),
+      array('value' => 'bar', 'id' => 'bar'),
+      array('value' => 'baz', 'id' => 'baz'),
+    ),
+    'purl_alt' => array(
+      array('value' => 'sweden', 'id' => 'sweden'),
+      array('value' => 'norway', 'id' => 'norway'),
+      array('value' => 'finland', 'id' => 'finland'),
+    ),
+  );
+}

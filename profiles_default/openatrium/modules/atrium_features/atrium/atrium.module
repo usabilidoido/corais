@@ -1,0 +1,683 @@
+<?php
+
+include_once('atrium.features.inc');
+
+/**
+ * Users may view all members of the site.
+ */
+define('ATRIUM_MEMBERS_ALL', 0);
+
+/**
+ * Users may only view members that belong to their groups.
+ */
+define('ATRIUM_MEMBERS_GROUP', 1);
+
+/**
+ * Use a "team/push" model for notifications.
+ */
+define('ATRIUM_NOTIFICATIONS_TEAM', 0);
+
+/**
+ * Use a "subscribe/pull" model for notifications.
+ */
+define('ATRIUM_NOTIFICATIONS_SUBSCRIBE', 1);
+
+/**
+ * Implementation of hook_init().
+ * Test: AtriumTest->testArchive().
+ */
+function atrium_init() {
+  // Alert the user that they are browsing an archived group.
+  $space = spaces_get_space();
+  if ($space && $space->type === 'og' && !$space->group->status && empty($_POST)) {
+    drupal_set_message(atrium_archived_message($space->group), 'status', FALSE);
+  }
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function atrium_menu() {
+  $items = array();
+  $items['access-denied'] = array(
+    'title' => 'Access denied',
+    'page callback' => 'atrium_403',
+    'page arguments' => array(),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+    'file' => 'atrium.inc',
+  );
+  $items['not-found'] = array(
+    'title' => 'Page not found',
+    'page callback' => 'atrium_404',
+    'page arguments' => array(),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+    'file' => 'atrium.inc',
+  );
+  $items['help'] = array(
+    'title' => 'Help',
+    'description' => 'Information and help about using the site.',
+    'page callback' => 'atrium_help_page',
+    'access callback' => 'user_access',
+    'access arguments' => array('access content'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'atrium.inc',
+  );
+  $items['node/%node/archive'] = array(
+    'title' => 'Archive',
+    'description' => 'Archive confirmation for archivable nodes.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('atrium_archive', 1),
+    'access callback' => 'atrium_archive_access',
+    'access arguments' => array('archive', 1),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'atrium.inc',
+    'weight' => 10,
+  );
+  $items['node/%node/reactivate'] = array(
+    'title' => 'Reactivate',
+    'description' => 'Reactivate confirmation for unpublished nodes.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('atrium_reactivate', 1),
+    'access callback' => 'atrium_archive_access',
+    'access arguments' => array('reactivate', 1),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'atrium.inc',
+    'weight' => 10,
+  );
+  $items['my-dashboard'] = array(
+    'title' => 'Dashboard',
+    'page callback' => 'atrium_dashboard_redirect',
+    'access callback' => 'user_access',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+    'file' => 'atrium.inc',
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_menu_alter().
+ */
+function atrium_menu_alter(&$items) {
+  // Replace search callbacks
+  if (module_exists('search')) {
+    $unset = array('search', 'search/node/%menu_tail', 'search/user/%menu_tail');
+    foreach ($unset as $path) {
+      if (!empty($items[$path])  && $items[$path]['module'] == 'search') {
+        unset($items[$path]);
+      }
+    }
+  }
+
+  // Kill undesirable menu items
+  $yank = array(
+    'rss.xml',
+    'node',
+    'node/%node/outline',
+  );
+  foreach ($yank as $path) {
+    if (!empty($items[$path])) {
+      unset($items[$path]);
+    }
+  }
+}
+
+/**
+ * Implementation of hook_block().
+ */
+function atrium_block($op = 'list', $delta = 0) {
+  switch ($op) {
+    case 'list':
+      $info = array(
+        'account' => array('info' => t('Atrium: User account')),
+        'admin_links' => array('info' => t('Atrium: Admin links')),
+        'create' => array('info' => t('Atrium: Create content')),
+        'search' => array('info' => t('Atrium: Search form')),
+        'user_links' => array('info' => t('Atrium: User links')),
+        'help' => array('info' => t('Atrium: Help')),
+        'welcome_admin' => array('info' => t('Welcome (for admins)')),
+        'welcome_member' => array('info' => t('Welcome (for members)')),
+      );
+      return $info;
+    case 'view':
+      module_load_include('inc', 'atrium', 'atrium.block');
+      $function = "_atrium_block_{$delta}";
+      if (function_exists($function)) {
+        return call_user_func($function);
+      }
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function atrium_theme() {
+  return array(
+    'atrium_welcome' => array(
+      'arguments' => array('content' => '', 'links' => array(), 'admin' => ''),
+      'template' => 'atrium-welcome',
+      'path' => drupal_get_path('module', 'atrium') .'/theme',
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function atrium_form_alter(&$form, &$form_state, $form_id) {
+  switch ($form_id) {
+    // Set login layout via context, pass through.
+    case 'user_login':
+    case 'user_pass':
+    case 'user_register':
+      context_set('context', 'layout_login', context_load('layout_login'));
+    // Form alter handling via callbacks
+    case 'comment_form':
+    case 'spaces_features_form':
+    case 'system_themes_form':
+    case 'node_type_form':
+    case 'views_exposed_form':
+      module_load_include('inc', 'atrium', 'atrium');
+      $function = "_atrium_form_{$form_id}_alter";
+      if (function_exists($function)) {
+        $function($form, $form_state);
+      }
+      break;
+  }
+
+  //  Crappy exception for node form.
+  if ($form['#id'] == 'node-form') {
+    module_load_include('inc', 'atrium', 'atrium');
+    $function = "_atrium_form_node_form_alter";
+    if (function_exists($function)) {
+      $function($form, $form_state);
+    }
+  }
+
+  // Disable notifications when editing a post outside of a group space
+  if ((!empty($form['#node']) || $form_id == 'comment_form') && isset($form['notifications'])) {
+    $space = spaces_get_space();
+    if (empty($space) || $space->type != 'og') {
+      $form['notifications']['#access'] = FALSE;
+    }
+  }
+}
+
+/**
+ * Implementation of hook_form_alter() for spaces_features_form.
+ * Allows user dashboards to be selected as frontpage.
+ */
+function atrium_form_spaces_features_form_alter(&$form, &$form_state) {
+  if (!spaces_get_space()) {
+    $form['site_frontpage']['#options'] = array_merge(array('my-dashboard' => t('User dashboard')), $form['site_frontpage']['#options']);
+    $form['site_frontpage']['#default_value'] = variable_get('site_frontpage', 'node') === 'my-dashboard' ? 'my-dashboard' : $form['site_frontpage']['#default_value'];
+  }
+}
+
+/**
+ * Trigger a features rebuild.
+ */
+function atrium_form_spaces_features_form_submit(&$form, &$form_state) {
+  module_load_include('inc', 'features', 'features.export');
+  features_include();
+  $semaphore = features_semaphore('get', 'user_permission');
+
+  // If there is no processing semaphore for user permissions or it is stale
+  // go ahead with a forced rebuild.
+  if (!$semaphore || (time() - $semaphore) >= FEATURES_SEMAPHORE_TIMEOUT) {
+    features_rebuild(array('atrium' => array('user_permission')));
+  }
+  else {
+    drupal_set_message(t('Your changes could not be saved because user permissions are currently being rebuilt. Please try again in a few minutes.'), 'error');
+  }
+}
+
+/**
+ * Implementation of hook_user_default_permissions_alter().
+ */
+function atrium_user_default_permissions_alter(&$perms) {
+  if (isset($perms['access administration pages'])) {
+    global $profile;
+    if (!variable_get('user_register', FALSE)) {
+      $perms['access user profiles'] = array(
+        'name' => 'access user profiles',
+        'roles' => array('authenticated user'),
+      );
+      $perms['access content'] = array(
+        'name' => 'access content',
+        'roles' => array('authenticated user'),
+      );
+      $perms['access comments'] = array(
+        'name' => 'access comments',
+        'roles' => array('authenticated user'),
+      );
+      $perms['view revisions'] = array(
+        'name' => 'view revisions',
+        'roles' => array('authenticated user'),
+      );
+    }
+    else {
+      $perms['access user profiles'] = array(
+        'name' => 'access user profiles',
+        'roles' => array('anonymous user', 'authenticated user'),
+      );
+      $perms['access content'] = array(
+        'name' => 'access content',
+        'roles' => array('anonymous user', 'authenticated user'),
+      );
+      $perms['access comments'] = array(
+        'name' => 'access comments',
+        'roles' => array('anonymous user', 'authenticated user'),
+      );
+      $perms['view revisions'] = array(
+        'name' => 'view revisions',
+        'roles' => array('anonymous user', 'authenticated user'),
+      );
+    }
+    switch (variable_get('atrium_members', ATRIUM_MEMBERS_GROUP)) {
+      case ATRIUM_MEMBERS_ALL:
+        $perms['view users outside groups'] = array(
+          'name' => 'view users outside groups',
+          'roles' => array('anonymous user', 'authenticated user', 'manager', 'administrator'),
+        );
+        break;
+      case ATRIUM_MEMBERS_GROUP:
+        $perms['view users outside groups'] = array(
+          'name' => 'view users outside groups',
+          'roles' => array('manager', 'administrator'),
+        );
+        break;
+    }
+    switch (variable_get('atrium_notifications', ATRIUM_NOTIFICATIONS_TEAM)) {
+      case ATRIUM_NOTIFICATIONS_TEAM:
+        !module_exists('notifications_team') ? drupal_install_modules(array('notifications_team')) : TRUE;
+        module_exists('notifications_ui') ? module_disable(array('notifications_ui')) : TRUE;
+        // Change affects a context_defaults_alter(). Clear cache.
+        context_invalidate_cache();
+        $perms['subscribe other users'] = array(
+          'name' => 'subscribe other users',
+          'roles' => array('authenticated user', 'manager', 'administrator'),
+        );
+        break;
+      case ATRIUM_NOTIFICATIONS_SUBSCRIBE:
+        module_exists('notifications_team') ? module_disable(array('notifications_team')) : TRUE;
+        !module_exists('notifications_ui') ? drupal_install_modules(array('notifications_ui')) : TRUE;
+        // Change affects a context_defaults_alter(). Clear cache.
+        context_invalidate_cache();
+        break;
+    }
+  }
+}
+
+/**
+ * Submit handler for system_themes_form show themes toggler.
+ */
+function atrium_system_themes_form_submit($form_state) {
+  $setting = variable_get('atrium_show_all_themes', FALSE);
+  variable_set('atrium_show_all_themes', !$setting);
+}
+
+/**
+ * Form for toggling the current node's comment state.
+ * Test: AtriumTest->testCommentToggle()
+ */
+function atrium_comment_thread_toggleform($form_state, $action = 'close', $nid) {
+  $form = array();
+  $form['nid'] = array(
+    '#type' => 'value',
+    '#value' => $nid,
+  );
+  $form['comment_toggle'] = array(
+    '#type' => 'submit',
+    '#submit' => array('atrium_comment_thread_toggleform_submit'),
+    '#value' => $action == 'close' ? t('Close comment thread') : t('Reopen comment thread'),
+  );
+  return $form;
+}
+
+/**
+ * Comment thread toggle submit handler.
+ */
+function atrium_comment_thread_toggleform_submit($form, $form_state) {
+  if (!empty($form_state['values']['nid']) && $node = $form_state['values']['nid']) {
+    // Load that node afresh.
+    $node = node_load($form_state['values']['nid'], NULL, TRUE);
+    $node->comment = $node->comment == COMMENT_NODE_READ_WRITE ? COMMENT_NODE_READ_ONLY : COMMENT_NODE_READ_WRITE;
+    node_save($node);
+  }
+}
+
+/**
+ * Implementation of hook_link().
+ * Adds print stack handling. Must be supported by the theme layer --
+ * e.g. use the Tao base theme for full print support.
+ */
+function atrium_link($type, $object, $teaser = FALSE) {
+  $links = array();
+  if ($type == 'node' && menu_get_object() === $object) {
+    // Set the canonical URL so search engines don't index the print friendlies.
+    drupal_add_link(array('rel' => 'canonical', 'href' => url($_GET['q'], array('absolute' => TRUE))));
+    $links['print'] = array(
+      'title' => t('Print'),
+      'href' => $_GET['q'],
+      'query' => 'print',
+    );
+    if (module_exists('book') && book_type_is_allowed($object->type)) {
+      $links['print_recurse'] = array(
+        'title' => t('Print entire section'),
+        'href' => $_GET['q'],
+        'query' => 'print&book_recurse'
+      );
+    }
+  }
+  return $links;
+}
+
+/**
+ * Implementation of hook_link_alter().
+ */
+function atrium_link_alter(&$links, $node) {
+  // Remove new comments link.
+  if (!empty($links['comment_new_comments']) && !empty($links['comment_comments'])) {
+    unset($links['comment_comments']);
+  }
+  // Remove book print link.
+  if (!empty($links['book_printer'])) {
+    unset($links['book_printer']);
+  }
+  // Remove links that are inaccessible.
+  foreach ($links as $key => $link) {
+    if (($item = menu_get_item($link['href'])) && !$item['access']) {
+      unset($links[$key]);
+    }
+  }
+}
+
+/**
+ * Implemenation of hook_nodeapi().
+ */
+function atrium_nodeapi(&$node, $op, $teaser = NULL, $page = NULL) {
+  switch ($op) {
+    case 'view':
+      // Display a message for archived content
+      // Test: AtriumTest->testArchive().
+      if (menu_get_object() === $node && $op == 'view' && $node->status == 0) {
+        drupal_set_message(atrium_archived_message($node), 'status', FALSE);
+      }
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_context_links_alter();
+ */
+function atrium_context_links_alter(&$links) {
+  if (context_get('spaces', 'dashboard') && spaces_dashboard_access('admin')) {
+    $links['spaces-dashboard'] = array(
+      'title' => t('Customize dashboard'),
+      'href' => $_GET['q'],
+      'fragment' => 'block-spaces_dashboard-editor',
+      'attributes' => array(
+        'class' => 'palette-toggle',
+      ),
+    );
+  }
+}
+
+/**
+ * Implementation of hook_context_default_contexts_alter().
+ */
+function atrium_context_default_contexts_alter(&$contexts) {
+  // Conditionally add the notifications UI subscription block.
+  if (module_exists('notifications_ui') && !empty($contexts['global'])) {
+    $contexts['global']->reactions['block']['blocks']['notifications_ui-0'] = array(
+      'module' => 'notifications_ui',
+      'delta' => '0',
+      'weight' => 48,
+      'region' => 'page_tools',
+    );
+  }
+}
+
+/**
+ * Implementation of hook_views_pre_build().
+ */
+function atrium_views_pre_build(&$view) {
+  // When OG public nodes are in play it is (very) possible to get
+  // duplicate rows because of the node_access() JOIN and WHERE
+  // combination. This is a rather brute force method of making
+  // sure this doesn't affect our Views without going through every
+  // default view and setting the distinct flag.
+  global $user;
+  if ($user->uid != 0 && !user_access('administer nodes') && in_array($view->base_table, array('node', 'comments'), TRUE)) {
+    $view->display_handler->set_option('distinct', 1);
+  }
+}
+
+/**
+ * Preprocessor for theme('atrium_welcome').
+ */
+function atrium_preprocess_atrium_welcome($vars) {
+  if (!empty($vars['links'])) {
+    $vars['columns'] = array_chunk($vars['links'], ceil(count($vars['links']) / 2));
+  }
+}
+
+/**
+ * Preprocessor for theme('views_view').
+ */
+function atrium_preprocess_views_view(&$vars) {
+  $view = $vars['view'];
+  if ($view->base_table === 'node' && strpos($view->current_display, 'page') !== FALSE && empty($view->result) && empty($vars['empty'])) {
+    foreach ($view->filter as $handler) {
+      if ($handler->table === 'node' && $handler->field === 'type' && !empty($handler->options['value'])) {
+        foreach (array_filter($handler->options['value']) as $type) {
+          $item = menu_get_item('node/add/'. strtr($type, array('_' => '-')));
+          if ($item && $item['access']) {
+            $output = t('Please add your first @type to get started.', array('@type' => node_get_types('name', $type)));
+            $output .= "<div class='buttons'>". theme('links', context_links()) ."</div>";
+          }
+        }
+        break;
+      }
+    }
+    $vars['empty'] = !empty($output) ? $output : t('There is currently no content to view in this section.');
+  }
+}
+
+/**
+ * Preprocessor for theme('node').
+ * The use of the 'post_object' key in this preprocess requires a tao-based
+ * theme to be in use to render the content.
+ * Test: AtriumTest->testCommentToggle()
+ */
+function atrium_preprocess_node(&$vars) {
+  if ($vars['node'] === menu_get_object() && node_access('update', $vars['node']) && in_array($vars['node']->comment, array(COMMENT_NODE_READ_ONLY, COMMENT_NODE_READ_WRITE))) {
+    $action = $vars['node']->comment == COMMENT_NODE_READ_WRITE ? 'close' : 'reopen';
+    $toggleform = theme('box', '', drupal_get_form('atrium_comment_thread_toggleform', $action, $vars['node']->nid));
+    if (!isset($vars['post_object'])) {
+      $vars['post_object'] = $toggleform;
+    }
+    else {
+      $vars['post_object'] .= $toggleform;
+    }
+  }
+}
+
+/**
+ * API Functions ======================================================
+ */
+
+/**
+ * Generates an array of account links suitable for use in theme_links().
+ */
+function atrium_account_links() {
+  global $user;
+  $links = array();
+
+  // @TODO: If menu.inc had a real API function for this we would use it, but
+  // as of now we'd have a copy hand paste hack job of menu_local_tasks()...
+  $paths = array(
+    "user/{$user->uid}" => t('Profile'),
+    "user/{$user->uid}/dashboard" => '',
+    "user/{$user->uid}/edit" => '',
+    "user/{$user->uid}/notifications" => '',
+    'logout' => '',
+  );
+  foreach ($paths as $path => $title) {
+    $item = menu_get_item($path);
+    if ($item && $item['access']) {
+      $links[] = array(
+        'title' => !empty($title) ? $title : $item['title'],
+        'href' => $item['href'],
+      );
+    }
+  }
+  drupal_alter('atrium_account_links', $links);
+  return $links;
+}
+
+/**
+ * Generates an array of admin links for the current space suitable
+ * for use in theme_links().
+ */
+function atrium_admin_links($space = NULL) {
+  $links = array();
+  $space = !isset($space) ? spaces_get_space() : $space;
+
+  $reorder = array(
+    'title' => t('Reorder menu'),
+    'href' => $_GET['q'],
+    'fragment' => 'block-spaces-menu_editor',
+    'attributes' => array('class' => 'palette-toggle'),
+  );
+
+  // Within a space
+  if ($space) {
+    if ($space->type == 'og' && spaces_access_admin()) {
+      $item = menu_get_item("node/{$space->id}/edit");
+      if ($item && $item['access']) {
+        $links['settings'] = array(
+          'title' => t('@type settings', array('@type' => node_get_types('name', $space->group->type))),
+          'href' => $item['href'],
+        );
+      }
+
+      $item = menu_get_item("node/{$space->id}/features");
+      if ($item && $item['access']) {
+        $links['features'] = array(
+          'title' => t('Customize features'),
+          'href' => $item['href'],
+        );
+      }
+
+      $links['reorder'] = $reorder;
+
+      $item = $space->group->status ? menu_get_item("node/{$space->id}/archive") : menu_get_item("node/{$space->id}/reactivate");
+      if ($item && $item['access']) {
+        $links['archive'] = array(
+          'title' => $item['title'],
+          'href' => $item['href'],
+        );
+      }
+    }
+  }
+  // Sitewide
+  else if (user_access('administer site configuration')) {
+    $links['features'] = array(
+      'title' => t('Customize features'),
+      'href' => "features",
+    );
+    $links['reorder'] = $reorder;
+  }
+  drupal_alter('atrium_admin_links', $links, $space);
+  return $links;
+}
+
+/**
+ * Generates an array of user links for the current space suitable
+ * for use in theme_links().
+ */
+function atrium_user_links($space = NULL) {
+  $space = !isset($space) ? spaces_get_space() : $space;
+  if ($space && $space->type == 'og' && $space->access_space()) {
+    // TODO revist this
+    if ($subscribe = spaces_og_subscription_link()) {
+      $links['subscribe'] = $subscribe;
+    }
+    drupal_alter('atrium_user_links', $links, $space);
+    return $links;
+  }
+  return array();
+}
+
+/**
+ * Access callback for archive actions.
+ */
+function atrium_archive_access($action = 'archive', $node) {
+  switch ($action) {
+    case 'archive':
+      return $node->status && atrium_archivable($node) && node_access('update', $node);
+    case 'reactivate':
+      return !$node->status && atrium_archivable($node) && node_access('update', $node);
+  }
+  return FALSE;
+}
+
+/**
+ * Determine whether the given node is archivable.
+ */
+function atrium_archivable($node) {
+  $archivable = variable_get("atrium_archivable_{$node->type}", FALSE);
+  // Only allow root books to be archived.
+  if (book_type_is_allowed($node->type)) {
+    $archivable = $archivable && (!empty($node->book) && $node->book['plid'] == 0);
+  }
+  return $archivable;
+}
+
+/**
+ * Message to display for archived nodes.
+ */
+function atrium_archived_message($node) {
+  $message = t('This !type is <strong>archived</strong>. You may not add or alter any of its content.', array('!type' => node_get_types('name', $node->type)));
+  if (node_access('update', $node)) {
+    $message .= ' '. t('To reactivate this !type, !link.', array('!type' => node_get_types('name', $node->type), '!link' => l(t('click here'), "node/{$node->nid}/reactivate")));
+  }
+  return $message;
+}
+
+/**
+ * Search form.
+ */
+function atrium_search_form($form_state) {
+  if (arg(0) == 'search' && isset($_GET['keys'])) {
+    $default = urldecode($_GET['keys']);
+  }
+  $form = array();
+  $space = spaces_get_space();
+  $form['search'] = array(
+    '#title' => ($space && $space->type === 'og') ? t('Search @space', array('@space' => $space->title())) : t('Search'),
+    '#type' => 'textfield',
+    '#size' => 30,
+    '#required' => true,
+    '#default_value' => !empty($default) ? $default : '',
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Search'),
+    '#submit' => array('atrium_search_form_submit'),
+  );
+  return $form;
+}
+
+/**
+ * Search form submit handler.
+ */
+function atrium_search_form_submit($form, &$form_state) {
+  $search = $form_state['values']['search'];
+  drupal_goto('search', array('keys' => $search));
+}

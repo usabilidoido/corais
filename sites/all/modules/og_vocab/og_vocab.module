@@ -1,0 +1,675 @@
+<?php
+
+/**
+ * @file
+ * Give each group its own system controlled vocabularies.
+ */
+
+/**
+ * Implementation of hook_help().
+ */
+function og_vocab_help($path, $arg) {
+  // Get the menu item to determine the context.
+  $item = menu_get_item();
+  if ($item['path'] == 'node/%/og/vocab') {
+    return t('Add or edit vocabularies that pertain only to this group. Each vocabulary will be shown on the post authoring form. Use categories to organize content within your group.');
+  }
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function og_vocab_menu() {
+  // Taxonomy tab that will display the vocabularies associated with the group.
+  $items['node/%node/og/vocab'] = array(
+    'title'            => 'Taxonomy',
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('og_vocab_admin_overview_vocabularies', 1),
+    'access callback'  => 'og_vocab_determine_access',
+    'access arguments' => array(1, 'administer own group vocabulary'),
+    'weight'           => 6,
+    'type'             => MENU_LOCAL_TASK,
+    'file'             => 'og_vocab.admin.inc'
+    );
+
+  // Create a new vocabulary to be associated with the group.
+  $items['node/%node/og/vocab/add/vocabulary'] = array(
+    'title'            => 'Create vocabulary',
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('taxonomy_form_vocabulary'),
+    'access callback'  => 'og_vocab_determine_access',
+    'access arguments' => array(1, 'add own group vocabulary'),
+    'type'             => MENU_CALLBACK,
+    'file'             => 'taxonomy.admin.inc',
+    'file path'        => drupal_get_path('module', 'taxonomy'),
+  );
+
+  // Edit an existing vocabulary currently associated with the group.
+  $items['node/%node/og/vocab/edit/vocabulary/%taxonomy_vocabulary'] = array(
+    'title'            => 'Edit vocabulary',
+    'page callback'    => 'taxonomy_admin_vocabulary_edit',
+    'page arguments'   => array(6),
+    'access callback'  => 'og_vocab_determine_access',
+    'access arguments' => array(1, 'edit own group vocabulary', 6),
+    'type'             => MENU_CALLBACK,
+    'file'             => 'taxonomy.admin.inc',
+    'file path'        => drupal_get_path('module', 'taxonomy'),
+  );
+
+  // List the terms associated with the vocabulary.
+  $items['node/%node/og/vocab/terms/%taxonomy_vocabulary'] = array(
+    'title'            => 'List Terms',
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('taxonomy_overview_terms', 5),
+    'access callback'  => 'og_vocab_determine_access',
+    'access arguments' => array(1, 'administer own group vocabulary', 5),
+    'type'             => MENU_CALLBACK,
+    'weight'           => -10,
+    'file'             => 'taxonomy.admin.inc',
+    'file path'        => drupal_get_path('module', 'taxonomy'),
+  );
+
+  // List the terms associated with the vocabulary inherits properties
+  // from above.
+  $items['node/%node/og/vocab/terms/%taxonomy_vocabulary/list'] = array(
+    'title'            => 'List',
+    'type'             => MENU_DEFAULT_LOCAL_TASK,
+    'weight'           => -10,
+  );
+
+  // Create a new term and associate it with the vocabulary.
+  $items['node/%node/og/vocab/terms/%taxonomy_vocabulary/add_term'] = array(
+    'title'            => 'Add term',
+    'page callback'    => 'taxonomy_add_term_page',
+    'page arguments'   => array(5),
+    'access callback'  => 'og_vocab_determine_access',
+    'access arguments' => array(1, 'edit own group term', 5),
+    'type'             => MENU_LOCAL_TASK,
+    'file'             => 'taxonomy.admin.inc',
+    'file path'        => drupal_get_path('module', 'taxonomy'),
+  );
+
+  // Edit term.
+  $items['node/%node/og/vocab/terms/edit/%'] = array(
+    'title'            => 'Edit term',
+    'page callback'    => 'og_vocab_taxonomy_admin_term_edit',
+    'page arguments'   => array(6),
+    'access callback'  => 'og_vocab_determine_access',
+    'access arguments' => array(1, 'edit own group term', 6, 'term'),
+    'type'             => MENU_CALLBACK,
+    'file'             => 'taxonomy.admin.inc',
+    'file path'        => drupal_get_path('module', 'taxonomy'),
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function og_vocab_perm() {
+  $perm = array(
+    'administer own group vocabulary',
+    'add own group vocabulary',
+    'edit own group vocabulary',
+    'edit own group term',
+  );
+  if (module_exists('services')) {
+    $perm[] = 'access og_vocab service';
+  }
+  return $perm;
+}
+
+/**
+ * Implementation of hook_init().
+ */
+function og_vocab_init() {
+  // Load include files.
+  $modules = array(
+    'token',
+    'services',
+  );
+  foreach ($modules as $module) {
+    if (module_exists($module)) {
+      module_load_include('inc', 'og_vocab', "og_vocab.$module");
+    }
+  }
+  // Since this module has to run after taxonomy and before og_menu(),
+  // we just set group context.
+  $item = menu_get_item();
+  if ($item['path'] == 'taxonomy/term/%') {
+    // Get the term id from the menu item, and from it get the vocabulary.
+    $term = taxonomy_get_term($item['page_arguments'][0]);
+    // Check if the vocabulary is assoicated with a group.
+    if ($gid = og_vocab_get_group($term->vid)) {
+      // Set the group context.
+      og_set_group_context(node_load($gid));
+    }
+  }
+}
+
+/**
+ * Implementation of hook_nodeapi().
+ */
+function og_vocab_nodeapi(&$node, $op, $teaser = NULL, $page = NULL) {
+  switch ($op) {
+    case 'load':
+      if (og_is_group_type($node->type)) {
+        $node->og_vocabularies = og_vocab_get_vocabularies($node->nid);
+      }
+      break;
+    case 'delete':
+      if (og_is_group_type($node->type)) {
+        og_vocab_remove_all_records($node->nid);
+        foreach ($node->og_vocabularies as $vocabulary) {
+          taxonomy_del_vocabulary($vocabulary->vid);
+        }
+      }
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function og_vocab_form_alter(&$form, $form_state, $form_id) {
+  if (strpos($form_id, '_node_form') && !empty($form['taxonomy'])) {
+    // Remove from node form those vocabs that belong to groups other than
+    // us (if we even have a group).
+    $gids = array();
+    // Check if we edit an existing group post.
+    if (!empty($form['og_initial_groups'])) {
+      $gids = $form['og_initial_groups']['#value'];
+    }
+    // Check if usre clicked on 'Preview' while selecting group(s).
+    if (!empty($form_state['values']['og_groups'])) {
+      $gids = array_filter($form_state['values']['og_groups']);
+    }
+    elseif ($groupnode = og_get_group_context()) {
+      $gids[] = $groupnode->nid;
+    }
+    // If user is a member of only a single group and audience is required
+    // then we pass the single group.
+    if (!$gids && variable_get('og_audience_required', 0) == 1) {
+      global $user;
+      if (count($user->og_groups) == 1) {
+        $gids[] = current($user->og_groups);
+      }
+    }
+    if ($gids) {
+      // Remove og_vocab vocabularies that aren't in the context.
+      $placeholders = implode(', ', array_fill(0, count($gids), '%d'));
+      $where = 'ov.nid NOT IN ('. $placeholders .')';
+    }
+    else {
+      // Remove all og_vocab vocabularies.
+      $placeholders = '';
+      $where = 'ov.vid = v.vid';
+    }
+    $sql = "SELECT v.vid, v.tags FROM {vocabulary} v LEFT JOIN {og_vocab} ov ON v.vid = ov.vid WHERE $where";
+    $result = db_query($sql, $gids);
+    while ($row = db_fetch_object($result)) {
+      if ($row->tags) {
+        unset($form['taxonomy']['tags'][$row->vid]);
+      }
+      else {
+        unset($form['taxonomy'][$row->vid]);
+      }
+    }
+    // Remove categories fieldset if no vocabularies remain.
+    // First, unset tags if needed.
+    if (!count($form['taxonomy']['tags'])) {
+      unset($form['taxonomy']['tags']);
+    }
+
+    if (!count(element_children($form['taxonomy']))) {
+      unset($form['taxonomy']);
+    }
+
+    else{
+      // Make themeing the fieldst easier.
+      $form['taxonomy']['#attributes'] = array('class' => 'og-vocab-taxonomy');
+    }
+  }
+  elseif ($form_id == 'search_form') {
+    // We can't use hook_form_FORM-ID_alter, as the 'advanced' part is called
+    // later.
+    og_vocab_form_search_alter($form);
+  }
+}
+
+/**
+ * Implementation of hook_form_FORM-ID_alter().
+ *
+ * 1) Add group id to the vocabulary if it's a group context.
+ * 2) Add own submit handler.
+ *
+ * @see og_vocab_form_taxonomy_form_vocabulary_submit().
+ */
+function og_vocab_form_taxonomy_form_vocabulary_alter(&$form, &$form_state) {
+  // Get the menu item to determine the context.
+  $item = menu_get_item();
+  // Group vocab add/ edit vocabulary.
+  if (strpos($item['path'], 'node/%/og/vocab/') === 0) {
+    $form['og'] = array(
+      '#type' => 'value',
+      '#value' => $item['map'][1]->nid,
+    );
+    $group = og_get_types('group');
+    $omit = og_get_types('omitted');
+    $skip = drupal_map_assoc(array_merge($group, $omit));
+    if (function_exists('array_diff_key')) {
+      $form['content_types']['nodes']['#options'] = array_diff_key($form['content_types']['nodes']['#options'], $skip);
+    }
+    else {
+      // We can't use array_diff_key as it's PHP 5 function.
+      foreach($skip as $type){
+        unset($form['content_types']['nodes']['#options'][$type]);
+      }
+    }
+  }
+  // 'Regular' taxonomy administration page.
+  else {
+    if (user_access('administer groups')) {
+      $form['settings']['og_vocab'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Organic groups vocabulary'),
+        '#description' => t('A vocabulary can be associated with a certain group.'),
+        '#collapsible' => TRUE,
+      );
+      // Check if group is associated with vocabulary.
+      $default_value = !empty($form['vid']) ? og_vocab_get_group($form['vid']['#value']) : array();
+      // Get all the groups
+      $options = og_all_groups_options();
+      $form['settings']['og_vocab']['og'] = array(
+        '#type' => 'select',
+        '#title' => t('Group'),
+        '#description' => t('Select the group this vocabulary should be associated with. No association means this vocabulary can be used for <em>all</em> groups.'),
+        '#options' => array('0' => t('- None -')) + $options,
+        '#default_value' => $default_value,
+        '#disabled' => empty($options) || !user_access('administer organic groups'),
+      );
+      // Add submit handler.
+      $form['#submit'][] = 'og_vocab_form_taxonomy_form_vocabulary_submit';
+    }
+  }
+}
+
+function og_vocab_form_taxonomy_form_vocabulary_submit(&$form, $form_state) {
+  if (!empty($form_state['values']['og'])) {
+    $form['og'] = array(
+      '#type' => 'value',
+      '#value' => $form_state['values']['og'],
+    );
+  }
+}
+
+/**
+ * Implementation of hook_form_FORM-ID_alter().
+ *
+ * Redirect the cancel back to og_vocab.
+ */
+function og_vocab_form_taxonomy_vocabulary_confirm_delete_alter(&$form, &$form_state) {
+  $item = menu_get_item();
+  if ($item['path'] == 'node/%/og/vocab/edit/vocabulary/%') {
+    _og_vocab_redirect_cancel_to_og_vocab($form, $item);
+  }
+}
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ *
+ * Remove synonyms from the term adding/ editing form.
+ */
+function og_vocab_form_taxonomy_form_term_alter(&$form, &$form_state) {
+  $vocab = taxonomy_vocabulary_load($form['vid']['#value']);
+  if ($vocab->module == 'og_vocab') {
+    unset($form['advanced']['synonyms']);
+  }
+  $item = menu_get_item();
+  if (strpos($item['path'], 'node/%/og/vocab/terms') === 0) {
+    // This is edit term, so redirect back to og_vocab tab.
+    $form['#redirect'] = 'node/'.  $item['map'][1]->nid .'/og/vocab';
+    if (!empty($form['actions']['cancel'])) {
+      _og_vocab_redirect_cancel_to_og_vocab($form, $item);
+    }
+  }
+}
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ *
+ * Change the edit of a term to og vocab own edit term; or remove it if
+ * user doesn't have access to edit the terms.
+ */
+function og_vocab_form_taxonomy_overview_terms_alter(&$form, $form_state) {
+  $item = menu_get_item();
+  if ($item['path'] == 'node/%/og/vocab/terms/%') {
+    $remove = !user_access('edit own group term');
+    foreach ($form as $key => $element) {
+      if (strpos($key, 'tid:') === 0) {
+        if ($remove) {
+          unset($form[$key]['edit']);
+        }
+        else {
+          $form[$key]['edit']['#value'] = t('<a href="!edit">edit</a>', array('!edit' => url('node/'. $item['map'][1]->nid .'/og/vocab/terms/edit/'. $element['#term']['tid'])));
+        }
+
+      }
+    }
+    // Redirect back to the og_vocab tab.
+    if (!empty($form['destination'])) {
+      $form['destination']['#value'] = 'node/'. $item['map'][1]->nid .'/og/vocab';
+    }
+  }
+}
+
+/**
+ * Implementation of hook_taxonomy().
+ */
+function og_vocab_taxonomy($op, $type, $edit = NULL) {
+  if ($type == 'vocabulary') {
+    if ($op == 'update' || $op == 'insert'){
+      if (isset($edit['og'])) {
+        if ($edit['og']) {
+          og_vocab_write_record($edit['og'], $edit['vid']);
+        }
+        else {
+          // Delete an existing associationm, since 'og' == 0.
+          og_vocab_remove_record($edit['vid']);
+        }
+      }
+    }
+    elseif ($op == 'delete') {
+      og_vocab_remove_record($edit['vid']);
+    }
+  }
+}
+
+/**
+ * API function; Insert or update a record to the {og_vocab} table.
+ *
+ * @param $nid
+ *   The node id of the group.
+ * @param $vid
+ *   The vocabulary id.
+ */
+function og_vocab_write_record($nid, $vid) {
+  $record = array('nid' => $nid, 'vid' => $vid);
+  if (!og_vocab_get_group($vid)) {
+    // Insert a new record.
+
+    drupal_write_record('og_vocab', $record);
+  }
+  else {
+    // Update an existing record.
+    drupal_write_record('og_vocab', $record, array('vid'));
+  }
+}
+
+/**
+ * API function; Remove a record from the {og_vocab} table.
+ *
+ * @param $vid
+ *   The vocabulary id.
+ */
+function og_vocab_remove_record($vid) {
+  $sql = "DELETE FROM {og_vocab} WHERE vid = %d";
+  db_query($sql, $vid);
+}
+
+/**
+ * API function; Remove all vocabularies of a group.
+ *
+ * @param $vid
+ *   The vocabulary id.
+ */
+function og_vocab_remove_all_records($nid) {
+  $sql = "DELETE FROM {og_vocab} WHERE nid = %d";
+  db_query($sql, $nid);
+}
+
+/**
+ * API function; Get all the vocabularies associated with a group.
+ *
+ * @param $nid
+ *   The node id of the group.
+ */
+function og_vocab_get_vocabularies($nid) {
+  $sql = "SELECT * FROM {og_vocab} WHERE nid = %d";
+  $result = db_query($sql, $nid);
+  $vocabs = array();
+  while ($row = db_fetch_object($result)) {
+    $vocabs[$row->vid] = taxonomy_vocabulary_load($row->vid);
+  }
+  return $vocabs;
+}
+
+/**
+ * API function; Get the group associated with a vocabulary.
+ *
+ * @param $vid
+ *   The vocabulary id.
+ */
+function og_vocab_get_group($vid) {
+  $nid = db_fetch_array(db_query("SELECT nid FROM {og_vocab} WHERE vid = %d", $vid));
+  return !empty($nid) ? $nid : array();
+}
+
+/**
+ * API function; Get all the vocabs a user may access.
+ *
+ * This will include the global vocabualries (i.e. ones that aren't associated
+ * with a group), and the ones that are associated with a group the user is a
+ * member.
+ *
+ * @param $account
+ *   User object.
+ * @return
+ *   An array with the vocabulary IDs or an empty array if no vocabulary
+ *   was found.
+ */
+function og_vocab_get_accessible_vocabs($account = NULL) {
+  if (empty($account)) {
+    global $user;
+    $account = $user;
+  }
+  $vocabs = taxonomy_get_vocabularies();
+  if (!user_access('administer organic groups')) {
+    // Get all the groups a member is subscribed to.
+    $gids = drupal_map_assoc(array_keys(og_get_subscriptions($account->uid)));
+    foreach ($vocabs as $vid) {
+      // If vocabulary is associated with a group and the user isn't a member -
+      // remove it from the list.
+      if (($gid = og_vocab_get_group($vid->vid)) && !in_array($gid['nid'], $gids)) {
+        unset($vocabs[$vid->vid]);
+      }
+    }
+  }
+  return $vocabs;
+}
+
+/**
+ * Access function to determine if a user has access to the menu item.
+ *
+ * @param $node
+ *   The group node.
+ * @param $perm
+ *   The permission to check is user has.
+ * @param $id
+ *   Optional; The vocabulary ID or object or term ID, to check if belongs
+ *   to the group node.
+ * @param $type
+ *   Optional; If $id is populated, then this indicates what ID it represents.
+ *   Allowed values are "vocabulary" or "term". Defaults to "vocabulary".
+ *
+ * @return
+ *   TRUE if user has access to the menu item.
+ */
+function og_vocab_determine_access($node, $perm, $id = 0, $type = 'vocabulary') {
+  $access = TRUE;
+  if ($id) {
+    $access = FALSE;
+    if ($type == 'vocabulary') {
+      $vocab_id = is_object($id) ? $id->vid : $id;
+    }
+    else {
+      // Load the term, to get its vocabulary ID.
+      $term = taxonomy_get_term($id);
+      $vocab_id = $term->vid;
+    }
+    // Make sure vocabulary ID belongs to the group node.
+    if ($group = og_vocab_get_group($vocab_id)) {
+      $access = $node->nid == $group['nid'];
+    }
+  }
+
+  if ($access) {
+    // User with administer organic groups or group admins should have access
+    // regardless of permissions. Otherwise check the user is a member with the
+    // right permissions.
+    $access = og_is_group_admin($node) || (og_is_group_member($node->nid) && (user_access($perm))) || user_access('administer organic groups');
+  }
+
+  return $access;
+}
+
+
+/**
+ * Menu callback; Make sure the term id is a valid one and that can be accessed
+ * by the user.
+ *
+ * @param $tid
+ *   Term id passed by the menu system.
+ */
+function og_vocab_taxonomy_admin_term_edit($tid) {
+  if (intval($tid) > 0){
+    // Make sure the term belongs to a vocabulary associated with the user's
+    // acceisable group(s).
+    $term = taxonomy_get_term($tid);
+    $group = node_load(og_vocab_get_group($term->vid));
+    if (node_access('view', $group)) {
+      return taxonomy_admin_term_edit($tid);
+    }
+  }
+  return drupal_access_denied();
+}
+
+/**
+ * Helper function; Redirect the 'Cancel' back to og_vocab.
+ *
+ * @param $form
+ *   The form passed by reference.
+ * @param $item
+ *   The menu item.
+ */
+function _og_vocab_redirect_cancel_to_og_vocab(&$form, $item) {
+  $form['actions']['cancel']['#value'] = t('<a href="!cancel">Cancel</a>', array('!cancel' => url('node/'. $item['map'][1]->nid .'/og/vocab')));
+}
+
+/**
+ * Helper function; Show  only accessible vocabularies in advanced search.
+ *
+ * @see og_vocab_taxonomy_form_all().
+ */
+function og_vocab_form_search_alter(&$form) {
+  // Users with administer organic groups are allowed to access all groups.
+  if (!empty($form['advanced']['category']) && !user_access('administer organic groups')) {
+    $form['advanced']['category']['#options'] = og_vocab_taxonomy_form_all(TRUE);
+  }
+}
+
+/**
+ * Helper function; Generate a set of options for selecting a term from all
+ * vocabularies that user has access to.
+ *
+ * @see taxonomy_form_all().
+ */
+function og_vocab_taxonomy_form_all($free_tags = FALSE) {
+  $vocabularies = og_vocab_get_accessible_vocabs();
+  $options = array();
+  foreach ($vocabularies as $vid => $vocabulary) {
+    if ($vocabulary->tags && !$free_tags) { continue; }
+    $tree = taxonomy_get_tree($vid);
+    if ($tree && (count($tree) > 0)) {
+      $options[$vocabulary->name] = array();
+      foreach ($tree as $term) {
+        $options[$vocabulary->name][$term->tid] = str_repeat('-', $term->depth) . $term->name;
+      }
+    }
+  }
+  return $options;
+}
+
+/******************************************************************************/
+//TODO: Make it use Views.
+
+/**
+ *Implementation of hook_block().
+ *
+ * //TODO: Make it use Views.
+ */
+function og_vocab_block($op = 'list', $delta = 0, $edit = array()) {
+  switch ($op) {
+    case 'list':
+      $blocks[0]['info'] = t('Group categories');
+      $blocks[0]['cache'] = BLOCK_NO_CACHE;
+      return $blocks;
+    case 'view':
+      switch ($delta) {
+        case 0:
+          $block = og_vocab_block_view();
+          break;
+      }
+      return $block;
+  }
+}
+
+
+function og_vocab_block_view() {
+  $group_node = og_get_group_context();
+  if ($group_node && node_access('view', $group_node) && !empty($group_node->og_vocabularies)) {
+    $output = '';
+    foreach ((array)$group_node->og_vocabularies as $vid => $vocab) {
+
+      $tree = taxonomy_get_tree($vid);
+      // TODO. link to full page view. maybe views provides this?
+      // only show first 20 terms. wary of huge vocabs. not ideal.
+      $tree = array_slice($tree, 0, 20);
+      $items = og_vocab_build_list_items($index = 0, $tree);
+      if ($items) {
+        $output .= theme('item_list', $items, $vocab->name);
+      }
+    }
+    $block['content'] = $output;
+    $block['subject'] = t('Group categories');
+    return $block;
+  }
+}
+
+function og_vocab_build_list_items(&$index, $tree) {
+  $items = array();
+  if (array_key_exists($index, $tree)) {
+    $current_depth = $tree[$index]->depth;
+    while ($index < count($tree) && $tree[$index]->depth >= $current_depth) {
+      $term = $tree[$index];
+      $count = taxonomy_term_count_nodes($term->tid);
+      if ($count) {
+        $term_path = "taxonomy/term/$term->tid";
+        $term_link = l($term->name, $term_path, array('title' => t($term->description)));
+        $item = $term_link ." ($count)";
+        if (isset($tree[$index+1]) && $tree[$index+1]->depth > $current_depth) {
+          $index++;
+          $items[] = array('data' => $item, 'children' => og_vocab_build_list_items($index, $tree));
+        }
+        else {
+          $items[] = $item;
+          $index++;
+        }
+      }
+      else {
+        $index++;
+      }
+    }
+  }
+  return $items;
+}

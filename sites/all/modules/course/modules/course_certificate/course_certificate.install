@@ -1,0 +1,50 @@
+<?php
+/**
+ * @file
+ * Install, update and uninstall functions for the course_certificate module.
+ *
+ */
+
+/**
+ * Implements hook_install().
+ */
+function course_certificate_install() {
+  course_certificate_update_6101();
+}
+
+/**
+ * Create certificate course objects at the end of a course for courses that had
+ * the "certificate" checkbox checked. Drop the old field.
+ */
+function course_certificate_update_6101() {
+  $ret = array();
+  drupal_get_schema(NULL, TRUE);
+  drupal_load('module', 'uuid');
+
+  if (db_table_exists('course_node') && db_column_exists('course_node', 'certificate')) {
+    $idfield = db_column_exists('course_outline', 'snid') ? 'snid' : 'coid';
+    $modulefield = ($idfield == 'snid') ? 'requirement_type' : 'module';
+    // Find courses that had certificate checked, but no course object.
+    $sql = "SELECT * FROM {course_node} cn
+      INNER JOIN {course_outline} co ON (cn.nid = co.nid AND co.%s = 'course_certificate')
+      where cn.certificate and co.%s is null";
+    $result = db_query($sql, $modulefield, $idfield);
+    while ($row = db_fetch_object($result)) {
+      $object = array(
+        'module' => 'course_certificate',
+        'object_type' => 'certificate',
+        'nid' => $row->nid,
+        'enabled' => 1,
+        'required' => 0,
+        'hidden' => 0,
+        'title' => 'Certificate',
+        'weight' => 999,
+        'uuid' => uuid_uuid(),
+      );
+      drupal_write_record('course_outline', $object);
+    }
+    db_drop_field($ret, 'course_node', 'certificate');
+  }
+
+  return $ret;
+}

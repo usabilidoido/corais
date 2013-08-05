@@ -1,0 +1,25 @@
+/* $Id: comment_driven_inspect.css,v 1.1 2010/03/27 23:02:25 arhak Exp $ */
+
+div.comment_driven_inspect {
+  position: relative;
+}
+
+.comment_driven_inspect-content {
+  display: none;
+  position: absolute;
+  top: -2.5em;
+  background-color: #ffe;
+  border: 1px dashed #cbe087;
+  font-size: 0.8em;
+  padding: 2px 6px;
+}
+
+div:hover.comment_driven_inspect .comment_driven_inspect-content {
+  display: block;
+}
+
+div.comment_driven_inspect img.comment_driven_inspect-icon {
+  height: 20px;
+  vertical-align: bottom;
+  margin-left: 6px;
+}

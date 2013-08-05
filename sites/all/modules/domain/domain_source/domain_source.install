@@ -1,0 +1,33 @@
+<?php
+
+/**
+ * @file
+ * Install file for the Domain Source module
+ */
+
+/**
+ * Implement hook_install()
+ */
+function domain_source_install() {
+  drupal_install_schema('domain_source');
+}
+
+/**
+ * Implement hook_schema()
+ */
+function domain_source_schema() {
+  $schema['domain_source'] = array(
+    'fields' => array(
+      'nid' => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+      'domain_id' => array('type' => 'int', 'not null' => TRUE, 'default' => 0)),
+    'primary key' => array('nid'),
+  );
+  return $schema;
+}
+
+/**
+ * Implement hook_uninstall()
+ */
+function domain_source_uninstall() {
+  drupal_uninstall_schema('domain_source');
+}

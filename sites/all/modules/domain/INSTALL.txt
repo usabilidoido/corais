@@ -1,0 +1,482 @@
+/**
+ * @file
+ * INSTALL file for Domain Access.
+ */
+
+Domain Access
+A domain-based access control system.
+
+CONTENTS
+--------
+
+1.  Introduction
+2.  Installation
+2.1   Before Installing
+2.2   Server Configuration
+2.3   Setting DOMAIN_INSTALL_RULE
+2.4   Setting DOMAIN_SITE_GRANT
+2.5   Setting DOMAIN_ASSIGN_USERS
+3.   Installing the Module
+3.1   After Installation
+4.  Configuring settings.php
+4.1   $base_url
+4.2   $db_prefix
+4.3   $cookie_domain
+4.4   Add settings.inc
+4.4.1   Installation
+4.4.2   Option 1
+4.4.3   Option 2
+4.4.4   Testing Your Configuration
+4.4.5   Additional Resources
+4.5 custom_url_rewrite_outbound()
+5.  Additional Module Installation
+5.1   Domain Strict
+6.  Uninstalling
+
+----
+1.  Introduction
+
+The Domain Access module is a Node Access module.  It is designed to
+restrict access to content.
+
+WARNINGS:
+ - Failure to install or uninstall this module according to instructions
+   may cause errors in your site.
+ - Node Access rules never apply to user 1 (the site admin) or to users
+   with the 'administer nodes' permission. As such, these users will always
+   be able to see all content on your site(s). To verify that Domain Access
+   is working correctly, you will need to turn on its debug mode or view the
+   site as a user without this permission. You may also enable the 'Enforce
+   rules on adminstrators' setting, which will apply Domain Access
+   restrcitions to all users. (See section 4.3.3 of README.txt for more
+   details on this feature.)
+
+----
+2.  Installation
+
+This module requires some advanced understanding of Drupal and of
+how DNS servers behave.  If you simply untar the download and
+activate the module, it may not work correctly.
+
+Domain Access works by reading the inbound HTTP_HOST request
+and serving content appropriate to the requested domain. For this to
+work properly, all domains for your site must be routed to the same
+Drupal installation on your webserver.
+
+Domain Access was not designed to run on shared hosts, and you may need
+assistance from your provider to make it work correctly.
+
+For more background on DNS and virtual host configuration, please try the
+following documentation:
+
+For a general overview:
+  - http://en.wikipedia.org/wiki/Virtual_hosting
+
+In-depth documentation with many examples for specific situations:
+  - http://httpd.apache.org/docs/2.0/vhosts/
+  - http://httpd.apache.org/docs/2.0/vhosts/examples.html
+
+When you enable the module, it will create a {domain} table in your Drupal
+database.
+
+On installation, all existing nodes on your site will be assigned to the default
+(primary) domain for your web site as well as  to all subdomains.
+In order to change this behavior, see sections 2.3 and 2.4 below.
+
+----
+2.1  Before Installing
+
+You will need to do the following before you install the module.
+
+  - Read this document
+  - Configure your web server DNS records appropriately
+  - Read the supplied README.txt
+  - Install and configure Drupal normally.
+
+WARNING: The Domain Access module series instructs you to add a
+file include to your settings.php file.  Do not add this command until
+after you have installed Drupal.
+
+----
+2.2   Server Configuration
+
+For the module to work correctly, the DNS record of your server must accept
+multiple DNS entries [most servers do]. Your new virtual host(s) must then
+be correctly configured for your server.  In general, this involves small
+additions to the hosts file and the httpd.conf file.
+
+In order for the Apache server to find your virtual host(s), it absolutely
+needs two pieces of information: the ServerName (hostname & port the server
+uses to identify itself) and an IP address.
+
+The two basic methods for doing this are to either:
+
+  - Set up WildCard DNS, so that *.example.com resolves to your Drupal site.
+    (The asterisk indicates any and all names carrying the < example.com >
+    suffix)
+  - Set up each VirtualHost specifically, so that one.example.com,
+    two.example.com, (and so on) all resolve to your Drupal site.
+
+For example, on a local testing machine, VirtualHosts in my hosts file could be
+configured in the following way:
+
+  - ken.test => 127.0.0.1
+  - one.ken.test => 127.0.0.1
+  - two.ken.test => 127.0.0.1
+  - foo.test => 127.0.0.1
+
+With their port and document root defined (WildCard set up) in the httpd.conf
+file:
+
+<VirtualHost *:80>
+DocumentRoot /path/to/drupal/install
+ServerName ken.test
+ServerAlias *.ken.test foo.test
+</VirtualHost>
+
+In this case any subdomain (*.ken.test) and another domain foo.test resolve to
+the same location. When configuring DNS for Domain Access, the document root is
+the same for all the VirtualHosts. The documentRoot directive sets the directory
+from which httpd will serve files. For DA, there is one Drupal installation and
+it is this installation built on a single database that is serving the files.
+
+This becomes even clearer when the VirtualHosts are set up specifically,
+each with its own VirtualHost block in the httpd.conf file, for example:
+
+<VirtualHost 127.0.0.1:80>
+DocumentRoot /path/to/drupal/install
+ServerName ken.test
+</VirtualHost>
+
+<VirtualHost 127.0.0.1:80>
+DocumentRoot /path/to/drupal/install
+ServerName two.ken.test
+</VirtualHost>
+
+<VirtualHost 127.0.0.1:80>
+DocumentRoot /path/to/drupal/install
+ServerName foo.test
+</VirtualHost>
+
+This example gives a general idea of what is involved, but it is beyond the
+scope of this document to explain how to configure your specific DNS server
+situation, which may involve considerable research, trial & error or a call for
+help. Shared server situations can be particularly complicated and you should
+contact their administration for help with configuration if their online help
+files do not make things clear enough.
+
+After you have enabled multiple DNS entries to resolve to your single,
+default Drupal installation, you may activate the module and configure its
+settings at Admin > Build > Domains.
+
+----
+2.3 Setting DOMAIN_INSTALL_RULE
+
+This is an advanced instruction, and may be ignored.
+
+At the top of the domain.module file, you will find this line:
+
+  define('DOMAIN_INSTALL_RULE', TRUE);
+
+This setting controls the default behavior of the module when installing over
+an existing installation.  If set to TRUE, the Domain Access module will assign
+all existing nodes to be viewable by your primary domain.
+
+If you set this value to FALSE, existing content will not be visible on your
+primary domain unless DOMAIN_SITE_GRANT is set to TRUE.
+
+For more details, see section 5 of README.txt.
+
+----
+2.4 Setting DOMAIN_SITE_GRANT
+
+At the top of the domain.module file, you will find this line:
+
+  define('DOMAIN_SITE_GRANT', TRUE);
+
+This setting controls the default behavior for viewing affiliate content.
+By design, the Domain Access module allows site administrators to assign
+content to 'all affiliates.'  If this value is set to TRUE, then content
+assigned to all affiliates can be seen by all users on all current domains.
+
+On install, setting this value to TRUE will assign all current content to
+be viewable on all domains.
+
+Normally, you will not need to edit this value.
+
+----
+2.5 Setting DOMAIN_ASSIGN_USERS
+
+At the top of the domain.module file, you will find this line:
+
+  define('DOMAIN_ASSIGN_USERS', TRUE);
+
+After you install the Domain Access module, all new users who
+register will automatically be assign to the domain from which
+their account was created. This value is used to determine
+advanced editing access and can be used by modules such as
+Domain Strict.
+
+On install, setting this value to TRUE will assign all current users
+to be members of the default domain. Set the value to FALSE
+and the module will not assign users to any domains.
+
+Normally, you will not need to edit this value.
+
+After installation and configuration, users with the appropriate
+permissions may batch assign users to domains from
+Administer > User Management > Users.
+
+----
+3.   Installing the Module
+
+After you have prepared your server and made any edits to the
+default module behavior, you may install Domain Access like any
+other Drupal module.
+
+----
+3.1   After Installation
+
+Note that as of 6.x.2.0, the primary domain is created for you on
+installation.
+
+The primary domain will use the SERVER_NAME value of the request made
+when installing the module. This value may be edited by going to
+Admin > Build > Domains and editing the Primary Domain value.
+
+After you install the module, you should visit Admin > Users > Permissions
+and set the module permissions; normally you will give your site
+administrators the following permissions:
+
+    -- 'administer domains'
+    -- 'set domain access'
+
+After saving permissions, go to Admin > Build > Domains and configure
+your site's Primary Domain.
+
+For more information, see README.txt.
+
+----
+4.  Configuring settings.php
+
+Remember, the Domain Access module lets you run multiple sites
+from a single installation.  You only need one settings.php file.
+
+As a result, some options in your settings.php file need to be
+considered carefully.
+
+----
+4.1   $base_url
+
+The $base_url setting is normally not set.  With Domain Access, you
+cannot set this value manually.
+
+Since multiple domains are involved, Drupal needs to be allowed to
+set this value.  (For the technical, this happens in the conf_init()
+function).
+
+If you need to install Drupal in a subdirectory and wish to hide that
+subdirectory from site visitors, you may set $base_url dynamically.
+
+See the instructions at http://drupal.org/node/633726.
+
+----
+4.2   $db_prefix
+
+The $db_prefix value allows for table prefixing of your Drupal database
+in the event that you run more than one site from a single database.
+
+$db_prefix can be used normally with Domain Access.
+
+However, the Domain Prefix module provides for dynamic table prefixing
+based on the currently active domain. If you use the Domain Prefix module
+you can set $db_prefix as a string value as well as an array.
+
+For more detail, see INSTALL.txt in the domain_prefix folder.
+
+----
+4.3   $cookie_domain
+
+By design, Drupal cookies are set for the current website on login.  That is, if
+you login from www.example.com, the cookie will be set from the domain
+'www.example.com.'
+
+However, a cookie from www.example.com is not valid on one.example.com.
+
+In order to provide for login across your active domains, you must set the
+$cookie_domain value to the string indicating your root domain.
+
+Typically, this value is '.example.com'.
+
+If your domains do not share the top-level, then you may need to login to
+each site separately or use a module such as Single SignOn.
+
+NOTE: After you change your cookie value, you will need to logout and
+log back in for the new cookie to take effect.
+
+----
+4.4  Add settings.inc
+
+For Domain Access to work, you must add some code to your settings.php
+file. This code will load the Domain Access bootstrap routines that determine
+how your site is being requested.
+
+If you do not add settings.inc to your settings.php file, Domain Access will
+fail to load and report an error message to site administrators.
+
+IMPORTANT: You must add these lines to settings.php after the $db_url
+has been set; otherwise, Drupal will fail to load. Normally, you should add
+these lines to the end of the settings.php file.
+
+----
+4.4.1  Installation
+
+In the Domain Access download, find the following file:
+
+  domain > settings.inc
+
+You will need to load this file from inside your settings.php file. There
+are two methods for this.
+
+----
+4.4.2  Option 1 -- Preferred
+
+This method is preferred, since any updates to the module release
+will be reflected in this file.
+
+NOTE: the elements inside the ==== marks are php code that
+should be copied into your settings.php file.  DO NOT COPY THE ==== MARKS.
+
+Add the following lines to the end of your settings.php file:
+
+====
+/**
+ * Add the domain module setup routine.
+ */
+include './path/to/modules/domain/settings.inc';
+====
+
+In this case, change 'path/to/modules' with the directory where your modules are
+stored.  Typically this will be 'sites/all/modules', which makes the lines:
+
+====
+/**
+ * Add the domain module setup routine.
+ */
+include './sites/all/modules/domain/settings.inc';
+====
+
+----
+4.4.3 Option 2
+
+If you are having difficulty determining the correct path, copy the following
+files into your settings folder.
+
+  domain > domain.bootstrap.inc
+  domain > settings.inc
+  domain > settings_custom_url.inc
+
+The files should be in the same directory as your active settings.php file.
+Then add the following lines:
+
+====
+/**
+ * Add the custom_url_rewrite_outbound function.
+ */
+include 'settings.inc';
+====
+
+----
+4.4.4   Testing Your Configuration
+
+After editing your settings.php file, go to Admin > Build > Domains.  You may
+see a warning at the top of the page:
+
+  "Domain access failed to load during phase: bootstrap include. Please check your
+  settings.php file and site configuration."
+
+This message means that your PHP server cannot find the include file.  You
+may need to test other path options for the include code.
+
+When this occurs, the default domain will be loaded, but custom settings or
+themes for other domains will not.
+
+If the module is working correctly and you are getting persistent errors due to web
+crawlers, you may disable this warning. To do so, edit settings.php and add the
+following lines to the bottom of the file:
+
+  $conf['domain_hide_errors'] = TRUE;
+
+This will suppress the warning messages. See http://drupal.org/node/774692 for
+background.
+
+----
+4.4.5   Additional Resources
+
+If you are having trouble configuring the include, you should check your
+PHP include path.  You may need to use an absolute path to your server root.
+
+  http://us3.php.net/manual/en/ini.core.php#ini.include-path
+
+You may also copy the entire function custom_url_rewrite_outbound() directly
+into your settings.php file.
+
+----
+4.5 custom_url_rewrite_outbound()
+
+custom_url_rewrite_outbound() is a special function that you can add
+to settings.php to alter how Drupal writes links to content.
+
+Domain Access implements this function within the context of the
+URL Alter module, http://drupal.org/project/url_alter, which is a
+functional backport of changes implemented in Drupal 7.
+
+If your site uses custom code to implement custom_url_rewrite_outbound(),
+consider upgrading to the URL Alter module for full compatibility.
+
+You may also call the function domain_url_rewrite_outbound() directly in
+your custom code.
+
+NOTE: Domain Access does not use custom_url_rewrite_inbound().
+
+For more information, see
+  http://api.drupal.org/api/function/custom_url_rewrite_outbound/6
+  http://drupal.org/node/450344
+  http://drupal.org/node/529026
+
+----
+5.  Additional Module Installation
+
+The Domain Access module includes several sub-modules.  Two of these
+have their own INSTALL.txt instructions.
+
+----
+5.1   Domain Strict
+
+While this module requires no additional installation, it fundamentally
+changes the behavior of the Domain Access module.
+
+Under Domain Strict, only authenticated users (those who have registered)
+are given any domain-specific privileges.
+
+Anonymous users will only be able to view content that is assigned to "all
+affiliates."
+
+As a result, enabling this module may cause content to disappear from your
+site for users who are not logged in.  This is by design.
+
+Refer to domain > domain_strict > README.txt
+
+----
+6.  Uninstalling
+
+When you disable this module, it will reset your {node_access} tables and
+remove all records from the {domain_access} table.  This will remove all
+access rules associated with this module.
+
+You may then uninstall the module normally.
+
+You should also revert the patches that you applied and remove
+any extra code from your settings.php file.
+
+To revert a patch, see http://drupal.org/patch/reverse

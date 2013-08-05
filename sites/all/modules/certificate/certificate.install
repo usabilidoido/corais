@@ -1,0 +1,182 @@
+<?php
+
+/**
+ * Install the Certificate module.
+ * @file
+ */
+
+/**
+ * Implementation of hook_schema().
+ */
+function certificate_schema() {
+  $schema['certificate_node_settings'] = array(
+    'description' => 'Stores per-node template settings.',
+    'fields' => array(
+      'nid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'orientation' => array(
+        'type' => 'varchar',
+        'length' => 255,
+      ),
+    ),
+    'primary key' => array('nid'),
+  );
+
+  $schema['certificate_node'] = array(
+    'description' => t('Stores per-node certificate settings.'),
+    'fields' => array(
+      'cnid' => array(
+        'type' => 'serial',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'description' => 'Unique identifier for the per-node / per-type template setting.',
+      ),
+      'nid' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => 0,
+        'description' => 'Course node ID.',
+      ),
+      'mapper' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'description' => 'The mapper to use.',
+      ),
+      'type' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'description' => 'The value to match on.',
+      ),
+      'template' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => 0,
+        'description' => 'The certificate node ID to deliver on a match.',
+      ),
+    ),
+    'primary key' => array('cnid'),
+  );
+
+  $schema['certificate_snapshots'] = array(
+    'description' => t('Stores snapshots of users certificate for a particular course.'),
+    'fields' => array(
+      'csid' => array(
+        'type' => 'serial',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'description' => 'Unique identifier for the per-user / per-course certificate snapshot.',
+      ),
+      'uid' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => 0,
+        'description' => '{user}.uid of the u.',
+      ),
+      'nid' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => 0,
+        'description' => '{node}.nid of the node.',
+      ),
+      'date' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => NULL,
+        'description' => 'Date the certificate was generated.',
+      ),
+      'snapshot' => array(
+        'description' => t('The generated content of the {certificate_snapshots}.'),
+        'type' => 'text',
+        'size' => 'big',
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('csid'),
+  );
+
+  return $schema;
+}
+
+/**
+ * Implementation of hook_install().
+ *
+ * This hook is called the first time the module is installed. Unless it is
+ * explicitly uninstalled, disabling and re-enabling will not trigger this hook
+ * a second time.
+ */
+function certificate_install() {
+  drupal_install_schema('certificate');
+
+  // Set certificate variables.
+  variable_set('node_options_certificate', array(0 => 'revision'));
+  variable_set('comment_certificate', 0);
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function certificate_uninstall() {
+  drupal_uninstall_schema('certificate');
+  cache_clear_all('certificate:*', 'cache', TRUE);
+
+  // Remove variables.
+  $variables = db_query("SELECT name FROM {variable} WHERE name LIKE '%s_%%'", 'certificate');
+  while ($variable = db_fetch_object($variables)) {
+    variable_del($variable->name);
+  }
+  variable_del('node_options_certificate');
+  variable_del('comment_certificate');
+}
+
+/**
+ * Implementation of hook_requirements().
+ */
+function certificate_requirements($phase) {
+  if ($phase == 'runtime') {
+    if (variable_get('print_pdf_pdf_tool', '') == '') {
+      drupal_set_message('Certificates will not display before selecting a PDF generation tool in !link.', array('!link' =>  l('Printer, e-mail and PDF versions', 'admin/settings/print/pdf')));
+    }
+  }
+}
+
+/**
+ * Add mapper column for more than one mapping per node.
+ */
+function certificate_update_6101() {
+  $ret = array();
+
+  db_add_field($ret, 'certificate_node', 'mapper', array(
+    'type' => 'varchar',
+    'length' => 255,
+    'not null' => TRUE,
+    'description' => 'The mapper to use.',
+  ));
+
+  $ret[] = update_sql("update {certificate_node} set mapper = 'content_profile'");
+
+  return $ret;
+}
+
+/**
+ * Convert field groups.
+ */
+function certificate_update_6102() {
+  $fieldgroups = variable_get('certificate_field_groups', array());
+  $new_fieldgroups = array();
+  foreach (array_keys($fieldgroups) as $title) {
+    $new_fieldgroups[str_replace(' ', '_', $title)] = $title;
+  }
+
+  variable_set('certificate_field_groups', $new_fieldgroups);
+}

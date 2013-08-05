@@ -1,0 +1,13 @@
+table.casetracker-assign-to {
+  font-size: 11px;
+  }
+
+  table.casetracker-assign-to td {
+    padding: 0px;
+    width: 20%;
+    }
+
+  table.casetracker-assign-to td div.form-item {
+    padding: 5px;
+    }
+

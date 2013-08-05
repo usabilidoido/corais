@@ -1,0 +1,7 @@
+name = Nodejs Buddylist
+description = Allows for dynamic buddy list and user blocks
+package = Nodejs
+version = 1.0
+core = 6.x
+dependencies[] = nodejs
+dependencies[] = flag_friend

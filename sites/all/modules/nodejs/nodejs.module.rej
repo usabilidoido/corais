@@ -1,0 +1,110 @@
+***************
+*** 241,272 ****
+  function nodejs_menu() {
+  
+    return array(
+-     'admin/config/nodejs' => array(
+        'title' => 'Nodejs',
+-       'description' => 'Configure nodejs module.',
+        'position' => 'left',
+-       'weight' => -20,
+        'page callback' => 'system_admin_menu_block_page',
+        'access arguments' => array('access administration pages'),
+        'file' => 'system.admin.inc',
+        'file path' => drupal_get_path('module', 'system'),
+      ),
+-     'admin/config/nodejs/config' => array(
+-       'title' => 'Configuration',
+-       'description' => 'Adjust node.js settings.',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('nodejs_settings'),
+        'access arguments' => array('administer site configuration'),
+        'file' => 'nodejs.admin.inc',
+      ),
+      'nodejs/message' => array(
+-       'title' => 'Message from Node.js server',
+        'page callback' => 'nodejs_message_handler',
+        'access callback' => TRUE,
+        'type' => MENU_CALLBACK,
+      ),
+      'nodejs/user/channel/add' => array(
+-       'title' => 'Add a channel to the Node.js server',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('nodejs_add_user_to_channel_form'),
+        'access callback' => TRUE,
+--- 259,289 ----
+  function nodejs_menu() {
+  
+    return array(
++     'admin/settings/nodejs' => array(
+        'title' => 'Nodejs',
++       'description' => t('Configure nodejs module.'),
+        'position' => 'left',
+        'page callback' => 'system_admin_menu_block_page',
+        'access arguments' => array('access administration pages'),
+        'file' => 'system.admin.inc',
+        'file path' => drupal_get_path('module', 'system'),
+      ),
++     'admin/settings/nodejs/config' => array(
++       'title' => t('Configuration'),
++       'description' => t('Adjust node.js settings.'),
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('nodejs_settings'),
+        'access arguments' => array('administer site configuration'),
+        'file' => 'nodejs.admin.inc',
+      ),
+      'nodejs/message' => array(
++       'title' => t('Message from Node.js server'),
+        'page callback' => 'nodejs_message_handler',
+        'access callback' => TRUE,
+        'type' => MENU_CALLBACK,
+      ),
+      'nodejs/user/channel/add' => array(
++       'title' => t('Add a channel to the Node.js server'),
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('nodejs_add_user_to_channel_form'),
+        'access callback' => TRUE,
+***************
+*** 401,412 ****
+  function nodejs_message_handler() {
+  
+    if (!isset($_POST['serviceKey']) || !nodejs_is_valid_service_key($_POST['serviceKey'])) {
+-     drupal_json(array('error' => 'Invalid service key.'));
+      exit();
+    }
+  
+    if (!isset($_POST['messageJson'])) {
+-     drupal_json(array('error' => 'No message.'));
+      exit();
+    }
+  
+--- 418,429 ----
+  function nodejs_message_handler() {
+  
+    if (!isset($_POST['serviceKey']) || !nodejs_is_valid_service_key($_POST['serviceKey'])) {
++     drupal_json(array('error' => t('Invalid service key.')));
+      exit();
+    }
+  
+    if (!isset($_POST['messageJson'])) {
++     drupal_json(array('error' => t('No message.')));
+      exit();
+    }
+  
+***************
+*** 434,440 ****
+    }
+    drupal_alter('nodejs_message_response', $response, $message);
+  
+-   drupal_json($response ? $response : array('error' => 'Not implemented'));
+    exit();
+  }
+  
+--- 451,457 ----
+    }
+    drupal_alter('nodejs_message_response', $response, $message);
+  
++   drupal_json($response ? $response : array('error' => t('Not implemented')));
+    exit();
+  }
+  

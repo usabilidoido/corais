@@ -1,0 +1,10 @@
+
+/* Animated throbber */
+html.js a.featured-comments-ajax-toggle.throbbing {
+  background:url(status-active.gif) no-repeat right center;
+  padding-right:18px;
+}
+
+#featured-comments-admin-form th {
+  font-weight: bold;
+}

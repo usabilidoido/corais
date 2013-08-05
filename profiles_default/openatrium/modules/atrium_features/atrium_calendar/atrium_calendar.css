@@ -1,0 +1,26 @@
+/* $Id */
+
+.atrium_calendar_event_type div{  
+  float:left;
+  line-height:15px;
+  margin:0 5px 5px 0;
+  -moz-border-radius: 5px;
+  -webkit-border-radius: 5px;
+  border-radius: 5px 5px;
+  
+} 
+.atrium_calendar_event_type span {
+  background:transparent url(images/checked.gif) no-repeat scroll 2px 0%;  
+  color:#ffffff;
+  cursor:pointer;
+  float:left;
+  line-height:15px;
+  padding: 5px 5px 5px 20px;
+  white-space:nowrap;
+}
+
+
+.atrium_calendar_event_type span.deactive {
+  background:transparent url(images/checked.gif) no-repeat scroll 2px 100%;
+  color:#666666;
+}

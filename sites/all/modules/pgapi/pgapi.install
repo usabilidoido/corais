@@ -1,0 +1,49 @@
+<?php
+
+/**
+ * @file
+ *   Install and unistall functions for PGAPI module
+ */
+
+/**
+ * Implementation of hook_install().
+ */
+function pgapi_install() {
+  drupal_install_schema('pgapi');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function pgapi_uninstall() {
+  drupal_uninstall_schema('pgapi');
+  variable_del('pgapi_gw');
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function pgapi_schema() {
+  $schema['pgapi_transaction'] = array(
+    'description' => 'Transaction information.',
+    'fields' => array(
+      'txnid'         => array('type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE),
+      'uid'           => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+      'email'         => array('type' => 'varchar',  'length' => 255, 'not null' => TRUE, 'default' => ''),
+      'title'         => array('type' => 'varchar',  'length' => 255, 'not null' => TRUE, 'default' => ''),
+      'amount'        => array('type' => 'numeric', 'size' => 'normal', 'precision' => 12, 'scale' => 2, 'default' => 0),
+      'type'          => array('type' => 'varchar',  'length' => 32, 'not null' => TRUE, 'default' => ''),
+      'method'        => array('type' => 'varchar',  'length' => 32, 'not null' => TRUE, 'default' => ''),
+      'description'   => array('type' => 'text', 'not null' => TRUE, 'default' => ''),
+      'extra'         => array('type' => 'text', 'default' => ''),
+      'status'        => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+      'workflow'      => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+      'created'       => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+      'changed'       => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
+    ),
+    'indexes'         => array('uid' => array('uid')),
+    'primary key'     => array('txnid'),
+  );
+  return $schema;
+}
+

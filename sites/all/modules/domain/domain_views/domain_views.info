@@ -1,0 +1,13 @@
+name = Domain Views
+description = Provides Views integration for the Domain Access module.
+package = Domain Access
+dependencies[] = domain
+dependencies[] = views
+core = 6.x
+
+; Information added by drupal.org packaging script on 2012-05-30
+version = "6.x-2.14"
+core = "6.x"
+project = "domain"
+datestamp = "1338415557"
+

@@ -1,0 +1,13 @@
+; $Id: onbeforeunload_example.info,v 1.1.2.1 2009/03/28 12:27:46 markuspetrux Exp $
+name = onBeforeUnload Example
+description = Hello world example for the onBeforeUnload API.
+package = User interface
+dependencies[] = onbeforeunload
+core = 6.x
+
+; Information added by drupal.org packaging script on 2009-03-31
+version = "6.x-1.0"
+core = "6.x"
+project = "onbeforeunload"
+datestamp = "1238501166"
+

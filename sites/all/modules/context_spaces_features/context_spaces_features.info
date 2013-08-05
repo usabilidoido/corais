@@ -1,0 +1,16 @@
+; $Id: context_spaces_features
+name = "Context: Spaces Features"
+description = "Context condition: for the Features active in the current space"
+package = "Context"
+project = "context_spaces_features"
+dependencies[] = "context"
+dependencies[] = "spaces"
+dependencies[] = "features"
+core = "6.x"
+
+; Information added by drupal.org packaging script on 2012-06-21
+version = "6.x-1.0"
+core = "6.x"
+project = "context_spaces_features"
+datestamp = "1340297179"
+

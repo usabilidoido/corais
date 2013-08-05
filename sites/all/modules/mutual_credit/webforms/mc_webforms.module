@@ -1,0 +1,488 @@
+<?php
+// $Id: mc_webforms.module,v 1.1.2.4 2010/12/22 19:30:29 matslats Exp $
+
+/*
+ * t('The mc_webforms module provides a 3rd party transaction form, and some useful code for building other forms.');
+ *
+ * this module introduces the notion of exchange signatories, the people whose assent is required for the exchange to finish
+ * assuming that any exchanges with no completers is FINISHED
+ * Also there is AJAX because the 3rd party form needs to know about the currency before other widgets can be presented
+ * 3rd party form also has two templates, one for page and one for block
+ * Validation dovetails with mcapi module validation.
+ * provides a cache of friendly trader names and a setting for formatting them along with a configurable user selection field
+ * * I wonder if that would make a nice hook_element
+ * There's also a form 'preprocess mode' for themers who want more control over the form
+ *
+ * AJAX notes
+ * On setting the exchange type or the currency, the form is refreshed via AJAX
+ * so that the divisions fields and confirm checkboxes can be re-loaded
+ */
+
+
+/**
+ * http://api.drupal.org/api/function/hook_help/6
+ */
+function mc_webforms_help($section) {
+  switch ($section) {
+    case 'admin/mc/webform':
+      return t('The mc_webforms module provides a 3rd party transaction form, and some useful code for building other forms.');
+  }
+}
+
+function mc_webforms_init() {
+  if (variable_get('mc_webform_special_theme', TRUE)) {
+    drupal_add_css(drupal_get_path('module', 'mc_webforms') .'/mc_webforms.css');
+  }
+}
+
+/*
+ * Needed for the views 2 module
+ */
+function mc_webforms_views_api() {
+  return array(
+    'api' => 2,
+    'path' => drupal_get_path('module', 'mc_webforms') .'/views',
+  );
+}
+
+
+function mc_webforms_menu() {
+  $items['admin/mc/webform'] = array (
+    'title' => 'Exchange form options',
+    'description' => 'These forms are super-flexible',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('mc_webform_settings'),
+    'access callback' => 'user_access',
+    'access arguments' => array('configure currencies'),
+    'file' => 'mc_webforms.inc',
+    'weight' => 3
+  );
+  $items['exchange'] = array(
+    'title' => 'Record exchange',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('mc_3rdparty_form'),
+    'access arguments' => array('create 3rdparty exchanges'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'mc_webforms.inc',
+  );
+  //info is duplicated on default task because we know that 1stparty module will replace default task
+  $items['exchange/3rdparty'] = array(
+    'title' => 'Third party',
+    'page arguments' => array('mc_3rdparty_form'),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => 2,
+  );
+  $items['exchange/3rdparty/%/%node'] = array(
+    'title callback' => 'converted_form_title',
+    'title arguments' => array(2, 3),
+    'page callback' => 'mc_prepopulate_3rdparty',
+    'page arguments' => array(2, 3),
+    'access arguments' => array('exchange'),
+    'type' => MENU_CALLBACK,
+    'file' => 'mc_webforms.inc'
+  );
+  $items['exchange/%node/edit'] = array(
+    'title' => 'Modify exchange',
+    'page callback' => 'mc_edit_forms',
+    'page arguments' => array(1),
+    //only modify the form if it was created by this module and the user has permission
+    'access callback' => 'mcapi_access',
+    'access arguments' => array('update', 1),
+    'type' => MENU_CALLBACK,
+    'file' => 'mc_webforms.inc',
+  );
+  //ajaxy bits
+  $items['exchange/ajax'] = array(
+    'page callback' => 'mc_ajax_webform',
+    'access arguments' => array('exchange'),
+    'type' => MENU_CALLBACK,
+    'file' => 'mc_webforms.inc',
+  );
+  return $items;
+}
+
+function mc_webforms_menu_alter(&$items) {
+  //hides the default node form from the create content branch of navigation menu
+  $items['node/add/exchange']['type'] = MENU_CALLBACK;
+}
+
+function mc_webforms_perm(){
+  return array('create 3rdparty exchanges');
+}
+
+
+/**
+ * http://api.drupal.org/api/function/hook_theme/6
+ * note that there are preprocess functions in inc, file, which is already loaded by the form callback menu items
+ */
+function mc_webforms_theme() {
+  $file = drupal_get_path('module', 'mc_webforms.inc') . 'mc_webforms.inc';
+  return array(
+    'mc_3rdparty_formspecial' => array(
+      'template' => 'mc_3rdparty_formspecial',
+      'file' => $file,
+      'arguments' => array('form' => NULL)
+    ),
+    'mc_web_create_confirm_form' => array(
+      'template' => 'mc_web_create_confirm_form',
+      'file' => $file,
+      'arguments' => array('form' => NULL),
+    ),
+    //this is the form element
+    'mc_quantity' => array(
+      'arguments' => array('element'),
+    ),
+    //these theme function remove title and description, so it is easier to theme
+    'select_stripped' => array(
+      'arguments' => array('element'),
+      'file' => $file,
+    ),
+    'textfield_stripped' => array(
+      'arguments' => array('element'),
+      'file' => $file,
+    ),
+    'checkbox_stripped' => array(
+      'arguments' => array('element'),
+      'file' => $file,
+    ),
+    'mc_quantity_stripped' => array(
+      'arguments' => array('element'),
+      'file' => $file,
+    ),
+    'mc_trader' => array(
+      'arguments' => array('element'),
+      'file' => $file,
+    ),
+    'mc_trader_stripped' => array(
+      'arguments' => array('element'),
+      'file' => $file,
+    ),
+  );
+}
+
+/**
+ * http://api.drupal.org/api/function/hook_user/6
+ */
+function mc_webforms_user($op, &$edit, &$account, $category = NULL) {
+  switch ($op) {
+    case 'after_update':
+    case 'insert':
+      cache_clear_all('mc_trader_list', 'cache');
+  }
+}
+
+/**
+ * Implementation of hook_elements().
+ * this has to be in .module file
+ */
+function mc_webforms_elements() {
+  //this field handles all trader selection, single and multiple.
+  //there are two variables on the webform settings page to control it.
+  $type['mc_trader'] = array(
+    '#input' => TRUE,
+    '#process' => array('field_process_mc_trader'),
+    '#dest_field' => ''
+  );
+  $type['mc_quantity'] = array(
+    '#input' => TRUE,
+    '#process' => array('field_process_mc_quantity'),
+  );
+  return $type;
+}
+
+
+/**
+ * http://api.drupal.org/api/function/hook_block/6
+ */
+function mc_webforms_block($op = 'list', $delta = 0, $edit = array()) {
+  switch ($op) {
+    case 'list':
+      return mc_webforms_block_list();
+    case 'view':
+      return mc_webforms_block_view($delta);
+    case 'configure':
+      return mc_webforms_block_configure($delta);
+    case 'save':
+      return mc_webforms_block_save($delta, $edit);
+  }
+}
+function mc_webforms_block_list() {
+  $blocks['mc_webform_3rdparty_form']= array(
+    'info' => 'MC '. t('3rd party exchange'),
+    'visibility' => 0,
+    'pages' => "exchange*\nadmin*\nnode*edit\nnode/add*",
+  );
+  return $blocks;
+}
+function mc_webforms_block_configure() {
+  return array(
+    'cid' => array(
+      '#title' => 'Currency',
+      '#description' => t('What currency, if any, should be used to prepopulate the form?'),
+      '#type' => 'select',
+      '#options' => mc_node_select_options(currencies_load(), $zero_val = t('Please choose...')),
+      '#default_value' => variable_get('mc_webform_3rdparty_form_cid', 0)
+    )
+  );
+}
+function mc_webforms_block_save($delta, $edit) {
+  variable_set('mc_webform_3rdparty_form_cid', $edit['cid']);
+}
+
+function mc_webforms_block_view() {
+  module_load_include('inc', 'mc_webforms');
+  global $user;
+  if (user_access('create 3rdparty exchanges')) {
+    $values = array();
+    $cid = variable_get('mc_webform_3rdparty_form_cid', NULL);
+    if ($cid) $values = array('cid' => $cid);
+    //EXPERIMENTAL matslats
+    $values['quantity'] = 999;
+    return array(
+      'subject' =>  t("3rd party exchange"),
+      'content' => drupal_get_form('mc_3rdparty_form', $values),
+    );
+  }
+}
+
+
+function get_trader_list() {
+  $data = cache_get('mc_trader_list');
+  if (!$data) {
+    module_load_include('inc', 'mc_webforms');
+    return refresh_trader_names();
+  }
+  return $data->data;
+}
+function mc_webforms_form_user_admin_account_alter(&$form, $form_alter) {
+  $form['#submit'][] = 'refresh_trader_names';
+}
+function refresh_trader_names() {
+  //This function must never by anon, because it retrives non-names from theme_username and caches them
+  if (!$GLOBALS['user']->uid) return;
+  module_load_include('inc', 'mcapi');
+  $names = array();
+  $uids = get_trader_uids();
+  if (count($uids) < 2) {
+    drupal_set_message(t("At least 2 users must have '@perm' permission before exchanges can occur"), 'error');
+  }
+  else {
+    $pattern = variable_get('mc_trader_selector', '%uid | %theme_username');
+    foreach ($uids as $uid) {
+      $account = user_load($uid);
+      $replacements = array(
+        '%uid' => $account->uid,
+        '%name' => $account->name,
+        '%username' => $account->name,
+        '%email' => $account->mail,
+        '%theme_username' => strip_tags(theme('username', $account))
+      );
+      $names[$account->uid] = strtr($pattern, $replacements);
+    }
+    natcasesort($names);
+    cache_set('mc_trader_list', $names);
+  }
+  return $names;
+}
+
+/**
+ * http://api.drupal.org/api/function/hook_link/6
+ * Add the 'operations' links to each exchange node, particularly useful in teasers.
+ * this is for usability, mostly,
+ * but also gets rough the tricky problem of conditionally diverting node/%/edit to echange/%/edit
+ */
+function mc_webforms_link($type, $exchange) {
+  //ignore comments, nodes which aren't created yet, or nodes which aren't exchanges
+  if ($type != 'node' || !$exchange->nid || $exchange->type != 'exchange') return array();
+
+  //edit button, because tabs are  hard to control
+  if (mcapi_access('update', $exchange)) {
+    $links['change'] = array(
+      'title' => t('Change'),
+      'href' => 'exchange/'. $exchange->nid .'/edit',
+    );
+  }
+  //delete button
+  if (mcapi_access('delete', $exchange)) {
+    $links['erase'] = array(
+      'title' => t('Erase'),
+      'href' => 'node/'. $exchange->nid .'/delete',
+    );
+  }
+  return $links;
+}
+
+//on the admin/content/nodes form, change the edit links to exchange nodes
+function mc_webforms_form_node_admin_content_alter(&$form, $form_state){
+  if (isset($form['admin']['operations']) && count($form['admin']['operations'])) {
+    foreach ($form['admin']['operations'] as $nid => $link) {
+      $node = node_load($nid);
+      if ($node->type == 'exchange') {
+        //these links are already rendered, so we have to string crunch them
+        $form['admin']['operations'][$nid] = str_replace('node/', 'exchange/', $form['admin']['operations'][$nid]);
+      }
+    }
+  }
+}
+
+//this mcapi validation permits 0, but not negative values
+function validate_mc_quantity_field(&$element, &$form_state) {
+  $division = NULL;
+  //should be numeric, an integer & positive
+  foreach (array('integer', 'division') as $subfield) {
+    if (isset($element[$subfield]['#value'])) {
+      $$subfield = $element[$subfield]['#value'] + 0;
+      if ($$subfield) {
+        if (!is_numeric($element[$subfield]['#value'])) {
+          form_error($element[$subfield], t("Only numbers allowed for '@fieldname'", array('@fieldname' => $element[$subfield]['#title'])));
+        }
+        if (!is_integer($$subfield)) {
+          form_error($element[$subfield], t("Integer values only for '@fieldname'", array('@fieldname' => $element[$subfield]['#title'])));
+        }
+      }
+      if ($$subfield < 0) {
+        form_error($element, t("Negative values not allowed for '@fieldname'", array('@fieldname' => $element[$subfield]['#name'])));
+      }
+    }
+  }
+  //only worth validating division if we have a currency id
+  //division field should be < 100 and if divisions are defined in the currency, one of the them
+  //(in fact the 'select' form widget should verify that)
+  if (isset($form_state['values']['cid']) && $division) {
+    $currency = node_load($form_state['values']['cid']);
+    if (!$currency->sub) {
+      form_error($element[$subfield], t("Integer values only for '@fieldname'", array('@fieldname' => $element[$subfield]['#title'])));
+    }
+    if (count($currency->divisions) && !isset($currency->divisions[$division])) {
+      form_error($element['division'], t("Invalid fraction for '@fieldname'", array('@fieldname' => $element['#title'])));
+    }
+  }
+  //the form validation should check if this is > 0
+  $form_state['values']['quantity'] = $integer + $division/100;;
+}
+
+//create the exchange node print the errors
+function mc_webform_create($values) {
+  $result = mcapi_add_node($values['payer_uid'], $values['payee_uid'], $values['quantity'], $values);
+
+  //print out all the messages
+  if (count($result->messages)) {
+    while (list($type, $messages) = each($result->messages)) {
+      while (list($key, $message) = each($messages)) {
+        drupal_set_message($message, $type);
+      }
+    }
+  }
+  if ($result->success) {
+    drupal_set_message(t('Exchange recorded'));
+  }
+  return $result;
+}
+
+
+//these need to be in the .module file
+//this field doesn't care how many currencies there are,
+function field_process_mc_quantity($element, $edit, &$form_state, &$form) {
+  unset($element['#value']);//because we are using the element_children and it breaks if quantity is preset
+  $element['#tree'] = TRUE;
+
+  if (isset($form_state['values']['cid']) && $form_state['values']['cid'] > 0) {
+    //if we know the currency or it has already been selected, reduce the options to 1 currency
+    $cid = $form_state['values']['cid'];
+    $currency = $form['#currencies'][$cid];
+    $form['#currencies'] = array($cid => $currency);
+    //this is picked up at in theme_mc_quantity
+    $element['#single_currency_name'] = $currency->title;
+  }
+
+  if ($sub = get_common_currency_properties($form['#currencies'], 'sub')){
+    $divisions = get_common_currency_properties($form['#currencies'], 'divisions');
+  }
+  $def_integer = intval($element['#default_value']);
+  $def_division = '';
+  //I don't think it's supposed to be done like this...
+  if (isset($form_state['post']['mc_quantity'])) {//from the post, say if we're rebuilding the form after an error
+    $def_integer = intval($form_state['post']['mc_quantity']['integer']);
+    $def_division = intval($form_state['post']['mc_quantity']['division']);
+
+  }
+  elseif(isset($element['#default_value'])) {//straight from the database, say for the edit form
+    $def_integer = intval($element['#default_value']);
+    $def_division = 100*($element['#default_value'] - $def_integer);
+  }
+  unset($element['#default_value']);
+  $element['integer'] = array(
+    '#title' => t('Units'), //would be nice to have currency name, but this is only ever seen on the error message anyway
+    '#type' => 'textfield',
+    '#default_value' => $def_integer,
+    '#size' => 7,
+    '#maxlength' => 7
+  );
+  //if any currency on the form has subdivisions then output this field
+  if (isset($divisions) && count($divisions)){
+    $element['division'] = array(
+      '#title' => t('Fraction'),
+      '#type' => 'select',
+      '#options' => $divisions,
+      '#field_prefix' => ':',
+      '#default_value' => $def_division,
+    );
+  }
+  elseif ($currency->sub){
+    $element['division'] =  array(
+      '#title' => t('Fraction'),
+      '#type' => 'textfield',
+      '#size' => 3,
+      '#maxlength' => 2,
+      '#field_prefix' => '.',
+      '#default_value' => $def_division,
+    );
+  }
+  return $element;
+}
+
+function field_process_mc_trader($element, $edit, &$form_state, $form) {;
+  //By this point in the processing, #default_value has been moved to #value in the element
+  $element['#required'] = TRUE;
+  if (variable_get('mc_trader_autocomplete', TRUE)) {
+    $element['#element_type'] = 'textfield';
+    $element['#autocomplete_path'] = 'user/autocomplete';
+    $element['#description'] =  t('A username, email, or user ID');
+    if (is_numeric($element['#value'] )) {
+      $account = user_load($element['#value']);
+      $element['#value'] = $account->name;
+    }
+    $account = user_load($element['#default_value']);
+    $element['#default_value'] = isset($element['#default_value']) ? $account->name : NULL;
+  }
+  else {
+    $element['#element_type'] = 'select';
+    $element['#multiple'] = FALSE;
+    $element['#size'] = 1;
+    $element['#options'] = array(0 => t('Please Choose...'));
+    $element['#options'] = $element['#options'] + get_trader_list();
+  }
+  $element['#element_validate'][] = 'mc_trader_validate';
+  return $element;
+}
+
+function converted_form_title($node, $type) {
+  switch($type) {
+    case 'outgoing':
+      return t('Pay @user', array('@user' => strip_tags(theme('username', user_load($node->uid)))));
+    case 'incoming':
+      return t('Claim from @user', array('@user' => strip_tags(theme('username', user_load($node->uid)))));
+  }
+}
+
+/*
+ * Implementation of webforms hook, hook_exchange_type_info
+ */
+function mc_webforms_exchange_type_info() {
+  return array(
+    '3rdparty' => array(
+      'title' => '3rd party',
+      'edit' => 'mc_edit_form'
+    )
+  );
+}

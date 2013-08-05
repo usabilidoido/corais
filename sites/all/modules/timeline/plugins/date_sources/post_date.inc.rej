@@ -1,0 +1,17 @@
+***************
+*** 9,15 ****
+    'name' => t('Post date'),
+    'callback' => 'timeline_date_source_post_date_conversion',
+    'handler_name' => 'views_handler_field_date',
+-   'field_types' => array('date'),
+  );
+  
+  
+--- 9,15 ----
+    'name' => t('Post date'),
+    'callback' => 'timeline_date_source_post_date_conversion',
+    'handler_name' => 'views_handler_field_date',
++   'field_type' => 'date',
+  );
+  
+  

@@ -1,0 +1,407 @@
+<?php
+/* $Id: webform_report.install,v 1.1.4.17.2.16.2.2 2010/06/16 13:07:10 jimbullington Exp $ */
+
+/**
+ * Implementation of hook_install().
+ */
+function webform_report_install() {
+  // create tables
+  drupal_install_schema('webform_report');
+} // function webform_report_install
+
+function webform_report_schema() {
+  $schema['webform_report'] = array (
+    'fields' => array(
+      'nid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+      'wnid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+      'description' => array('type' => 'text', 'not null' => TRUE),
+      'columns' => array('type' => 'text', 'not null' => TRUE),
+      'filters' => array('type' => 'text', 'not null' => TRUE),
+      'sorton' => array('type' => 'text', 'not null' => TRUE),
+      'options' => array('type' => 'text', 'not null' => TRUE)
+    ),
+    'primary key' => array('nid')
+  );
+  return $schema;
+}
+
+/**
+ * Implementation of hook_uninstall
+ */
+function webform_report_uninstall() {
+  // remove tables
+  drupal_uninstall_schema('webform_report');
+  variable_del("webform_report");
+
+  // delete all webform reports
+  $result = db_query("SELECT nid FROM {node} WHERE type = 'webform_report'");
+
+  while($webform_report_node = db_fetch_object($result)) {
+    node_delete($webform_report_node->nid);
+  }
+  node_type_delete('webform_report');
+}
+
+/**
+ * implementation of hook_update()
+ * migrate webform_report rowsperpage to options column
+ */
+function webform_report_update_11() {
+
+  $failed = FALSE;
+  
+  $rs = db_query("SELECT * FROM {webform_report}");
+  while ($row = db_fetch_object($rs)) {
+    if (!$row->results_per_page || $row->results_per_page == 0) {
+      $rpp = (int) $row->results_per_page;
+    }  
+    else {
+      $rpp = 20;
+    }
+    $options = array(
+      'results_per_page' => $rpp, 
+      'hide_csv' => FALSE
+    );
+    if (!db_query("UPDATE {webform_report} 
+                   SET options='%s'
+                   WHERE nid = %d", serialize($options), $row->nid)) {
+      $failed = TRUE;
+      break;
+    }
+  }
+  if ($failed) {
+    return array(array('success' => FALSE, 'query' => "Failed to convert webform_report options."));
+  }
+  else {
+    return array(array('success' => TRUE, 'query' => "Converted webform_report options successfully."));
+  }
+}
+
+/**
+ * implementation of hook_update()
+ * add options column to webform_report table
+ */
+function webform_report_update_10() {
+
+  $ret = array();
+  
+  switch ($GLOBALS['db_type']) {
+    case 'pgsql':
+      db_add_column($ret, 'webform_report', 'options', 'text', array('not null' => TRUE));
+      break;
+    case 'mysql':
+    case 'mysqli':
+      $ret[] = update_sql("ALTER TABLE {webform_report} ADD options text NOT NULL");
+      break;
+  }
+
+  return $ret;
+}
+
+/**
+ * implementation of hook_update()
+ * migrate webform_report kcid and sort columns to sorton column
+ */
+function webform_report_update_9() {
+
+  $failed = FALSE;
+  
+  $rs = db_query("SELECT * FROM {webform_report}");
+  while ($row = db_fetch_object($rs)) {
+    $sorton = array();
+    if ($row->kcid != 0) {
+      $sorton[] = array(
+        'cid' => (int) $row->kcid, 
+        'order' => (int) $row->sort
+      );
+    }
+    if (!db_query("UPDATE {webform_report} 
+                   SET sorton='%s'
+                   WHERE nid = %d", serialize($sorton), $row->nid)) {
+      $failed = TRUE;
+      break;
+    }
+  }
+  if ($failed) {
+    return array(array('success' => FALSE, 'query' => "Failed to convert webform_report sort."));
+  }
+  else {
+    return array(array('success' => TRUE, 'query' => "Converted webform_report sort successfully."));
+  }
+}
+
+/**
+ * implementation of hook_update()
+ * add sorts column to webform_report table
+ */
+function webform_report_update_8() {
+
+  $ret = array();
+  
+  switch ($GLOBALS['db_type']) {
+    case 'pgsql':
+      db_add_column($ret, 'webform_report', 'sorton', 'text', array('not null' => TRUE));
+      break;
+    case 'mysql':
+    case 'mysqli':
+      $ret[] = update_sql("ALTER TABLE {webform_report} ADD sorton text NOT NULL");
+      break;
+  }
+
+  return $ret;
+}
+
+/**
+ * implementation of hook_update()
+ * migrate webform_report components column to columns column
+ */
+function webform_report_update_7() {
+
+  $failed = FALSE;
+
+  // get all reports
+  $rs = db_query("SELECT * FROM {webform_report}");
+  while ($row = db_fetch_object($rs)) {
+    // get the current component list
+    $components = unserialize(stripslashes($row->components));
+    if(!is_array($components)) {
+      $components = unserialize(base64_decode($components));
+    } 
+    // if has components
+    if (is_array($components)) {
+      // build component array - retain original order
+      $comp = array();
+      // meta columns first
+      $comp[-1] = null;
+      $comp[-2] = null;
+      $comp[-3] = null;
+      $comp[-4] = null;
+      $comp[-5] = null;
+      // insert all components
+      foreach($components as $cid => $value) {
+        $comp[$cid] = $value;
+      }
+      // eliminate meta columns not used
+      for ($i=-5; $i<=-1; $i++) {
+        if ($comp[$i] == null) {
+          unset($comp[$i]);
+        }
+      }
+      // build final list of columns
+      $columns = array();
+      foreach ($comp as $cid => $value) {
+        $columns[] = array(
+          'cid' => $cid,
+          'format' => ''
+        );
+      }
+      // update table
+      if (!db_query("UPDATE {webform_report} 
+                     SET columns='%s'
+                     WHERE nid = %d", serialize($columns), $row->nid)) {
+        $failed = TRUE;
+        break;
+      }
+    }
+  }
+  if ($failed) {
+    return array(array('success' => FALSE, 'query' => "Failed to convert webform_report components."));
+  }
+  else {
+    return array(array('success' => TRUE, 'query' => "Converted webform_report components successfully."));
+  }
+}
+
+
+/**
+ * implementation of hook_update()
+ * add columns column to webform_report table
+ */
+function webform_report_update_6() {
+
+  $ret = array();
+  
+  switch ($GLOBALS['db_type']) {
+    case 'pgsql':
+      db_add_column($ret, 'webform_report', 'columns', 'text', array('not null' => TRUE));
+      break;
+    case 'mysql':
+    case 'mysqli':
+      $ret[] = update_sql("ALTER TABLE {webform_report} ADD columns text NOT NULL");
+      break;
+  }
+
+  return $ret;
+}
+
+/**
+ * implementation of hook_update()
+ * migrate webform_report filter_type and filter_value columns to filters column
+ */
+function webform_report_update_5() {
+
+  $results = db_query("SELECT nid, kcid, filter_type, filter_value FROM {webform_report}");
+  while($result = db_fetch_object($results)) {
+    $field = $result->kcid;
+    $type = $result->filter_type;
+    $value = $result->filter_value;
+    $filters = array();
+    if(!empty($field) && !empty($type) && $type != 0){
+      $filters[] = array('field'=>$field, 'type'=>$type, 'value'=>$value);
+    }
+    if (!db_query("UPDATE {webform_report} 
+                   SET filters = '%s' 
+                   WHERE nid = %d", serialize($filters), $result->nid)) {
+      $failed = TRUE;
+      break;
+    }
+  }
+
+  if ($failed) {
+    return array(array('success' => FALSE, 'query' => "Failed to convert webform_report filter."));
+  }
+  else {
+    return array(array('success' => TRUE, 'query' => "Converted webform_report filter successfully."));
+  }
+}
+
+/**
+ * implementation of hook_update()
+ * add filters column to webform_report table
+ */
+function webform_report_update_4() {
+
+  $ret = array();
+  
+  switch ($GLOBALS['db_type']) {
+    case 'pgsql':
+      db_add_column($ret, 'webform_report', 'filters', 'text', array('not null' => TRUE));
+      break;
+    case 'mysql':
+    case 'mysqli':
+      $ret[] = update_sql("ALTER TABLE {webform_report} ADD filters text NOT NULL");
+      break;
+  }
+
+  return $ret;
+}
+
+/**
+ * implementation of hook_update
+ */
+function webform_report_update_3() {
+  $items = array();
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      $items[] = update_sql("ALTER TABLE {webform_report} CHANGE COLUMN kcid old_kcid int(10) unsigned NOT NULL default '0'");
+      break;
+    case 'pgsql':
+      $items[] = update_sql("ALTER TABLE {webform_report} RENAME kcid TO old_kcid");
+      break;
+  }
+  $items[] = update_sql("ALTER TABLE {webform_report} ADD kcid int NOT NULL default '0'");
+  $items[] = update_sql("UPDATE {webform_report} SET kcid = old_kcid");
+  $items[] = update_sql("ALTER TABLE {webform_report} DROP COLUMN old_kcid");
+  $items[] = update_sql("ALTER TABLE {webform_report} ADD components text NOT NULL");
+
+  $option_results = db_query("SELECT nid, options FROM {webform_report}");
+  $components = array();
+  while($option_result = db_fetch_object($option_results)) {
+    $options = unserialize(stripslashes($option_result->options));
+    if(!empty($options->show_user)) {
+      $components[] = -1;
+    }
+    if(!empty($options->show_date)) {
+      $components[] = -2;
+    }
+    if(!empty($options->show_time)) {
+      $components[] = -3;
+    }
+    if(!empty($options->show_ip)) {
+      $components[] = -4;
+    }
+    if(!empty($options->show_edit)) {
+      $components[] = -5;
+    }
+    $component_results = db_query("SELECT cid FROM {webform_report_component} WHERE nid = '" . $option_result->nid . "'");
+    while($component_result = db_fetch_object($component_results)) {
+      $components[] = $component_result->cid;
+    }
+    // Even though the components array is usually escaped with slashes, for some reason they are stripped here (grrrrr) so they must be base64 encoded
+    $items[] = update_sql("UPDATE {webform_report} SET components = '" . base64_encode(serialize($components)) . "' WHERE nid = '" . $option_result->nid . "'");
+  }
+
+  $items[] = update_sql("ALTER TABLE {webform_report} DROP COLUMN options");
+  $items[] = update_sql("DROP TABLE {webform_report_component}");
+
+  return $items;
+}
+
+/**
+ * implementation of hook_update
+ */
+function webform_report_update_2() {
+  $results = db_query("SELECT nid, options FROM {webform_report} ORDER BY nid");
+  while($result = db_fetch_object($results)) {
+    $items[] = update_sql("UPDATE {webform_report} SET options = '" . addslashes(stripslashes($result->options)) . "' WHERE nid = '" . $result->nid . "'");
+  }
+  return $items;
+}
+
+/**
+ * implementation of hook_update
+ */
+function webform_report_update_1() {
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      $items[] = update_sql("CREATE TABLE if not exists {webform_report_new} (
+        nid int(10) unsigned NOT NULL default '0',
+        wnid int(10) unsigned NOT NULL default '0',
+        kcid int(10) unsigned NOT NULL default '0',
+        description text NOT NULL,
+        sort int(2) unsigned NOT NULL default '4',
+        options text NOT NULL,
+        filter_type int(2) unsigned NOT NULL default '0',
+        filter_value varchar(128) NOT NULL default '',
+        results_per_page int(1) unsigned NOT NULL default '20',
+        PRIMARY KEY  (nid)
+        ) TYPE=MyISAM /*!40100 DEFAULT CHARACTER SET utf8 */"
+      );
+      $items[] = update_sql("CREATE TABLE if not exists {webform_report_component} (
+        nid int(10) unsigned NOT NULL default '0',
+        cid int(10) unsigned NOT NULL default '0',
+        PRIMARY KEY  (nid, cid)
+        ) TYPE=MyISAM /*!40100 DEFAULT CHARACTER SET utf8 */"
+      );
+      break;
+    case 'pgsql':
+      $items[] = update_sql("CREATE TABLE {webform_report_new} (
+        nid integer NOT NULL default '0',
+        wnid integer NOT NULL default '0',
+        kcid integer NOT NULL default '0',
+        description text NOT NULL,
+        sort smallint NOT NULL default '4',
+        options text NOT NULL,
+        filter_type smallint NOT NULL default '0',
+        filter_value varchar(128) NOT NULL default '',
+        results_per_page smallint NOT NULL default '20',
+        PRIMARY KEY  (nid)
+        )"
+      );
+      $items[] = update_sql("CREATE TABLE {webform_report_component} (
+        nid integer NOT NULL default '0',
+        cid integer NOT NULL default '0',
+        PRIMARY KEY  (nid,cid)
+        )"
+      );
+      break;
+  }
+  $items[] = update_sql("INSERT INTO {webform_report_new} (nid, wnid, kcid, description, sort) (SELECT DISTINCT nid, wnid, kcid, description, sort FROM {webform_report})");
+  $items[] = update_sql("INSERT INTO {webform_report_component} (nid, cid) (SELECT nid, cid FROM {webform_report})");
+  $items[] = update_sql("DROP TABLE {webform_report}");
+  $items[] = update_sql("ALTER TABLE {webform_report_new} RENAME TO webform_report");
+
+  return $items;
+}

@@ -1,0 +1,57 @@
+<?php
+// $Id: casetracker_basic.test,v 1.1 2009/02/11 02:42:13 jmiccolis Exp $
+
+class CasetrackerBasicTest extends DrupalWebTestCase {
+
+  /**
+   * Implementation of getInfo
+   */
+  function getInfo() {
+    return array(
+      'name' => t('Project and case creation.'),
+      'description' => t('Create project and cases using the casetracker_basic
+                          content types'),
+      'group' => t('Case Tracker')
+    );
+  }
+
+  /**
+   * Implementation of setUp
+   */
+  function setUp() {
+    parent::setUp('views', 'casetracker', 'casetracker_basic');
+  }
+
+  /**
+   * Main test routine.
+   */
+  function testCasetrackerBasicCreation() {
+    $auth_user = $this->drupalCreateUser(array(
+      'access content',
+      'create projects',
+      'create cases'
+    ));
+    $this->drupalLogin($auth_user);
+
+    // Create a project node.
+    $edit = array(
+      'title' => $this->randomName(32),
+      'body' => $this->randomName(64),
+    );
+    $this->drupalPost('node/add/casetracker-basic-project', $edit, t('Save'));
+    $text = t('Project !name has been created.', array('!name' => $edit['title']));
+    $this->assertText($text);
+
+    // Create a case for the new project.
+    $this->clickLink(t('add Case'));
+    $edit = array(
+      'title' => $this->randomName(32),
+      'body' => $this->randomName(64),
+      'casetracker[case_priority_id]' => 2,
+      'casetracker[case_type_id]' => 11,
+    );
+    $this->drupalPost(NULL, $edit ,t('Save'));
+    $text = t('Case !name has been created.', array('!name' => $edit['title']));
+    $this->assertText($text);
+  }
+}

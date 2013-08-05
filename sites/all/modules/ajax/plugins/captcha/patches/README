@@ -1,0 +1,11 @@
+The captcha module can be found at http://drupal.org/project/captcha
+
+These patches were built for Captcha 6.x-1.0-rc2. They are not guaranteed to
+work on other versions. Use at your own risk.
+
+As of now, Captcha 6.x-2.0-beta4 is not currently supported, due to its rather
+unstable nature. When a final, stable Captcha 2 is released, this module will
+be updated to support it.
+
+These patches must be applied from the root of the captcha module directory.
+For help on applying patches, see http://drupal.org/node/60108.

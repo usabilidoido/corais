@@ -1,0 +1,167 @@
+<?php
+
+/**
+ * @file
+ * Test import of basic nodes (Title, Body, Input format, Authored by,
+ * Authored on and Publishing options).
+ */
+
+require_once(drupal_get_path('module', 'node_import') . '/tests/NodeImportTestCase.php');
+
+class NodeImportNode extends NodeImportTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Node',
+      'description' => 'Test import of basic nodes (Title, Body, Input format, Authored on, Authored by, Publishing options).',
+      'group' => 'Node import',
+    );
+  }
+
+  public function setUp() {
+    parent::setUp('node');
+  }
+
+  public function tearDown() {
+    parent::tearDown();
+  }
+
+  /**
+   * Test import of basic node.
+   */
+  public function testBasicNode() {
+    // Type to import.
+    $type = $this->drupalCreateContentType(array(
+      'title_label' => $this->randomName() . ' (title)', // Test automap
+      'body_label' => $this->randomName() . ' (body)', // Test automap
+      'min_word_count' => 1, // Test body too short
+    ));
+
+    // Create the user doing the import.
+    $perms = array(
+      'create ' . $type->name . ' content',
+    );
+    $admin = $this->nodeImportCreateUser($perms);
+    $admin_role = array_pop(array_diff(array_keys($admin->roles), array(DRUPAL_ANONYMOUS_RID, DRUPAL_AUTHENTICATED_RID)));
+
+    // Create two filters (one this role can use and one this role can not use).
+    $filter_admin = $this->drupalCreateUser(array('administer filters'));
+    $this->drupalLogin($filter_admin);
+
+    $filter_allow = array(
+      'name' => 'filter admin role (' . $admin_role . ') can use',
+    );
+    $filter_deny = array(
+      'name' => 'filter admin role (' . $admin_role . ') can not use',
+    );
+    $filter_default = array(
+      'format' => variable_get('filter_default_format', 1),
+    );
+    foreach (user_roles() as $rid => $role) {
+      $filter_allow["roles[$rid]"] = ($rid == $admin_role);
+      $filter_deny["roles[$rid]"] = FALSE;
+    }
+
+    $this->drupalPost('admin/settings/filters/add', $filter_allow, t('Save configuration'));
+    $this->drupalPost('admin/settings/filters/add', $filter_deny, t('Save configuration'));
+
+    $result = db_query("SELECT format, name FROM {filter_formats}");
+    while (($filter = db_fetch_object($result))) {
+      if ($filter->name == $filter_allow['name']) $filter_allow['format'] = $filter->format;
+      if ($filter->name == $filter_deny['name']) $filter_deny['format'] = $filter->format;
+      if ($filter->format == variable_get('filter_default_format', 1)) $filter_default['name'] = $filter->name;
+    }
+    $this->drupalLogout();
+
+    // Create a file to import.
+    $data = array(
+      array($type->title_label, $type->body_label, 'format'), // Automap header
+      array($this->randomName(), $this->randomName(), ''), // OK - 1
+      array('', $this->randomName(), ''), // No title - 2
+      array($this->randomName(), '', ''), // Body too short - 3
+      array($this->randomName(), $this->randomName(), $filter_default['name']), // OK - 4
+      array($this->randomName(), $this->randomName(), $filter_default['format']), // OK - 5
+      array($this->randomName(), $this->randomName(), $filter_allow['name']), // OK - 6
+      array($this->randomName(), $this->randomName(), $filter_allow['format']), // OK - 7
+      array($this->randomName(), $this->randomName(), $filter_deny['name']), // No such filter - 8
+      array($this->randomName(), $this->randomName(), $filter_deny['format']), // No such filter - 9
+    );
+    $path = $this->nodeImportCreateFile($data);
+
+    // Create a new import task.
+    $edit = array(
+      'type' => "node:" . $type->name,
+      'file' => $path,
+    );
+    $this->drupalLogin($admin);
+    $taskid = $this->nodeImportCreateTask($edit);
+
+    // No need to continue if the task was not created.
+    if ($taskid === FALSE) return;
+
+    // Finish all pending import tasks.
+    $this->nodeImportDoAllTasks();
+
+    // Check all rows.
+    $results = db_query("SELECT * FROM {node_import_status} WHERE taskid = %d", $taskid);
+    $i = 0;
+    while (($result = db_fetch_array($results))) {
+      $i++;
+      $result['errors'] = unserialize($result['errors']);
+
+      $node = NULL;
+      if ($result['status'] == NODE_IMPORT_STATUS_DONE) {
+        $node = node_load($result['objid']);
+      }
+
+      switch ($i) {
+        case 1: // OK
+          $this->assertRowStatusDONE($result);
+          $this->assertNotNull($node, t('Node exists (nid: %nid).', array('%nid' => $result['objid'])), 'Node import');
+          $this->assertEqual($node->title, $data[$i][0], t('Title correctly set.'), 'Node import');
+          $this->assertEqual($node->body, $data[$i][1], t('Body correctly set.'), 'Node import');
+          $this->assertEqual($node->format, variable_get('filter_default_format', 1), t('Input format correctly set.'), 'Node import');
+          break;
+          
+        case 2: // No title
+          $this->assertRowStatusERROR($result);
+          $this->assertRowErrorContains($result, t('!name field is required.', array('!name' => $data[0][0])), t('Error on empty title.'));
+          break;
+          
+        case 3: // Body too short
+          $this->assertRowStatusERROR($result);
+          $this->assertRowErrorContains($result, t('!name field is required.', array('!name' => $data[0][1])), t('Error on empty body.'));
+          break;
+          
+        case 4: // OK
+        case 5:
+          $this->assertRowStatusDONE($result);
+          $this->assertNotNull($node, t('Node exists (nid: %nid).', array('%nid' => $result['objid'])), 'Node import');
+          $this->assertEqual($node->title, $data[$i][0], t('Title correctly set.'), 'Node import');
+          $this->assertEqual($node->body, $data[$i][1], t('Body correctly set.'), 'Node import');
+          $this->assertEqual($node->format, $filter_default['format'], t('Input format correctly set.'), 'Node import');
+          break;
+          
+        case 6: // OK
+        case 7:
+          $this->assertRowStatusDONE($result);
+          $this->assertNotNull($node, t('Node exists (nid: %nid).', array('%nid' => $result['objid'])), 'Node import');
+          $this->assertEqual($node->title, $data[$i][0], t('Title correctly set.'), 'Node import');
+          $this->assertEqual($node->body, $data[$i][1], t('Body correctly set.'), 'Node import');
+          $this->assertEqual($node->format, $filter_allow['format'], t('Input format correctly set.'), 'Node import');
+          break;
+          
+        case 8: // No such filter
+          $this->assertRowStatusERROR($result);
+          $this->assertRowErrorContains($result, t('Input error: %value is not allowed for %name (not in allowed values list).', array('%value' => $filter_deny['name'], '%name' => t('Input format'))), t('Error on non-existing filter.'));
+          break;
+
+        case 9: // No such filter
+          $this->assertRowStatusERROR($result);
+          $this->assertRowErrorContains($result, t('Input error: %value is not allowed for %name (not in allowed values list).', array('%value' => $filter_deny['format'], '%name' => t('Input format'))), t('Error on non-existing filter.'));
+          break;
+      }
+    }
+    $this->assertTrue($i == 9, t('Correct number of rows (%d) were imported.', array('%d' => $i)), 'Node import');
+  }
+}
+

@@ -1,0 +1,99 @@
+.ui-dialog-overlay {
+  background:#aaa url(images/ui-bg_flat_0_aaaaaa_40x100.png) 50% 50% repeat-x;
+  filter:Alpha(Opacity=30);
+  height:100%;
+  left:0;
+  opacity:.30;
+  position:absolute;
+  top:0;
+  width:100%;
+}
+
+.ui-dialog {
+  font: 13px/1.231 arial,helvetica,clean,sans-serif;
+  padding-right: 10px;
+  padding-bottom: 10px;
+}
+
+.ui-dialog-container {
+  display: block;
+  overflow: hidden;
+  z-index: 1002;
+  border: 1px solid #aaa;
+  padding: 0.2em;
+  background-color: #fff;
+  color: #222;
+  font-family: Verdana,Arial,sans-serif;
+  font-size: 1.1em;
+}
+
+.ui-draggable .ui-dialog-titlebar {
+  cursor: move;
+}
+
+.ui-dialog .ui-dialog-titlebar {
+  padding: 0.5em 0.3em 0.3em 1em;
+  position: relative;
+  background-color: #ccc;
+  border:1px solid #aaa;
+  color:#222222;
+  font-weight:bold;
+}
+
+.ui-dialog .ui-dialog-titlebar-close {
+  height: 18px;
+  margin: -10px 0 0;
+  padding: 1px;
+  position: absolute;
+  right: 0.3em;
+  top: 50%;
+  width: 19px;
+  background: url("images/ui-icons_888888_256x240.png") -94px -126px no-repeat;
+  text-decoration: none;
+}
+
+.ui-dialog .ui-dialog-titlebar-close:hover,
+.ui-dialog .ui-dialog-titlebar-close-hover {
+  background: url("images/ui-icons_454545_256x240.png") -94px -126px no-repeat;
+  text-decoration: 0;
+}
+
+.ui-dialog .ui-dialog-titlebar-close:active {
+  background: url("images/ui-icons_222222_256x240.png") -94px -126px no-repeat;
+  text-decoration: none;
+}
+
+.ui-dialog .ui-dialog-titlebar-close:focus {
+  text-decoration: none;
+  border: none;
+}
+
+.ui-dialog-titlebar-close span {
+  display: none;
+}
+
+.ui-dialog .ui-dialog-content {
+  background:none repeat scroll 0 0 transparent;
+  border:0 none;
+  overflow:auto;
+  padding:0.5em;
+}
+
+.ui-dialog .ui-dialog-buttonpane {
+  background-image:none;
+  border-width:1px 0 0;
+  margin:0.5em 0 0;
+  padding:0.3em 1em 0.5em 0.4em;
+  text-align:left;
+  z-index: 10000;
+}
+
+.ui-dialog .ui-dialog-buttonpane button {
+  cursor:pointer;
+  float:right;
+  line-height:1.4em;
+  margin:0.5em 0.4em 0.5em 0;
+  overflow:visible;
+  padding:0.2em 0.6em 0.3em;
+  width:auto;
+}

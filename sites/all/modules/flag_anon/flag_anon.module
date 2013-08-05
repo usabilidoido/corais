@@ -1,0 +1,178 @@
+<?php
+/**
+ * @file
+ *
+ * Work around flags access handling to allow a message to be shown for anonymous users.
+ *
+ * The module overwrites access to the flag when no action is present in the access check,
+ * this allows us to show the link in views for example. The output is then reset in a preprocess call.
+ *
+ * Since flag module performs a more complex access check in its hook_link implementation this module
+ * provides an alternative hook_link.
+ */
+
+/**
+ * Implementation of hook_form_alter().
+ * Adding the configuration forms to the flag settings form.
+ */
+function flag_anon_form_alter(&$form, $form_state, $form_id) {
+  if ('flag_form' == $form_id) {
+    $form['flag_anon'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Flag Anonymous settings'),
+      '#collapsible' => TRUE,
+      '#collapsed' => FALSE,
+    );
+    $form['flag_anon']['anon_display'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Display login link for anonymous users.'),
+      '#default_value' => isset($form['#flag']->anon_display) ? $form['#flag']->anon_display : 0,
+    );
+    $form['flag_anon']['anon_message'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Anonymous link text'),
+      '#default_value' => isset($form['#flag']->anon_message) ? $form['#flag']->anon_message : '',
+      '#description' => t('The text displayed when anonymous user views the flag. For example, "Please [login] to bookmark this post". Use [login] for the login link and [register] for the registration link. Alternatively, use [login-url] and [register-url] for the URLs alone. HTML is allowed.'),
+    );
+    $form['#validate'][] = 'flag_anon_flag_form_validate';
+  }
+}
+
+function flag_anon_flag_form_validate($form, &$form_state) {
+  if ($form_state['values']['anon_display']) {
+    if (!empty($form_state['values']['roles']['flag'][DRUPAL_ANONYMOUS_RID])) {
+      form_set_error('anon_display', t("You chose to display a login link for anonymous users, but you also allow anonymous users to use this flag. They don't need to log in to use it."));
+    }
+    elseif (empty($form_state['values']['anon_message'])) {
+      form_set_error('anon_message', t('You must type some text for the anonymous link if you want to display it.'));
+    }
+  }
+}
+
+/**
+ * Implementation of hook_flag_options_alter().
+ * Adding our own options to the main flag object regardless of its type.
+ */
+function flag_anon_flag_options_alter(&$options, $flag) {
+  $options['anon_display'] = '';
+  $options['anon_message'] = '';
+}
+
+/**
+ * Implements hook_flag_access_multiple().
+ *
+ * Grant access to the flag is the user is anonymous. We do this to allow the flag to show
+ * up in Views. We don't really grant access though, flagging action access is determined
+ * via the hook_flag_access which we don't grant.
+ */
+function flag_anon_flag_access_multiple($flag, $content_ids, $account) {
+  if ($flag->anon_display && $account->uid == 0) {
+    foreach ($content_ids as $id => $action) {
+      $access[$id] = TRUE;
+    }
+    return $access;
+  }
+  else {
+    return array();
+  }
+}
+
+/**
+ * Implementation of hook_link().
+ *
+ * Unfortunately we can not use flag_link(), because the access check in flag_link
+ * checks for access for the flag action. Although we overwrote the access earlier,
+ * we did not allow access for flagging actions, otherwise users could still use
+ * the flagging callback.
+ */
+function flag_anon_link($type, $object = NULL, $teaser = FALSE) {
+  if (!isset($object) || !flag_fetch_definition($type)) {
+    return;
+  }
+  global $user;
+
+  // We only take care of anonymous users.
+  if ($user->uid) {
+    return;
+  }
+
+  // Get all possible flags for this content-type.
+  $flags = flag_get_flags($type);
+
+  foreach ($flags as $flag) {
+    if (!$flag->anon_display) {
+      // Flag is configured to show for anonymous.
+      continue;
+    }
+    if (!$flag->uses_hook_link($teaser)) {
+      // Flag is not configured to show its link here.
+      continue;
+    }
+    if (!$flag->applies_to_content_object($object)) {
+      // Flag does not apply to this content.
+      continue;
+    }
+
+    $links['flag-'. $flag->name] = _flag_anon_link($flag, $flag->get_content_id($object));
+  }
+
+  if (isset($links)) {
+    return $links;
+  }
+}
+
+function flag_anon_create_link($flag_name, $content_id) {
+  global $user;
+  // In case of authenticated user we fall back to the core create link function.
+  if ($user->uid) {
+    return flag_create_link($flag_name, $content_id);
+  }
+  else {
+    $flag = flag_get_flag($flag_name);
+    if (!$flag) {
+      // Flag does not exist.
+      return;
+    }
+    $link = _flag_anon_link($flag, $content_id);
+    return $link['title'];
+  }
+}
+
+/**
+ * Since we overwrote the access handling we must overwrite the output as well, to actually respect the real settings.
+ */
+function flag_anon_preprocess_flag(&$variables) {
+  $flag =& $variables['flag'];
+  $action = $variables['action'];
+  $content_id = $variables['content_id'];
+
+  // We don't need to check for anonymous users having actual access to this flag, since
+  // we excluded that option in the flag configuration validation stage.
+  if ($GLOBALS['user']->uid == 0) {
+    $link = _flag_anon_link($flag, $content_id);
+    $variables['link_text'] = $link['title'];
+  }
+}
+
+/**
+ * Helper function to return just the message so that themes can use this.
+ */
+function _flag_anon_link($flag, $content_id) {
+  $link_options = array(
+    'query' => drupal_get_destination(),
+  );
+  $tokens = array(
+    '[login]' => l(t('login'), 'user/login', $link_options),
+    '[login-url]' => check_url(url('user/login', $link_options)),
+    '[register]' => l(t('register'), 'user/register', $link_options),
+    '[register-url]' => check_url(url('user/register', $link_options)),
+  );
+  // Backward compatibility:
+  $tokens['!login'] = $tokens['[login]'];
+  $tokens['!register'] = $tokens['[register]'];
+
+  return array(
+    'title' => strtr($flag->get_label('anon_message', $content_id), $tokens),
+    'html' => TRUE,
+  );
+}

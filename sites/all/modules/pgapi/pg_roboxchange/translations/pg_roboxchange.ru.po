@@ -1,0 +1,182 @@
+# $Id: pg_roboxchange.ru.po,v 1.1 2009/11/24 22:06:36 gor Exp $
+#
+# Russian translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  pg_roboxchange.admin.inc,v 1.2 2008/07/08 16:34:03 gor
+#  pg_roboxchange.module,v 1.2 2008/07/08 16:34:03 gor
+#  pg_roboxchange.info,v 1.1 2008/07/07 11:03:58 gor
+#  pg_roboxchange.install,v 1.1 2008/07/08 18:03:11 gor
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2009-06-24 04:14+0000\n"
+"PO-Revision-Date: 2009-06-24 04:14+0000\n"
+"Last-Translator: NAME <EMAIL@ADDRESS>\n"
+"Language-Team: Russian <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=((((n%10)==1)&&((n%100)!=11))?(0):(((((n%10)>=2)&&((n%10)<=4))&&(((n%100)<10)||((n%100)>=20)))?(1):2));\n"
+
+#: pg_roboxchange.admin.inc:33
+msgid "Purchase from site !sitename. Transaction !ID."
+msgstr ""
+
+#: pg_roboxchange.admin.inc:52
+msgid "Place your order"
+msgstr "Оформить и перейти к оплате"
+
+#: pg_roboxchange.admin.inc:62
+msgid "Rate url"
+msgstr "Ссылка на курсы"
+
+#: pg_roboxchange.admin.inc:64
+msgid "Please enter rate url.\nDefault: !url"
+msgstr ""
+"Пожалуйста, введите ссылку на курсы "
+"обмена WM-валют.\n"
+"По умолчанию: !url"
+
+#: pg_roboxchange.admin.inc:69
+msgid "Rate information"
+msgstr ""
+
+#: pg_roboxchange.admin.inc:100
+msgid "Action url"
+msgstr ""
+
+#: pg_roboxchange.admin.inc:102
+msgid "Please enter action url.\nDefault: !url"
+msgstr ""
+
+#: pg_roboxchange.admin.inc:106
+msgid "Merchant Login"
+msgstr ""
+
+#: pg_roboxchange.admin.inc:108;114;120
+msgid "Please enter Merchant Login."
+msgstr ""
+
+#: pg_roboxchange.admin.inc:112
+msgid "Merchant Pass 1"
+msgstr ""
+
+#: pg_roboxchange.admin.inc:118
+msgid "Merchant Pass 2"
+msgstr ""
+
+#: pg_roboxchange.admin.inc:125
+msgid "Rate to site currency"
+msgstr "Курс к валюте сайта"
+
+#: pg_roboxchange.admin.inc:127
+msgid "Please enter RoboXchange rate according to site currency."
+msgstr ""
+
+#: pg_roboxchange.admin.inc:134
+msgid "Urls(result,success,fail) for merchant interfase"
+msgstr ""
+
+#: pg_roboxchange.admin.inc:139
+msgid "Result url"
+msgstr ""
+
+#: pg_roboxchange.admin.inc:141;148;154
+msgid "Just for copy."
+msgstr ""
+
+#: pg_roboxchange.admin.inc:146
+msgid "Success url"
+msgstr ""
+
+#: pg_roboxchange.admin.inc:152
+msgid "Fail url"
+msgstr ""
+
+#: pg_roboxchange.admin.inc:159
+msgid "Submit"
+msgstr "Отправить"
+
+#: pg_roboxchange.admin.inc:167
+msgid "%rate must be more 0."
+msgstr ""
+
+#: pg_roboxchange.admin.inc:200
+msgid "This number does not match the original price"
+msgstr ""
+"Это число не совпадает с суммой "
+"заказа."
+
+#: pg_roboxchange.admin.inc:204
+msgid "Security check failed"
+msgstr ""
+"Платеж не прошел проверку "
+"безопасности"
+
+#: pg_roboxchange.admin.inc:208
+msgid "Payment was accepted."
+msgstr ""
+
+#: pg_roboxchange.module:100;109
+msgid "%err"
+msgstr ""
+
+#: pg_roboxchange.module:128
+msgid "RoboXchange Payment Gateway"
+msgstr ""
+
+#: pg_roboxchange.module:134;62 pg_roboxchange.info:0
+msgid "RoboXchange"
+msgstr ""
+
+#: pg_roboxchange.module:162
+msgid "<b>Your output currency</b>: !curr <br>"
+msgstr ""
+
+#: pg_roboxchange.module:163
+msgid "<b>Last update time</b>: !time <br>"
+msgstr ""
+
+#: pg_roboxchange.module:166
+msgid "Name"
+msgstr "Имя"
+
+#: pg_roboxchange.module:167
+msgid "Rate"
+msgstr "Курс"
+
+#: pg_roboxchange.module:30
+msgid "RoboXchange Payment"
+msgstr ""
+
+#: pg_roboxchange.module:38
+msgid "Internal Data"
+msgstr "Служебная информация"
+
+#: pg_roboxchange.module:45;53
+msgid "RoboXchange processing"
+msgstr ""
+
+#: pg_roboxchange.module:63
+msgid "RoboXchange payment settings."
+msgstr ""
+
+#: pg_roboxchange.module:0
+msgid "pg_roboxchange"
+msgstr ""
+
+#: pg_roboxchange.install:26
+msgid "Stores roboxchange rates information."
+msgstr ""
+
+#: pg_roboxchange.info:0
+msgid "RoboXchange payment gateway in E-Commerce."
+msgstr ""
+
+#: pg_roboxchange.info:0
+msgid "Payment Gateway API"
+msgstr ""
+

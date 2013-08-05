@@ -1,0 +1,15 @@
+<?php
+
+/**
+ *  @file
+ *  Embedded Audio Field provider file for soundcloud.com.
+ */
+
+/**
+ * Implementation of hook_emfield_providers().
+ */
+function media_soundcloud_emfield_providers($module, $provider = NULL) {
+  if ($module == 'emaudio') {
+    return drupal_system_listing("$provider\.inc$", drupal_get_path('module', 'media_soundcloud') . "/providers", 'name', 0);
+  }
+}

@@ -1,0 +1,327 @@
+<?php
+// $Id$
+/**
+ * @file
+ * Provide actions and triggers for workflows.
+ * Why it's own module? Some sites prefer rules, some prefer actions,
+ * all prefer a lower code footprint and better performance.
+ * Additional creadit to gcassie ( http://drupal.org/user/80260 ) for
+ * the initial push to split actions out of core workflow.
+ */
+
+/**
+ * Implementation of hook_menu_alter().
+ *
+ * Work around loss of menu local task inheritance in Drupal 6.2.
+ */
+function workflow_actions_menu_alter(&$callbacks) {
+  if (module_exists('trigger') & isset($callbacks['admin/build/trigger/workflow'])) {
+    $callbacks['admin/build/trigger/workflow']['access callback'] = 'trigger_access_check';
+  }
+}
+
+/**
+ * Implementation of hook_help().
+ */
+function workflow_actions_help($path, $arg) {
+  switch ($path) {
+    case 'admin/build/trigger/workflow':
+      return t('Use this page to set actions to happen when transitions occur. To configure actions, use the <a href="@link">actions settings page</a>.', array('@link' => url('admin/settings/actions')));
+  }
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function workflow_actions_theme() {
+  return array(
+    'workflow_actions_form' => array(
+      'arguments' => array(
+        'form' => array()
+      ),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_action_info().
+ */
+function workflow_actions_action_info() {
+  return array(
+    'workflow_select_next_state_action' => array(
+      'type' => 'node',
+      'description' => t('Change workflow state of post to next state'),
+      'configurable' => FALSE,
+      'hooks' => array(
+        'nodeapi' => array('presave'),
+        'comment' => array('insert', 'update'),
+        'workflow' => array('any'),
+      ),
+    ),
+    'workflow_select_given_state_action' => array(
+      'type' => 'node',
+      'description' => t('Change workflow state of post to new state'),
+      'configurable' => TRUE,
+      'hooks' => array(
+        'nodeapi' => array('presave'),
+        'comment' => array('insert', 'update'),
+        'workflow' => array('any'),
+      ),
+    ),
+  );
+}
+
+/**
+ * Implementation of a Drupal action. Move a node to the next state in the workfow.
+ */
+function workflow_select_next_state_action($node, $context) {
+  // If this action is being fired because it's attached to a workflow transition
+  // then the node's new state (now its current state) should be in $node->workflow
+  // because that is where the value from the workflow form field is stored;
+  // otherwise the current state is placed in $node->_workflow by our nodeapi load.
+  if (!isset($node->workflow) && !isset($node->_workflow)) {
+    watchdog('workflow', 'Unable to get current workflow state of node %nid.', array('%nid' => $node->nid));
+    return;
+  }
+  $current_state = isset($node->workflow) ? $node->workflow : $node->_workflow;
+
+  // Get the node's new state.
+  $choices = workflow_field_choices($node);
+  foreach ($choices as $sid => $name) {
+    if (isset($flag)) {
+      $new_state = $sid;
+      $new_state_name = $name;
+      break;
+    }
+    if ($sid == $current_state) {
+      $flag = TRUE;
+    }
+  }
+
+  // Fire the transition.
+  workflow_execute_transition($node, $new_state);
+}
+
+/**
+ * Implementation of a Drupal action. Move a node to a specified state.
+ */
+function workflow_select_given_state_action($node, $context) {
+  $comment = t($context['workflow_comment'], array('%title' => check_plain($node->title), '%state' => check_plain($context['state_name'])));
+  workflow_execute_transition($node, $context['target_sid'], $comment, $context['force']);
+}
+
+/**
+ * Configuration form for "Change workflow state of post to new state" action.
+ *
+ * @see workflow_select_given_state_action()
+ */
+function workflow_select_given_state_action_form($context) {
+  $result = db_query("SELECT * FROM {workflow_states} ws LEFT JOIN {workflows} w ON ws.wid = w.wid WHERE ws.sysid = 0 AND ws.status = 1 ORDER BY ws.wid, ws.weight");
+  $previous_workflow = '';
+  $options = array();
+  while ($data = db_fetch_object($result)) {
+    $options[$data->name][$data->sid] = $data->state;
+  }
+  $form['target_sid'] = array(
+    '#type' => 'select',
+    '#title' => t('Target state'),
+    '#description' => t('Please select that state that should be assigned when this action runs.'),
+    '#default_value' => isset($context['target_sid']) ? $context['target_sid'] : '',
+    '#options' => $options,
+  );
+  $form['force'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Force transition'),
+    '#description' => t('If this box is checked, the new state will be assigned even if workflow permissions disallow it.'),
+    '#default_value' => isset($context['force']) ? $context['force'] : '',
+  );
+  $form['workflow_comment'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Message'),
+    '#description' => t('This message will be written into the workflow history log when the action runs. You may include the following variables: %state, %title'),
+    '#default_value' => isset($context['workflow_history']) ? $context['workflow_history'] : t('Action set %title to %state.'),
+  );
+  return $form;
+}
+
+/**
+ * Submit handler for "Change workflow state of post to new state" action
+ * configuration form.
+ *
+ * @see workflow_select_given_state_action_form()
+ */
+function workflow_select_given_state_action_submit($form_id, $form_state) {
+  $state_name = workflow_get_state_name($form_state['values']['target_sid']);
+  return array(
+    'target_sid' => $form_state['values']['target_sid'],
+    'state_name' => $state_name,
+    'force' => $form_state['values']['force'],
+    'workflow_comment' => $form_state['values']['workflow_comment'],
+  );
+}
+
+/**
+ * Implementation of hook_workflow().
+ *
+ * @param $op
+ *   The current workflow operation: 'transition pre' or 'transition post'.
+ * @param $old_state
+ *   The state ID of the current state.
+ * @param  $new_state
+ *   The state ID of the new state.
+ * @param $node
+ *   The node whose workflow state is changing.
+ */
+function workflow_actions_workflow($op, $old_state, $new_state, $node) {
+  switch ($op) {
+    case 'transition pre':
+      // The workflow module does nothing during this operation.
+      // But your module's implementation of the workflow hook could
+      // return FALSE here and veto the transition.
+      break;
+
+    case 'transition post':
+      // A transition has occurred; fire off actions associated with this transition.
+      // Can't fire actions if trigger module is not enabled.
+      if (!module_exists('trigger')) {
+        break;
+      }
+      $tid = workflow_get_transition_id($old_state, $new_state);
+      $op = 'workflow-'. $node->type .'-'. $tid;
+      $aids = _trigger_get_hook_aids('workflow', $op);
+      if ($aids) {
+        $context = array(
+          'hook' => 'workflow',
+          'op' => $op,
+        );
+
+        // We need to get the expected object if the action's type is not 'node'.
+        // We keep the object in $objects so we can reuse it if we have multiple actions
+        // that make changes to an object.
+        foreach ($aids as $aid => $action_info) {
+          if ($action_info['type'] != 'node') {
+            if (!isset($objects[$action_info['type']])) {
+              $objects[$action_info['type']] = _trigger_normalize_node_context($action_info['type'], $node);
+            }
+            // Pass the node as the object for actions of type 'system'.
+            if (!isset($objects[$action_info['type']]) && $action_info['type'] == 'system') {
+              $objects[$action_info['type']] = $node;
+            }
+            // Since we know about the node, we pass that info along to the action.
+            $context['node'] = $node;
+            $result = actions_do($aid, $objects[$action_info['type']], $context);
+          }
+          else {
+            actions_do($aid, $node, $context);
+          }
+        }
+      }
+      break;
+  }
+}
+
+/**
+ * Get the actions associated with a given transition.
+ *
+ * @see _trigger_get_hook_aids()
+ *
+ * @param int $tid
+ *   ID of transition.
+ * @return array
+ *   Array of action ids in the same format as _trigger_get_hook_aids().
+ */
+function workflow_actions_get_actions($tid) {
+  $aids = array();
+  if (!module_exists('trigger')) {
+    watchdog('workflow', 'Unable to get actions associated with a transition because the trigger module is not enabled.', array(), WATCHDOG_WARNING);
+    return $aids;
+  }
+
+  $result = db_query("SELECT op FROM {trigger_assignments} WHERE hook = 'workflow'");
+  while ($data = db_fetch_object($result)) {
+    // Transition ID is the last part, e.g., foo-bar-1.
+    $transition = array_pop(explode('-', $data->op));
+    if ($tid == $transition) {
+      $results = db_query("SELECT aa.aid, a.type FROM {trigger_assignments} aa LEFT JOIN {actions} a ON aa.aid = a.aid WHERE aa.hook = '%s' AND aa.op = '%s' ORDER BY weight", 'workflow', $data->op);
+      while ($action = db_fetch_object($results)) {
+        $aids[$action->aid]['type'] = $action->type;
+      }
+    }
+  }
+
+  return $aids;
+}
+
+/**
+ * Remove an action assignment programmatically.
+ *
+ * Helpful when deleting a workflow.
+ *
+ * @see workflow_transition_delete()
+ *
+ * @param $tid
+ *   Transition ID.
+ * @param $aid
+ *   Action ID.
+ */
+function workflow_actions_actions_remove($tid, $aid) {
+  $ops = array();
+  $result = db_query("SELECT op FROM {trigger_assignments} WHERE hook = 'workflow' AND aid = '%s'", $aid);
+  while ($data = db_fetch_object($result)) {
+    // Transition ID is the last part, e.g., foo-bar-1.
+    $transition = array_pop(explode('-', $data->op));
+    if ($tid == $transition) {
+      $ops[] = $data->op;
+    }
+  }
+
+  foreach ($ops as $op) {
+    db_query("DELETE FROM {trigger_assignments} WHERE hook = 'workflow' AND op = '%s' AND aid = '%s'", $op, $aid);
+    $description = db_result(db_query("SELECT description FROM {actions} WHERE aid = '%s'", $aid));
+    watchdog('workflow', 'Action %action has been unassigned.',  array('%action' => $description));
+  }
+}
+
+/**
+ * Implementation of action_info_alter().
+ */
+function workflow_actions_action_info_alter(&$info) {
+  foreach (array_keys($info) as $key) {
+    // Modify each action's hooks declaration, changing it to say
+    // that the action supports any hook.
+    $info[$key]['hooks']['any'] = TRUE;
+  }
+}
+
+/**
+ * Implementation of hook_hook_info().
+ * Expose each transition as a hook.
+ */
+function workflow_actions_hook_info() {
+  $states = workflow_get_states();
+  if (!$states) {
+    return;
+  }
+  $trigger_page = substr($_GET['q'], 0, 28) == 'admin/build/trigger/workflow';
+  if ($trigger_page && $wid = arg(4)) {
+    $result = db_query("SELECT tm.type, w.wid, w.name, ws.state, wt.tid, wt.sid, wt.target_sid FROM {workflow_type_map} tm LEFT JOIN {workflows} w ON tm.wid = w.wid LEFT JOIN {workflow_states} ws ON w.wid = ws.wid LEFT JOIN {workflow_transitions} wt ON ws.sid = wt.sid WHERE w.wid = %d AND wt.target_sid IS NOT NULL ORDER BY tm.type, ws.weight", $wid);
+  }
+  else {
+    $result = db_query("SELECT tm.type, w.wid, w.name, ws.state, wt.tid, wt.sid, wt.target_sid FROM {workflow_type_map} tm LEFT JOIN {workflows} w ON tm.wid = w.wid LEFT JOIN {workflow_states} ws ON w.wid = ws.wid LEFT JOIN {workflow_transitions} wt ON ws.sid = wt.sid WHERE wt.target_sid IS NOT NULL ORDER BY tm.type, ws.weight");
+  }
+  while ($data = db_fetch_object($result)) {
+    $pseudohooks['workflow-'. $data->type .'-'. $data->tid] = array('runs when' => t('When %type moves from %state to %target_state', array('%type' => $data->type, '%state' => $states[$data->sid], '%target_state' => $states[$data->target_sid])));
+  }
+  // $pseudohooks will not be set if no workflows have been assigned
+  // to node types.
+  if (isset($pseudohooks)) {
+    return array(
+      'workflow' => array(
+        'workflow' => $pseudohooks,
+      ),
+    );
+  }
+  if ($trigger_page) {
+    drupal_set_message(t('Either no transitions have been set up or this workflow has not yet been assigned to a content type. To enable the assignment of actions, edit the workflow to assign permissions for roles to do transitions. After that is completed, transitions will appear here and you will be able to assign actions to them.'));
+  }
+}

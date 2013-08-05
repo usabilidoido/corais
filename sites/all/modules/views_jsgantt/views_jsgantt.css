@@ -1,0 +1,26 @@
+div.gantt {
+   width: 100%;
+   overflow: hidden;
+}
+
+#leftside.scroll {
+ display: none;
+}
+
+#GanttChartDIV * {
+padding:0 !important;
+margin:0 !important;
+border-style: none;
+}
+
+#GanttChartDIV:hover {
+background-color: inherit;
+}
+
+#GanttChartDIV *:hover {
+background-color: inherit;
+}
+
+#GanttChartDIV table tr:hover td {
+background-color: inherit;
+}

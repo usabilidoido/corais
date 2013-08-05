@@ -1,0 +1,12 @@
+<?php
+// $Id: views_jsgantt.install,v 1.1.2.1 2010/08/26 15:03:08 danepowell Exp $
+
+/**
+ * @file
+ */
+
+function views_jsgantt_update_6100() {
+  $ret = array();
+  drupal_set_message(t("Note: you will need to immediately edit and resave any jsGantt views after applying this update. If you don't, you will likely experience a WSOD when jsGantt views are displayed."));
+  return $ret;
+}

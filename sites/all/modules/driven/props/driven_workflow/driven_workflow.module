@@ -1,0 +1,97 @@
+<?php
+// $Id: driven_workflow.module,v 1.1 2010/04/01 01:08:01 arhak Exp $
+
+if (module_exists('driven_diff')) {
+  // don't include code that depends on a disabled module
+  module_load_include('inc', 'driven_workflow', 'driven_workflow.diff');
+}
+
+/**
+ * Implements hook_driven_properties().
+ */
+function driven_workflow_driven_properties($node_type) {
+  $wid = workflow_get_workflow_for_type($node_type);
+  if (!$wid) {
+    return array(); // nothing to declare
+  }
+  
+  $available_props = array();
+  $workflow = workflow_load($wid);
+  
+  // translate the same as workflow_tab_form
+  $wf_prefix = check_plain((t($workflow->name))) . ' » ';
+  $meta = compact('wid');
+  
+  // the parent to which the state's radios point
+  // (which is an empty string passed from workflow_form_alter to workflow_node_form)
+  $available_props['workflow:workflow:'] = array(
+    'label' => t('State'), // default would be the name of the workflow
+    'target_title' => $wf_prefix . t('State'),
+    'meta' => $meta,
+  );
+  
+  // workflow:{workflow_scheduled,workflow_scheduled_date,workflow_scheduled_hour}
+  $available_props['workflow:workflow:bundled_schedule'] = array(
+    'label' => t('State\'s schedule'), // default would be: 'Workflow' (the bundle's parent would be the fieldset)
+    'target_title' => $wf_prefix . t('Schedule'),
+    'meta' => $meta + array(
+      // request to include non changed children
+      // if at least one of them changed
+      // since all of them will be needed at diff_render time
+      'bundle' => array(
+        'workflow_scheduled',
+        'workflow_scheduled_date',
+        'workflow_scheduled_hour',
+      )
+    ),
+  );
+  
+  if ($workflow->options['comment_log_node']) {
+    $available_props['workflow:workflow:workflow_comment'] = array(
+      'label' => t('State\'s comment'), // default would be just 'Comment'
+      'target_title' => $wf_prefix . t('Comment'),
+      'meta' => $meta,
+    );
+  }
+  
+  foreach ($available_props as $property_id => &$prop) {
+    $prop['realm_title'] = t('Workflow');
+  }
+  return $available_props;
+}
+
+// $wid is only needed for error reporting
+// (but in pasing by lets use it to constraint the WHERE clause)
+function driven_workflow_get_state_name($sid, $wid) {
+  $state_name = db_result(db_query('SELECT state FROM {workflow_states} WHERE sid = %d AND wid = %d', $sid, $wid));
+  if ($state_name) {
+    return $state_name;
+  }
+  
+  $msg = 'State %sid couldn\'t be fetched from workflow %wid.';
+  $args = array(
+    '%sid' => $sid, 
+    '%wid' => $wid,
+  );
+  driven_diff_warn_inaccurate_diff($msg, $args);
+  return FALSE;
+}
+
+// $node_type is only needed for error reporting
+function driven_workflow_get_workflow($wid, $node_type) {
+  // workflow_load doesn't protect itself from unexistent workflows
+  // instead of returning FALSE it would return an empty object with empty options
+  // therefore we have to hit the database an extra time before jumping in
+  if (!db_result(db_query('SELECT * FROM {workflows} WHERE wid = %d', $wid))) {
+    return FALSE;
+  }
+  $workflow = workflow_load($wid);
+  if ($workflow) {
+    return $workflow;
+  }
+  
+  // second argument will be %id
+  $msg = 'Workflow %id couldn\'t be fetched';
+  driven_diff_warn_property_gone($node_type, $wid, $msg);
+  return FALSE;
+}

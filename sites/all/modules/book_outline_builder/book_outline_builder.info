@@ -1,0 +1,12 @@
+core = "6.x"
+description = "An API for rapidly building drupal book outlines"
+name = "Book Outline Builder"
+project = "book_outline_builder"
+dependencies[] = "book"
+
+; Information added by drupal.org packaging script on 2012-06-21
+version = "6.x-1.0-beta1"
+core = "6.x"
+project = "book_outline_builder"
+datestamp = "1340289073"
+

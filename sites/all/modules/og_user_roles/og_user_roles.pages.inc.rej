@@ -1,0 +1,17 @@
+***************
+*** 142,148 ****
+    foreach ($form_state['values']['user_roles'] as $uid => $new_roles) {
+      foreach ($form['#assignable_roles'] as $rid => $name) {
+        if (empty($new_roles[$rid])) {
+-         og_user_roles_role_revoke($gid, $uid, $rid);
+        }
+        else {
+          og_user_roles_role_add($gid, $uid, $rid);
+--- 142,148 ----
+    foreach ($form_state['values']['user_roles'] as $uid => $new_roles) {
+      foreach ($form['#assignable_roles'] as $rid => $name) {
+        if (empty($new_roles[$rid])) {
++         og_user_roles_role_delete($gid, $uid, $rid);
+        }
+        else {
+          og_user_roles_role_add($gid, $uid, $rid);

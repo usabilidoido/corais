@@ -1,0 +1,103 @@
+; Drupal Core ignores
+
+; due to simpletest patch - remove
+install.php:940:security
+install.php:952:security
+
+; scripts and includes
+install.php:932:security
+install.php:944:security
+update.php:380:security
+update.php:556:security
+update.php:601:security
+includes/common.inc:660:security
+includes/common.inc:808:security
+includes/common.inc:1695:security
+includes/common.inc:4059:security
+includes/file.inc:135:security
+includes/form.inc:812:security
+includes/form.inc:690:security
+includes/form.inc:695:security
+includes/form.inc:847:security
+includes/form.inc:2075:security
+includes/install.inc:730:security
+includes/locale.inc:1248:security
+includes/unicode.inc:351:security
+
+; block module
+modules/block/block.module:466:security
+
+; blog module
+modules/blog/blog.pages.inc:44:security
+
+; book module
+modules/book/book.install:219:security
+modules/book/book.pages.inc:230:security
+
+; comment module
+modules/comment/comment.module:325:security
+modules/comment/comment.module:1166:security
+modules/comment/comment.module:1951:security
+
+; forum module
+modules/forum/forum.module:258:security
+modules/forum/forum.module:440:security
+
+; locale module
+modules/locale/locale.install:189:security
+
+; node module
+modules/node/node.module:274:security
+modules/node/node.module:752:security
+modules/node/node.module:755:security
+modules/node/node.module:1155:security
+modules/node/node.module:1156:security
+modules/node/node.module:1354:security
+modules/node/node.module:1613:security
+modules/node/node.module:1622:security
+modules/node/node.module:1810:security
+modules/node/node.module:2060:security
+modules/node/node.module:2172:security
+modules/node/node.module:2337:security
+modules/node/node.module:2372:security
+modules/node/node.module:2377:security
+modules/node/content_types.inc:386:security
+modules/node/content_types.inc:393:security
+modules/node/node.admin.inc:459:security
+modules/node/node.admin.inc:600:security
+
+; openid module
+modules/openid/openid.module:450:security
+
+; php module
+modules/php/php.install:20:security
+modules/php/php.module:82:security
+
+; poll module
+modules/poll/poll.module:328:security
+
+; profile module
+modules/profile/profile.pages.inc:58:security
+
+; search module
+modules/search/search.module:503:security
+modules/search/search.module:944:security
+modules/search/search.module:953:security
+
+; system module
+modules/system/system.module:1204:security
+modules/system/system.admin.inc:295:security
+modules/system/system.install:2329:security
+
+; taxonomy module
+modules/taxonomy/taxonomy.admin.inc:821:security
+
+; translation module
+modules/translation/translation.module:256:security
+modules/translation/translation.module:266:security
+
+; user module
+modules/user/user.module:247:security
+modules/user/user.module:748:security
+modules/user/user.module:1117:security
+

@@ -1,0 +1,15 @@
+<?php
+// $Id: casetracker_actions.install,v 1.1.2.1 2009/07/27 02:37:30 jmiccolis Exp $
+/**
+* casetracker_actions.install
+* 
+* Updates actions on installation/purges orphaned actions on disable.
+*/
+
+function casetracker_actions_install() {
+  actions_synchronize(FALSE, TRUE);
+}
+
+function casetracker_actions_disable() {
+  actions_synchronize(FALSE, TRUE);
+}

@@ -1,0 +1,117 @@
+<?php
+// $Id: site_tour.install,v 1.3.2.1.2.4 2009/01/29 21:36:46 stefano73 Exp $
+
+/**
+ * Implementation of hook_install().
+ */
+function site_tour_install() {
+  drupal_install_schema('site_tour');
+  site_tour_update_6000();
+}
+
+function site_tour_uninstall(){
+  drupal_uninstall_schema('site_tour');
+  foreach (array('textOf', 'textClose', 'prevButton', 'nextButton', 'onCloseClickStay', 'doCoverBody', 'bodyCoverCloseOnClick', 'skin') as $key) {
+    variable_del('site_tour_'.$key, '');
+  }
+}
+
+function site_tour_schema() {
+  $schema = array();
+  $schema['site_tour'] = array(
+    'fields' => array(
+      'id' => array('type' =>'serial', 'unsigned' => TRUE, 'not null' => TRUE),
+      'url' =>  array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, 'default' => ''),
+      'title'  =>  array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, 'default' => ''),
+      'description'  =>  array('type' => 'varchar', 'length' => '255'),
+      'status' => array('type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 1),
+      'pages' => array('type' => 'int', 'size' => 'small', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+      'close_url' =>  array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, 'default' => ''),
+      'exit_url' =>  array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, 'default' => ''),
+      'skin' => array('type' => 'varchar', 'length' => '64'),
+      'text_of' => array('type' => 'varchar', 'length' => '10'),
+      'text_close' => array('type' => 'varchar', 'length' => '15'),
+      'btn_prev' => array('type' => 'varchar', 'length' => '15'),
+      'btn_next' => array('type' => 'varchar', 'length' => '15'),
+      'close_btn_action' => array('type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+      'cover_body' => array('type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 1),
+      'cover_click_close' => array('type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 1),
+    ),
+    'primary key' => array('id'),
+    'indexes' => array(
+      'url' => array(array('url', 15)),
+    ),
+  );
+  $schema['site_tour_pages'] = array(
+    'fields' => array(
+      'id' => array('type' =>'serial', 'unsigned' => TRUE, 'not null' => TRUE),
+      'tour' => array('type' =>'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0),
+      'url' =>  array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, 'default' => ''),
+      'title'  =>  array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, 'default' => ''),
+      'description'  =>  array('type' => 'text', 'size' => 'normal'),
+      'status' => array('type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 1),
+      'weight' => array('type' =>'int', 'size' => 'tiny', 'not null' => TRUE, 'default' => 0),
+    ),
+    'primary key' => array('id'),
+    'indexes' => array(
+      'tour' => array('tour'),
+    ),   
+  );  
+  return $schema;
+}
+
+function site_tour_update_6000() {
+  $schema = site_tour_schema();
+  $ret = array();
+  
+  foreach (array('close_url', 'exit_url') as $column) {
+    if (!db_column_exists('site_tour', $column)) {
+      @db_add_field($ret, 'site_tour', $column, $schema['site_tour']['fields'][$column]);
+    }
+  }
+  
+  if (!db_table_exists('site_tour_pages') || db_column_exists('site_tour', 'page')) {
+    if (!db_table_exists('site_tour_pages')) {
+      @db_create_table($ret, 'site_tour_pages', $schema['site_tour_pages']);
+    }
+  
+    $sql = db_query('SELECT * FROM {site_tour} ORDER BY id,status,page');
+    while ($r = db_fetch_object($sql)) {
+      if ($r->status == 2) {
+        $result = db_result(db_query("SELECT tour FROM {site_tour_pages} WHERE tour=%d AND weight=%d", $r->id, $r->page));
+        if ($result) continue;
+        // insert page
+        $ret[] = update_sql(sprintf("INSERT INTO {site_tour_pages} (tour, weight, title, description, url) VALUES(%d, %d, '%s', '%s', '%s')", $r->id, $r->page, $r->title, $r->description, $r->url));
+      }
+      else {
+        $result = db_result(db_query("SELECT tour FROM {site_tour_pages} WHERE tour=%d", $r->id));
+        if ($result) continue;
+        // update tour data
+        $data = @unserialize($r->description);
+        if (!is_array($data)) continue;
+        update_sql(sprintf("UPDATE {site_tour} SET description='%s', close_url='%s', exit_url='%s' WHERE id=%d", $data['description'], $data['closeurl'], $data['exiturl'], $r->id));
+      }
+    }
+  }
+  
+  // update site_tour table
+  update_sql("DELETE FROM {site_tour} WHERE status=2");
+  @db_change_field($ret, 'site_tour', 'id', 'id', $schema['site_tour']['fields']['id']);
+  @db_change_field($ret, 'site_tour', 'description', 'description', $schema['site_tour']['fields']['description']);
+  @db_change_field($ret, 'site_tour', 'page', 'pages', $schema['site_tour']['fields']['pages']);
+  @db_drop_index($ret, 'site_tour', 'id');
+  @db_add_primary_key($ret, 'site_tour', array('id'));
+  $cols = array('skin' => 'site_tour_skin', 'text_of' => 'site_tour_textOf', 'text_close' => 'site_tour_textClose',
+    'btn_prev' => 'site_tour_prevButton', 'btn_next' => 'site_tour_nextButton',
+    'close_btn_action' => 'site_tour_onCloseClickStay', 'cover_body' => 'site_tour_doCoverBody',
+    'cover_click_close' => 'site_tour_bodyCoverCloseOnClick');
+  foreach ($cols as $column => $var) {
+    if (!db_column_exists('site_tour', $column)) {
+      @db_add_field($ret, 'site_tour', $column, $schema['site_tour']['fields'][$column]);
+      $value = variable_get($var, '');
+      if ($value) update_sql(sprintf("UPDATE {site_tour} SET %s='%s'", $column, $var));
+      variable_del($var);
+    }
+  }
+  return $ret;
+}

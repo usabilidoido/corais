@@ -1,0 +1,185 @@
+***************
+*** 32,126 ****
+   * Attach this editor to a target element.
+   */
+  Drupal.wysiwyg.editor.attach.ckeditor = function(context, params, settings) {
+-   setTimeout(function() {
+-     // Apply editor instance settings.
+-     CKEDITOR.config.customConfig = '';
+  
+-     settings.on = {
+-       instanceReady: function(ev) {
+-         var editor = ev.editor;
+-         // Get a list of block, list and table tags from CKEditor's XHTML DTD.
+-         // @see http://docs.cksource.com/CKEditor_3.x/Developers_Guide/Output_Formatting.
+-         var dtd = CKEDITOR.dtd;
+-         var tags = CKEDITOR.tools.extend({}, dtd.$block, dtd.$listItem, dtd.$tableContent);
+-         // Set source formatting rules for each listed tag except <pre>.
+-         // Linebreaks can be inserted before or after opening and closing tags.
+-         if (settings.apply_source_formatting) {
+-           // Mimic FCKeditor output, by breaking lines between tags.
+-           for (var tag in tags) {
+-             if (tag == 'pre') {
+-               continue;
+-             }
+-             this.dataProcessor.writer.setRules(tag, {
+-               indent: true,
+-               breakBeforeOpen: true,
+-               breakAfterOpen: false,
+-               breakBeforeClose: false,
+-               breakAfterClose: true
+-             });
+            }
+          }
+-         else {
+-           // No indents or linebreaks;
+-           for (var tag in tags) {
+-             if (tag == 'pre') {
+-               continue;
+-             }
+-             this.dataProcessor.writer.setRules(tag, {
+-               indent: false,
+-               breakBeforeOpen: false,
+-               breakAfterOpen: false,
+-               breakBeforeClose: false,
+-               breakAfterClose: false
+-             });
+            }
+          }
+-       },
+  
+-       pluginsLoaded: function(ev) {
+-         $('.form-submit.boxes-ajax').mousedown(function() {
+-           CKEDITOR.instances[params.field].updateElement();
+          });
+-         $('.form-submit.boxes-ajax').mouseup(function() {
+-           CKEDITOR.instances[params.field].destroy();
+          });
+-         // Override the conversion methods to let Drupal plugins modify the data.
+-         var editor = ev.editor;
+-         if (editor.dataProcessor && Drupal.settings.wysiwyg.plugins[params.format]) {
+-           editor.dataProcessor.toHtml = CKEDITOR.tools.override(editor.dataProcessor.toHtml, function(originalToHtml) {
+-             // Convert raw data for display in WYSIWYG mode.
+-             return function(data, fixForBody) {
+-               for (var plugin in Drupal.settings.wysiwyg.plugins[params.format].drupal) {
+-                 if (typeof Drupal.wysiwyg.plugins[plugin].attach == 'function') {
+-                   data = Drupal.wysiwyg.plugins[plugin].attach(data, Drupal.settings.wysiwyg.plugins.drupal[plugin], editor.name);
+-                   data = Drupal.wysiwyg.instances[params.field].prepareContent(data);
+-                 }
+-               }
+-               return originalToHtml.call(this, data, fixForBody);
+-             };
+-           });
+-           editor.dataProcessor.toDataFormat = CKEDITOR.tools.override(editor.dataProcessor.toDataFormat, function(originalToDataFormat) {
+-             // Convert WYSIWYG mode content to raw data.
+-             return function(data, fixForBody) {
+-               data = originalToDataFormat.call(this, data, fixForBody);
+-               for (var plugin in Drupal.settings.wysiwyg.plugins[params.format].drupal) {
+-                 if (typeof Drupal.wysiwyg.plugins[plugin].detach == 'function') {
+-                   data = Drupal.wysiwyg.plugins[plugin].detach(data, Drupal.settings.wysiwyg.plugins.drupal[plugin], editor.name);
+-                 }
+-               }
+-               return data;
+-             };
+-           });
+-         }
+-       },
+-       focus: function(ev) {
+-         Drupal.wysiwyg.activeId = ev.editor.name;
+        }
+-     };
+  
+-     // Attach editor.
+-     CKEDITOR.replace(params.field, settings);
+-   }, 50);
+  };
+  
+  /**
+--- 32,118 ----
+   * Attach this editor to a target element.
+   */
+  Drupal.wysiwyg.editor.attach.ckeditor = function(context, params, settings) {
++   // Apply editor instance settings.
++   CKEDITOR.config.customConfig = '';
+  
++   settings.on = {
++     instanceReady: function(ev) {
++       var editor = ev.editor;
++       // Get a list of block, list and table tags from CKEditor's XHTML DTD.
++       // @see http://docs.cksource.com/CKEditor_3.x/Developers_Guide/Output_Formatting.
++       var dtd = CKEDITOR.dtd;
++       var tags = CKEDITOR.tools.extend({}, dtd.$block, dtd.$listItem, dtd.$tableContent);
++       // Set source formatting rules for each listed tag except <pre>.
++       // Linebreaks can be inserted before or after opening and closing tags.
++       if (settings.apply_source_formatting) {
++         // Mimic FCKeditor output, by breaking lines between tags.
++         for (var tag in tags) {
++           if (tag == 'pre') {
++             continue;
+            }
++           this.dataProcessor.writer.setRules(tag, {
++             indent: true,
++             breakBeforeOpen: true,
++             breakAfterOpen: false,
++             breakBeforeClose: false,
++             breakAfterClose: true
++           });
+          }
++       }
++       else {
++         // No indents or linebreaks;
++         for (var tag in tags) {
++           if (tag == 'pre') {
++             continue;
+            }
++           this.dataProcessor.writer.setRules(tag, {
++             indent: false,
++             breakBeforeOpen: false,
++             breakAfterOpen: false,
++             breakBeforeClose: false,
++             breakAfterClose: false
++           });
+          }
++       }
++     },
+  
++     pluginsLoaded: function(ev) {
++       // Override the conversion methods to let Drupal plugins modify the data.
++       var editor = ev.editor;
++       if (editor.dataProcessor && Drupal.settings.wysiwyg.plugins[params.format]) {
++         editor.dataProcessor.toHtml = CKEDITOR.tools.override(editor.dataProcessor.toHtml, function(originalToHtml) {
++           // Convert raw data for display in WYSIWYG mode.
++           return function(data, fixForBody) {
++             for (var plugin in Drupal.settings.wysiwyg.plugins[params.format].drupal) {
++               if (typeof Drupal.wysiwyg.plugins[plugin].attach == 'function') {
++                 data = Drupal.wysiwyg.plugins[plugin].attach(data, Drupal.settings.wysiwyg.plugins.drupal[plugin], editor.name);
++                 data = Drupal.wysiwyg.instances[params.field].prepareContent(data);
++               }
++             }
++             return originalToHtml.call(this, data, fixForBody);
++           };
+          });
++         editor.dataProcessor.toDataFormat = CKEDITOR.tools.override(editor.dataProcessor.toDataFormat, function(originalToDataFormat) {
++           // Convert WYSIWYG mode content to raw data.
++           return function(data, fixForBody) {
++             data = originalToDataFormat.call(this, data, fixForBody);
++             for (var plugin in Drupal.settings.wysiwyg.plugins[params.format].drupal) {
++               if (typeof Drupal.wysiwyg.plugins[plugin].detach == 'function') {
++                 data = Drupal.wysiwyg.plugins[plugin].detach(data, Drupal.settings.wysiwyg.plugins.drupal[plugin], editor.name);
++               }
++             }
++             return data;
++           };
+          });
+        }
++     },
++     focus: function(ev) {
++       Drupal.wysiwyg.activeId = ev.editor.name;
++     }
++   };
+  
++   // Attach editor.
++   CKEDITOR.replace(params.field, settings);
+  };
+  
+  /**

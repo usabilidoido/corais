@@ -1,0 +1,15 @@
+; $Id: casetracker_notifications.info,v 1.1.2.1 2010/10/29 20:15:44 jmiccolis Exp $
+name = Case Tracker Notifications
+description = Notification integration for Casetracker
+core = 6.x
+package = "Case Tracker"
+dependencies[] = casetracker
+dependencies[] = notifications_content
+
+
+; Information added by drupal.org packaging script on 2011-01-03
+version = "6.x-1.0-beta9"
+core = "6.x"
+project = "casetracker"
+datestamp = "1294082452"
+

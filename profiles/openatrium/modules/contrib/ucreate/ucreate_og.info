@@ -1,0 +1,12 @@
+;$Id: ucreate_og.info,v 1.1.4.1 2008/10/29 15:51:06 xamanu Exp $
+name = U create / OG integration
+core = 6.x
+description = Sign up users to og groups when creating them with U create.
+dependencies[] = ucreate
+dependencies[] = og
+; Information added by drupal.org packaging script on 2010-07-14
+version = "6.x-1.0-beta4"
+core = "6.x"
+project = "ucreate"
+datestamp = "1279119622"
+

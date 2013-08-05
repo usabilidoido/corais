@@ -1,0 +1,8 @@
+Ajax Forms disable redirect module
+
+This will disable a redirection for a form after a successful form submission.
+Please note that this plugin may not work as expected with all forms.
+For instance, some forms may require a new form token to be set between form
+submissions. This could prevent the same form from being submitted twice.
+Another consideration is that not all forms will send a status message
+back to the client after a successful submission.

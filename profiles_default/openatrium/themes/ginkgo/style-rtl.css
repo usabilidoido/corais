@@ -1,0 +1,80 @@
+/**
+ * Global navbar  =====================================================
+ */
+#global a.logo {
+  right:auto;
+  left:20px;
+  background-image:url(images/sprite_skin-rtl.png);
+  background-position:0px -440px;
+  }
+
+/**
+ * Header blocks ======================================================
+ */
+#header { float:right; }
+
+#header .block { padding:0px 0px 0px 5px; }
+
+#header .block-toggle .block-content {
+  left:auto;
+  right:0px;
+  -moz-border-radius:5px 0px 5px 5px;
+  -webkit-border-radius:5px 0px 5px 5px;
+  }
+
+/* Breadcrumb */
+#global .breadcrumb,
+#global .breadcrumb span,
+#global .breadcrumb span a { float:right; }
+
+#global .breadcrumb span.divider {
+  background-position:-20px -265px;
+  background-image:url(images/sprite_skin-rtl.png);
+  }
+
+#global .breadcrumb span.space {
+  padding-left:0px;
+  padding-right:5px;
+  }
+
+/* Account block */
+body.logged-in #block-atrium-account .block-title {
+  padding-left:10px;
+  padding-right:35px;
+  }
+
+#block-atrium-account .block-title div.picture {
+  -moz-border-radius:0px 3px 3px 0px;
+  -webkit-border-radius:0px 3px 3px 0px;
+  left:auto;
+  right:0px;
+  }
+
+/**
+ * Navigation =========================================================
+ */
+#space-tools {
+  right:auto;
+  left:20px;
+  }
+
+/**
+ * Features menu ======================================================
+ */
+#features-menu {
+  left:auto;
+  right:20px;
+  }
+
+#features-menu li a span.icon,
+#features-menu li.active a span.label,
+#features-menu li.active a:hover span.label { float:right; }
+
+#features-menu li.active a span.label,
+#features-menu li.active a:hover span.label { padding:0px 10px 0px 5px; }
+
+/**
+ * Footer ==============================================================
+ */
+#footer .footer-message { float:right; }
+#footer ul.links { float:left; }

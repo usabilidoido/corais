@@ -1,0 +1,44 @@
+table.spaces tr.inherited,
+table.spaces tr.disabled { color:#999; }
+
+table.spaces td.value,
+table.spaces td.label   { width:75%; }
+
+table.spaces td.option,
+table.spaces td.storage { width:10%; }
+
+table.spaces td.action-label,
+table.spaces td.controller,
+table.spaces td.actions {
+  width:25%;
+  white-space:nowrap;
+  }
+
+table.spaces td.action-label { font-weight:bold; }
+
+table.spaces td.action-form div.form-item div.form-item {
+  display:inline;
+  margin:0px;
+  padding:0px;
+}
+
+table.spaces td.key { font-family: "Andale Mono",monospace; }
+
+table.spaces td.actions li,
+table.spaces td.actions li a {
+  display:inline;
+  float:none;
+  }
+
+/**
+ * Menu editor.
+ */
+ul.spaces-menu-editing {
+  -moz-border-radius:5px;
+  -webkit-border-radius:5px;
+  border:3px dashed #aaa;
+  margin:-3px;
+}
+
+ul.spaces-menu-editing li,
+ul.spaces-menu-editing li a { cursor:move; }

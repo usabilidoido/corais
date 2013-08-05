@@ -1,0 +1,39 @@
+<?php
+
+/**
+ * Implements hook_node_info().
+ */
+function course_test_node_info() {
+  return array(
+    'course_test' => array(
+      'name' => 'Course test',
+      'module' => 'course_test',
+      'description' => 'Course test content type',
+    ),
+    'course_test_content' => array(
+      'name' => 'Course test content',
+      'module' => 'course_test',
+      'description' => 'Course object test content type',
+    ),
+  );
+}
+
+/**
+ * Implements hook_course_handlers().
+ */
+function course_test_course_handlers() {
+  return array(
+    'object' => array(
+      'course_test_object' => array(
+        'name' => t('Test course object'),
+        'class' => 'CourseObjectTest',
+        'description' => t('A test course object.'),
+      ),
+      'course_test_graded_object' => array(
+        'name' => t('Test graded course object'),
+        'class' => 'CourseObjectGradedTest',
+        'description' => t('A test graded course object.'),
+      ),
+    ),
+  );
+}

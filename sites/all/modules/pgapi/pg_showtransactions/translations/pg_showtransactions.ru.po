@@ -1,0 +1,340 @@
+# $Id: pg_showtransactions.ru.po,v 1.1 2009/11/24 22:06:36 gor Exp $
+#
+# Russian translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  pg_showtransactions.admin.inc: n/a
+#  pg_showtransactions.module: n/a
+#  pg_showtransactions.charts.inc: n/a
+#  pg_showtransactions.install: n/a
+#  pg_showtransactions.info: n/a
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2009-06-24 04:16+0000\n"
+"PO-Revision-Date: 2009-06-24 04:16+0000\n"
+"Last-Translator: NAME <EMAIL@ADDRESS>\n"
+"Language-Team: Russian <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=((((n%10)==1)&&((n%100)!=11))?(0):(((((n%10)>=2)&&((n%10)<=4))&&(((n%100)<10)||((n%100)>=20)))?(1):2));\n"
+
+#: pg_showtransactions.admin.inc:17
+msgid "Payment workflow"
+msgstr "Обработка оплаты"
+
+#: pg_showtransactions.admin.inc:24
+msgid "Payment status"
+msgstr "Статус оплаты"
+
+#: pg_showtransactions.admin.inc:31
+msgid "Payment method"
+msgstr "Метод оплаты"
+
+#: pg_showtransactions.admin.inc:43
+msgid "Send"
+msgstr "Отправить"
+
+#: pg_showtransactions.admin.inc:51
+msgid "Please, enter correct email."
+msgstr "Пожалуйста, введите корректный адрес"
+
+#: pg_showtransactions.admin.inc:69;111;153;319;357 pg_showtransactions.module:279;443;666;695;723
+msgid "ID"
+msgstr "№"
+
+#: pg_showtransactions.admin.inc:70;112;323 pg_showtransactions.module:283;445;667;696
+msgid "User"
+msgstr "Пользователь"
+
+#: pg_showtransactions.admin.inc:72;114;154;338;366 pg_showtransactions.module:298;444;669;698;724
+msgid "Title"
+msgstr "Название"
+
+#: pg_showtransactions.admin.inc:73;115;155 pg_showtransactions.module:447;670;699;725
+msgid "Amount"
+msgstr "Сумма"
+
+#: pg_showtransactions.admin.inc:74;116;156;341;369 pg_showtransactions.module:301;448;671;700;726
+msgid "Method"
+msgstr "Метод"
+
+#: pg_showtransactions.admin.inc:74;116;156;341;369 pg_showtransactions.module:301;448;671;700;726
+msgid "Delete selected"
+msgstr "Удалить отмеченные"
+
+#: pg_showtransactions.admin.inc:74;116;156;341;369 pg_showtransactions.module:301;448;671;700;726
+msgid "Delete all unpaid"
+msgstr "Удалить все неоплаченные"
+
+#: pg_showtransactions.admin.inc:74;116;156;341;369 pg_showtransactions.module:301;448;671;700;726
+msgid "Delete selected payments?"
+msgstr "Удалить выбранные платежи?"
+
+#: pg_showtransactions.admin.inc:74;116;156;341;369 pg_showtransactions.module:301;448;671;700;726
+msgid "Delete all unpaid payments?"
+msgstr "Удалить все неоплаченные платежи?"
+
+#: pg_showtransactions.admin.inc:75;117;157;346;374 pg_showtransactions.module:306;449;672;701;727
+msgid "Payment status"
+msgstr "Статус оплаты"
+
+#: pg_showtransactions.admin.inc:76;118;158 pg_showtransactions.module:450;673;702;728
+msgid "Created"
+msgstr "Cоздано"
+
+#: pg_showtransactions.admin.inc:77;119;159 pg_showtransactions.module:451;674;703;729
+msgid "Changed"
+msgstr "Изменено"
+
+#: pg_showtransactions.admin.inc:78;120;160 pg_showtransactions.module:452;675;704;730
+msgid "Operations"
+msgstr "Действия"
+
+#: pg_showtransactions.admin.inc:86;128
+msgid "Edit"
+msgstr "Изменить"
+
+#: pg_showtransactions.admin.inc:89;131 pg_showtransactions.module:482
+msgid "anonymous"
+msgstr "аноним"
+
+#: pg_showtransactions.admin.inc:172 pg_showtransactions.module:475
+msgid "Pay"
+msgstr "Оплатить"
+
+#: pg_showtransactions.admin.inc:172 pg_showtransactions.module:475
+msgid "Pay amount"
+msgstr "Сумма"
+
+#: pg_showtransactions.admin.inc:172 pg_showtransactions.module:475
+msgid "Pay title"
+msgstr "Основание платежа"
+
+#: pg_showtransactions.admin.inc:204 pg_showtransactions.module:347
+msgid "Show payment where"
+msgstr "Фильтр списка платежей"
+
+#: pg_showtransactions.admin.inc:217 pg_showtransactions.module:360
+msgid "<em>and</em> where <strong>%property</strong> - <strong>%value</strong>"
+msgstr "<strong>%property</strong> - <strong>%value</strong>"
+
+#: pg_showtransactions.admin.inc:220 pg_showtransactions.module:363
+msgid "<strong>%property</strong> - <strong>%value</strong>"
+msgstr "<strong>%property</strong> - <strong>%value</strong>"
+
+#: pg_showtransactions.admin.inc:240;261 pg_showtransactions.module:382;402
+msgid "Refine"
+msgstr "Отбор"
+
+#: pg_showtransactions.admin.inc:240;261 pg_showtransactions.module:382;402
+msgid "Filter"
+msgstr "Фильтр"
+
+#: pg_showtransactions.admin.inc:244;275 pg_showtransactions.module:386;416
+msgid "Undo"
+msgstr "Отмена"
+
+#: pg_showtransactions.admin.inc:247;278 pg_showtransactions.module:389;419
+msgid "Reset"
+msgstr "Сбросить"
+
+#: pg_showtransactions.admin.inc:281 pg_showtransactions.module:422
+msgid "Update"
+msgstr "Обновить"
+
+#: pg_showtransactions.admin.inc:333;361 pg_showtransactions.module:293
+msgid "Amount"
+msgstr "Количество"
+
+#: pg_showtransactions.charts.inc:35
+msgid "Years"
+msgstr "Года"
+
+#: pg_showtransactions.charts.inc:36
+msgid "How much years would be show"
+msgstr "Сколько лет нужно показать"
+
+#: pg_showtransactions.charts.inc:42
+msgid "Please select the chart for year"
+msgstr "Выберите чарт для года"
+
+#: pg_showtransactions.charts.inc:48;87
+msgid "Height"
+msgstr "Высота"
+
+#: pg_showtransactions.charts.inc:49;88
+msgid "Please enter height of chart"
+msgstr "Введите высоту чарта"
+
+#: pg_showtransactions.charts.inc:54;93
+msgid "Width"
+msgstr "Ширина"
+
+#: pg_showtransactions.charts.inc:55;94
+msgid "Please enter width of chart"
+msgstr "Введите ширину чарта"
+
+#: pg_showtransactions.charts.inc:60;99
+msgid "Background color"
+msgstr "Цвет фона"
+
+#: pg_showtransactions.charts.inc:61;100
+msgid "Please enter code of background color"
+msgstr "Код фонового цвета"
+
+#: pg_showtransactions.charts.inc:74
+msgid "Months"
+msgstr "Месяцы"
+
+#: pg_showtransactions.charts.inc:75
+msgid "How much month would be show"
+msgstr "Сколько месяцев нужно показать"
+
+#: pg_showtransactions.charts.inc:81
+msgid "Please select the chart for month"
+msgstr "Выберети чарт для месяца"
+
+#: pg_showtransactions.charts.inc:128
+msgid "Year"
+msgstr "Год"
+
+#: pg_showtransactions.charts.inc:129;178
+msgid "Type's count"
+msgstr "Счетчик типов"
+
+#: pg_showtransactions.charts.inc:149
+msgid "Years stat"
+msgstr "Статистика по годам"
+
+#: pg_showtransactions.charts.inc:177
+msgid "Month"
+msgstr "Месяц"
+
+#: pg_showtransactions.charts.inc:200
+msgid "Month stats"
+msgstr "Статистика по месяцам"
+
+#: pg_showtransactions.charts.inc:224;264
+msgid "Money"
+msgstr "Деньги"
+
+#: pg_showtransactions.charts.inc:235
+msgid "Years money"
+msgstr "Деньги за год"
+
+#: pg_showtransactions.charts.inc:277
+msgid "Month amount"
+msgstr "Месячная сумма"
+
+#: pg_showtransactions.module:643
+msgid "and"
+msgstr "и"
+
+#: pg_showtransactions.module:643
+msgid "where"
+msgstr "где"
+
+#: pg_showtransactions.module:649
+msgid "is"
+msgstr "="
+
+#: pg_showtransactions.module:649
+msgid "Active filters"
+msgstr "Активные фильтры"
+
+#: pg_showtransactions.module:649
+msgid "Pay amount more than"
+msgstr "Сумма платежа больше чем"
+
+#: pg_showtransactions.module:649
+msgid "Pay amount less than"
+msgstr "Сумма платежа меньше чем"
+
+#: pg_showtransactions.module:679;708;734
+msgid "No data available."
+msgstr "не доступно"
+
+#: pg_showtransactions.module:21
+msgid "show personal transaction"
+msgstr "показывать персональные транзакции"
+
+#: pg_showtransactions.module:21
+msgid "operate on transactions"
+msgstr "оперировать транзакциями"
+
+#: pg_showtransactions.module:58
+msgid "PGAPI :: ShowTransaction :: Charts"
+msgstr ""
+
+#: pg_showtransactions.module:64
+msgid "There is charts based on transaction information."
+msgstr "График основаный на информации о транзакциях"
+
+#: pg_showtransactions.module:68
+msgid "Overview"
+msgstr "Обзор"
+
+#: pg_showtransactions.module:77
+msgid "Years payment money chart"
+msgstr "График платежей по годам"
+
+#: pg_showtransactions.module:87
+msgid "Month payment money chart"
+msgstr "График платежей по месяцам"
+
+#: pg_showtransactions.module:96
+msgid "Years payment status chart"
+msgstr "График статусов платежей по годам"
+
+#: pg_showtransactions.module:106
+msgid "Month payment status chart"
+msgstr "График статусов платежей по месяцам"
+
+#: pg_showtransactions.module:115
+msgid "Overview Settings"
+msgstr "Обзорные настройки"
+
+#: pg_showtransactions.module:155
+msgid "PGAPI :: ShowTransaction"
+msgstr ""
+
+#: pg_showtransactions.module:156
+msgid "There is transaction information."
+msgstr "Информация о транзакции."
+
+#: pg_showtransactions.module:164
+msgid "Edit transaction"
+msgstr "Редактировать транзакцию"
+
+#: pg_showtransactions.module:165
+msgid "All pgapi data is here."
+msgstr "Все pgapi данные здесь"
+
+#: pg_showtransactions.module:175
+msgid "Show Transactions"
+msgstr "Список платежей"
+
+#: pg_showtransactions.module:176
+msgid "There is transaction history."
+msgstr "История транзакций."
+
+#: pg_showtransactions.module:186
+msgid "Transaction History"
+msgstr "История транзакций"
+
+#: pg_showtransactions.install:28;40
+msgid "Transaction stats information."
+msgstr "Статистика транзакций"
+
+#: pg_showtransactions.info:0
+msgid "Show transactions"
+msgstr "Список платежей"
+
+#: pg_showtransactions.info:0
+msgid "Show transactions in PGAPI."
+msgstr "Показывает информацию о платежах PGAPI."
+

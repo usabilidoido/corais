@@ -1,0 +1,461 @@
+<?php
+//// $Id: mc_signatures.module,v 1.1.2.4 2010/12/22 19:30:29 matslats Exp $
+
+/*
+ * 'Signatories' is an added property of pending exchanges
+ *  mc_webforms module half expects this to be present.
+ */
+define('INCOMING_SIGNED', 4);
+define('OUTGOING_SIGNED', 8);
+
+function mc_signatures_menu() {
+  $items['exchange/%node/sign/%user_uid_optional'] = array(
+    'title' => 'Sign this exchange to finalise it',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('mc_sign_form', 1),
+    'access callback' => 'sign_exchange_access',
+    'access arguments' => array(1,3),
+    'type' => MENU_CALLBACK,
+  );
+  $items['exchange/%/signoff'] = array(
+    'title' => 'Sign off exchange',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('mc_signall_confirm_form', 1),
+    'access arguments' => array('edit all exchanges'),
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+
+//access callback
+//does the current user have permission to remove the signatory from the given exchange?
+//on if they have 'edit all exchanges' or they are named signatory.
+function sign_exchange_access($node, $signatory_account) {
+  if ($node->state != EXCHANGE_STATE_PENDING) {
+    return FALSE;
+  }
+  if (user_access('edit all exchanges')) {
+    return TRUE;
+  }
+  return $GLOBALS['user']->uid == $signatory_account->uid;
+}
+
+
+/*
+ * Needed for the views 2 module
+ */
+function mc_signatures_views_api() {
+  return array(
+    'api' => 2,
+    'path' => drupal_get_path('module', 'mc_signatures') .'/views',
+  );
+}
+
+/*
+ * Implementation of hook_nodeapi
+ * (broken up, ready for drupal 7)
+ *
+ * this is used for modifying the node, mostly with regard to unsigned.
+   */
+
+function mc_signatures_nodeapi(&$node, $op) {
+  if ($node->type != 'exchange' || $node->state != EXCHANGE_STATE_PENDING) return;
+  switch($op) {
+    case 'load':
+      mc_signatures_node_load($node);
+      break;
+    case 'delete':
+      mc_signatures_node_delete($node);
+      break;
+    case 'presave':
+      if (!$node->nid) deduce_signatures($node);
+      break;
+    case 'insert':
+    case 'update':
+      //can't do this in presave because we don't know the nid
+      save_signatures($node);
+      break;
+  }
+}
+
+
+function mc_signatures_node_load(&$node) {
+  if ($node->state == EXCHANGE_STATE_PENDING) {
+    //override the stored data with the actual data form the 'unsigned' table
+    $result = db_query("SELECT uid FROM {mc_unsigned} WHERE nid = %d", array(':nid' => $node->nid));
+    while($uid = db_result($result)) {
+      $node->mc_unsigned[] = $uid;
+    }
+  }
+}
+
+function mc_signatures_node_delete($node) {
+  switch ($node->type) {
+    case 'exchange':
+      _clear_unsigned('nid', $node->nid);
+  }
+}
+
+
+//shows a confirm form and/or completes the exchange
+function mc_sign_form(&$form_state, $exchange) {
+  if (!variable_get('mc_signatures_sure', TRUE)) {
+    mc_one_signing($exchange, arg(3));
+    drupal_goto(variable_get('mc_webform_destination', 'user'));
+  }
+  $form = array();
+  $form['#node'] = $exchange;
+  $form['#signer'] = arg(3);
+  $form['#prefix'] = theme('node', $exchange, FALSE, TRUE);
+  $form['#redirect'] = 'node/'. $exchange->nid;
+  return confirm_form(
+    $form,
+    t('Are you sure you want to sign this exchange?'),
+    'user',
+    '',
+    t('Sign'), t('Cancel'),
+    'sign'
+  );
+}
+
+
+function mc_sign_form_submit($form, &$form_state) {
+  mc_one_signing($form['#node'], $form['#signer']);
+}
+//remove the signature line from the db table, and if it's the last one, mark the exchange FINISHED
+function mc_one_signing($node, $signer_uid){
+  db_query("DELETE FROM {mc_unsigned} WHERE nid = %d AND uid = %d", array(':nid' => $node->nid, ':uid' => $signer_uid));
+  drupal_set_message(t('!user signed the exchange', array('!user' => theme('username', user_load($signer_uid)))));
+
+  if (!db_result(db_query("SELECT count(uid) FROM {mc_unsigned} WHERE nid = %d", array(':nid' => $node->nid)))) {
+    db_query("UPDATE {mc_exchanges} SET state = 0 WHERE nid = %d", $node->nid);
+    mcapi_update_balances($node);
+    drupal_set_message(t("Exchange #@nid is signed off.", array('@nid' => $node->nid)));
+    mc_signatures_signoff_notify($node);
+  }
+}
+
+/*
+ * Implementation of hook_exchange_record
+ * add the signatories
+ */
+function deduce_signatures(&$node) {
+  if ($node->state != EXCHANGE_STATE_PENDING) return;
+  //based on the exchange_type, we know which signatories to add
+  switch($node->exchange_type) {
+    case 'onetomany':
+    case 'onetoall':
+    case 'incoming signed':
+      $node->mc_unsigned = array($node->payer_uid);
+      break;
+    case 'outgoing signed':
+    case 'manytoone':
+    case 'alltoone':
+      $node->mc_unsigned = array($node->payee_uid);
+      break;
+    case '3rdparty':
+      $node->mc_unsigned = array($node->payee_uid, $node->payer_uid);
+      break;
+    default:
+      drupal_set_message("No signatories added: function deduce_signatures doesn't know exchange_type: ".$node->exchange_type,  'error');
+  }
+}
+function save_signatures($node) {
+  //this module assumes that every pending exchange is awaiting at least one signature
+  if (!count($node->mc_unsigned)) return;
+  //clear all the completers ready for re-adding
+  if (isset($node->nid)) {
+    _clear_unsigned('nid', $node->nid);
+  }
+  $rows = array();
+  foreach ($node->mc_unsigned as $uid) {
+    $rows[] = '('. $node->nid .', '. $uid .')';
+  }
+  db_query("INSERT INTO {mc_unsigned} (nid, uid) VALUES %s",
+    array(':values' => implode(', ', $rows))
+  );
+}
+
+function _clear_unsigned($field, $id) {
+  db_query("DELETE FROM {mc_unsigned} WHERE $field = $id");
+  if ($field == 'nid') {
+    db_query("UPDATE {node} SET changed = %d WHERE nid = %d", array(':mod' => time(), ':nid' => $id));
+  }
+}
+
+/**
+ * http://api.drupal.org/api/function/hook_link/6
+ * Add the 'sign' links to each exchange node
+ */
+function mc_signatures_link($type, $exchange) {
+  //ignore comments, nodes which aren't created yet, or nodes which aren't exchanges
+  if ($type != 'node' || !$exchange->nid || $exchange->type != 'exchange') return array();
+
+  //sign buttons
+  if ($exchange->state == EXCHANGE_STATE_PENDING) {
+    if (!isset($exchange->mc_unsigned)) {
+      drupal_set_message(t("This exchange is pending, but has no signatories"), 'error');
+      return;
+    }
+    mc_append_sign_links($exchange, $links);
+  }
+  if (isset($links)) {
+    return $links;
+  }
+}
+
+function mc_signatures_form_alter($form, $form_state, $form_id) {
+  switch ($form_id) {
+    case 'mc_3rdparty_form':
+    case 'mc_edit_form':
+      if ($form_state['storage']['step'] == 1) {
+        //change state to checkbox corresponding to EXCHANGE_STATE constants
+        $form['state']['#type'] = 'checkbox';
+        $form['state']['#title'] = t('Require signatures');
+        unset($form['state']['#description']);
+      }
+      $form['state']['#element_validate'][] = 'mc_signature_validate_state';
+  }
+}
+
+/*
+ * Implementation of the webforms hook, hook_exchange_type_info
+ */
+function mc_signatures_exchange_type_info() {
+  $titles = variable_get('mc_subtypes', array());
+  if ($titles[INCOMING_SIGNED]) {
+    $types['incoming signed'] = array(
+      'title' => $titles[INCOMING_SIGNED],
+      'edit' => 'mc_edit_form',
+      'bitmask' => INCOMING_SIGNED
+    );
+  }
+  if ($titles[OUTGOING_SIGNED]) {
+    $types['outgoing signed'] = array(
+      'title' => $titles[OUTGOING_SIGNED],
+      'edit' => 'mc_edit_form',
+      'bitmask' => OUTGOING_SIGNED
+    );
+  }
+  return $types;
+}
+
+//in many cases, we rely on this function to set the value of the field, which is often hidden
+function mc_signature_validate_state(&$element, $form_state) {
+  //set this to pending if the exchange type expects it AND the node isn't created yet
+  //however on form stage 2, '$form_state['values'] doesn't contain most fields
+  if (isset($form_state['values']['exchange_type']) && strpos($form_state['values']['exchange_type'], 'signed') && !isset($form_state['values']['nid'])) {
+    $form_state['values']['state'] = EXCHANGE_STATE_PENDING;
+  }
+  //the value is changed as the node is signed
+}
+
+
+//this function has been pulled out of hook_links so views can access it
+function mc_append_sign_links($exchange, &$links) {
+  if (!isset($exchange->mc_unsigned)) return;
+  foreach ($exchange->mc_unsigned as $uid) {
+    $signatory_account = user_load($uid);
+    if (sign_exchange_access($exchange, $signatory_account)) {
+      if ($uid == $GLOBALS['user']->uid) {
+        $link_title = t('Sign this exchange');
+      }
+      else{
+        $link_title = t('Sign for @user', array('@user' => strip_tags(theme('username', $signatory_account))));
+      }
+      $links['sign '.$uid] = array(
+        'title' => $link_title,
+        'href' => 'exchange/'. $exchange->nid .'/sign/'.$uid,
+        'weight' => -1
+      );
+    }
+  }
+
+  if (user_access('edit all exchanges') && count($exchange->mc_unsigned) > 1) {
+    $links['signall'] = array(
+      'title' => t('Sign for all'),
+      'href' => 'exchange/'. $exchange->nid .'/signoff',
+      'weight' => 25
+    );
+  }
+}
+
+function mc_signall_confirm_form($form_state, $nid) {
+  $form = array();
+  $form['#redirect'] = 'node/'. $nid;
+  $form['nid'] = array(
+    '#type' => 'hidden',
+    '#value' => $nid
+  );
+  return confirm_form(
+    $form,
+    t('Are you sure you want to sign this exchange on behalf of all the remaining signatories?'),
+    'user',
+    '',
+    t('Sign'), t('Cancel'),
+    'sign'
+  );
+}
+
+function mc_signall_confirm_form_submit($form, $form_state) {
+  if (user_access('edit all exchanges')){
+    $nid = $form_state['values']['nid'];
+    mc_signoff($nid);
+    mc_signatures_signoff_notify(node_load($nid));
+  }
+}
+function mc_signoff($nid) {
+  _clear_unsigned('nid', $nid);
+  db_query("UPDATE {mc_exchanges} SET state = %d WHERE nid = %d", array(':state' => EXCHANGE_STATE_FINISHED,':nid' => $nid));
+  mcapi_update_balances(node_load($nid));
+  drupal_set_message(t("Transaction #@nid is signed off.", array('@nid' => $nid)));
+}
+
+
+function mc_signatures_form_mc_mail_template_alter(&$form) {
+  $form['mc_signatures_wrapper'] = array(
+    '#title' => t('Request to sign notification template'),
+    '#type' => 'fieldset',
+    '#weight' => -2,
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE
+  );
+  $form['mc_signatures_wrapper']['mc_signatures_notification_subject'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Mail subject'),
+    '#default_value' => _mc_signatures_mail_template('mc_signatures_notification_subject'),
+    '#description' => t('If set, overrides default subject.') .' '. t('Tokens may be used.'),
+    '#required' => TRUE,
+    '#weight' => 1
+  );
+  $form['mc_signatures_wrapper']['mc_signatures_notification_body'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Request to sign'),
+    '#default_value' =>_mc_signatures_mail_template('mc_signatures_notification_body'),
+    '#description' => t("Request to signatories to sign new exchanges") .' '. t('Tokens may be used as above, plus !sign_link'),
+    '#required' => TRUE,
+    '#weight' => 2
+  );
+  $form['mc_signatures_signoff_wrapper'] = array(
+    '#title' => t('Exchange is completed notification template'),
+    '#type' => 'fieldset',
+    '#weight' => -2,
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE
+  );
+  $form['mc_signatures_signoff_wrapper']['mc_signatures_signoff_subject'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Mail subject'),
+    '#default_value' => _mc_signatures_mail_template('mc_signatures_signoff_subject'),
+    '#description' => t('If set, overrides default subject.') .' '. t('Tokens may be used.'),
+    '#required' => TRUE,
+    '#weight' => 1
+  );
+  $form['mc_signatures_signoff_wrapper']['mc_signatures_signoff_body'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Exchange is signed off.'),
+    '#default_value' => _mc_signatures_mail_template('mc_signatures_signoff_body'),
+    '#description' => t('Tokens may be used.'),
+    '#required' => TRUE,
+    '#weight' => 2
+  );
+  $form['buttons']['#weight'] = 2;
+}
+
+function mc_signatures_form_mc_webform_settings_alter(&$form, $form_state) {
+  $form['mc_signatures_sure'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Signature confirmation page'),
+    '#description' => t("Display an 'Are you sure?' page when signing an exchange"),
+    '#default_value' => variable_get('mc_signatures_sure', TRUE),
+    '#weight' => -5,
+  );
+}
+
+
+function mc_signatures_signoff_notify($exchange) {
+  foreach (array(user_load($exchange->payer_uid), user_load($exchange->payee_uid)) as $account) {
+    $throttle = $account->mc_notification_throttle - intval($GLOBALS['user']->uid == $account->uid);
+    if ($throttle < 2) continue;
+    $message = drupal_mail(
+      'mc_signatures',
+      'blah',
+      $account->mail,
+      user_preferred_language($account),
+      array(//params
+        'recipient' => $account,
+        'exchange' => $exchange,
+      ),
+      NULL, //sender defaults to site_mail
+      TRUE
+    );
+  }
+}
+/*
+ * Cancels the insert / update mail if this module wants to send a message instead
+ */
+function mc_signatures_mail_alter(&$message) {
+  if (substr($message['id'],0,9) == 'mcapimail' && mc_signatures_notifiable($message['params']['exchange'], $message['params']['recipient'])) {
+    $subject = _mc_signatures_mail_template('mc_signatures_notification_subject');
+    $body = _mc_signatures_mail_template('mc_signatures_notification_body');
+    $variables = mc_mail_tokens($message['params']['recipient'], $message['language'], $message['params']['exchange']);
+    $variables['!sign_link'] = url('exchange/'. $message['params']['exchange']->nid . '/sign/'. $message['params']['recipient']->uid, array('absolute' => TRUE));
+    $message['subject'] = strtr($subject, $variables);
+    $message['body'] = strtr($body, $variables);
+    return;
+  }
+}
+
+function mc_signatures_mail($key, &$message, $params)  {
+  //there's only one key: signoff
+  $subject = _mc_signatures_mail_template('mc_signatures_signoff_subject');
+  $body = _mc_signatures_mail_template('mc_signatures_signoff_body');
+
+  $variables = mc_mail_tokens($message['params']['recipient'], $message['language'], $message['params']['exchange']);
+  $variables['!sign_link'] = url('exchange/'. $params['exchange']->nid . '/sign/'. $params['recipient']->uid, array('absolute' => TRUE));
+  $message['subject'] = strtr($subject, $variables);
+  $message['body'] = strtr($body, $variables);
+}
+/*
+ * Determine if this module wants to send a mail
+ */
+function mc_signatures_notifiable($exchange, $recipient) {
+  if (//alter only messages where the recipient is one of the remaining signatories
+    $exchange->state == EXCHANGE_STATE_PENDING &&
+    is_array($exchange->mc_unsigned) &&
+    in_array($recipient->uid, $exchange->mc_unsigned) &&
+    $recipient->mc_notification_throttle > 0) {
+    return TRUE;
+  }
+}
+
+
+function mc_convert_state_checkbox(&$form) {
+  //change state from radios (set in mcapi.module) to checkbox
+  $form['state']['#type'] = 'checkbox';
+  $form['state']['#title'] = t('Require signatures');
+  unset($form['state']['#description']);
+}
+
+function _mc_signatures_mail_template($key) {
+  $template = variable_get($key, '');
+  if ($template) return $template;
+  switch($key) {
+    case 'mc_signatures_notification_subject':
+      return t('Please confirm the following exchange on !site');
+
+    case 'mc_signatures_notification_body':
+      return t("Dear !username,") ."\n\n".
+        t("!creator recorded an exchange on !site.\nPlease click the link below to sign the transaction:"). "\n\n!sign_link\n\n" .
+        t("If you are unable to access the transaction with the above link, please log into the site !login_url, and go to your profile page to confirm.") ."\n\n".
+        t("The team at !site");
+
+    case 'mc_signatures_signoff_subject':
+      return t('Notification of a transaction confirmation on !site');
+
+    case 'mc_signatures_signoff_body':
+      return t("Dear !username,") ."\n\n".
+        t("For your information, the following transaction has been signed"). "\n\n!summary\n\n" . t("The team at !site");;
+  }
+}

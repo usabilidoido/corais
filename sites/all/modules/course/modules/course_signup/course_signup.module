@@ -1,0 +1,297 @@
+<?php
+
+/**
+ * Signup course admin form.
+ */
+function course_signup_admin() {
+  $form = array();
+
+  $form['signup_intro']['#value'] = "Course uses Signup's built-in functionality to allow learners to register for courses and for administrators to manage attendance.";
+
+  $form['course_signup_bypass_checkout'] = array(
+    '#title' => 'Bypass registration and checkout for free courses.',
+    '#type' => 'checkbox',
+    '#default_value' => variable_get('course_signup_bypass_checkout', 1),
+    '#description' => "Turning this on will allow registered users to immediately begin free courses without going through any kind of course registration or checkout when Ubercart Signup is used.",
+  );
+
+  return system_settings_form($form);
+}
+
+/**
+ * Implements hook_menu().
+ */
+function course_signup_menu() {
+  $items = array();
+
+  $items['admin/settings/course/signup'] = array(
+    'access arguments' => array('administer courses'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('course_signup_admin'),
+    'type' => MENU_LOCAL_TASK,
+    'title' => 'Signup',
+  );
+
+  return $items;
+}
+
+/**
+ * Do a quick registration.
+ *
+ * @param stdClass $node
+ *   A signup enabled course node.
+ * @param stdClass $user
+ *   A user.
+ * @param bool $notify
+ *   Notify the user of this signup. This is passed to signup_sign_up_user().
+ */
+function course_signup_quick_register($node, $account, $notify = TRUE) {
+  if (!$signup = db_fetch_object(db_query('SELECT * FROM {signup_log} WHERE nid = %d AND uid = %d', $node->nid, $account->uid))) {
+    // Save a new signup.
+    if ($node->signup_status && $notify) {
+      // Signup is open so we can use signup's function.
+      signup_sign_up_user(array(
+        'nid' => $node->nid,
+        'uid' => $account->uid,
+        ), $notify);
+    }
+    else {
+      // The signup was closed. Do it silently. We can't use
+      // signup_sign_up_user() because this would result in a
+      // drupal_access_denied() call.
+      $signup = new stdClass();
+      $signup->nid = $node->nid;
+      $signup->uid = $account->uid;
+      $signup->signup_time = time();
+      $signup->attended = 0;
+      $signup->form_data = array();
+      $signup->count_towards_limit = 1;
+      signup_save_signup($signup);
+    }
+  }
+  else {
+    // Maybe we are "approving" an enrollment.
+    $signup->count_towards_limit = 1;
+
+    signup_save_signup($signup);
+  }
+}
+
+/**
+ * Implements hook_signup_insert().
+ *
+ * Enrol a user in the course if they sign up for a course.
+ */
+function course_signup_signup_insert($signup) {
+  course_signup_signup_enroll($signup);
+}
+
+/**
+ * Implements hook_signup_update().
+ *
+ * Enrol a user in criteria passes when the sign up gets updated (status etc).
+ */
+function course_signup_signup_update($signup) {
+  course_signup_signup_enroll($signup);
+}
+
+/**
+ * Implements hook_signup_delete().
+ *
+ * Un-enrol the user.
+ */
+function course_signup_signup_delete($signup) {
+  $node = node_load($signup->nid);
+  $user = node_load($signup->uid);
+  course_unenrol($node, $user);
+}
+
+/**
+ * Helper signup course enroll criteria function for insert & update.
+ *
+ * @see course_signup_signup_insert()
+ * @see course_signup_signup_update()
+ */
+function course_signup_signup_enroll($signup) {
+  if ($signup->uid && $signup->nid && $signup->count_towards_limit && empty($signup->anon_mail)) {
+    $node = node_load($signup->nid);
+    if (course_node_is_course($node)) {
+      $user = user_load($signup->uid);
+      course_enrol($node, $user, 'course_signup');
+    }
+  }
+}
+
+/**
+ * Implements hook_signup_cancel().
+ *
+ * Un-enrol user from course on signup cancellation.
+ */
+function course_signup_signup_cancel($signup, $node) {
+  $user = user_load($signup->uid);
+  course_unenrol($node, $user);
+}
+
+/**
+ * Implements hook_init().
+ *
+ * Override signup admin VBO to use course VBO. Enrol user in course before the
+ * access checks happen if the user can quick register.
+ */
+function course_signup_init() {
+  $node = node_load(arg(1));
+  global $conf;
+  global $user;
+  if (course_node_is_course($node)) {
+    global $conf;
+    // Switch courses to our view with enrollments and bulk operations.
+    //$conf['signup_admin_list_view'] = variable_get('signup_admin_list_view_course_override', 'course_signup_user_vbo_admin');
+    $conf['signup_ignore_default_fields'] = 1;
+    $conf['signup_fieldset_collapsed'] = 0;
+    $conf['uc_signup_add_cart_text'] = 'Register';
+    $conf['uc_signup_signups_closed_text'] = 'Registration is closed for this activity.';
+  }
+}
+
+/**
+ * Implements hook_form_FORMID_alter().
+ *
+ * Pre-fill user email to signup email. We'll probably kill this step in the
+ * future anyway.
+ */
+function course_signup_form_uc_signup_attendees_form_alter(&$form, &$form_state) {
+  global $user;
+  if (!empty($user->mail)) {
+    foreach ($form as $key => $element) {
+      if ($element['#type'] == 'fieldset') {
+        $form[$key][0]['#default_value'] = $user->mail;
+        $form[$key][0]['#value'] = $user->mail;
+        $form[$key][0]['#disabled'] = TRUE;
+        $form[$key][0]['#description'] = 'Your email has been pre-filled from your account.';
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_add_to_cart().
+ *
+ * Skip the uc_signup screens for course signups.
+ */
+function course_signup_add_to_cart($nid, $qty, $data) {
+  global $user;
+  $node = node_load($nid);
+  if (course_node_is_course($node) && $node->signup) {
+    // Node is a course and a signup.
+    $_SESSION['uc_signup']['nids'][$nid][0] = $user->mail;
+  }
+}
+
+/**
+ * Implements hook_course_enrol().
+ *
+ * If a user is enrolled outside of signup, sign them up as well.
+ */
+function course_signup_course_enrol($node, $user, $from, $code, $status) {
+  // Check if uc_signup is enabled and this enrollment is from ubercart. If it
+  // is, we don't want to sign the user up, because uc_signup will convert the
+  // temporary signup and create a duplicate.
+  $uc_signup = (module_exists('uc_signup') && $from == 'ubercart' && isset($_SESSION['uc_signup']));
+  $uc_sid = FALSE;
+  if ($uc_signup) {
+    $sql = "SELECT ucsl.sid FROM {uc_signup_log} ucsl
+      LEFT JOIN {signup_log} sl USING (sid)
+      WHERE sl.nid = %d AND sl.uid = %d";
+    $uc_sid = db_result(db_query($sql, $node->nid, $user->uid));
+  }
+  if ($from != 'course_signup' && !$uc_sid) {
+    course_signup_quick_register($node, $user);
+  }
+}
+
+/**
+ * Implements hook_course_can_enrol().
+ */
+function course_signup_course_can_enrol($node, $user) {
+  $hooks = array();
+
+  // We depend on Signup Restrict by Role for enrollment access per role.
+  if (module_exists('signup_restrict_by_role')) {
+    $check = signup_restrict_by_role_access_signup($node, $user);
+    $check['message'] = str_replace('signup', 'course enrollment', $check['message']);
+    $hooks[] = $check;
+  }
+
+  if ($node->signup) {
+    // This node is signup-enabled.
+    if (!db_result(db_query('SELECT 1 FROM {signup_log} WHERE nid = %d AND uid = %d', $node->nid, $user->uid))) {
+      if ($signups[$node->nid]) {
+        // Block enrollments until the user is signed up.
+        $hooks[] = array(
+          'success' => FALSE,
+          'message' => 'You must be signed up for this course to enroll.',
+        );
+      }
+    }
+
+    return $hooks;
+  }
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function course_signup_views_api() {
+  return array(
+    'api' => '3.0',
+  );
+}
+
+/**
+ * Implements hook_course_handlers().
+ */
+function course_signup_course_handlers() {
+  return array(
+    'object' => array(
+      'signup_attendance' => array(
+        'name' => t('Attendance'),
+        'class' => 'CourseObjectSignup',
+        'description' => t('An attendance course object.'),
+      ),
+    ),
+  );
+}
+
+/**
+ * Track attendance.
+ *
+ * @todo, find a better way? looking at you, @see signup_mark_attended_action
+ */
+function course_signup_watchdog($watchdog) {
+  if (strpos($watchdog['message'], 'Marked signup') !== FALSE) {
+    $sid = reset($watchdog['variables']);
+    $signup = signup_load_signup($sid);
+    $account = user_load($signup->uid);
+    $complete = strpos($watchdog['message'], 'did not') === FALSE;
+    if ($courseObject = course_get_course_object('course_signup', 'signup_attendance', $signup->nid, $account)) {
+      $courseObject->getFulfillment()->setComplete($complete)->save();
+    }
+  }
+}
+
+/**
+ * Create a signup for every enrollment.
+ */
+function course_signup_migrate_enrollments() {
+  if (db_table_exists('course_enrolment') && db_table_exists('signup_log')) {
+    // Ensure a signup exists for each full course enrollment.
+    $sql = "SELECT ce.* FROM {course_enrolment} ce
+    LEFT JOIN {signup_log} sl ON (ce.nid = sl.nid AND ce.uid = sl.uid)
+    where sid is null and ce.status";
+    $result = db_query($sql);
+    while ($row = db_fetch_object($result)) {
+      $row->signup_time = $row->timestamp;
+      drupal_write_record('signup_log', $row);
+    }
+  }
+}

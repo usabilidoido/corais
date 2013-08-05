@@ -1,0 +1,11 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ *  Provides installation functions for OA Feeds module.
+ */
+
+function grayside_oa_feeds_install() {
+  db_query("UPDATE {system} SET weight = 11 WHERE name = 'grayside_oa_feeds'");
+}

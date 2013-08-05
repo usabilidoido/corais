@@ -1,0 +1,40 @@
+***************
+*** 1,5 ****
+  <?php
+- // $Id: image_fupload_imagefield.module,v 1.32 2009/04/06 21:15:41 grandcat Exp $
+  
+  /**
+   * Implementation of hook_help
+--- 1,5 ----
+  <?php
++ // $Id: image_fupload_imagefield.module,v 1.33 2009/04/08 12:44:42 grandcat Exp $
+  
+  /**
+   * Implementation of hook_help
+***************
+*** 477,483 ****
+   * Assign default properties to item and delegate to filefield.
+   */
+  function image_fupload_imagefield_widget($form, $form_state, $field, $items, $delta = 0) {
+-   $element = module_invoke('imagefield', 'widget', $form, $form_state, $field, $items, $delta);
+    return $element;
+  }
+  
+--- 477,483 ----
+   * Assign default properties to item and delegate to filefield.
+   */
+  function image_fupload_imagefield_widget($form, $form_state, $field, $items, $delta = 0) {
++   $element = call_user_func('imagefield_widget', &$form, &$form_state, $field, $items, $delta);
+    return $element;
+  }
+  
+***************
+*** 629,632 ****
+    }
+    return $errors;
+  }
+- 
+--- 629,631 ----
+    }
+    return $errors;
+  }

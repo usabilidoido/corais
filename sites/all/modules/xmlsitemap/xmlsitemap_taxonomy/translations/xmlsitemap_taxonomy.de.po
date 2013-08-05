@@ -1,0 +1,44 @@
+# $Id: xmlsitemap_taxonomy.de.po,v 1.1.2.8 2009/07/29 21:09:40 hass Exp $
+#
+# LANGUAGE translation of Drupal (gsitemap.module)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  gsitemap.module,v 1.56.2.7 2007/03/18 21:55:39 darrenoh
+#  gsitemap.info,v 1.3.2.3 2007/02/13 15:57:06 darrenoh
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: German translation of xmlsitemap_taxonomy\n"
+"POT-Creation-Date: 2009-07-29 23:02+0200\n"
+"PO-Revision-Date: 2009-07-29 23:09+0100\n"
+"Last-Translator: Alexander Haß\n"
+"Language-Team: Alexander Hass\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Poedit-Language: German\n"
+"X-Poedit-Country: GERMANY\n"
+"X-Poedit-SourceCharset: utf-8\n"
+
+#: xmlsitemap_taxonomy/xmlsitemap_taxonomy.module:83
+msgid "This will be the default priority of terms in this vocabulary."
+msgstr "Dies wird die Standardpriorität von Begriffen in diesem Vokabular."
+
+#: xmlsitemap_taxonomy/xmlsitemap_taxonomy.module:191
+#: xmlsitemap_taxonomy/xmlsitemap_taxonomy.info:0
+msgid "XML sitemap taxonomy"
+msgstr "XML-Sitemap - Taxonomie"
+
+#: xmlsitemap_taxonomy/xmlsitemap_taxonomy.module:192
+msgid "The module adds <a href=\"@terms\">taxonomy terms</a> (categories) to the sitemap. The term default priority may be changed while adding or editing vocabularies and the term default priority can be overridden while adding or editing terms."
+msgstr "Das Modul fügt <a href=\"@terms\">Taxonomie-Begriffe</a> (Kategorien) zur Sitemap hinzu. Die standardmäßige Begriffspriorität kann beim Hinzufügen oder Bearbeiten von Vokabularen geändert und die standardmäßige Begriffspriorität beim Hinzufügen und Bearbeiten von Begriffen übersteuert werden."
+
+#: xmlsitemap_taxonomy/xmlsitemap_taxonomy.module:0
+msgid "xmlsitemap_taxonomy"
+msgstr "xmlsitemap_taxonomy"
+
+#: xmlsitemap_taxonomy/xmlsitemap_taxonomy.info:0
+msgid "Add taxonomy term links to the sitemap."
+msgstr "Fügt Links von Taxonomie-Begriffen in die Sitemap ein."
+

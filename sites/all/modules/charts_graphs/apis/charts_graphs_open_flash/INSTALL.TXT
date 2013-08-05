@@ -1,0 +1,5 @@
+You need to get Open Flash Chart SWF file as it's LGPL and so can't be included 
+in this module release files. Download latest Open Flash Chart 2 release from
+http://sourceforge.net/projects/openflashchart/files/open-flash-chart/ and dump 
+the open-flash-chart.swf file into the 
+sites/all/modules/charts_graphs/apis/charts_graphs_open_flash directory.

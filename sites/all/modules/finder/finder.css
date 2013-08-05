@@ -1,0 +1,12 @@
+
+div.finder-buttons {
+  clear: both;
+}
+
+div.finder-buttons input.form-submit {
+  float: left;
+}
+
+div.finder-buttons div.ahah-progress {
+  float: right;
+}

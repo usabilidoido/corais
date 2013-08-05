@@ -1,0 +1,33 @@
+.rubric_category_criterion_header:hover, 
+.rubric_category_criterion_level:hover {
+ cursor:auto;
+ background-color:transparent;
+}
+
+.rubric_category_header:hover {
+ background-color:transparent;
+ cursor:n-resize;
+}
+
+.rubric_grading_category, .rubric_grading_total {
+ text-align:center;
+ font-size:14px;
+ font-weight:bold;
+}
+
+.rubric_grading_display td {
+ border:0px !important;
+ padding:5px;
+}
+
+.rubric_grading_criterion, .rubric_grading_total_earned, .rubric_grading_total_possible {
+ font-size:11px !important;
+ font-weight:bold;
+ text-align:left;
+}
+
+.rubric_grading_heading .rubric_grading_criterion {
+ text-align:center;
+ font-size:14px !important;
+ font-weight:bold;
+}

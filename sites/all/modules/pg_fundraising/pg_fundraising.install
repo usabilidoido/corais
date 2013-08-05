@@ -1,0 +1,67 @@
+<?php
+// $Id: pg_fundraising.install,v 1.1.2.1 2011/02/18 02:15:35 dokumori Exp $
+/**
+ * Implementation of hook_install().
+ */
+function pg_fundraising_install() {
+  drupal_install_schema('pg_fundraising');
+  //TODO: get the preset value dynamically from the feature
+  variable_set('pg_fundraising_imagecache', 'donation_menu_item_220x165');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function pg_fundraising_uninstall() {
+  drupal_uninstall_schema('pg_fundraising');
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function pg_fundraising_schema() {
+  $schema['fundraising_nodes'] = array(
+    'description' => t('Stores per-node fundraising config'),
+    'fields' => array(
+      'nid'               => array('type' => 'int', 'unsigned' => TRUE),
+      'amount_oneoff'     => array('type' => 'varchar',  'length' => 255, 'not null' => TRUE, 'default' => ''),
+      'amount_recurring'  => array('type' => 'varchar',  'length' => 255, 'not null' => TRUE, 'default' => ''),
+    ),
+    'primary key' => array('nid'),
+  );
+  
+  $schema['fundraising_record'] = array(
+    'description' => t('Stores per-node fundraising config'),
+    'fields' => array(
+      'txnid'     => array('type' => 'int', 'unsigned' => TRUE),
+      'nid'       => array('type' => 'int', 'unsigned' => TRUE),
+      'user_info' => array('type' => 'text', 'not null' => TRUE, 'default' => ''),
+      'title'     => array('type' => 'text', 'not null' => TRUE, 'length' => 10),
+      'forename'  => array('type' => 'text', 'not null' => TRUE, 'length' => 20),
+      'surname'   => array('type' => 'text', 'not null' => TRUE, 'length' => 20),
+      'address_1' => array('type' => 'text', 'not null' => TRUE, 'size' => 'tiny'),
+      'address_2' => array('type' => 'text', 'size' => 'tiny'),
+      'city'      => array('type' => 'text', 'not null' => TRUE, 'size' => 'tiny'),
+      'postcode'  => array('type' => 'text', 'length' => 20),
+      'country'   => array('type' => 'text', 'size' => 'tiny'),
+      'email'     => array('type' => 'varchar', 'length' => 255, 'not null' => TRUE, 'default' => ''),
+    ),
+    'indexes' => array('email' => array('email')),
+    'primary key' => array('txnid'),
+  );
+  return $schema;
+}
+
+function pg_fundraising_update_6100() {
+  $ret = array();
+  db_add_field($ret, 'fundraising_record', 'title', array('type' => 'text', 'not null' => TRUE, 'length' => 10));
+  db_add_field($ret, 'fundraising_record', 'forename', array('type' => 'text', 'not null' => TRUE, 'length' => 20));
+  db_add_field($ret, 'fundraising_record', 'surname', array('type' => 'text', 'not null' => TRUE, 'length' => 20));
+  db_add_field($ret, 'fundraising_record', 'address_1', array('type' => 'text','not null' => TRUE,  'size' => 'tiny'));
+  db_add_field($ret, 'fundraising_record', 'address_2', array('type' => 'text', 'size' => 'tiny'));
+  db_add_field($ret, 'fundraising_record', 'city', array('type' => 'text', 'not null' => TRUE, 'size' => 'tiny'));
+  db_add_field($ret, 'fundraising_record', 'postcode', array('type' => 'text','not null' => TRUE,  'length' => 20));
+  db_add_field($ret, 'fundraising_record', 'country', array('type' => 'text', 'size' => 'tiny'));
+  
+  return $ret;
+}

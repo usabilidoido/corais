@@ -1,0 +1,151 @@
+<?php
+
+/**
+ * @file
+ * quiz_reports.module
+ *
+ * Module creates a report to analyse and compare the results of quiz attendees.
+ */
+ 
+
+/**
+ * Permission constant
+ */
+define( 'VIEW_ANY_QUIZ_REPORT', 'view any quiz report' );
+
+/**
+ * Permission constant
+ */
+define( 'VIEW_OWN_QUIZ_REPORT', 'view own quiz report' );
+
+/**
+ * Implementation of hook_help().
+ */
+function quiz_reports_help($path, $arg) {
+  if ($path == 'admin/help#quiz_reports') {
+    return '<p>' . t('Module creates a report to analyse and compare the results of quiz attendees.') . '</p>';
+  }
+}
+
+/**
+ * Implementation of hook_perm()
+ */
+function quiz_reports_perm() {
+  #$permission = array('access user stats', 'access author stats');
+  $permission = array(VIEW_ANY_QUIZ_REPORT, VIEW_OWN_QUIZ_REPORT);
+  return $permission;
+
+}
+
+/**
+ * Implementation of hook_menu()
+ */
+function quiz_reports_menu() {
+  
+  $items = array();
+  
+  $items['node/%node/reports'] = array(
+    'title' => 'Reports',
+    'description' => 'Generates a report on quiz results for quiz creators.',
+    'file' => 'quiz_reports.admin.inc',
+    'page callback' => 'quiz_reports_redirect',
+    'page arguments' => array( 1 ),
+    'access callback' => 'quiz_reports_access_reports',
+    'access arguments' => array( 1 ),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 4,
+  );
+  
+  $items['node/%node/reports/%'] = array(
+    'title' => 'Reports',
+    'description' => 'Generates a report on quiz results for quiz creators.',
+    'file' => 'quiz_reports.admin.inc',
+    'page callback' => 'quiz_reports_get_report',
+    'page arguments' => array(3),
+    'access callback' => 'quiz_reports_access_reports',
+    'access arguments' => array( 1 ),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 4,
+  );
+  
+  return $items;
+}
+
+/**
+ * Returns a boolean indicating if the user has rights to view quiz reports.
+ *
+ * @return boolean
+ **/
+function quiz_reports_access_reports() {
+
+  // Reference to the global user object
+  global $user;
+  
+  // Node is passed as first (and only) argument
+  $node = func_get_arg(0);
+  
+  // Return false if node is not of type quiz
+  if ( $node->type !== 'quiz' ) {
+    return FALSE;
+  }
+  
+  // All access granted
+  if ( user_access(VIEW_ANY_QUIZ_REPORT) )
+    return TRUE;
+  
+  // Only own quiz allowed
+  if ( user_access(VIEW_OWN_QUIZ_REPORT) and $node->uid == $user->uid )
+    return TRUE;
+  
+  // If both if-cases above fails, return false (access denied)
+  return FALSE;
+}
+
+
+/**
+ * Implementation of hook_theme().
+ */
+function quiz_reports_theme() {
+  return array(
+    'quiz_reports_output' => array(
+      'arguments' => array( 'revisions' => NULL, 'accumulated' => NULL, 'questions' => NULL ),
+      'path' => drupal_get_path('module', 'quiz_reports') . '/theme',
+      'template' => 'quiz_reports_output',
+    ),
+    'quiz_get_question' => array(
+      'arguments' => array( 'question' => NULL, 'question_output' => NULL ),
+      'path' => drupal_get_path( 'module', 'quiz_reports' ) . '/theme',
+      'template' => 'quiz_reports_question_output',
+    ),
+  );
+}
+
+/**
+ * Validate that a node is of type quiz, and that the user has access to it, and that the vid is a vid of that quiz
+ * 
+ * @param $quiz
+ *  The quiz node
+ * @param $vid
+ *  The version id
+ * @return 
+ *  TRUE if user has access
+ */
+function quiz_reports_validate_vid($quiz, $vid) {
+  if ($quiz->type != 'quiz') {
+    return FALSE;
+  }
+  if (!user_access('access author stats')) {
+    return FALSE;
+  }
+  $sql = db_rewrite_sql(
+    'SELECT n.nid 
+     FROM {node} n
+     WHERE n.nid = (
+       SELECT nr.nid
+       FROM {node_revisions} nr 
+       WHERE nr.vid = %d
+     )'
+  );
+  $nid = db_result(db_query($sql, $vid));
+  return $quiz->nid == $nid;  
+}

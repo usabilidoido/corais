@@ -1,0 +1,239 @@
+<?php
+
+include_once('atrium_members.features.inc');
+
+/**
+ * Implementation of hook_enable().
+ */
+function atrium_members_enable() {
+  // Spaces presets
+  $default_presets = variable_get('spaces_default_presets', array());
+  $default_presets['user'] = 'atrium_user_simple';
+  variable_set('spaces_default_presets', $default_presets);
+}
+
+/**
+ * Implementation of hook_block().
+ */
+function atrium_members_block($op = 'list', $delta = 0, $edit = array()) {
+  switch ($op) {
+    case 'list':
+      return array('addform' => array('info' => t('User add form')));
+    case 'view':
+      if (atrium_members_addform_access()) {
+        module_load_include('inc', 'atrium_members', 'atrium_members');
+        $space = spaces_get_space();
+        return array('subject' => t('Add existing users'), 'content' => drupal_get_form('atrium_members_addform', $space->group));
+      }
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function atrium_members_theme() {
+  return array(
+    'atrium_members_addform' => array(
+      'arguments' => array('form' => array()),
+      'path' => drupal_get_path('module', 'atrium_members'),
+      'file' => 'atrium_members.inc',
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function atrium_members_menu() {
+  return array(
+    'members/add/ajax' => array(
+      'page callback' => 'atrium_members_addform_ajax',
+      'page arguments' => array(),
+      'access callback' => 'atrium_members_addform_access',
+      'access arguments' => array(),
+      'type' => MENU_CALLBACK,
+      'file' => 'atrium_members.inc',
+    ),
+    'members/add/autocomplete' => array(
+      'page callback' => 'atrium_members_autocomplete',
+      'access callback' => 'user_access',
+      'access arguments' => array('access user profiles'),
+      'type' => MENU_CALLBACK,
+      'file' => 'atrium_members.inc',
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_menu_alter().
+ */
+function atrium_members_menu_alter(&$items) {
+  $dummy = array();
+  $categories = atrium_members_user('categories', $dummy, $dummy);
+  foreach ($categories as $category) {
+    $item = $items['user/%user_category/edit/'. $category['name']];
+    $item['page callback'] = 'drupal_get_form';
+    $item['page arguments'] = array('atrium_members_user_profile_tab', 1, $category['name']);
+    $item['module'] = 'atrium_members';
+    $item['file'] = 'atrium_members.inc';
+    $items['user/%user_category/edit/'. $category['name']] = $item;
+  }
+
+  // Clone ucreate item into members/user-add.
+  if (isset($items['user/add'])) {
+    $items['members/add'] = $items['user/add'];
+    $items['members/add']['type'] = MENU_LOCAL_TASK;
+    $items['members/add']['weight'] = 10;
+  }
+
+  // Views: disable views that we are 'overriding'
+  $views_defaults = variable_get('views_defaults', array());
+  $disabled = array(
+    'og_members',
+    'og_members_block',
+    'og_members_faces',
+  );
+  $set = FALSE;
+  foreach ($disabled as $view_name) {
+    if (empty($views_defaults[$view_name])) {
+      $set = TRUE;
+      $views_defaults[$view_name] = TRUE;
+    }
+  }
+  if ($set) {
+    variable_set('views_defaults', $views_defaults);
+  }
+
+  // Replace the OG users callback.
+  $items['og/users/%'] = array(
+    'page callback' => 'atrium_members_og_users',
+    'page arguments' => array(),
+    'access callback' => TRUE,
+    'access arguments' => array(TRUE),
+    'type' => MENU_CALLBACK,
+    'module' => 'atrium_members',
+    'file' => 'atrium_members.inc',
+  );
+}
+
+/**
+ * Access callback for using the members addform.
+ */
+function atrium_members_addform_access() {
+  $space = module_exists('spaces') ? spaces_get_space() : FALSE;
+  return user_access('create users');
+}
+
+/**
+ * Implementation of hook_context_links_alter().
+ */
+function atrium_members_context_links_alter(&$links) {
+  if (context_get('context', 'members_directory') && module_exists('ucreate') && user_access('create users')) {
+    $item = menu_get_item('members/add');
+    if ($item['access']) {
+      $links['atrium_users'] = array(
+        'title' => $item['title'],
+        'href' => $item['href'],
+      );
+    }
+  }
+}
+
+/**
+ * Implementation of hook_context_page_condition().
+ * Good occasion to set the breadcrumb.
+ */
+function atrium_members_context_page_condition() {
+  $account = menu_get_object('user');
+  $account = $account ? $account : menu_get_object('user_uid_optional');
+  $account = $account ? $account : menu_get_object('user_category');
+  if ($account) {
+    // Set the members context.
+    context_set('context', 'members_section', context_load('members_section'));
+
+    $breadcrumb = array(l(t('Home'), '<front>'));
+    $item = menu_get_item('members');
+    if ($item['access']) {
+      $breadcrumb[] = l($item['title'], $item['href']);
+    }
+    $item = menu_get_item("user/{$account->uid}");
+    if ($item['access']) {
+      $breadcrumb[] = l($account->name, $item['href']);
+    }
+    drupal_set_breadcrumb($breadcrumb);
+  }
+  elseif (context_get('context', 'members_section')) {
+    $breadcrumb = array(l(t('Home'), '<front>'));
+    $item = menu_get_item('members');
+    if ($item['access']) {
+      $breadcrumb[] = l($item['title'], $item['href']);
+    }
+    drupal_set_breadcrumb($breadcrumb);
+
+    // If not in a space, use wide layout.
+    // @TODO: Reimplement user search filters/facets in the sidebar.
+    $space = module_exists('spaces') ? spaces_get_space() : FALSE;
+    if (!$space) {
+      context_set('context', 'layout_wide', context_load('layout_wide'));
+    }
+  }
+}
+
+/**
+ * Implementation of hook_form_alter() for user_profile_form.
+ */
+function atrium_members_form_user_profile_form_alter(&$form) {
+  $dummy = array();
+  $categories = atrium_members_user('categories', $dummy, $dummy);
+  foreach ($categories as $info) {
+    if (!empty($form[$info['name']])) {
+      $form[$info['name']]['#access'] = FALSE;
+    }
+  }
+  $form['comment_settings']['#type'] = 'hidden';
+}
+
+/**
+ * Implementation of hook_user().
+ */
+function atrium_members_user($op, &$edit, &$account, $category = NULL) {
+  switch ($op) {
+    case 'categories':
+      $categories = array();
+      // Check that user pictures are enabled.
+      if (variable_get('user_pictures', 0)) {
+        $categories['picture'] = array(
+          'name' => 'picture',
+          'title' => t('Picture'),
+          'weight' => 10,
+        );
+      }
+      // Check that user can select a theme and that there are options for her to select from.
+      if (user_access('select different theme')) {
+        $enabled = array();
+        foreach (list_themes() as $theme) {
+          if ($theme->status && !empty($theme->info['atrium'])) {
+            $enabled[] = $theme;
+          }
+        }
+        if (count($enabled) > 1) {
+          $categories['theme_select'] = array(
+            'name' => 'theme_select',
+            'title' => t('Theme settings'),
+            'weight' => 10,
+          );
+        }
+      }
+      return $categories;
+  }
+}
+
+/**
+ * Implementation of hook_atrium_admin_links_alter().
+ */
+function atrium_members_atrium_admin_links_alter(&$links, $space) {
+  if (spaces_access_admin() && user_access('create users') && ($item = menu_get_item('members/all')) && $item['access']) {
+    $links['members'] = array('title' => t('Members'), 'href' => $item['href']);
+  }
+}

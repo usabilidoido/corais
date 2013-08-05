@@ -1,0 +1,40 @@
+<?php
+// $Id: dul.module,v 1.1.2.20 2010/04/18 22:06:06 kiam Exp $
+
+/**
+ * @file
+ * Disables the language selector in the user profile form.
+ */
+
+/**
+ * Implements hook_form_FORM-ID_alter().
+ */
+function dul_form_user_profile_form_alter(&$form, $form_state) {
+  if (isset($form['locale']) && isset($form['_account']) && !user_access('change own user language', $form['_account']['#value'])) {
+    if (count(element_children($form['locale'])) > 1) {
+      unset($form['locale']['language']);
+    }
+    else {
+      unset($form['locale']);
+    }
+    if (user_access('administer users')) {
+      drupal_set_message(t('The user language for the current account cannot be changed; the account uses the language set in the <a href="@languages">languages page</a>.', array('@languages' => url('admin/settings/language'))), 'status', FALSE);
+    }
+  }
+}
+
+/**
+ * Implements hook_perm().
+ */
+function dul_perm() {
+  return array('change own user language');
+}
+
+/**
+ * Implements hook_user().
+ */
+function dul_user($op, &$edit, &$account, $category = NULL) {
+  if ($op == 'load' && $account->uid && !user_access('change own user language', $account)) {
+    $account->language = language_default('language');
+  }
+}

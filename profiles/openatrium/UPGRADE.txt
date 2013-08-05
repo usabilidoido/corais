@@ -1,0 +1,76 @@
+
+Upgrading between any versions from Open Atrium 1.0-beta4 to 1.4
+=================================================================
+
+_note: If upgrading a version older than beta 4, update to beta 4 first_
+
+1. Follow the upgrade instructions here:
+
+   https://community.openatrium.com/documentation-en/node/1942
+
+**The following steps are specific to Open Atrium 1.4**
+
+2. Revert all your features using `drush -y fr-all` from the commandline or
+   or using the UI at /admin/build/features. **Very important** if you overrode
+   any views, contexts, variable, permissions, and other configuration, on your
+   site. This will delete your overrides and set everything back to the default
+   Open Atrium configuration as defined in code.
+
+   If you've made extensive overrides you will want to carefully manage this
+   step and preserve or recreate configuration overrides.
+
+3. Clear your caches using `drush cc all` from the commandline or using the
+   'Clear cached data' button on /admin/settings/performance. If you clear the
+   cache from /admin/settings/performance do not be alarmed if your theme is
+   not working initially; it should work correctly only after you've cleared
+   the cache (related issue for reference only http://drupal.org/node/545452).
+
+
+Upgrading from Atrium 1.0-beta3.x to 1.0-beta4
+==============================================
+
+_note: This upgrade assumes that you're using drush 3.x_
+
+1. Change the name of the install profile on your site. While the update will
+  run if you have a symlink from `openatrium` to `atrium_installer` in your
+  `profiles` directory, it is a good idea to update this information for your
+  site explicitly.
+
+        drush vset install_profile openatrium
+
+  Or add the following line to the end of your site's `settings.php` file:
+
+        $conf['install_profile'] = 'openatrium';
+
+2. Clear all caches.
+
+        drush cc all
+
+3. Run `update.php` in a web browser or run the following using drush:
+
+        drush updatedb
+
+4. Overrides for features need to be reverted. If you have made custom
+  overrides to Atrium features, you will want to manage these yourself in the
+  Features UI. Otherwise simply blow away all the overrides:
+
+        drush -y features-revert atrium atrium_groups atrium_members atrium_profile
+        drush -y features-revert atrium_blog atrium_book atrium_calendar atrium_casetracker atrium_shoutbox spaces_dashboard
+
+5. Clear caches again. The site should now be (for the most part) usable.
+
+6. Older installations may need to manually reset the default input format.
+
+  1. Goto `admin/settings/filters`
+  2. Select the desired format, eg 'Markdown'
+  3. Click 'Set default format'
+
+  If you have had to reset the default format, you may also need to manually set the allow tags. Below are some tags to get you going:
+
+        <div> <span> <br> <a> <em> <strong> <cite> <code> <strike> <ul> <ol> <li> <dl> <dt> <dd> <img> <blockquote> <p> <pre> <h1> <h2> <h3> <h4> <h5> <h6> <table> <caption> <thead> <th> <td> <tr> <sup> <sub>
+
+7. There maybe other variable that need to be reset
+
+  1. Goto `admin/settings/strongarm`
+  2. Select the desired variables, eg `site_404`
+  3. Click 'Reset to defaults'

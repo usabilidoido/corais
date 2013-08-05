@@ -1,0 +1,339 @@
+# $Id: timeline.pot,v 1.1.2.1 2009/09/01 19:44:49 xamanu Exp $
+#
+# LANGUAGE translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  views-view-timeline.tpl.php: n/a
+#  timeline.admin.inc,v 1.1.2.4 2009/08/18 20:59:47 xamanu
+#  timeline.theme.inc,v 1.13.2.1.2.8 2009/08/27 00:40:54 xamanu
+#  timeline.views.inc,v 1.6.2.3.2.6 2009/08/27 00:40:54 xamanu
+#  timeline.module,v 1.20.2.6.2.8 2009/08/27 00:40:54 xamanu
+#  timeline.info,v 1.3.2.1.2.1 2009/07/23 18:21:23 xamanu
+#  views_views_plugin_style_timeline.inc,v 1.1.2.6 2009/08/18 20:59:47 xamanu
+#  timeline.install,v 1.2.2.1.2.2 2009/08/18 20:59:47 xamanu
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2009-09-01 14:37-0500\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Last-Translator: NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: views-view-timeline.tpl.php:10
+msgid "This page uses Javascript to show you a Timeline. Please enable Javascript in your browser to see the full page. Thank you."
+msgstr ""
+
+#: timeline.admin.inc:17
+msgid "SIMILE Timeline Library"
+msgstr ""
+
+#: timeline.admin.inc:20
+msgid "You can select to get the timeline libraries from the SIMILE server or your can install it locally."
+msgstr ""
+
+#: timeline.admin.inc:25
+msgid "Location of Simile Timeline libraries"
+msgstr ""
+
+#: timeline.admin.inc:27
+msgid "Simile Server"
+msgstr ""
+
+#: timeline.admin.inc:28
+msgid "Only simile server available. The timeline library is not installed locally."
+msgstr ""
+
+#: timeline.admin.inc:34
+msgid "Information for local installation:"
+msgstr ""
+
+#: timeline.admin.inc:38
+msgid "A local timeline library has been found at this location: !timeline_library_path"
+msgstr ""
+
+#: timeline.admin.inc:45
+msgid "Default display settings"
+msgstr ""
+
+#: timeline.admin.inc:51
+msgid "Default width"
+msgstr ""
+
+#: timeline.admin.inc:55
+msgid "The default width of a timeline (in units of em, px or %), e.g. 600px or 90%."
+msgstr ""
+
+#: timeline.admin.inc:59
+msgid "Default height"
+msgstr ""
+
+#: timeline.admin.inc:63
+msgid "The default height of a timeline (in units of em, px or %), e.g. 400px."
+msgstr ""
+
+#: timeline.admin.inc:69
+msgid "Advanced settings"
+msgstr ""
+
+#: timeline.admin.inc:75
+msgid "Debug mode"
+msgstr ""
+
+#: timeline.admin.inc:79
+msgid "The debug mode prints out the data array when navigating to a views with a user having \"administer views\" permission. This can easily be copied and sent for remote debugging."
+msgstr ""
+
+#: timeline.theme.inc:82
+msgid "Simile Timeline Libraries not found"
+msgstr ""
+
+#: timeline.views.inc:15 timeline.module:60 timeline.info:0
+msgid "Timeline"
+msgstr ""
+
+#: timeline.views.inc:16
+msgid "Displays content on a SIMILE Timeline."
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:60
+msgid "Grouping colors"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:67
+msgid "Color coding"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:69
+msgid "You can override the colors for your groupings. Enter one hexadecimal RGB color value per line. Examples: #FF00FF #FF0099 #998811"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:72
+msgid "Display settings"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:75
+msgid "Width"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:79
+msgid "The width of the timeline (in units of em, px or %), e.g. 600px or 90%. Leave blank to use default value."
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:83
+msgid "Height"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:87
+msgid "The height of the timeline (in units of em, px or %), e.g. 400px. Leave blank to use default value."
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:91
+msgid "Appearance and themes"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:94
+msgid "Theme"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:97
+msgid "Select a theme. You can create our own themes. Read documentation."
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:101
+msgid "Width of bubbles"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:105
+msgid "The width of the bubbles in the timeline (in units of px), e.g. 250. Leave blank to use default value from theme."
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:109
+msgid "Max height of bubbles"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:113
+msgid "The maximum height of the bubbles in the timeline (in units of px), e.g. 400 (Scrollbar will be added for taller bubbles). Leave blank to let the bubbles scale automatically."
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:119
+msgid "You need at least one field before you can configure your field settings"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:159
+msgid "Select the fields that contain the title, start time and end time of each item."
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:196
+msgid "Advanced visualization settings"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:198
+msgid "For more information on these fields visit the <a href=\"@url\">advanced documentation</a>"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:202
+msgid "Earliest start"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:208
+msgid "Latest end"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:214
+msgid "Icon"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:219
+msgid "Orginal image size"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:225
+msgid "Imagecache preset for Icon"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:233
+msgid "Band/interval settings"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:234
+msgid "Second"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:234
+msgid "Minute"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:234
+msgid "Hour"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:234
+msgid "Day"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:234
+msgid "Week"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:234
+msgid "Month"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:234
+msgid "Year"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:234
+msgid "Decade"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:234
+msgid "Century"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:234
+msgid "Millennium"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:237
+msgid "Main band interval unit"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:240;247
+msgid ""
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:244
+msgid "Summary band interval unit"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:246
+msgid "Not displayed"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:251
+msgid "Initial date focus"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:252
+msgid "The current date"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:252
+msgid "First event in timeline"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:252
+msgid "Last event in timeline"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:252
+msgid "Custom"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:254
+msgid "Determines which event or date the timeline view should initially be centered on after it has loaded. Leave blank to use default value."
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:258
+msgid "Custom initial date focus"
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:262
+msgid "Please enter a custom initial date to focus the timeline on."
+msgstr ""
+
+#: views_views_plugin_style_timeline.inc:262
+msgid "Format: %time."
+msgstr ""
+
+#: timeline.module:18
+msgid "timeline"
+msgstr ""
+
+#: timeline.module:20 timeline.info:0
+msgid "Provides a draggable and scrollable timeline view. Requires the views module and the libraries module and makes use of the cck and date module if available."
+msgstr ""
+
+#: timeline.module:23
+msgid "To actually create and manage timelines, use the <a href=\"@views\">views administration</a> screen."
+msgstr ""
+
+#: timeline.module:25
+msgid "To actually create and manage timelines, enable the Views UI module in the <a href=\"@modules\">modules administration</a> screen."
+msgstr ""
+
+#: timeline.module:26
+msgid "Timeline views provides a draggable and scrollable widget for visualizing temporal information. This screen allows you to override default settings for each timeline."
+msgstr ""
+
+#: timeline.module:163
+msgid "Error: !timeline_filename not found"
+msgstr ""
+
+#: timeline.module:61
+msgid "Settings for timeline displays"
+msgstr ""
+
+#: (duplicate) timeline.install:35 ;44 
+msgid "Timeline requirements"
+msgstr ""
+
+#: (duplicate) timeline.install:36 
+msgid "The Timeline module requires a more current version of the Date API. Please check for a newer version."
+msgstr ""
+
+#: (duplicate) timeline.install:45 
+msgid "The Timeline module requires the latest version of the Date API, be sure you are installing the latest versions of both modules."
+msgstr ""
+
+#: timeline.info:0
+msgid "Views"
+msgstr ""
+

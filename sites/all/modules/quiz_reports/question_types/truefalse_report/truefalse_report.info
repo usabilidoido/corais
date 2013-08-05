@@ -1,0 +1,12 @@
+name = Quiz true/false answer reports
+package = Quiz Reports
+description = Generates reports for the quiz truefalse question type
+core = 6.x
+php = 5
+dependencies[] = quiz_reports
+; Information added by drupal.org packaging script on 2011-03-22
+version = "6.x-1.1"
+core = "6.x"
+project = "quiz_reports"
+datestamp = "1300804269"
+

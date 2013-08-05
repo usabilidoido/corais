@@ -1,0 +1,157 @@
+<?php
+
+include_once('grayside_oa_feeds.features.inc');
+
+/**
+ * Implementation of hook_menu_alter().
+ * Removing the ugly tokenauth tab.
+ */
+function grayside_oa_feeds_menu_alter(&$items) {
+  unset($items['user/%user/tokenauth']);
+}
+
+/**
+ * Implementation of hook_block().
+ */
+function grayside_oa_feeds_block($op = 'list', $delta = 0, $edit = array()) {
+  switch($op) {
+    case 'list':
+      // Both blocks use per-using caching to preserve the unique token.
+      $blocks['oa_feeds_tokenauth']['info'] = t('Token authentication');
+      $blocks['oa_feeds_tokenauth']['cache'] = BLOCK_CACHE_PER_USER;
+
+      $blocks['oa_feeds_space']['info'] = t('RSS Feeds for Current Space');
+      $blocks['oa_feeds_space']['cache'] = BLOCK_CACHE_PER_USER;
+      return $blocks;
+
+    case 'configure':
+      return array();
+
+    case 'save':
+      return;
+
+    case 'view':
+      $block = array();
+      switch($delta) {
+        case 'oa_feeds_tokenauth':
+          $space = spaces_get_space();
+          if ($space->type == 'user') {
+            $account = user_load($space->id);
+          }
+          else {
+            break;
+          }
+
+          // If the user does not have access to tokenauth do not show this block.
+          if (tokenauth_profile_access($GLOBALS['user'])) {
+            $block['subject'] = t('!account\'s RSS Feeds', array('!account' => $account->name));
+            $block['content'] = drupal_get_form('_grayside_oa_feeds_tokenauth_block_content', $account);
+          }
+          break;
+        case 'oa_feeds_space':
+          if (tokenauth_profile_access($GLOBALS['user'])) {
+            $block['subject'] = t('RSS Feeds');
+            $block['content'] = _grayside_oa_feeds_space_block_content();
+          }
+          break;
+      }
+      return $block;
+  }
+}
+
+function _grayside_oa_feeds_tokenauth_block_content(&$form_state, $account) {
+  $form = array();
+
+  // Prepare a couple sample links to token-authenticated feeds.
+  $items = array();
+  $token = tokenauth_get_token($account->uid);
+  $items[] = l(theme('image', 'misc/feed.png', t('Syndicate content'), t('My dashboard')) . ' ' . t('My dashboard'),
+    'dashboard/feed', array(
+      'query' => 'token=' . $token,
+      'html' => TRUE
+    )
+  );
+  $group = array_shift(array_values($account->og_groups));
+  $group_text = t('Example: My !title group dashboard', array('!title' => $group['title']));
+  $items[] = l(theme('image', 'misc/feed.png', t('Syndicate content'), $group_text) . ' ' . $group_text,
+   'dashboard/feed', array(
+     'query' => 'token=' . $token,
+     'html' => TRUE,
+     'purl' => array('provider' => 'spaces_og', 'id' => $group['nid'])
+    )
+  );
+
+  $form['preamble'] = array(
+    '#value' => theme('item_list', $items) . tokenauth_text_load($account, TRUE),
+  );
+  return array_merge($form, tokenauth_reset_user_form($account->uid));
+}
+
+/**
+ * Provides content for oa_feeds_space block.
+ */
+function _grayside_oa_feeds_space_block_content() {
+  $token = tokenauth_get_token($GLOBALS['user']);
+
+  $items = array();
+  $text = t('Dashboard feed');
+  $items[] = l(theme('image', 'misc/feed.png', t('Syndicate content'), $text) . ' ' . $text,
+    'dashboard/feed', array(
+      'query' => 'token=' . $token,
+      'html' => TRUE,
+    )
+  );
+
+  return theme('item_list', $items);
+}
+
+
+/**
+ * Implementation of hook_context_load_alter().
+ * Add oa_feeds_tokenauth block to user profile context.
+ */
+function grayside_oa_feeds_context_load_alter(&$context) {
+  if ($context->name == 'activity_profile') {
+    $block = array(
+      'grayside_oa_feeds-oa_feeds_tokenauth' => array(
+        'module' => 'grayside_oa_feeds',
+        'delta' => 'oa_feeds_tokenauth',
+        'region' => 'right',
+        'weight' => 10,
+      ),
+    );
+    $context->reactions['block']['blocks'] = array_merge($context->reactions['block']['blocks'], $block);
+  }
+}
+
+/**
+ * Implementation of hook_strongarm_alter().
+ */
+function grayside_oa_feeds_strongarm_alter(&$arms) {
+  $arms['spaces_dashboard_blocks']->value['grayside_oa_feeds-oa_feeds_tokenauth'] = 1;
+  $arms['spaces_dashboard_blocks']->value['grayside_oa_feeds-oa_feeds_space'] = 1;
+}
+
+/**
+ * Implementation of hook_views_default_views_alter().
+ */
+function grayside_oa_feeds_views_default_views_alter(&$views) {
+  if (!module_exists('atrium_reader')) {
+    unset($views['oa_feeds_reader']);
+  }
+}
+
+/**
+ * Implementation of hook_theme().
+ * Add the html-stripped version of the atrium activity field to the module.
+ */
+function grayside_oa_feeds_theme($existing) {
+  return array(
+    'views_view_field__oa_feeds_dashboard__atrium_activity' => array(
+      'arguments' => array('view' => NULL, 'field' => NULL, 'row' => NULL),
+      'template' => 'views-view-field--oa-feeds-dashboard--atrium-activity',
+      'original hook' => 'views_view_field',
+      'path' => drupal_get_path('module', 'grayside_oa_feeds') . '/theme',
+    ),
+  );
+}

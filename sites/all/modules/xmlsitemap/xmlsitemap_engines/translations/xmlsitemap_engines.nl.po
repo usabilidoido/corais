@@ -1,0 +1,201 @@
+# $Id: xmlsitemap_engines.nl.po,v 1.1.2.2 2009/07/11 10:28:05 hass Exp $
+#
+# LANGUAGE translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  xmlsitemap.module,v 1.1.2.5 2007/11/15 01:10:25 darrenoh
+#  xmlsitemap.info,v 1.1 2007/11/09 17:56:04 darrenoh
+#  xmlsitemap_engines.info,v 1.1 2007/11/09 17:56:05 darrenoh
+#  xmlsitemap_node.info,v 1.1 2007/11/09 17:56:05 darrenoh
+#  xmlsitemap_term.info,v 1.1 2007/11/09 17:56:05 darrenoh
+#  xmlsitemap_user.info,v 1.1 2007/11/09 17:56:05 darrenoh
+#  xmlsitemap_node.module,v 1.1.2.9 2007/11/19 22:13:24 darrenoh
+#  xmlsitemap_user.module,v 1.1.2.5 2007/11/19 19:20:43 darrenoh
+#  xmlsitemap.php,v 1.2 2007/11/09 18:44:49 darrenoh
+#  xmlsitemap_engines.module,v 1.1.2.1 2007/11/20 14:19:04 darrenoh
+#  xmlsitemap_term.module,v 1.1.2.4 2007/11/19 22:13:25 darrenoh
+msgid ""
+msgstr ""
+"Project-Id-Version: Dutch translation of xmlsitemap\n"
+"POT-Creation-Date: 2009-07-02 19:50+0200\n"
+"PO-Revision-Date: 2009-07-11 12:26+0100\n"
+"Last-Translator: Alexander Haß\n"
+"Language-Team: Hans Lodder\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Poedit-Language: Dutch\n"
+"X-Poedit-Country: NETHERLANDS\n"
+"X-Poedit-SourceCharset: utf-8\n"
+"X-Poedit-Basepath: D:\\15. Download\\Drupal\\05. Translations\n"
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:25
+msgid "Submission settings"
+msgstr "Verzend instellingen"
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:30
+msgid "Submit the sitemap when content changes"
+msgstr "Verstuur de sitemap als de inhoud verandert"
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:31
+msgid "If enabled, the search engines will be notified of changes to the sitemap each time the sitemap content is changed."
+msgstr "Als ingeschakeld, worden de zoekmachines steeds op de hoogte gesteld van wijzigingen in het site overzicht als er iets is gewijzigd."
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:36
+msgid "Frequency of sitemap submission"
+msgstr "Frequentie van het versturen van de sitemap"
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:37
+msgid "The rate at which the sitemap is submitted to the search engines."
+msgstr "De snelheid waarmee de sitemap naar zoekmachines verstuurd wordt."
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:41
+msgid "Every 6 months"
+msgstr "Elke 6 maanden"
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:43
+msgid "Every 15 days"
+msgstr "Elke 15 dagen"
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:47
+msgid "Never"
+msgstr "Nooit"
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:53
+msgid "Ask.com"
+msgstr "Ask.com"
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:59
+#: xmlsitemap_engines/xmlsitemap_engines.module:101
+msgid "Submit the sitemap to Ask.com"
+msgstr "Stuur het site overzicht naar Ask.com."
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:64;82;106;124;154
+msgid "Submission URL"
+msgstr "Verzend URL"
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:65
+msgid "The URL to submit the sitemap to. Use %placeholder as placeholder for the sitemap URL."
+msgstr "De URL, waarheen de sitemap verzonden wordt. Gebruik %placeholder voor de sitemap URL."
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:71
+msgid "Google"
+msgstr "Google"
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:77
+#: xmlsitemap_engines/xmlsitemap_engines.module:111
+msgid "Submit the sitemap to Google"
+msgstr "Stuur het site overzicht naar Google"
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:83;107;125;155
+msgid "The URL to submit the sitemap to. Use %placeholder like placeholder for the sitemap URL."
+msgstr "De URL, waarheen de sitemap verzonden wordt. Gebruik %placeholder voor de sitemap URL."
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:88;160
+msgid "Verification link"
+msgstr "Controle link"
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:89
+msgid "In order to show statistics, Google will ask you to verify that you control this site by creating a file with a certain name. Enter that name here and the XML sitemap module will create a path to that file name. This will only work if you have clean URLs enabled."
+msgstr "Om statistieken te tonen, zal Google u vragen om aan te tonen dat u deze website beheert. U moet een bestand met een door Google op te geven naam aanmaken. Vul deze naam hier in. De XML Site overzicht module zal aan deze naam worden gelinkt. Attentie: dit werkt alleen als u schone URL's hebt ingeschakeld."
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:95
+msgid "Moreover.com"
+msgstr "Moreover.com"
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:101
+#: xmlsitemap_engines/xmlsitemap_engines.module:116
+msgid "Submit the sitemap to Moreover.com"
+msgstr "Stuur het site overzicht naar Moreover.com"
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:113
+msgid "Bing (formerly Live Search)"
+msgstr "Bing (voorheen Live Search)"
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:119
+#: xmlsitemap_engines/xmlsitemap_engines.module:106
+msgid "Submit the sitemap to Bing"
+msgstr "Stuur het site overzicht naar Bing"
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:130
+msgid "Authentication file"
+msgstr "Verificatiebestand"
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:131
+msgid "Before allowing you to view additional information, Bing will ask you to verify that you control this site by creating a file with a certain name. Enter that name here, and XML sitemap will create a path to that file name. This will only work if you have clean URLs enabled."
+msgstr "Voordat u extra informatie kunt opvragen zal Bing u vragen om aan te tonen dat u deze website beheert. U moet een bestand met een door Yahoo op te geven naam aanmaken. Vul deze naam hier in. De XML site overzicht module zal een pad naar dat bestand maken. Attentie: dit werkt alleen als u schone URL's hebt ingeschakeld."
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:136
+msgid "Bing authentication tag"
+msgstr "Bing verificatiesleutel"
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:137
+msgid "Bing will give you an authentication tag."
+msgstr "Bing geeft u een verificatiesleutel."
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:143
+msgid "Yahoo!"
+msgstr "Yahoo!"
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:149
+#: xmlsitemap_engines/xmlsitemap_engines.module:121
+msgid "Submit the sitemap to Yahoo!"
+msgstr "Stuur het site overzicht naar Yahoo!"
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:161
+msgid "Before allowing you to view additional information, Yahoo! will ask you to verify that you control this site by creating a file with a certain name. Enter that name here, and XML sitemap will create a path to that file name. This will only work if you have clean URLs enabled."
+msgstr "Voordat u extra informatie kunt opvragen zal Yahoo! u vragen om aan te tonen dat u deze website beheert. U moet een bestand met een door Yahoo op te geven naam aanmaken. Vul deze naam hier in. De XML site overzicht module zal een pad naar dat bestand maken. Attentie: dit werkt alleen als u schone URL's hebt ingeschakeld."
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:166
+msgid "Authentication key"
+msgstr "Verificatiesleutel"
+
+#: xmlsitemap_engines/xmlsitemap_engines.admin.inc:167
+msgid "Yahoo! will ask you to put an authentication key in the verification file."
+msgstr "Yahoo zal u vragen een verificatie sleutel (authentication key) in het Verificatie bestand te plaatsen."
+
+#: xmlsitemap_engines/xmlsitemap_engines.module:97
+msgid "Submit the sitemap to all the active search engines"
+msgstr "verstuur het site overzicht naar alle actieve zoekmachines"
+
+#: xmlsitemap_engines/xmlsitemap_engines.module:200
+msgid "Sitemap successfully submitted to !engine."
+msgstr "Site overzicht met succes naar !engine verstuurd."
+
+#: xmlsitemap_engines/xmlsitemap_engines.module:205
+msgid "Error occurred submitting sitemap to !engine: !code."
+msgstr "Er is een fout opgetreden bij verzending van het site overzicht naar !engine: !code"
+
+#: xmlsitemap_engines/xmlsitemap_engines.module:50
+msgid "Search engines"
+msgstr "Zoek machines"
+
+#: xmlsitemap_engines/xmlsitemap_engines.module:51
+msgid "Configure the submission settings of the XML sitemap to the search engines."
+msgstr "Configureer de instellingen van XML Sitemap voor verzending naar zoekmachines."
+
+#: xmlsitemap_engines/xmlsitemap_engines.module:60
+msgid "Google verification page"
+msgstr "Google verificatie pagina"
+
+#: xmlsitemap_engines/xmlsitemap_engines.module:70
+msgid "Yahoo! verification page"
+msgstr "Yahoo! verificatiepagina"
+
+#: xmlsitemap_engines/xmlsitemap_engines.module:80
+msgid "Bing verification page"
+msgstr "Bing verificatiepagina"
+
+#: xmlsitemap_engines/xmlsitemap_engines.module:0
+msgid "xmlsitemap_engines"
+msgstr "xmlsitemap_engines"
+
+#: xmlsitemap_engines/xmlsitemap_engines.info:0
+msgid "XML sitemap engines"
+msgstr "XML Sitemap Zoekmachines"
+
+#: xmlsitemap_engines/xmlsitemap_engines.info:0
+msgid "Submit the sitemap to search engines."
+msgstr "Verstuur het site overzicht naar zoekmachines"
+

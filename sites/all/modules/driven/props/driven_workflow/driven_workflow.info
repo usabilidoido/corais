@@ -1,0 +1,21 @@
+; $Id: driven_workflow.info,v 1.1 2010/04/01 01:08:01 arhak Exp $
+
+name = Driven workflow properties
+description = Driven properties for workflow's state/schedule/comment.
+
+package = Driven
+; @d6
+core = 6.x
+
+dependencies[] = workflow
+
+; @d7
+files[] = driven_workflow.module
+files[] = driven_workflow.diff.inc
+
+; Information added by drupal.org packaging script on 2010-05-01
+version = "6.x-1.0-alpha3"
+core = "6.x"
+project = "driven"
+datestamp = "1272741606"
+

@@ -1,0 +1,347 @@
+<?php
+/* $Id: webform_report.module,v 1.2.2.55.2.43.2.6 2011/01/26 20:40:45 jimbullington Exp $ */
+
+/**
+ * @file
+ * This module allows users to create simple, dynamic reports based on data collected
+ * by the webform module. It adds a new node type that contains the report criteria,
+ * and the data displayed is updated automatically as webforms are date. The data
+ * can be sorted according to the viewer's preference without altering the report criteria.
+ *
+ * The module is written by Kristian Lance for Communications Research Centre Canada (CRC),
+ * an agency of Industry Canada.
+ *
+ */
+
+/**
+ * Implementation of hook_help
+ */
+function webform_report_help($path) {
+  switch ($path) {
+    case 'admin/modules#description':
+      return t('Allows users to create reports from Webform data.');
+      break;
+
+    case 'node/add#webform_report' :
+      return t('A Webform report is a dynamic page that contains Webform data. The data can be sorted by a particular field, and fields can be included/excluded from the report as needed.');
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_perm
+ */
+function webform_report_perm() {
+  return array('access webform reports', 'create webform reports', 'edit webform reports', 'edit own webform reports', 'use PHP code in webform reports');
+}
+
+/**
+ * Implementation of hook_access
+ */
+function webform_report_access($op, $node) {
+
+  global $user;
+  
+  switch ($op) {
+    case 'view':
+      // if node is published, return view access
+      if ($node->status) {
+        return user_access('access webform reports');
+      }
+      // if unpublished, return update access - users who can update the node should be able to view it
+      else  {
+        return node_access('update', $node);
+      }
+      break;
+    case 'create':
+      return user_access('create webform reports');
+      break;
+    case 'update':
+    case 'delete':
+      return user_access("edit webform reports") || (user_access("edit own webform reports") && ($user->uid == $node->uid));
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_db_rewrite_sql(), to prevent webform_reports from being
+ * displayed on the front page (promoted) while view access to them is denied
+ * the current role. Don't ask, just smile and nod.
+ */
+function webform_report_db_rewrite_sql($query, $primary_table, $primary_field, $args) {
+  switch ($primary_field) {
+    case 'nid':
+      // this query deals with node objects
+      $return = array();
+      if (!user_access('access webform reports')) {
+        if ($primary_table != 'n' && $primary_table != 'node') {
+          $return['join'] = "LEFT JOIN {node} n ON $primary_table.nid = n.nid";
+          $return['where'] = "n.type <> 'webform_report'";
+        }
+        else {
+          if ($primary_table == 'n') {
+            $return['where'] = "n.type <> 'webform_report'";
+          }
+          if ($primary_table == 'node') {
+            $return['where'] = "node.type <> 'webform_report'";
+          }
+        }
+        return $return;
+      }
+      break;
+    case 'tid':
+      // this query deals with taxonomy objects
+      break;
+    case 'vid':
+      // this query deals with vocabulary objects
+      break;
+  }
+}
+
+
+/**
+ * Implementation of hook_menu()
+ */
+function webform_report_menu() {
+
+  $items = array();
+
+  $items['admin/content/webform_report'] = array(
+    'title' => t('Webform Reports'),
+    'description' => t('View and edit Webform reports.'),
+    'page callback' => '_webform_report_page',
+    'access callback' => 'user_access',
+    'access arguments' => array('administer site configuration'),
+    'file' => 'webform_report.inc',
+    'type' => MENU_NORMAL_ITEM
+  );
+  $items['node/%webform_report_menu/edit/webform_report/configuration'] = array(
+    'title' => t('Configuration'),
+    'page callback' => 'node_page_edit',
+    'page arguments' => array(1),
+    'access callback' => 'webform_report_access',
+    'access arguments' => array('update', 1),
+    'weight' => 1,
+    'type' => MENU_DEFAULT_LOCAL_TASK
+  );
+  $items['node/%webform_report_menu/edit/webform_report/criteria'] = array(
+    'title' => t('Report Criteria'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('webform_report_criteria_form', 1),
+    'access callback' => 'webform_report_access',
+    'access arguments' => array('update', 1),
+    'file' => 'webform_report_criteria.inc',
+    'weight' => 2,
+    'type' => MENU_LOCAL_TASK
+  );
+  $items['node/%webform_report_menu/csv'] = array(
+    'title' => t('Report CSV Export'),
+    'page callback' => 'webform_report_csv',
+    'page arguments' => array(1),
+    'access callback' => 'webform_report_access',
+    'access arguments' => array('view', 1),
+    'file' => 'webform_report.inc',
+    'type' => MENU_CALLBACK
+  );
+  return $items;
+}
+
+/**
+ * Menu loader callback; Load a webform report node if the given nid is a webform report
+ */
+function webform_report_menu_load($nid) {
+  if (!is_numeric($nid)) {
+    return FALSE;
+  }
+  $node = node_load($nid);
+  if (empty($node->type) || $node->type != 'webform_report') {
+    return FALSE;
+  }
+  return $node;
+}
+
+/**
+ * Implementation of hook_node_info
+ */
+function webform_report_node_info() {
+  return array(
+    'webform_report' => array(
+      'name' => t('Webform report'),
+      'module' => 'webform_report',
+      'description' => t('A webform report is a dynamic page that contains user-specified data
+      collected by the Webform module. The data can be sorted by a particular field, and fields can
+      be included/excluded as needed.')
+    )
+  );
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function webform_report_theme() {
+  
+  $theme = array(
+    'webform_report_criteria_form' => array('arguments' => array('form' => NULL)),
+    'webform_report_filter_form' => array('arguments' => array('form' => NULL))
+  );
+  
+  return $theme;
+}
+
+
+/**
+ * Implementation of hook_load
+ */
+function webform_report_load($node) {
+
+  // Populate webform_report-specific node variables
+  $additions = db_fetch_object(db_query("SELECT wnid, description, columns, sorton, filters, options
+                                         FROM {webform_report} WHERE nid = %d", $node->nid));
+
+  if (is_object($additions)) {
+    $additions->columns = unserialize($additions->columns);
+    $additions->sorton = unserialize($additions->sorton);
+    $additions->filters = unserialize($additions->filters);
+    $additions->options = unserialize($additions->options);
+  }
+
+  return $additions;
+}
+
+/**
+ * Implementation of hook_view
+ */
+function webform_report_view($node, $teaser = FALSE, $page = FALSE) {
+
+  if(!empty($node->nid) && empty($node->wnid) && (arg(2) != 'add' && arg(2) != 'edit')) {
+    drupal_goto('node/' . $node->nid . '/add/webform_report/criteria');
+  }
+  module_load_include('inc', 'webform_report', 'webform_report');
+  // include search form
+  module_load_include('inc', 'webform_report', 'webform_report_criteria');
+  
+  $output = _webform_report_get_body_content($node, $teaser, $page);
+  
+  $node->content['body'] = array('#value' => check_markup($node->body, $node->format, FALSE));
+  $node->content['webform_report'] = array('#value' => $output, '#weight' => 10);
+  
+  return $node;
+}
+
+/**
+ * Implementation of hook_insert
+ */
+function webform_report_insert($node) {
+
+  $node->columns = array();
+  $node->sorton = array();
+  $node->filters = array();
+  $node->options = array();
+  
+  db_query("INSERT INTO {webform_report} (nid, description, wnid, columns, sorton, filters, options)
+            VALUES (%d, '%s', %d, '%s', '%s', '%s', '%s')", 
+            $node->nid, 
+            $node->description, 
+            $node->wnid, 
+            serialize($node->columns), 
+            serialize($node->sorton), 
+            serialize($node->filters), 
+            serialize($node->options));
+  watchdog('webform_report', 'Webform report @title added', array('@title' => $node->title), WATCHDOG_NOTICE); // log it
+}
+
+/**
+ * Implementation of hook_update
+ */
+function webform_report_update($node) {
+
+  // What to update, based on url arguments.
+  if(arg(2) == 'add' | arg(2) == 'edit') {
+    if(arg(4) == 'criteria') {
+      db_query("UPDATE {webform_report} 
+                SET columns = '%s', 
+                    sorton = '%s', 
+                    filters = '%s', 
+                    options = '%s'
+                WHERE nid = %d", 
+                serialize($node->columns), 
+                serialize($node->sorton), 
+                serialize($node->filters), 
+                serialize($node->options), 
+                $node->nid);
+    }
+    else {
+      db_query("UPDATE {webform_report} SET description = '%s' WHERE nid = %d", $node->description, $node->nid);
+      watchdog('webform_report', 'Webform report @title updated', array('@title' => $node->title), WATCHDOG_NOTICE); // log it
+    }
+  }
+}
+
+/**
+ * Implementation of hook_delete
+ */
+function webform_report_delete($node) {
+
+  db_query("DELETE FROM {webform_report} WHERE nid = %d", $node->nid);
+  watchdog('webform_report', 'Webform report @title deleted', array('@title' => $node->title), WATCHDOG_NOTICE); // log it
+}
+
+/**
+ * Implementation of hook_form
+ */
+function webform_report_form($node) {
+
+  module_load_include('inc', 'webform_report', 'webform_report');
+  
+  $form['title'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Title'),
+    '#required' => TRUE,
+    '#default_value' => $node->title,
+    '#weight' => -9,
+    '#description' => t('Enter a title for your Webform report page')
+  );
+  $default = '';
+  if (isset($node->description)) {
+    $default = $node->description;
+  }
+  $form['description'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Description'),
+    '#description' => t('The description will be displayed at the top of the report page'),
+    '#default_value' => $default,
+    '#required' => FALSE,
+    '#weight' => -8
+  );
+  // if adding a new report, ask for the webform
+  if (arg(1) == 'add') {
+    $form['wnid'] = array(
+      '#type' => 'select',
+      '#title' => t('Webform'),
+      '#options' => array('' => t('Select a Webform')) + _webform_report_get_webforms(),
+      '#required' => TRUE,
+      '#weight' => -7,
+      '#description' => t('Select a webform for this report.')
+    );
+  }
+  // if report already exists, only display the report title
+  else {
+    $default = '';
+    if (isset($node->wnid)) {
+      $default = check_plain(db_result(db_query("SELECT n.title FROM {node} n WHERE n.nid = %d", $node->wnid)));
+    }
+    else {
+      drupal_set_message(t('Error - Webform is not set for this report - cannot proceed.  Please delete and re-create this report.'), 'error');
+    }
+    $form['wnid'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Webform'),
+      '#default_value' => $default,
+      '#weight' => -7,
+      '#attributes' => array('readonly' => 'readonly'),
+      '#description' => t('The webform for this report - this cannot be updated.'),
+     );
+  }
+  return $form;
+}
+

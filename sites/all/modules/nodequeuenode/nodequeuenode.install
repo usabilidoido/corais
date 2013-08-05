@@ -1,0 +1,68 @@
+<?php
+// $Id: nodequeuenode.install,v 1.2 2009/09/08 09:39:49 daniboy Exp $
+
+/**
+ * @file nodequeuenode.install
+ * Installation hooks for Nodequeue Node.
+ */
+
+
+/**
+ * Implementation of hook_schema().
+ */
+function nodequeuenode_schema() {
+  $schema['nodequeuenode_active'] = array(
+    'description' => t('Nodequeue nodes are only enabled for nodequeues that show up in this table.'),
+    'fields' => array(
+      'qid' => array(
+        'description' => t('Nodequeue identifier.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('qid'),
+  );
+  
+  $schema['nodequeuenode_relation'] = array(
+    'description' => t('One-to-one relationship table between nodequeues and nodes.'),
+    'fields' => array(
+      'sqid' => array(
+        'description' => t('Subqueue identifier.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'nid' => array(
+        'description' => t('Node id.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+    ),
+    'unique keys' => array(
+      'sqid' => array('sqid'),
+      'nid' => array('nid'),
+    ),
+  );
+  
+  return $schema;
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function nodequeuenode_install() {
+  drupal_install_schema('nodequeuenode');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function nodequeuenode_uninstall() {
+  drupal_uninstall_schema('nodequeuenode');
+  
+  variable_del('nodequeuenode_message_relation_exists');
+  variable_del('nodequeuenode_tab_title');
+  variable_del('nodequeuenode_view');
+}

@@ -1,0 +1,259 @@
+<?php
+// $Id: image_fupload_image.module,v 1.35 2009/03/21 08:42:57 grandcat Exp $
+
+/**
+ * Implementation of hook_menu().
+ */
+function image_fupload_image_menu() {
+  $items['admin/settings/image/image_fupload'] = array(
+    'title' => 'Image FUpload Settings',
+    'access arguments' => array('administer site configuration'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('image_fupload_image_admin'),
+    'description' => 'Configure FUpload Settings',
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'image_fupload_image.admin.inc',
+  );
+  $items['fupload/js/image'] = array(
+    'title' => 'Image FUpload',
+    'page callback' => 'image_fupload_image_node_create',
+    'access arguments' => array('mass upload images'),
+    'type' => MENU_CALLBACK,
+    'file' => 'node.pages.inc',
+    'file path' => drupal_get_path('module', 'node'),
+  );  
+  return $items;
+}
+
+/**
+ * Implementation of hook_form_alter() registry.
+ */
+function image_fupload_image_form_alter(&$form, $form_state, $form_id) {
+  global $user;  
+  // examine whether it's a new image type & the user wants to have flash
+  if ($form_id == "image_node_form" && !isset($form['#node']->nid) && arg(0) != 'img_assist' && arg(3) != "noflash" && arg(3) != "list_images" && user_access('mass upload images')) {    
+    // Some needed JS & CSS - Files to be included
+    $module_path = drupal_get_path('module', 'image_fupload');
+	  drupal_add_js($module_path .'/swfupload/swfupload.js', 'module');
+	  drupal_add_js($module_path .'/swfupload/swfupload.queue.js', 'module');
+	  drupal_add_js($module_path .'/swfupload/fileprogress.js', 'module');
+	  drupal_add_js($module_path .'/swfupload/handlers.js', 'module');
+    /* Check if another step with editing options is provided  for this user*/
+    $redirect_url = '';
+    if (user_access('edit captions'))
+      $redirect_url = url('node/add/image/list_images');
+    /* Check END */
+	  drupal_add_js(theme('swfupload_settings', base_path() . $module_path, url('fupload/flash'), round(variable_get('image_max_upload_size', 800)), '*.jpg; *.jpeg; *.png; *.gif', (!empty($user->sid) ? $user->sid : session_id()), 100, 'image', 'images', 'true', '', $redirect_url), 'inline');
+    drupal_add_css($module_path .'/image_fupload-style.css', 'module', 'all', FALSE);  // Style of swfUpload
+        
+    unset($form['title'], $form['rebuild_images'], $form['buttons']); //don't need this, title will be generated later using filepath
+    
+    isset($form['taxonomy']) ? $form['taxonomy']['#weight'] = -8 : ""; //adds ablility to sort better in this case    
+	
+    // if user is allowed to mass edit captions, so let's prepare the form to be able to perform further steps later
+    if (user_access('edit captions')) {
+      $form['body_field']['body']['#disabled'] = TRUE; // not accessable when editing done by caption list
+      $form['body_field']['#prefix'] = '<div class="body-field-wrapper" style="display: none;">';  
+      // Little Hack: Validation fails if body is hidden and wordcount > 0 ==> little hack, look at function "fupload_node_form_validate"
+      $form['#validate'][0] = 'fupload_node_form_validate';
+    
+      $form['options']['status']['#disabled'] = TRUE;
+      $form['options']['status']['#default_value'] = 0;
+    }    
+    
+    $form['message'] = array(
+      '#value' => '<div id="jsstatus"></div>',
+      '#weight' => -7,
+    );
+    $form['image'] = array(
+	  '#type' => 'fieldset',
+	  '#title' => t('Images'),
+    '#value' => '<span style="font-style:italic;">' .t('Click the "Select Images" icon on the left below to begin.') .'</span>',
+	  '#weight' => -6,
+    '#attributes' => array('class' => 'flash', 'id' => 'fsUploadProgress'),
+	  '#collapsible' => FALSE,
+	  '#collapsed' => FALSE,
+	  );
+    $form['upload_info'] = array(
+	  '#value' => t('0 Files uploaded.'),
+	  '#prefix' => '<div id="divStatus">',
+	  '#suffix' => '</div>',
+	  '#weight' => -5,
+	  );
+	  // Drupal 6 Bug: can't use "normal" buttons, only submit buttons are possible => workaround
+    // Select Button has no real function, but Flash Player (swfUpload) overlays it with an transparent effect handler
+	  $form['upload_buttons'] = array(
+	    '#prefix' => '<div>',
+	    '#value' => '<span id="spanUploadButton"></span> <input id="btnCancel" type="button" value="'.t('Cancel All Uploads').'" onclick="swfu.cancelQueue();" disabled="disabled" /> ',	
+	    '#suffix' => '</div>',
+	    '#weight' => -4,
+	  );
+    $form['upload_buttons']['node_create'] = array(
+	  '#type' => 'submit',
+      '#value' => t('Process queued images'),
+      '#weight' => -3,
+      '#ahah' => array(
+        'path' => 'fupload/js/image',
+        'event' => 'click',
+        'method' => 'replace',
+        'wrapper' => 'jsstatus',
+        'progress' => array('type' => 'bar', 'message' => t('Images in queue are processed...')),
+      ),
+	  );
+    $form['upload_buttons']['delete_queue'] = array(
+	  '#type' => 'submit',
+      '#value' => t('Delete queued images'),
+      '#weight' => -2,
+      '#ahah' => array(
+        'path' => 'fupload/js/deletequeue/images',
+        'event' => 'click',
+        'method' => 'append',
+        'wrapper' => 'jsstatus',
+      ),
+	  );
+
+    $form['upload_buttons']['submit'] = array(
+      '#value' => '<input type="button" value="'.t('Save').'" id="startuploadbutton" onclick="startUploadProcess()" />',
+      '#weight' => -1,
+      '#submit' => array('node_form_submit'),
+    );    
+    
+    $form['#redirect'] = FALSE; // Important that $_POST is not empty after browser submit
+    $form['#submit'][0] = '_image_node_form_submit'; // use our emulated version instead of original one in image.module
+  }
+}
+
+function image_fupload_image_node_create() {
+  global $user;
+  global $file_cache;
+  
+  // Remove images which couldn't be processed completly (--> mostly because of memory excaustion) --> real removal done by cron
+  db_query("UPDATE {files} SET filename = '%s' WHERE uid = %d AND status = %d AND filename = '%s'", image_fupload_image_status('images', IMAGE_PROCESSED), $user->uid, FILE_STATUS_TEMPORARY, image_fupload_image_status('images', IMAGE_HALFPROCESSED));
+    
+  // Get some POST Variables
+  $form_build_id = $_POST['form_build_id'];
+  $form_id = $_POST['form_id'];
+  
+  if (isset($form_build_id) && isset($form_id)) {
+    $form_error = 0;
+    $message = '';
+    
+    // Load the form from the Form API cache and check if valid
+    $form_state = array('rebuild' => TRUE, 'values' => $_POST); // rebuild option needed to prevent that "_image_node_form_submit" gets executed by drupal_process_form
+    if (!($form = form_get_cache($form_build_id, $form_state))) {
+      // code based on upload.module (15/08/2008)
+      form_set_error('form_token', t('Validation error, please try again. If this error persists, please contact the site administrator.'));
+      $output = theme('status_messages');
+      drupal_json(array('status' => TRUE, 'data' => $output));
+      exit();
+    }
+    
+    // Some form manipulations
+    $form['#post'] = $_POST;
+    // Default Value; Title will be overwritten in the next steps
+    $form['#post']['title'] = 'Image';
+    $form['#post']['form_id'] = $form['form_id']['#value'];
+    
+    // New generated fields
+    $form['title'] = array('#type' => 'textfield', '#title' => 'Image', '#default_value' => ''); // Needed that validation is successful
+    // for preview list: body will be replaced
+    if (user_access('edit captions'))
+      $form['body_field']['body'] = array('#type' => 'textarea', '#title' => 'Body', '#default_value' => image_fupload_image_status('images', IMAGE_NOT_COMPLETED));
+    
+    drupal_process_form($form_id, $form, $form_state); // Only validate input data
+    if (!form_get_errors()) {
+      $result = db_query_range("SELECT * FROM {files} WHERE uid = %d AND status = %d AND filename = '%s'", $user->uid, FILE_STATUS_TEMPORARY, image_fupload_image_status('images', IMAGE_UNMACHINED), 0, 3);
+      while ($image = db_fetch_object($result)) {
+        // ahh.. first image to process
+        $file_cache['image'] = $image; // Add image to cache for image.module
+        
+        // Set status flag on image (work on picture can begin); if there are problems with this image, it will be kicked next time
+        db_query("UPDATE {files} SET filename = '%s' WHERE fid = %d", image_fupload_image_status('images', IMAGE_HALFPROCESSED), $image->fid);
+        
+        // check the file against all validators a 2. second time because Flash could eventuelly be bypassed
+        $validators = array(
+          'file_validate_is_image' => array(),
+          'file_validate_size' => array(variable_get('image_max_upload_size', 800) * 1024),
+        );  
+        // Validation code taken from Drupal's function "file_save_upload" (D6 24/08/2008)        
+        // Call the validation functions.
+        file_validate($image, $validators);
+                
+        // no errors during validation, let's continue
+        if (!form_get_errors()) {        
+          // Create a filename out of the given image information; used a theme function so that it can be customised; mapping new title
+          $form['title']['#value'] = theme('fupload_create_filename', $image);
+          $form_state['values']['title'] = $form['title']['#value'];
+
+          // for preview list if bodyfield is deactivated by default
+          if ($form['body_field']['body']['#default_value'] == image_fupload_image_status('images', IMAGE_NOT_COMPLETED)) {
+            $form['body']['#value'] = image_fupload_image_status('images', IMAGE_NOT_COMPLETED);
+            $form_state['values']['body'] = image_fupload_image_status('images', IMAGE_NOT_COMPLETED);
+          }
+        
+          node_form_submit($form, $form_state); // Submit form --> Save it
+        
+          // Prevent that same image is processed twice; deleted later by cron
+          db_query("UPDATE {files} SET filename = '%s' WHERE fid = %d", image_fupload_image_status('images', IMAGE_PROCESSED), $image->fid);
+        }
+      } 
+      // no files in cache, so no files have been processed yet because of empty queue
+      if(empty($file_cache['image']) && !form_get_errors())
+        drupal_set_message(t('No images yet in queue.'));      
+      
+      // Examine how many images are left in queue and inform JS by sending a hidden element
+      $result = db_fetch_object(db_query("SELECT COUNT(*) AS img_count FROM {files} WHERE uid = %d AND status = %d AND filename = '%s'", $user->uid, FILE_STATUS_TEMPORARY, image_fupload_image_status('images', IMAGE_UNMACHINED)));
+      $message .= '<input type="hidden" name="num_queued_images" id="num_queued_images" value="' . $result->img_count . '" />';    
+    }
+    if (form_get_errors()) {
+      // Error in received form (for example a required field was not filled) or during validation; inform JS => user
+      $form_error = 1;
+      $message .= '<input type="hidden" name="num_queued_images" id="num_queued_images" value="0" />';
+    }
+    
+    // Inform JS about errors
+    $message .= '<input type="hidden" name="form_errors" id="form_errors" value="' . $form_error . '"  />';
+    $message .= theme('status_messages'); // Theme all messages
+    
+    drupal_json(array('status' => TRUE, 'data' => $message));
+  
+  } else {
+    drupal_json(array('status' => FALSE, 'data' => t('Error: No or wrong POST Data')));
+  }  
+}
+
+/*
+* Helper function which emulates "image_node_form_submit" of image.module v 1.274 2008/06/16 18:45:58 drewish
+* Need this because the static variable "$upload_cache" doesn't seem to persist after execution of "form_execute_handlers" function
+*/
+function _image_node_form_submit($form, &$form_state) {
+  global $file_cache;
+    
+  $nid = 'new_node'; // in this case, we can define it permanentelly  
+  $file = $file_cache['image']; // fill our object with picture information
+    
+  // Code from image.module v 1.274 2008/06/16 18:45:58 drewish (line 199++)
+  $image_info = image_get_info($file->filepath);
+  $aspect_ratio = $image_info['height'] / $image_info['width'];
+  $original_size = image_get_sizes(IMAGE_ORIGINAL, $aspect_ratio);
+  if (!empty($original_size['width']) && !empty($original_size['height'])) {
+    $result = image_scale($file->filepath, $file->filepath, $original_size['width'], $original_size['height']);
+    if ($result) {
+      clearstatcache();
+      $file->filesize = filesize($file->filepath);
+      drupal_set_message(t('The original image was resized to fit within the maximum allowed resolution of %width x %height pixels.', array('%width' => $original_size['width'], '%height' => $original_size['height'])));
+    }
+  }
+  
+  // We're good to go.
+  $form_state['values']['images'][IMAGE_ORIGINAL] = $file->filepath;
+  $form_state['values']['rebuild_images'] = FALSE;
+  $form_state['values']['new_file'] = TRUE;
+  
+  // Call hook to allow other modules to modify the original image.
+  module_invoke_all('image_alter', $form_state['values'], $file->filepath, IMAGE_ORIGINAL);
+  $form_state['values']['images'] = _image_build_derivatives((object) $form_state['values'], TRUE);
+  
+  // Store the new file into the session.
+  $_SESSION['image_new_files'][$nid] = $form_state['values']['images'];  
+}

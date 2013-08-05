@@ -1,0 +1,17 @@
+<?php
+
+/**
+ * Implementation of hook_install().
+ */
+function context_reaction_theme_install() {
+  // Set weight to 99 so we're one of the last modules to run. Can help with
+  // timing in some cases (like og_subgroups)
+  db_query("UPDATE {system} SET weight = 99 WHERE name = 'context_reaction_theme'");
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function context_reaction_theme_update_6200() {
+  db_query("UPDATE {system} SET weight = 99 WHERE name = 'context_reaction_theme'");
+}

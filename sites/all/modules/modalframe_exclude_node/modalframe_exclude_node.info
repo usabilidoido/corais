@@ -1,0 +1,16 @@
+; $Id: modalframe_exclude_node.info,v 1.1 2010/09/21 12:05:56 mfer Exp $
+
+name = Modalframe Exclude Node
+package = User interface
+description = "Allows for node/add and node/edit form fields to be supressed in the modal frames."
+core = 6.x
+;php = 5.2
+; Automodal is the dependency instead of modalFrame because automodal internals
+; are used and it has a dependency on modalFrame.
+dependencies[] = automodal
+; Information added by drupal.org packaging script on 2010-09-21
+version = "6.x-1.0"
+core = "6.x"
+project = "modalframe_exclude_node"
+datestamp = "1285071962"
+

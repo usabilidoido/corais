@@ -1,0 +1,31 @@
+/**
+ * @file
+ * INSTALL file for Domain Prefix
+ */
+
+Domain Access: Table Prefixing
+Dynamic table prefixing for Domain Access.
+
+CONTENTS
+--------
+
+1.  Introduction
+2.  Installation
+
+----
+1.  Introduction
+
+Table prefixing is an advanced Drupal option; it should only be performed by
+experienced admins or by those willing to learn how table prefixing functions.
+
+This module enhances the default $db_prefix routine documented inside
+settings.php. It provides dynamic table loading per domain.
+
+Domain Prefix should support both single (string) $db_prefix values and
+complex (array) values.
+
+----
+2.  Installation
+
+As of 6.x.2, this module is now loaded directly from settings.php when you install the
+Domain module correctly.

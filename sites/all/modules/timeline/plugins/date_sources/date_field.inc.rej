@@ -1,0 +1,17 @@
+***************
+*** 9,15 ****
+    'name' => t('Date field'),
+    'callback' => 'timeline_date_source_date_field_conversion',
+    'handler_name' => 'views_handler_field_field',
+-   'field_types' => array('date', 'datetime', 'datestamp'),
+  );
+  
+  /**
+--- 9,15 ----
+    'name' => t('Date field'),
+    'callback' => 'timeline_date_source_date_field_conversion',
+    'handler_name' => 'views_handler_field_field',
++   'field_type' => 'date',
+  );
+  
+  /**

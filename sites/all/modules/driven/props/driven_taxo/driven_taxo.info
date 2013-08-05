@@ -1,0 +1,21 @@
+; $Id: driven_taxo.info,v 1.1 2010/03/27 22:56:52 arhak Exp $
+
+name = Driven taxonomy properties
+description = Driven properties for node's taxonomy.
+
+package = Driven
+; @d6
+core = 6.x
+
+dependencies[] = taxonomy
+
+; @d7
+files[] = driven_taxo.module
+files[] = driven_taxo.diff.inc
+
+; Information added by drupal.org packaging script on 2010-05-01
+version = "6.x-1.0-alpha3"
+core = "6.x"
+project = "driven"
+datestamp = "1272741606"
+

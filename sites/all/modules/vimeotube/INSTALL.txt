@@ -1,0 +1,30 @@
+$Id: INSTALL.txt,v 1.1 2010/07/13 21:41:28 bonked Exp $
+Readme
+------
+
+This is a simple filter module. It automatically converts URLs of 
+Vimeo Videos into embedded object code.
+
+
+Installation
+------------
+
+1. Copy the vimeotube.module folder to the your Drupal contrib modules/ directory. (e.g.  sites/all/modules/, sites/default/modules/, or sites/SITENAME/modules/)
+
+2. Go to 'administer > modules', and enable the vimeotube.module
+
+3. Go to 'administer > configuration > input formats' and enable the filter in
+   the desired input formats.
+
+4. Rearrange the filters on the input format's 'rearrange' tab to
+   resolve conflicts with other filters.  After the HTML filter and before the URL Filter is probably best.
+
+
+
+Original Author
+------
+Paul Couture <bonked@gmail.com>
+Based on the efforts of
+Keizo Gates <kzo@kzo.net> in the googtube module which is a 
+module based off urlfilter by Steven Wittens <unconed@drupal.org>
+

@@ -1,0 +1,12 @@
+name = Markup
+description = Defines a field type for markup.
+dependencies[] = content
+core = 6.x
+package = CCK
+
+; Information added by drupal.org packaging script on 2011-11-10
+version = "6.x-1.0-beta1"
+core = "6.x"
+project = "markup"
+datestamp = "1320951637"
+

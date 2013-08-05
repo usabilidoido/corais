@@ -1,0 +1,537 @@
+# $Id: fr.po,v 1.1.2.1 2009/03/31 02:31:32 jmiccolis Exp $
+#
+# French translation of Drupal (general)
+# Copyright 2009 Jean-Philippe Fleury <contact@jpfleury.net>
+# Generated from files:
+#  casetracker.views.inc,v 1.3 2009/02/11 21:18:58 jmiccolis
+#  casetracker.module,v 1.123 2009/02/11 21:18:58 jmiccolis
+#  casetracker.info,v 1.2 2009/02/09 23:22:58 jmiccolis
+#  casetracker_basic.info,v 1.2 2009/02/09 23:22:58 jmiccolis
+#  casetracker_mail.info,v 1.2 2008/03/09 14:50:55 zero2one
+#  casetracker_basic.module,v 1.22 2009/02/09 23:22:58 jmiccolis
+#  casetracker_admin.inc,v 1.2 2009/02/10 22:33:33 jmiccolis
+#  casetracker_views_handler_filter_user_options.inc,v 1.1 2009/02/09 23:22:58 jmiccolis
+#  casetracker_mail.module,v 1.20 2009/02/12 21:40:03 jmiccolis
+#  casetracker_views_handler_filter_case.inc,v 1.1 2009/02/11 21:21:34 jmiccolis
+#  casetracker_views_handler_filter_project.inc,v 1.1 2009/02/11 21:21:34 jmiccolis
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: 0.1\n"
+"POT-Creation-Date: 2009-02-28 00:16-0500\n"
+"PO-Revision-Date: 2009-02-28 00:16-0500\n"
+"Last-Translator: Jean-Philippe Fleury <contact@jpfleury.net>\n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n>1);\n"
+
+#: casetracker.views.inc:19 casetracker.module:53 casetracker.info:0;0 casetracker_basic.info:0 casetracker_mail.info:0
+msgid "Case Tracker"
+msgstr ""
+
+#: casetracker.views.inc:27 casetracker.module:340;596 casetracker_basic.module:22
+msgid "Project"
+msgstr "Projet"
+
+#: casetracker.views.inc:30
+msgid "Display the name of the Case Tracker project."
+msgstr ""
+
+#: casetracker.views.inc:35
+msgid "Filter Case Tracker cases by their project."
+msgstr ""
+
+#: casetracker.views.inc:41
+msgid "project"
+msgstr ""
+
+#: casetracker.views.inc:45
+msgid "Assigned to"
+msgstr "Assigné à"
+
+#: casetracker.views.inc:48
+msgid "Display the user name the case has been assigned to."
+msgstr ""
+
+#: casetracker.views.inc:53
+msgid "Filter Case Tracker cases by the assigned user."
+msgstr ""
+
+#: casetracker.views.inc:57
+msgid "Case priority"
+msgstr ""
+
+#: casetracker.views.inc:60
+msgid "Display the priority of the case."
+msgstr ""
+
+#: casetracker.views.inc:65
+msgid "Filter Case Tracker cases by priority."
+msgstr ""
+
+#: casetracker.views.inc:69
+msgid "Sort by Case Tracker priority."
+msgstr ""
+
+#: casetracker.views.inc:73
+msgid "Case status"
+msgstr ""
+
+#: casetracker.views.inc:76
+msgid "Display the status of the case."
+msgstr ""
+
+#: casetracker.views.inc:81
+msgid "Filter Case Tracker cases by status."
+msgstr ""
+
+#: casetracker.views.inc:85
+msgid "Sort by Case Tracker status."
+msgstr ""
+
+#: casetracker.views.inc:89
+msgid "Case type"
+msgstr ""
+
+#: casetracker.views.inc:92
+msgid "Display the type of the case."
+msgstr ""
+
+#: casetracker.views.inc:97
+msgid "Filter Case Tracker cases by type."
+msgstr ""
+
+#: casetracker.views.inc:105
+msgid "Casetracker"
+msgstr ""
+
+#: casetracker.views.inc:114
+msgid "Case Tracker: State Name"
+msgstr ""
+
+#: casetracker.views.inc:117
+msgid "Sort by Case Tracker state name."
+msgstr ""
+
+#: casetracker.views.inc:129
+msgid "Case Tracker case"
+msgstr ""
+
+#: casetracker.views.inc:130
+msgid "Whether the node is a casetracker case"
+msgstr ""
+
+#: casetracker.views.inc:136
+msgid "Case Tracker project"
+msgstr ""
+
+#: casetracker.views.inc:137
+msgid "Whether the node is a casetracker project"
+msgstr ""
+
+#: casetracker_admin.inc:12
+msgid "General settings"
+msgstr ""
+
+#: casetracker_admin.inc:18
+msgid "Default assigned user"
+msgstr ""
+
+#: casetracker_admin.inc:21 casetracker.module:379;774;846 includes/casetracker_views_handler_filter_user_options.inc:11
+msgid "Anonymous"
+msgstr ""
+
+#: casetracker_admin.inc:22
+msgid "User to be assigned the case if one is not explicitly defined."
+msgstr ""
+
+#: casetracker_admin.inc:31
+msgid "Default case %state"
+msgstr ""
+
+#: casetracker_admin.inc:33
+msgid "%state to be assigned the case if one is not explicitly defined."
+msgstr ""
+
+#: casetracker_admin.inc:42
+msgid "Project node types"
+msgstr ""
+
+#: casetracker_admin.inc:45
+msgid "Select the node types that will be considered Case Tracker projects."
+msgstr ""
+
+#: casetracker_admin.inc:51
+msgid "Case node types"
+msgstr ""
+
+#: casetracker_admin.inc:54
+msgid "Select the node types that will be considered Case Tracker cases."
+msgstr ""
+
+#: casetracker_admin.inc:69
+msgid "Case state"
+msgstr ""
+
+#: casetracker_admin.inc:75
+msgid "State name"
+msgstr ""
+
+#: casetracker_admin.inc:78
+msgid "The name for this case state. Example: \"Resolved\"."
+msgstr ""
+
+#: casetracker_admin.inc:82
+msgid "State realm"
+msgstr ""
+
+#: casetracker_admin.inc:85
+msgid "The realm in which this case state will appear."
+msgstr ""
+
+#: casetracker_admin.inc:86
+msgid "priority"
+msgstr ""
+
+#: casetracker_admin.inc:86
+msgid "status"
+msgstr ""
+
+#: casetracker_admin.inc:86
+msgid "type"
+msgstr ""
+
+#: casetracker_admin.inc:90
+msgid "Weight"
+msgstr ""
+
+#: casetracker_admin.inc:92
+msgid "States are ordered first by weight and then by state name."
+msgstr ""
+
+#: casetracker_admin.inc:103
+msgid "Submit"
+msgstr ""
+
+#: casetracker_admin.inc:115
+msgid "Name"
+msgstr ""
+
+#: casetracker_admin.inc:116
+msgid "Realm"
+msgstr ""
+
+#: casetracker_admin.inc:118
+msgid "Operations"
+msgstr ""
+
+#: casetracker_admin.inc:126
+msgid "edit"
+msgstr ""
+
+#: casetracker_admin.inc:127
+msgid "delete"
+msgstr ""
+
+#: casetracker_admin.inc:148
+msgid "The case state %name has been updated."
+msgstr ""
+
+#: casetracker_admin.inc:164
+msgid "Are you sure you want to delete the case state %name?"
+msgstr ""
+
+#: casetracker_admin.inc:165
+msgid "This action can not be undone."
+msgstr ""
+
+#: casetracker_admin.inc:165
+msgid "Delete"
+msgstr ""
+
+#: casetracker_admin.inc:165
+msgid "Cancel"
+msgstr ""
+
+#: casetracker_admin.inc:172
+msgid "Deleted case state %name."
+msgstr ""
+
+#: casetracker.module:22
+msgid "Current Case Tracker case states are listed below."
+msgstr ""
+
+#: casetracker.module:24
+msgid "You may add a new case state below."
+msgstr ""
+
+#: casetracker.module:26
+msgid "You may edit an existing case state below."
+msgstr ""
+
+#: casetracker.module:28;52
+msgid "Configure the various Case Tracker options with these settings."
+msgstr ""
+
+#: casetracker.module:166
+msgid "Home"
+msgstr ""
+
+#: casetracker.module:167
+msgid "Case Tracker projects"
+msgstr ""
+
+#: casetracker.module:169
+msgid "All cases"
+msgstr ""
+
+#: casetracker.module:270
+msgid "You must create a project before adding cases."
+msgstr ""
+
+#: casetracker.module:327
+msgid "Case information"
+msgstr ""
+
+#: casetracker.module:357;369
+msgid "Assign to"
+msgstr ""
+
+#: casetracker.module:386;598
+msgid "Status"
+msgstr "Avancement"
+
+#: casetracker.module:395;600;696
+msgid "Priority"
+msgstr "Priorité"
+
+#: casetracker.module:404;601
+msgid "Type"
+msgstr "Type"
+
+#: casetracker.module:597
+msgid "Title"
+msgstr ""
+
+#: casetracker.module:599
+msgid "Assigned"
+msgstr ""
+
+#: casetracker.module:629
+msgid "!label: !old &raquo; !new"
+msgstr ""
+
+#: casetracker.module:685
+msgid "Assigned to:"
+msgstr "Assigné à:"
+
+#: casetracker.module:689
+msgid "Created:"
+msgstr ""
+
+#: casetracker.module:690
+msgid "at"
+msgstr ""
+
+#: casetracker.module:693
+msgid "Status:"
+msgstr "Avancement:"
+
+#: casetracker.module:701
+msgid "Case ID:"
+msgstr ""
+
+#: casetracker.module:706;728
+msgid "Last modified:"
+msgstr ""
+
+#: casetracker.module:725
+msgid "Project number:"
+msgstr ""
+
+#: casetracker.module:726
+msgid "Opened by:"
+msgstr ""
+
+#: casetracker.module:727
+msgid "Opened on:"
+msgstr ""
+
+#: casetracker.module:734
+msgid "add !name"
+msgstr ""
+
+#: casetracker.module:740
+msgid "Operations:"
+msgstr ""
+
+#: casetracker.module:740
+msgid "view all project cases"
+msgstr ""
+
+#: casetracker.module:37
+msgid "access case tracker"
+msgstr ""
+
+#: casetracker.module:38
+msgid "administer case tracker"
+msgstr ""
+
+#: casetracker.module:61
+msgid "Settings"
+msgstr ""
+
+#: casetracker.module:71
+msgid "Case states"
+msgstr ""
+
+#: casetracker.module:72;81
+msgid "Add, edit and delete Case States, Types and Priorities"
+msgstr ""
+
+#: casetracker.module:79
+msgid "Overview"
+msgstr ""
+
+#: casetracker.module:88
+msgid "Add case state"
+msgstr ""
+
+#: casetracker.module:96
+msgid "Edit case state"
+msgstr ""
+
+#: casetracker.module:104
+msgid "Delete case state"
+msgstr ""
+
+#: casetracker.module:109
+msgid "Case Tracker autocomplete"
+msgstr ""
+
+#: casetracker.module:0
+msgid "casetracker"
+msgstr ""
+
+#: casetracker_basic.module:24;25
+msgid "Create a basic project for use with Case Tracker."
+msgstr ""
+
+#: casetracker_basic.module:26;33
+msgid "Description"
+msgstr ""
+
+#: casetracker_basic.module:29
+msgid "Case"
+msgstr ""
+
+#: casetracker_basic.module:31;32
+msgid "Open a new case assigned to a particular project."
+msgstr ""
+
+#: casetracker_basic.module:13
+msgid "create projects"
+msgstr ""
+
+#: casetracker_basic.module:13
+msgid "create cases"
+msgstr ""
+
+#: casetracker_basic.module:13
+msgid "edit own projects"
+msgstr ""
+
+#: casetracker_basic.module:13
+msgid "edit own cases"
+msgstr ""
+
+#: casetracker_basic.module:0
+msgid "casetracker_basic"
+msgstr ""
+
+#: casetracker_mail.module:15;30
+msgid "Configure the various Case Tracker mail options with these settings."
+msgstr ""
+
+#: casetracker_mail.module:32 casetracker_mail.info:0
+msgid "CT Mail"
+msgstr ""
+
+#: casetracker_mail.module:139
+msgid "E-mail notification failed for %address."
+msgstr ""
+
+#: casetracker_mail.module:250
+msgid "E-mail settings"
+msgstr ""
+
+#: casetracker_mail.module:253
+msgid "Enter the From address, subject, case message, and comment message for Case Tracker generated mails. Available variables are %project_id (the node ID), %project_number, %project_title, %case_id (the node ID), %case_number, %case_title."
+msgstr ""
+
+#: casetracker_mail.module:257
+msgid "E-mail address"
+msgstr ""
+
+#: casetracker_mail.module:259
+msgid "A valid e-mail address used in the From: of all Case Tracker generated mails."
+msgstr ""
+
+#: casetracker_mail.module:263
+msgid "Subject"
+msgstr ""
+
+#: casetracker_mail.module:265
+msgid "Enter the subject of all Case Tracker generated mails."
+msgstr ""
+
+#: casetracker_mail.module:270
+msgid "Case message"
+msgstr ""
+
+#: casetracker_mail.module:272
+msgid "Enter the case message body of Case Tracker generated mails. Apart from the variables mentioned above, additional variables include %case_type, %case_priority, %case_status, %case_assigned, %case_author, %case_created, %case_changed, %case_url, %case_description, %comment (see below for the value of the %comment variable)."
+msgstr ""
+
+#: casetracker_mail.module:278
+msgid "Comment message"
+msgstr ""
+
+#: casetracker_mail.module:280
+msgid "Enter the comment message body of Case Tracker generated mails. The %comment variable in the 'Case message' text above will be replaced by this value (if applicable). Available additional variables are %comment_author, %comment_title, %comment_description."
+msgstr ""
+
+#: casetracker_mail.module:0
+msgid "casetracker_mail"
+msgstr ""
+
+#: casetracker.info:0
+msgid "Enables the handling of projects and their cases."
+msgstr ""
+
+#: casetracker_basic.info:0
+msgid "CT Basic"
+msgstr ""
+
+#: casetracker_basic.info:0
+msgid "Enables a basic project node type for use with Case Tracker."
+msgstr ""
+
+#: casetracker_mail.info:0
+msgid "Enables mail sending and Mailhandler integration for Case Tracker."
+msgstr ""
+
+#: includes/casetracker_views_handler_filter_case.inc:15
+msgid "You have no node types which are acting as cases."
+msgstr ""
+
+#: includes/casetracker_views_handler_filter_project.inc:15
+msgid "You have no node types which are acting as projects."
+msgstr ""
+
+#: includes/casetracker_views_handler_filter_user_options.inc:10
+msgid "<Current user>"
+msgstr ""
+

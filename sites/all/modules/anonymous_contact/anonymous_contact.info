@@ -1,0 +1,12 @@
+; $Id: anonymous_contact.info,v 1.1 2010/05/20 02:33:17 gold Exp $
+name = Anonymous Contact
+package = Mail
+description = "A contact form that allows an anonymous user to send mail to a User."
+core = "6.x"
+
+; Information added by drupal.org packaging script on 2010-06-01
+version = "6.x-1.1"
+core = "6.x"
+project = "anonymous_contact"
+datestamp = "1275369303"
+

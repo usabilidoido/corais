@@ -1,0 +1,13 @@
+; $Id: domain_i18n.info,v 1.2 2009/06/08 23:17:05 nonsie Exp $
+name = Domain Internationalization
+description = Extends Domain Access to support multilingual variables.
+package = Domain Access
+core = 6.x
+dependencies[] = domain
+dependencies[] = locale
+; Information added by drupal.org packaging script on 2010-12-29
+version = "6.x-1.0"
+core = "6.x"
+project = "domain_i18n"
+datestamp = "1293583870"
+

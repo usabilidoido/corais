@@ -1,0 +1,189 @@
+<?php
+// $Id: driven_cck.module,v 1.3 2010/04/03 23:18:07 arhak Exp $
+
+if (module_exists('driven_diff')) {
+  // don't include code that depends on a disabled module
+  module_load_include('inc', 'driven_cck', 'driven_cck.diff');
+}
+
+/**
+ * Implements hook_driven_properties().
+ */
+function driven_cck_driven_properties($node_type) {
+  $available_props = array();
+  
+  // according to content_field_overview_form:
+  // When displaying the form, make sure the list of fields is up-to-date.
+  content_clear_type_cache();
+  
+  // Gather type information.
+  $cck_type = content_types($node_type);
+  $fields = $cck_type['fields'];
+  //$field_types = _content_field_types();
+  
+  $groups = array();
+  if (module_exists('fieldgroup')) {
+    $groups = fieldgroup_groups($cck_type['type']);
+  }
+  
+  $grouped_fields = array();
+  // first lookup the groups to discriminate nested fields
+  foreach ($groups as $group_name => $group) {
+    foreach ($group['fields'] as $field_name => $field) {
+      $grouped_fields[$field_name] = $group;
+    }
+  }
+  
+  // lookup fields
+  foreach ($fields as $field_name => $field) {
+    $meta = array();
+    if (isset($grouped_fields[$field_name])) {
+      $group = $grouped_fields[$field_name];
+      $meta += array(
+        'group_name' => $group['group_name'],
+        'group_type' => $group['group_type'],
+      );
+      // translate the same as CCK does
+      $group_title_prefix = t($group['label']) . ' » ';
+    }
+    else {
+      $meta['group_name'] = NULL;
+      $group_title_prefix = '';
+    }
+    $meta += array(
+      'field_name' => $field['field_name'],
+      'field_type' => $field['type'],
+      'field_module' => $field['module'],
+      'field_multiple' => $field['multiple'],
+    );
+    $meta += array(
+      'widget_type' => $field['widget']['type'],
+      'widget_module' => $field['widget']['module'],
+      'widget_handle_multiple_values' => content_handle('widget', 'multiple values', $field),
+    );
+    
+    // some field types might have the #title beneath the property path level
+    // (e.g. content_taxonomy will have it at $element['tids'])
+    // translate the same as CCK does
+    $label = t($field['widget']['label']);
+    $available_props['cck:' . $field_name] = array(
+      'label' => $label,
+      'meta' => $meta,
+      'target_title' => $group_title_prefix . $label,
+    );
+  }
+  
+  foreach ($available_props as $property_id => &$prop) {
+    $prop['realm_title'] = t('CCK');
+  }
+  return $available_props;
+}
+
+/**
+ * Implements hook_comment_driven_orig_form_alter().
+ */
+function driven_cck_comment_driven_orig_form_alter(&$orig_form, $current_form) {
+  // $orig_form is expected to be updated
+  // with new empty elements for those added with AHAH
+  // the resulting form should NOT reflect data
+  // beyond the current state of the saved node
+  // ONLY empty elements to be used as exploration paths on diff_values
+  // this is needed due to hackish content_add_more_js altogether preview support
+  
+  // we could directly inspect the forms by comparison
+  // but that would require a recursive navigation and unclear casuistic
+  // to discriminate what belong to cck (and moreover multigroup's nightmare)
+  // instead, since we know the exact purpose of this hook
+  // we'll pick up driven_props for an iterative approach
+  $driver_mod = 'comment_driven';
+  $node_type = $orig_form['#node']->type;
+  $driven_props = driven_props_get_properties($driver_mod, $node_type);
+  // IMPORTANT: using current_form for mapping, since orig_form might be missing deltas
+  // which is precisely what we will address over here
+  $properties_map = driven_build_properties_map($driven_props, $current_form);
+  foreach ($properties_map as $property_path => $prop) {
+    $realm = $prop['realm'];
+    $target = $prop['target'];
+    $meta = $prop['meta'];
+    if ($realm != 'cck') {
+      continue; // not ours
+    }
+    // $node_type, $realm, $target, $provider,
+    // $group_name/type, $field_name/type/module/multiple, $widget_type/module/handle_multiple_values
+    // $driven_diff (note that driven_diff was added in driven_diff_driven_properties_meta_extension)
+    extract($meta);
+    // we will only address hackish content_add_more_js
+    // if the field has a fixed multiplicity or its widget handles multiple values by its own
+    // then we don't know anything about it
+    if ($field_multiple != 1 || $widget_handle_multiple_values != CONTENT_HANDLE_CORE) {
+      continue;
+    }
+    
+    $path_parts = explode(':', $property_path);
+    $orig_element = &$orig_form;
+    $new_element = &$current_form;
+    foreach ($path_parts as $key) {
+      $new_element = &$new_element[$key];
+      $orig_element = &$orig_element[$key];
+      if (!isset($orig_element)) {
+        // this should be a delta added through AHAH on preview
+        // (note that it can be a multigroup delta, and then the #default_value is beneath) 
+        $orig_element = $new_element; // copy
+        _driven_cck_clear_default_value($orig_element);
+        // if it was already copied and cleared, then we don't need to go beneath it
+        continue; // done
+      }
+    }
+    // now that we reached the property path level
+    // if we were in a multigroup deltas were explicitly in properties_map
+    // but non-multigroup still need iterating over its deltas
+    if ($group_name && $group_type == 'multigroup') {
+      continue; // done
+    }
+    foreach (element_children($new_element) as $delta) {
+      if ($delta === $field_name . '_add_more') {
+        continue;
+      }
+      if (!isset($orig_element[$delta])) {
+        $orig_element[$delta] = $new_element[$delta]; // copy
+        _driven_cck_clear_cloned_elem($orig_element[$delta]);
+      }
+    }
+  }
+}
+
+function _driven_cck_clear_cloned_elem(&$element) {
+  // can't afford huge data into orig_form
+  // otherwise form_set_cache will cause MySQL gone
+  // e.g. having several file uploads
+  // and this cloned element is intended to cover an empty #default_value space
+  // for diff_values to be able to find missing deltas in orig_form
+  // due to hackish content_add_more_js
+  unset($element['#post']);
+  // not using driven_elem_has_default_value_key to make clearer our intention here
+  if (array_key_exists('#default_value', $element)) {
+    // the first time validation is triggered by add_more button
+    // the default value is NULL, but it won't mind, since CCK will handle it as an empty field anyway
+    // nevertheless it is another misbehavior of content_add_more_js
+    $element['#default_value'] = is_array($element['#default_value']) ? array() : NULL;
+  }
+  // this will iterate even through _weight and others
+  // but it won't mind, since they will be discarded on diff_values
+  foreach (element_children($element) as $key) {
+    _driven_cck_clear_cloned_elem($element[$key]);
+  }
+}
+
+function driven_cck_get_field($node_type, $field_name) {
+  // Gather type information.
+  $cck_type = content_types($node_type); // at least returns a virgen field definition
+  $fields = $cck_type['fields']; // if virgen it would be an empty array
+  if (!empty($fields[$field_name])) {
+    return $fields[$field_name];
+  }
+  
+  // second argument will be %id
+  $msg = 'Field %id couldn\'t be fetched';
+  driven_diff_warn_property_gone($node_type, $field_name, $msg);
+  return FALSE;
+}

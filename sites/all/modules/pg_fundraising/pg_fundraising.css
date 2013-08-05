@@ -1,0 +1,52 @@
+#fundraising-donation-menu{
+  margin: 0 0 15px 0;
+  width: 780px;
+}
+
+.fundraising-donation-menu-box{
+  float: left;
+  width: 220px;
+  margin: 0 20px 0 0;
+  padding: 5px 0 10px;
+}
+
+.fundraising-donation-menu-box.last{
+  margin: 0;
+}
+
+
+#pg-fundraising-donation-form{
+  clear: both;
+}
+
+#pg-fundraising-donation-form .form-radios{
+  /*width: 340px;*/
+  float: left;
+  overflow: hidden;
+}
+
+#pg-fundraising-donation-form #donation-amount .form-radios .form-item{
+  display: inline;
+}
+
+#pg-fundraising-donation-form #edit-manual{
+  width: 50px;
+  float: left;
+  margin: 0 0 0 5px;
+}
+
+#fundraising-donation-menu .donation-menu-amount{
+  font-size: 26px;
+  font-weight: bold;
+  padding: 10px 0 5px;
+  
+}
+
+#fundraising-donation-menu .donation-menu-description{
+  width: 220px;
+}
+
+.sidebar-left .content p{
+  clear: both;
+  width: 680px;
+}

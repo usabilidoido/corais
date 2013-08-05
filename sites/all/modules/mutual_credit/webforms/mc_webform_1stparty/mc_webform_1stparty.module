@@ -1,0 +1,288 @@
+<?php
+// $Id: mc_webform_1stparty.module,v 1.1.2.2 2010/12/06 13:19:46 hutch Exp $
+
+//these are bitmasks, so saved as one number in currency sub-types
+
+define('INCOMING_DIRECT', 1);
+define('OUTGOING_DIRECT', 2);
+
+function mc_webform_1stparty_help($path) {
+  switch($path) {
+    case 'admin/mc/currencies':
+      $help = t("The user friendly webforms module introduces four 2 exchange types, which are named here.") .' '.
+        t("Each one should be a singular noun. Only currencies using at least one of these types are visible to the 1stparty forms.") . '<br />'.
+        t("'!incoming' means the currency flows towards the initiator of the exchange, <br />!outgoing', away.", array('!incoming' => '<strong>'.t('Incoming').'</strong>', '!outgoing' => '<strong>'.t('Outgoing').'</strong>')) .'<br />';
+      if (module_exists('mc_signatures')) {
+        $help .= '<p>'. t("These two are supplemented by two more 'signed' types from the signatory module") .'<br />'.
+          t("'!signed', means the exchange will be not be counted until both parties have agreed.", array('!signed' => '<strong>'.t('Signed').'</strong>')) .'<br />'.
+          t("'!direct' exchanges happen immediately.", array('!direct' => '<strong>'.t('Direct').'</strong>')).'</p>';
+        }
+  }
+  if (isset($help)) {
+    return $help;
+  }
+}
+
+/*
+ * This form introduces the notion of 'starter', 'completer', and exchange directions
+ * Four exchange types are introduced, which control the pending state and which transactee should 'sign'.
+ */
+function mc_webform_1stparty_menu() {
+  if (!count(get_currencies_for_1stparty())) return;
+  $items['exchange/1stparty'] = array(
+    'title' => '1st Party',
+    'page arguments' => array('mc_1stparty_form'),
+    'access arguments' => array('exchange'),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => 0,
+  );
+  $items['exchange/1stparty/convert/%node'] = array(
+    'title' => '1st Party',
+    'page callback' => 'mc_prepopulate_1stparty',
+    'page arguments' => array(3),
+    'access arguments' => array('exchange'),
+    'type' => MENU_CALLBACK,
+    'file' => 'mc_webform_1stparty.inc'
+  );
+  return $items;
+}
+
+function mc_webform_1stparty_menu_alter(&$items) {
+  //this is just a wrapper around the currencies page that adds a transaction type naming form
+  $items['admin/mc/currencies']['page callback'] = 'webform_1stparty_currency_list';
+  if (!count(get_currencies_for_1stparty())) return;
+  //have to replace the 3rdparty callback which used be default local task
+  $thirdparty_title = $items['exchange/3rdparty']['title'];
+  $items['exchange/3rdparty'] = $items['exchange'];
+  $items['exchange/3rdparty']['type'] = MENU_LOCAL_TASK;
+  $items['exchange/3rdparty']['title'] = $thirdparty_title;
+  $items['exchange/3rdparty']['weight'] = 3;
+  $items['exchange'] = array(
+    'title' => 'Record exchange',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('mc_1stparty_form'),
+    'access arguments' => array('exchange'),
+    'weight' => 1,
+    'file' => 'mc_webform_1stparty.inc',
+    //have to state path explicitly in menu_alter
+    'file path' => drupal_get_path('module', 'mc_webform_1stparty'),
+  );
+}
+
+/*
+ * Implementation of the webforms hook, hook_exchange_type_info
+ */
+function mc_webform_1stparty_exchange_type_info() {
+  $titles = variable_get('mc_subtypes', array());
+  if ($titles[INCOMING_DIRECT]) {
+    $types['incoming direct'] = array(
+      'title' => $titles[INCOMING_DIRECT],
+      'edit' => 'mc_edit_form',
+      'bitmask' => INCOMING_DIRECT
+    );
+  }
+  if ($titles[OUTGOING_DIRECT]) {
+    $types['outgoing direct'] = array(
+      'title' => $titles[OUTGOING_DIRECT],
+      'edit' => 'mc_edit_form',
+      'bitmask' => OUTGOING_DIRECT
+    );
+  }
+  return $types;
+}
+
+//prepend the transaction names form onto the currencies summary page;
+function webform_1stparty_currency_list() {
+  module_load_include('inc', 'mcapi');
+  module_load_include('inc', 'mc_webform_1stparty');
+  $exchange_types = drupal_get_form('exchange_subtype_names_form');
+  $original_page = currency_list();
+  return $exchange_types . $original_page;
+}
+
+
+/**
+ * http://api.drupal.org/api/function/hook_theme/6
+ * This hook is required for modules to define one or more node types.
+ */
+function mc_webform_1stparty_theme() {
+  module_load_include('inc', 'mc_webform_1stparty');
+  return array(
+    'mc_1stparty_formspecial' => array(
+      'template' => 'mc_1stparty_formspecial',
+      'arguments' => array('form' => NULL),
+      'preprocess functions' => array('template_preprocess', 'template_preprocess_mc_3rdparty_formspecial'),
+      'override preprocess functions' => TRUE,
+    ),
+    'mc_webform_title' => array(
+      'arguments' => array('currencies' => array()),
+      'file' => drupal_get_path('module', 'mc_webform_1stparty') . '/mc_webform_1stparty.inc'
+    ),
+    'subtype_names' => array(
+      'arguments' => array(),
+      'file' => drupal_get_path('module', 'mc_webform_1stparty') . '/mc_webform_1stparty.inc'
+    )
+  );
+}
+
+//hook_nodeapi broken up, ready for drupal 7
+function mc_webform_1stparty_nodeapi(&$node, $op) {
+  switch($op) {
+    case 'presave':
+      mc_webform_1stparty_node_presave($node);break;
+  }
+}
+
+function mc_webform_1stparty_node_presave(&$node) {
+  switch ($node->type) {
+    case 'currency':
+      if (is_array($node->subtype_bitmask)) {//this might not be the case when reinstalling mcapi using devel
+        //compile the bitmask
+        $bitmask = array_sum($node->subtype_bitmask);
+        $node->data['subtype_bitmask'] = $bitmask;
+      }
+  }
+}
+
+
+/**
+ * http://api.drupal.org/api/function/hook_block/6
+ */
+function mc_webform_1stparty_block($op = 'list', $delta = 0, $edit = array()) {
+  module_load_include('inc', 'mc_webform_1stparty');
+  switch ($op) {
+    case 'list':
+      return mc_webform_1stparty_block_list($delta);
+    case 'view':
+      return mc_webform_1stparty_block_view($delta, $edit);
+  }
+}
+
+//add the exchange type names to the top of the currency list form
+function mc_webform_1stparty_form_currency_node_form_alter(&$form, $form_state) {
+  //exchange subtypes. exchanges can be incoming (from the initiator) or outgoing, confirm or direct
+  //that means there are 4 subtypes of exchange, incoming_direct, incoming_SIGNED, outgoing_direct & outgoing_SIGNED
+  //The currency specifies which of these 4 types are possible, using a bitmask
+  //need to retrieve the defaults from the currency node
+  $node  = node_load($form['nid']['#value']);
+  $bitmask = $node->data['subtype_bitmask'];
+  $defaults = array(
+    INCOMING_DIRECT => $bitmask & INCOMING_DIRECT,
+    OUTGOING_DIRECT => $bitmask & OUTGOING_DIRECT,
+  );
+  if (module_exists('mc_signatures')) {
+    $defaults += array(
+      INCOMING_SIGNED => $bitmask & INCOMING_SIGNED,
+      OUTGOING_SIGNED => $bitmask & OUTGOING_SIGNED,
+    );
+  }
+  //get the names of the available types
+  $type_names = variable_get('mc_subtypes', array());
+  foreach ($defaults as $key => $default){
+    if (isset($type_names[$key])) {
+      $options[$key] = $type_names[$key];
+    }
+  }
+  $form['subtype_bitmask'] = array(
+    '#type' => 'checkboxes',
+    '#title' => t('Exchange sub-types'),
+    '#default_value' => $defaults,
+    '#options' => $options,
+    '#description' => t("For the currency to appear in the user friendly webform, at least one of these must be checked"),
+  );
+}
+
+
+/*
+ * this is the main form callback,
+ * note that there is no editable version of this form, instead we use the edit from module mc_webforms
+ * this function has to be in this file, otherwise the ajax callback, declared in mc_webforms, can't find it
+ */
+function mc_1stparty_form($form_state, $prefill = NULL) {
+  module_load_include('inc', 'mc_webform_1stparty');
+  if (!$form_state['storage']['step']) {
+    $form_state['storage']['step'] = 1;
+  }
+  if (isset($form_state['storage']['values'])) {
+    $values = $form_state['storage']['values']; //this is for stage 1 errors and stage 2
+  }
+  elseif (isset($form_state['post']) && count($form_state['post'])) {
+    $values = $form_state['post']; //for the AHAH in stage 1
+  }
+  elseif (isset($prefill)) {
+    if (is_numeric($prefill)){
+      $values = array('cid' => $prefill);;
+    }
+    else {
+      $values = $prefill;
+    }
+  }
+  else {
+    $values = array();
+  }
+  if ($form_state['storage']['step'] == 1){
+    //get the default exchange form, with defaults
+    $passed_currencies = $values['cid'] ? array($values['cid'] => node_load($values['cid'])) : get_currencies_for_1stparty();
+    $form = mcapi_form_exchange((object)$values, $passed_currencies);
+    mc_build_1stparty_form($form, $values);
+
+    //there are some circumstances the ajax is not needed, but I'm not going to make all the rules now
+    //act of choosing the currency updates the form to show the divisions, if the currency has them
+    //choosing the exchange type shows the division field, if appropriate.
+    if (!isset($form['cid']['#value'])) {
+      mc_ajaxify($form['cid'], 'mc_1stparty_form');
+    }
+    //in case the form is in a block, we need to specify the path of step 2
+    $form['#action'] = url('exchange/1stparty');
+  }
+  elseif ($form_state['storage']['step'] == 2){
+    //this is borrowed from mc_webforms
+    $form = exchange_step2_form($values);
+    $form['#redirect'] = 'user';
+  }
+  return $form;
+}
+
+/*
+ * Implementation of hook_form_FORM_ID_alter
+ * put the taxonomy widgets and cck widgets on the 3rdparty and edit forms
+ * this is mostly copied from those modules, with a few alterations.
+ */
+function  mc_webforms_form_mc_1stparty_form_alter(&$form, $form_state) {
+  mc_webforms_extra_fields($form, $form_state);
+}
+
+//remove the logged in user from the list of options on the completer widget
+//this is after_build because the #options are inserted during the element processing, i.e. building
+function mc_unlist_user($element, $form_state) {
+  unset($element['#options'][$GLOBALS['user']->uid]);
+  return $element;
+}
+
+//get the currencies which use any of the nominated subtypes
+function get_currencies_for_1stparty() {
+  // gets the first currency associated with the current space
+  $currencies = views_get_view_result("currency");
+  $nid = $currencies[0]->nid;
+  $currency[$nid] = node_load($nid);
+  return $currency;
+
+  $currencies = currencies_load();
+  foreach ($currencies as $cid => $currency){
+    if (!isset($currency->data['subtype_bitmask'])) {
+      unset($currencies[$cid]);
+    }
+  }
+  return $currencies;
+}
+
+
+/*
+ * Needed for the views 2 module
+ */
+function mc_webform_1stparty_views_api() {
+  return array(
+    'api' => 2,
+    'path' => drupal_get_path('module', 'mc_webform_1stparty') .'/views',
+  );
+}

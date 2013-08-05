@@ -1,0 +1,213 @@
+<?php
+
+/**
+ * @file
+ * Rules integration for the Workflow module
+ */
+
+/**
+ * Implementation of hook_rules_event_info().
+ */
+function workflow_rules_rules_event_info() {
+  $events = array(
+    'workflow_state_changed' => array(
+      'label' => t('Workflow state has changed'),
+      'module' => 'Workflow',
+      'arguments' =>  workflow_rules_events_workflow_arguments(),
+    ),
+    'workflow_comment_added' => array(
+      'label' => t('Workflow comment was added'),
+      'module' => 'Workflow',
+      'arguments' =>  workflow_rules_events_workflow_arguments(),
+      'description' => t('New workflow comment was added, but the workflow state did not change.'),
+    ),
+  );
+  return $events;
+}
+
+/**
+ * Returns arguments for a workflow event.
+ */
+function workflow_rules_events_workflow_arguments() {
+  return array(
+    'node' => array('type' => 'node', 'label' => t('Updated content')),
+    'old_state' => array('type' => 'workflow_state', 'label' => t('Old workflow state')),
+    'new_state' => array('type' => 'workflow_state', 'label' => t('New workflow state')),
+    'author' => array('type' => 'user', 'label' => t('Content author'), 'handler' => 'rules_events_argument_node_author'),
+  ) + rules_events_global_user_argument();
+}
+
+/**
+ * Implementation of hook_condition_info().
+ */
+function workflow_rules_rules_condition_info() {
+  return array(
+    'workflow_rules_check_transition' => array(
+      'label' => t('Check workflow transition'),
+      'arguments' => array(
+        'old_state' => array('type' => 'workflow_state', 'label' => t('Old workflow state')),
+        'new_state' => array('type' => 'workflow_state', 'label' => t('New workflow state')),
+      ),
+      'help' => t('Evaluates to TRUE, if the workflow being updated is moved from state A to state B'),
+      'module' => 'Workflow',
+    ),
+    'workflow_rules_check_state' => array(
+      'label' => t('Content has workflow state'),
+      'arguments' => array(
+        'node' => array('type' => 'node', 'label' => t('Node')),
+      ),
+      'help' => t('Check state of workflow for a content'),
+      'module' => 'Workflow',
+    ),
+  );
+}
+
+/**
+ * Condition implementation: check state transition. 
+ */
+function workflow_rules_check_transition($old_state, $new_state, $settings) {
+  if (in_array('ANY', $settings['from_state'])) {
+    if (in_array('ANY', $settings['to_state'])) {
+      return TRUE;
+    }
+    return in_array($new_state, $settings['to_state']);
+  }
+  if (in_array('ANY', $settings['to_state'])) {
+    return in_array($old_state, $settings['from_state']);
+  }
+  return  in_array($old_state, $settings['from_state']) &&  in_array($new_state, $settings['to_state']);
+}
+
+/**
+ * Condition implementation: check state. 
+ */
+function workflow_rules_check_state($node, $settings) {
+  if (in_array('ANY', $settings['state'])) {
+    return TRUE;
+  }
+  $state = workflow_node_current_state($node);
+  return  in_array($state, $settings['state']);
+}
+
+/**
+ * Implementation of hook_rules_action_info_alter().
+ */
+function workflow_rules_rules_action_info_alter(&$actions) {
+  $actions['rules_core_workflow_select_next_state_action']['module'] = 'Workflow';
+  $actions['rules_core_workflow_select_given_state_action']['module'] = 'Workflow';
+}
+
+/**
+ * Implementation of hook_rules_data_type_info().
+ */
+function workflow_rules_rules_data_type_info() {
+  return array(
+    'workflow_state' => array(
+      'label' => t('Workflow state'),
+      'class' => 'rules_data_type',
+      'savable' => FALSE,
+      'identifiable' => TRUE,
+      'uses_input_form' => FALSE,
+      'token type' => FALSE, 
+      'module' => 'Workflow',
+    ),
+  );
+}
+
+/**
+ * Configuration form for check transition condition.
+ */
+function workflow_rules_check_transition_form($settings, &$form) {
+  $options = array();
+  $options['ANY'] = t('Any state');
+  foreach (workflow_get_all() as $wid => $workflow) {
+    $options[$workflow] = array();
+    foreach (workflow_get_states($wid) as $sid => $state) {
+      $options[$workflow][$sid] = $state;
+    }
+  }
+  $form['settings']['from_state'] = array(
+    '#type' => 'select',
+    '#title' => t('From State'),
+    '#options' => $options,
+    '#multiple'=> TRUE,
+    '#default_value' => isset($settings['from_state']) ? $settings['from_state'] : array(),
+    '#required' => TRUE,
+  );
+  $form['settings']['to_state'] = array(
+    '#type' => 'select',
+    '#title' => t('To State'),
+    '#options' => $options,
+    '#multiple'=> TRUE,
+    '#default_value' => isset($settings['to_state']) ? $settings['to_state'] : array(),
+    '#required' => TRUE,
+  );
+}
+
+/**
+ * Label callback for check transition condition.
+ */
+function workflow_rules_check_transition_label($settings, $argument_labels) {
+    if (in_array('ANY', $settings['from_state'])) $settings['from_state'] = array('ANY');
+    if (in_array('ANY', $settings['to_state'])) $settings['to_state'] = array('ANY');
+    $from = array();
+    $to = array();
+   foreach ($settings['from_state'] as $state) {
+    if ($state != 'ANY') {
+        $fromtemp = workflow_get_state($state);
+        $from[] = $fromtemp['state']; 
+    } else {
+        $from[] = t('Any state');
+    }
+  }
+  foreach ($settings['to_state'] as $state) {
+    if ($state != 'ANY') {
+        $totemp = workflow_get_state($state);
+        $to[] = $totemp['state']; 
+    } else {
+        $to[] = t('Any state');
+    }
+  }
+  return t('Check workflow transition from @from to @to', array('@from' => implode(', ',$from), '@to' => implode(', ',$to)));
+}
+
+/**
+ * Configuration form for check state condition.
+ */
+function workflow_rules_check_state_form($settings, &$form) {
+  $options = array();
+  $options['ANY'] = t('Any state');
+  foreach (workflow_get_all() as $wid => $workflow) {
+    $options[$workflow] = array();
+    foreach (workflow_get_states($wid) as $sid => $state) {
+      $options[$workflow][$sid] = $state;
+    }
+  }
+  $form['settings']['state'] = array(
+    '#type' => 'select',
+    '#title' => t('State'),
+    '#options' => $options,
+    '#multiple'=> TRUE,
+    '#default_value' => isset($settings['state']) ? $settings['state'] : array(),
+    '#required' => TRUE,
+  );
+}
+
+/**
+ * Label callback for check state condition.
+ */
+function workflow_rules_check_state_label($settings, $argument_labels) {
+  if (in_array('ANY', $settings['state'])) {
+    $settings['state'] = array('ANY');
+  }
+  $states = array();
+  foreach ($settings['state'] as $state) {
+    if ($state != 'ANY') {
+        $temp = workflow_get_state($state);
+        $states[] = $temp['state']; 
+    } else {
+        $states[] = t('Any state');
+    }
+  }
+  return t('Check if content workflow state is @state', array('@state' => implode(', ',$states)));
+}

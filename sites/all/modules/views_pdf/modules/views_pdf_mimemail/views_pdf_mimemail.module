@@ -1,0 +1,42 @@
+<?php
+
+/**
+ * @file
+ * The mimemail integration enables the sending of generated
+ * PDF via e-mail.
+ *
+ */
+
+/**
+ * Implementaion of hook_theme()
+ */
+function views_pdf_mimemail_theme() {
+  return array(
+    'views_pdf_mimemail_rules_action_mail_form_theme' => array(
+      'arguments' => array('form' => NULL),
+    ),
+  );
+}
+
+
+/**
+ * Styles the table of the views pdf integration selection in the rules 
+ * action form.
+ *
+ * @param $form Form
+ * @return Table HTML output
+ *
+ */
+function theme_views_pdf_mimemail_rules_action_mail_form_theme($form) {
+  $header = array(t('Attache a PDF View'), t('Arguments of the view'));
+  foreach (element_children($form) as $key) {
+    $row = array();
+    $row[] = drupal_render($form[$key]['view']);
+    $row[] = drupal_render($form[$key]['arguments']);
+    $rows[] = $row;
+  }
+
+  $output .= theme('table', $header, $rows);
+  $output .= drupal_render($form);
+  return $output;
+}

@@ -1,0 +1,11 @@
+<?php
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function betterselect_uninstall() {
+  variable_del('betterselect_scroll');
+  variable_del('betterselect_save_lineage');
+  variable_del('betterselect_node_form_only');
+}
+

@@ -1,0 +1,12 @@
+name = 2co
+description = 2co payment gateway.
+package = "Payment Gateway API"
+dependencies[] = pgapi
+core = 6.x
+
+; Information added by drupal.org packaging script on 2012-03-20
+version = "6.x-2.0-beta1"
+core = "6.x"
+project = "pgapi"
+datestamp = "1332259543"
+

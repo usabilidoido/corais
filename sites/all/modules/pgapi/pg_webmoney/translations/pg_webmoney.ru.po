@@ -1,0 +1,219 @@
+# $Id: pg_webmoney.ru.po,v 1.1 2009/11/24 22:06:36 gor Exp $
+#
+# Russian translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  pg_webmoney.admin.inc: n/a
+#  pg_webmoney.module,v 1.3 2008/07/07 05:44:32 gor
+#  pg_webmoney.info,v 1.1 2008/06/09 15:35:23 gor
+#  pg_webmoney.install,v 1.1 2008/06/09 15:35:23 gor
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2009-06-24 04:28+0000\n"
+"PO-Revision-Date: 2009-06-24 04:28+0000\n"
+"Last-Translator: NAME <EMAIL@ADDRESS>\n"
+"Language-Team: Russian <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=((((n%10)==1)&&((n%100)!=11))?(0):(((((n%10)>=2)&&((n%10)<=4))&&(((n%100)<10)||((n%100)>=20)))?(1):2));\n"
+
+#: pg_webmoney.admin.inc:31
+msgid "Type of wallet"
+msgstr "Тип кошелька"
+
+#: pg_webmoney.admin.inc:34
+msgid "What type of currency will be used."
+msgstr "Тип валюты, который будет использован."
+
+#: pg_webmoney.admin.inc:42
+msgid "purchase from site !sitename"
+msgstr "оплата для сайта !sitename"
+
+#: pg_webmoney.admin.inc:66
+msgid "Place your order"
+msgstr "Оформить и перейти к оплате"
+
+#: pg_webmoney.admin.inc:95
+msgid "This number does not match the original price"
+msgstr "Это число не совпадает с суммой заказа."
+
+#: pg_webmoney.admin.inc:100
+msgid "Your wallet number does not match the original"
+msgstr "Номер кошелька не совпадает с исходным"
+
+#: pg_webmoney.admin.inc:106
+msgid "Security check failed"
+msgstr "Платеж не прошел проверку безопасности"
+
+#: pg_webmoney.admin.inc:113
+msgid "Payment from WM %WM and Wallet %purse"
+msgstr "Платеж в WM %WM с кошелька %purse"
+
+#: pg_webmoney.admin.inc:147
+msgid "Delete checked Wallet"
+msgstr "Удалить выбранный кошелек"
+
+#: pg_webmoney.admin.inc:161
+msgid "Your wallet types %wmtype has been deleted."
+msgstr "Ваш тип кошелька был удален"
+
+#: pg_webmoney.admin.inc:174;210 pg_webmoney.module:217
+msgid "Wallet"
+msgstr "Кошелек"
+
+#: pg_webmoney.admin.inc:179;218 pg_webmoney.module:218
+msgid "Secret key"
+msgstr "Секретный ключ"
+
+#: pg_webmoney.admin.inc:182;221
+msgid "Please enter secret key. If your leave it blank, secret key will not apply."
+msgstr "Пожалуйста, введите секретный ключ (secret key). Если этого не сделать, ключ не будет применяться."
+
+#: pg_webmoney.admin.inc:187
+msgid "Update Wallet"
+msgstr "Обновить кошелек"
+
+#: pg_webmoney.admin.inc:199
+msgid "Your wallet type %type has been modified."
+msgstr "Ваш кошелек %type был изменен"
+
+#: pg_webmoney.admin.inc:213
+msgid "Please, enter Wallet number."
+msgstr "Пожалуйста, введите номер кошелька."
+
+#: pg_webmoney.admin.inc:225 pg_webmoney.module:82
+msgid "Add Wallet"
+msgstr "Добавить кошелек"
+
+#: pg_webmoney.admin.inc:237
+msgid "!type already exists.Please enter another wallet number."
+msgstr "!type уже существует. Пожалуйста введите другой номер кошелька."
+
+#: pg_webmoney.admin.inc:248
+msgid "Your wallet %wallet has been added."
+msgstr "Ваш кошелек %wallet был добавлен"
+
+#: pg_webmoney.admin.inc:265
+msgid "Please add your wallet number first"
+msgstr "Пожалуйста, сначала добавьте номер кошелька"
+
+#: pg_webmoney.admin.inc:271
+msgid "Rate url"
+msgstr "Ссылка на курсы"
+
+#: pg_webmoney.admin.inc:273
+msgid "Please enter rate url.\nDefault: !url"
+msgstr "Пожалуйста, введите ссылку на курсы обмена WM-валют.\n По умолчанию: !url"
+
+#: pg_webmoney.admin.inc:278
+msgid "Action url"
+msgstr "URL действия"
+
+#: pg_webmoney.admin.inc:280
+msgid "Please enter action url.\nDefault: !url"
+msgstr "Пожалуйста введите URL действия. \nПо умолчанию: !url"
+
+#: pg_webmoney.admin.inc:287
+msgid "Wallet type"
+msgstr "Тип кошелька"
+
+#: pg_webmoney.admin.inc:289
+msgid "Please select your wallet type to rate to site currency."
+msgstr "Пожалуйста, выберите тип кошелька для ввода курса к валюте магазина."
+
+#: pg_webmoney.admin.inc:294
+msgid "Rate to site currency"
+msgstr "Курс к валюте сайта"
+
+#: pg_webmoney.admin.inc:296
+msgid "Please enter webmoney rate according to site currency."
+msgstr "Пожалуйста, введите курс WM-валюты по отношению к валюте магазина."
+
+#: pg_webmoney.admin.inc:300
+msgid "Submit"
+msgstr "Отправить"
+
+#: pg_webmoney.admin.inc:308
+msgid "%wm_rate must be more 0."
+msgstr "%wm_rate должен быть больше 0."
+
+#: pg_webmoney.admin.inc:321
+msgid "Your webmoney rate settings has been saved."
+msgstr "Соотношения валют webmoney были сохранены"
+
+#: pg_webmoney.admin.inc:341
+msgid "<h1>Merchant purse settings</h1>\n<table>\n<tbody><tr>\n<td nowrap=\"nowrap\">Purse:</td>\n\n<td class=\"header3\" align=\"left\"><b>!purse</b></td>\n<td>&nbsp;</td>\n<td align=\"left\">&nbsp;</td>\n</tr>\n<tr>\n<td nowrap=\"nowrap\">Trade Name:</td>\n<td align=\"left\"><input style=\"display: inline;\" value=\"!tradename\" size=\"50\" id=\"m_name\" name=\"m_name\" type=\"text\"></td>\n<td align=\"center\">&nbsp;-&nbsp;</td>\n<td align=\"left\"> is displayed on the web page during the payment </td>\n</tr>\n<tr>\n<td nowrap=\"nowrap\">Secret Key:</td>\n\n<td align=\"left\"><input style=\"display: inline;\" value=\"!secret_key\" id=\"secret_key\" name=\"secret_key\" size=\"50\" type=\"text\"></td>\n<td align=\"center\">\n<input checked=\"checked\" id=\"send_secret_key\" name=\"send_secret_key\" type=\"checkbox\"></td>\n<td align=\"left\">Send the Secret Key to the Result URL if the Result URL is secured</td>\n</tr>\n<tr>\n<td nowrap=\"nowrap\">Result URL:</td>\n<td align=\"left\"><input style=\"display: inline;\" value=\"!done\" id=\"result_url\" name=\"result_url\" size=\"50\" maxlength=\"255\" type=\"text\"></td>\n<td align=\"center\">\n<input checked=\"checked\" id=\"send_param_prerequest\" name=\"send_param_prerequest\" value=\"1\" type=\"checkbox\">\n</td>\n<td align=\"left\">\nSend parameters in the pre-request\n</td>\n</tr>\n\n<tr>\n<td nowrap=\"nowrap\">Success URL:</td>\n<td align=\"left\"><input style=\"display: inline;\" value=\"!success\" id=\"success_url\" name=\"success_url\" size=\"50\" maxlength=\"255\" type=\"text\"></td>\n<td align=\"center\">\n<select name=\"success_method\" id=\"success_method\">\n<option value=\"0\">GET</option>\n<option value=\"1\" selected=\"selected\" >POST</option>\n<option value=\"2\">LINK</option>\n</select>\n</td>\n<td>\nmethod of requesting Success URL\n</td>\n\n</tr>\n<tr>\n<td nowrap=\"nowrap\">Fail URL:</td>\n<td align=\"left\"><input style=\"display: inline;\" value=\"!fail\" id=\"fail_url\" name=\"fail_url\" size=\"50\" maxlength=\"255\" type=\"text\"></td>\n<td align=\"center\">\n<select name=\"fail_method\" id=\"fail_method\">\n<option value=\"0\">GET</option>\n<option value=\"1\" selected=\"selected\">POST</option>\n<option value=\"2\">LINK</option>\n</select>\n</td>\n<td>\nmethod of requesting Fail URL\n\n</td>\n</tr>\n</tbody></table>\n<table>\n<tbody><tr>\n<td nowrap=\"nowrap\">\nAllow overriding URL from Payment Request Form:\n</td>\n<td align=\"left\">\n<input id=\"allow_url_from_form\" name=\"allow_url_from_form\" value=\"1\" type=\"checkbox\">\n</td>\n<td></td>\n<td></td>\n</tr>\n<tr>\n<td nowrap=\"nowrap\">\nSend an error notification to merchant's keeper: \n\n</td>\n<td align=\"left\">\n<input checked=\"checked\" id=\"send_error\" name=\"send_error\" value=\"1\" type=\"checkbox\">\n</td>\n<td></td>\n<td></td>\n</tr>\n<tr>\n<td nowrap=\"nowrap\">Signature algorithm:</td>\n<td align=\"left\">\n<select name=\"auth_type\" id=\"auth_type\">\n<option value=\"0\">SIGN</option>\n<option value=\"1\" selected=\"selected\">MD5</option>\n</select>\n\n</td>\n<td></td>\n<td></td>\n</tr>\n\n\n\n\n\n</tbody></table>\n</form>"
+msgstr ""
+
+#: pg_webmoney.module:137
+msgid "%err"
+msgstr ""
+
+#: pg_webmoney.module:180
+msgid "Webmoney Payment Gateway"
+msgstr "Платежная система Webmoney"
+
+#: pg_webmoney.module:186;62 pg_webmoney.info:0
+msgid "Webmoney"
+msgstr ""
+
+#: pg_webmoney.module:216
+msgid "WMType"
+msgstr "Тип WM"
+
+#: pg_webmoney.module:219
+msgid "Rate"
+msgstr "Курс"
+
+#: pg_webmoney.module:31
+msgid "Webmoney Payment"
+msgstr "Платеж Webmoney"
+
+#: pg_webmoney.module:39
+msgid "Internal Data"
+msgstr "Служебная информация"
+
+#: pg_webmoney.module:46;54
+msgid "Webmoney processing"
+msgstr "Обработка Webmoney"
+
+#: pg_webmoney.module:63
+msgid "Webmoney payment settings."
+msgstr "Настройки оплаты через Webmoney."
+
+#: pg_webmoney.module:72
+msgid "Wallets"
+msgstr "Кошельки"
+
+#: pg_webmoney.module:92
+msgid "Rate Settings"
+msgstr "Настройки курсов"
+
+#: pg_webmoney.module:102
+msgid "Example"
+msgstr "Пример"
+
+#: pg_webmoney.module:112
+msgid "Edit Wallet"
+msgstr "Редактировать кошелек"
+
+#: pg_webmoney.module:0
+msgid "pg_webmoney"
+msgstr ""
+
+#: pg_webmoney.install:26
+msgid "Stores webmoney rates information."
+msgstr "Сохраняет информацию о соотношениях валют webmoney"
+
+#: pg_webmoney.info:0
+msgid "Webmoney payment gateway."
+msgstr "Платежный центр Webmoney."
+
+#: pg_webmoney.info:0
+msgid "Payment Gateway API"
+msgstr ""
+

@@ -1,0 +1,13 @@
+; $Id: imagepicker_postlet.info,v 1.1.2.1 2009/11/06 18:59:40 hutch Exp $
+name = Imagepicker Postlet multi uploader
+description = Uploads images using Postlet java applet.
+package = Other
+core = 6.x
+dependencies[] = imagepicker
+
+; Information added by drupal.org packaging script on 2010-12-01
+version = "6.x-2.10"
+core = "6.x"
+project = "imagepicker"
+datestamp = "1291236369"
+

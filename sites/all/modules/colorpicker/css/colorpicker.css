@@ -1,0 +1,64 @@
+/* $Id$  */
+
+.colorpicker_textfield {
+  width: 80px;
+  height: 18px;
+  border: inset gray 1px;
+	text-transform: uppercase;
+	font-size: 14px;
+	font-weight: bold;
+}
+
+.form-item input.colorpicker_textfield.error {
+  border-width:1px;
+}
+
+.picker_wrapper {
+  position: relative;
+  top: 0px; 
+  left: 0px;
+  height: 1px;
+  width: 1px;
+}
+
+.colorwrapper {
+  position: absolute;
+  top: 0px; 
+  left: 30px;
+  height: auto;
+  width: auto;
+  display: none;
+  background: white;
+  border: solid #949494 1px;
+  z-index: 100;
+}
+
+.picker_border {
+  position: absolute;
+  bottom: 1px; 
+  left: 83px;
+  width: 20px; 
+  height: 20px;
+  border: solid #949494 1px;
+  background: white url('picker_button_back.png') repeat-x;
+}
+
+.picker_button {
+  border: solid white 1px;
+  display: block;
+  text-decoration: none;
+  width: 18px;
+  height: 18px;
+  background: transparent url('picker_button.png') no-repeat 50% 50%;
+  cursor: pointer;
+}
+
+.close_button {
+  width: 14px;
+  height: 14px;
+  background: transparent url('x.png') no-repeat 50% 50%;
+  cursor: pointer;
+  position: absolute;
+  top: 5px; 
+  right: 5px;
+}

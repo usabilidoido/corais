@@ -1,0 +1,15 @@
+name = "Atrium Username"
+description = "Manage user name display in Open Atrium"
+core = "6.x"
+package = "Features"
+dependencies[] = "atrium"
+dependencies[] = "casetracker"
+dependencies[] = "spaces"
+features[views_api][] = "api:2"
+
+; Information added by drupal.org packaging script on 2012-08-28
+version = "6.x-1.0-alpha4"
+core = "6.x"
+project = "atrium_username"
+datestamp = "1346172732"
+

@@ -1,0 +1,15 @@
+<?php
+// $Id: media_teachertube.module,v 1.1 2010/05/08 01:41:43 dragonwize Exp $
+/**
+ *  @file
+ *  Embedded Video Field provider for TeacherTube.com.
+ */
+
+/**
+ * Impementation of hook_emfield_providers().
+ */
+function media_teachertube_emfield_providers($module, $provider = NULL) {
+  if ($module == 'emvideo') {
+    return drupal_system_listing("$provider\.inc$", drupal_get_path('module', 'media_teachertube') ."/providers", 'name', 0);
+  }
+}

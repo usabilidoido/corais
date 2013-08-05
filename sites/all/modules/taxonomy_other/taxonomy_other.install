@@ -1,0 +1,73 @@
+<?php
+// $Id: taxonomy_other.install,v 1.1.2.1 2008/08/06 23:18:26 rellis Exp $
+
+/**
+ * Implementation of hook_install().
+ */
+function taxonomy_other_install() {
+  // Create tables.
+  drupal_install_schema('taxonomy_other');
+  // Make compatible with i18ntaxonomy.
+  db_query("UPDATE {system} SET weight = 11 WHERE name = 'taxonomy_other' AND type = 'module'");
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function taxonomy_other_uninstall() {
+  // Remove tables.
+  drupal_uninstall_schema('taxonomy_other');
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function taxonomy_other_schema() {
+  $schema['taxonomy_other_queue'] = array(
+    'description' => t('Queues new taxonomy_other terms for creation when node is published.'),
+    'fields' => array(
+      'nid' => array(
+        'description' => t('The primary identifier for a node.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE
+      ),
+      'vid' => array(
+        'description' => t('The primary identifier for a vocabulary.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE
+      ),
+      'name' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => t('The term name.')
+      ),
+    ),
+    'primary key' => array('nid', 'vid'),
+  );
+  $schema['taxonomy_other_term'] = array(
+    'description' => t('Keeps track of terms created by taxonomy_other.'),
+    'fields' => array(
+      'tid' => array(
+        'description' => t('The primary identifier for a taxonomy term.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE
+      ),
+    ),
+    'primary key' => array('tid'),
+  );
+  return $schema;
+}
+
+/**
+ * Implementation of hook_update_N().
+ */
+function taxonomy_other_update_6100() {
+  $ret = array();
+  $ret[] = update_sql("UPDATE {system} SET weight = 11 WHERE name = 'taxonomy_other' AND type = 'module'");
+  return $ret;
+}

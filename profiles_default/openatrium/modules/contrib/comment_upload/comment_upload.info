@@ -1,0 +1,10 @@
+name = "Comment upload"
+description = "Enables file attachments on comments"
+dependencies[] = upload
+core = 6.x
+; Information added by drupal.org packaging script on 2012-02-26
+version = "6.x-1.0-alpha6"
+core = "6.x"
+project = "comment_upload"
+datestamp = "1330240828"
+

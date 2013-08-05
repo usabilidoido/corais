@@ -1,0 +1,34 @@
+/* $Id: image_fupload-style.css,v 1.4 2008/10/26 21:21:46 grandcat Exp $ */
+
+/* Progress Bar Settings */
+#fsUploadProgress .progressContainer {
+  background-color: #F7F7F7;
+  border: 1px solid #E8E8E8;
+  margin: 5px;
+  overflow: hidden;
+  padding: 4px;
+}
+
+#fsUploadProgress .blue {
+  background-color: #F0F5FF;
+  border: 1px solid #CEE2F2;
+}
+
+.progressBarInProgress, .progressBarError {
+  width: 0%;
+  height: 1em;  
+  background-color: #0072B9;
+  border-bottom: 0.5em solid #004A73;  
+}
+
+.progressBarComplete {
+  width: 100%;
+  height: 1em;
+  background-color: #A2E379;
+  border-bottom: 0.5em solid #79D841;  
+}
+
+/* Hide special buttons (Process queued images & Delete queued images) to prevent misunderstandings; nevertheless, buttons are used by AJAX*/
+#edit-node-create, #edit-delete-queue {
+  display: none;
+}

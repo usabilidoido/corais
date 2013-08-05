@@ -1,0 +1,37 @@
+<?php
+/**
+ * AJAX Thickbox Plugin
+ *
+ * @see http://drupal.org/project/ajax
+ * @see irc://freenode.net/#drupy
+ * @depends Drupal 6
+ * @author brendoncrawford
+ * @note This file uses a 79 character width limit.
+ *
+ */
+
+/**
+ * Implementation of hook_preprocess_hook().
+ *
+ * @param variables Assoc
+ * @return Bool
+ *
+ */
+function ajax_disable_redirect_preprocess_page(&$variables) {
+  drupal_add_js(drupal_get_path('module', 'ajax_disable_redirect') .
+    '/ajax_disable_redirect.js', 'theme');
+  return TRUE;
+}
+
+/**
+ * Ajax admin options callback
+ */
+function ajax_disable_redirect_ajax_options(&$options) {
+  $options['disable_redirect'] = array(
+    '#value' => t('Disable Redirect')
+  );
+  $options['remove_form'] = array(
+    '#value' => t('Remove Form After Submit')
+  );
+  return TRUE;
+}

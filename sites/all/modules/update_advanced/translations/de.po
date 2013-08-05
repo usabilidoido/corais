@@ -1,0 +1,81 @@
+# $Id: de.po,v 1.3 2008/03/20 07:57:21 hass Exp $
+#
+# LANGUAGE translation of Drupal (update_status.module)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from file: update_status.info,v 1.2 2007/02/25 21:12:34 merlinofchaos
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: update_stats\n"
+"POT-Creation-Date: 2008-03-19 21:41+0100\n"
+"PO-Revision-Date: 2008-03-20 08:57+0100\n"
+"Last-Translator: Alexander Hass\n"
+"Language-Team: Alexander Hass\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+"X-Poedit-Language: German\n"
+"X-Poedit-Country: GERMANY\n"
+"X-Poedit-SourceCharset: utf-8\n"
+
+#: update_advanced.settings.inc:36
+msgid "These settings allow you to control if a certain project, or even a specific release of that project, should be ignored by the available updates report.  For each project, you can select if it should always warn you about a newer release, never warn you (ignore the project completely), or ignore a specific available release you do not want to upgrade to. You can also specify a note explaining why you are ignoring a specific project or version, and that will be displayed on the available updates report."
+msgstr "Diese Einstellungen ermöglichen die Kontrolle, ob ein bestimmtes Projekt oder spezielle Veröffentlichung von diesem Projekt, im Bericht über verfügbare Aktualisierungen ignoriert werden soll. Für jedes Projekt kann eingestellt werden, ob bei neuen Veröffentlichungen immer gewarnt wird, nie gewarnt wird (Projekt vollständig ignorieren) oder die Aktualisierung auf eine bestimmte Veröffentlichung ignoriert werden soll. Warum ein bestimmtes Projekt oder Version ignoriert wird, kann als Bemerkung angegeben werden, die im Bericht zu verfügbaren Aktualisierungen angezeigt wird."
+
+#: update_advanced.settings.inc:49
+msgid "Always"
+msgstr "Immer"
+
+#: update_advanced.settings.inc:51
+msgid "Ignore @version"
+msgstr "@version ignorieren"
+
+#: update_advanced.settings.inc:53
+msgid "Never"
+msgstr "Nie"
+
+#: update_advanced.settings.inc:83
+msgid "Project"
+msgstr "Projekt"
+
+#: update_advanced.settings.inc:85
+msgid "Warn if out of date"
+msgstr "Warnen, sobald veraltet"
+
+#: update_advanced.settings.inc:88
+msgid "Notes"
+msgstr "Bemerkungen"
+
+#: update_advanced.settings.inc:118
+msgid "Drupal core"
+msgstr "Drupal-Kern"
+
+#: update_advanced.settings.inc:119
+msgid "Modules"
+msgstr "Module"
+
+#: update_advanced.settings.inc:120
+msgid "Themes"
+msgstr "Themes"
+
+#: update_advanced.module:61
+msgid "Ignored from settings"
+msgstr "Durch Einstellungen ignoriert"
+
+#: update_advanced.module:65
+msgid "Administrator note"
+msgstr "Bemerkung des Verwalters"
+
+#: update_advanced.module:0
+msgid "update_advanced"
+msgstr "update_advanced"
+
+#: update_advanced.info:0
+msgid "Update status advanced settings"
+msgstr "Erweiterte Einstellungen für den Aktualisierungsstatus"
+
+#: update_advanced.info:0
+msgid "Adds advanced settings and extra functionality to the Update status module in core."
+msgstr "Fügt dem im Kern enthaltenen Aktualisierungsstatus-Modul erweiterte Einstellungen und zusätzliche Funktionalität hinzu."
+

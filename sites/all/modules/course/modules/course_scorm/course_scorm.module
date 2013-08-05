@@ -1,0 +1,54 @@
+<?php
+
+/**
+ * Implements hook_course_handlers().
+ */
+function course_scorm_course_handlers() {
+  $handlers = array();
+
+  // Dynamically generate the object handlers.
+  $types = content_types();
+  $handlers['object'] = array();
+  $fields = content_fields();
+  foreach ($fields as $name => $field) {
+    if ($field['type'] == 'filefield' && $field['widget']['type'] == 'SCORM_widget') {
+      if (variable_get("course_content_use_{$field['type_name']}", 0)) {
+        $handlers['object'][$field['type_name']] = array(
+          'name' => $types[$field['type_name']]['name'],
+          'class' => 'CourseObjectScorm',
+          'description' => t('A SCORM object to be used in a course workflow.'),
+        );
+      }
+    }
+  }
+
+  // Return the handlers array.
+  return $handlers;
+}
+
+/**
+ * Implements hook_exit().
+ *
+ * Track the SCORM object completion. We can get away from this if [#1392824] is
+ * addressed.
+ */
+function course_scorm_exit() {
+  if (arg(1) == 'datamodel') {
+    global $user;
+    $nid = db_result(db_query('SELECT nodereference FROM {scorm} WHERE id = %d', $_POST['id']));
+    $node = node_load($nid);
+    if (course_determine_context('course_scorm', 'scorm', $node)) {
+      $courseObject = new CourseObjectScorm($node->nid, $user);
+      $sql = "SELECT * FROM {scorm_scoes_track} sst
+        where userid = %d AND scormid = %d AND scoid = %d AND attempt = %d";
+      $result = db_query($sql, $user->uid, $_POST['id'], $_POST['scoid'], $_POST['attempt']);
+      while ($row = db_fetch_object($result)) {
+        $completion_property = ($row->element == 'cmi.core.lesson_status' || $row->element == 'cmi.completion_status');
+        $completion_value = ($row->value == 'completed' || $row->value == 'passed');
+        $passed = $courseObject->isGraded() && $row->element == 'cmi.core.score.raw' && $row->value > $courseObject->getPassingGrade();
+        if (($completion_property && $completion_value) || $passed) {
+        }
+      }
+    }
+  }
+}

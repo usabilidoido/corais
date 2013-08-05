@@ -1,0 +1,11 @@
+name = "Views RSS"
+description = "Provides a views plugin that allows fields to be included in RSS feeds created using the Views module."
+package = Views
+dependencies[] = views
+core = "6.x"
+; Information added by drupal.org packaging script on 2012-05-02
+version = "6.x-2.0-rc3"
+core = "6.x"
+project = "views_rss"
+datestamp = "1335990385"
+

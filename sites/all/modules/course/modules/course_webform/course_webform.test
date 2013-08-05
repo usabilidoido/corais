@@ -1,0 +1,63 @@
+<?php
+
+require_once drupal_get_path('module', 'course') . '/tests/CourseTestCase.test';
+
+/**
+ * Tests for conditional event-based access to course objects.
+ */
+class CourseObjectWebformTestCase extends CourseTestCase {
+
+  public static function getInfo() {
+    // Note that getInfo() strings are not translated with t().
+    return array(
+      'name' => 'Course object webform',
+      'description' => 'Ensure that webform Course object support functions properly.',
+      'group' => 'Course',
+    );
+  }
+
+  function getModules() {
+    $modules = parent::getModules();
+    $modules[] = 'webform';
+    $modules[] = 'course_webform';
+    return $modules;
+  }
+
+  function setUp() {
+    parent::setUp();
+
+    $this->webform_admin = $this->drupalCreateUser(array('administer nodes') + webform_perm());
+  }
+
+  function testWebformCourseObject() {
+    $this->drupalLogin($this->webform_admin);
+    // Create a course with 1 webform.
+    $courseNode = $this->createCourseNode();
+    $co1 = course_get_course_object('course_webform', 'webform');
+    $co1->setCourse($courseNode->nid);
+    $co1->save();
+    $this->assertTrue($co1->getInstanceId() > 0, 'Webform node created on course object save.');
+
+    $webformNode = node_load($co1->getInstanceId());
+    $this->assertTrue($webformNode->type == 'webform', 'Webform node is a webform.');
+
+    // Add a question.
+    $this->drupalGet("node/$webformNode->nid/webform");
+    $this->drupalPost(NULL, array(
+      'add[name]' => 'test',
+      'add[type]' => 'textfield',
+    ), 'Add');
+    $this->drupalPost(NULL, array(), 'Save component');
+
+    // Take the webform.
+    $this->drupalGet("node/{$webformNode->nid}");
+    $this->assertFalse($co1->getFulfillment()->isComplete(), 'Check that webform is not completed yet.');
+    $this->drupalPost(NULL, array(
+      'submitted[test]' => 1,
+    ), 'Submit');
+
+    // Reload because something happened in the DB.
+    $co1 = course_get_course_object_by_id($co1->getId(), $this->webform_admin);
+    $this->assertTrue($co1->getFulfillment()->isComplete(), 'Check that webform is completed.');
+  }
+}

@@ -1,0 +1,32 @@
+<?php
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function module_filter_uninstall() {
+  variable_del('module_filter_tabs');
+  variable_del('module_filter_count_enabled');
+  variable_del('module_filter_visual_aid');
+  variable_del('module_filter_dynamic_save_position');
+}
+
+/**
+ * Force the menu system to rebuild.
+ */
+function module_filter_update_6000() {
+  $ret = array();
+  $ret[] = array('success' => TRUE, 'query' => t('Force menu to rebuild.'));
+  return $ret;
+}
+
+/**
+ * Delete variable 'module_filter_autocomplete'.
+ */
+function module_filter_update_6100() {
+  $ret = array();
+
+  variable_del('module_filter_autocomplete');
+  $ret[] = array('success' => TRUE, 'query' => t('Delete variable "module_filter_autocomplete".'));
+
+  return $ret;
+}

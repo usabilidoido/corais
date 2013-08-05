@@ -1,0 +1,220 @@
+<?php
+
+/**
+ * @file
+ * Test cases for the Page Title module.
+ */
+
+class PageTitleTestCase extends DrupalWebTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'page_title',
+      'description' => 'Ensure that Page Title functions correctly',
+      'group' => 'Page Title',
+    );
+  }
+
+  public function setUp() {
+    parent::setUp('page_title', 'token', 'forum', 'taxonomy');
+  }
+
+
+  public function testPageTitleTest() {
+    // Login as an admin and configure the settings
+    $user = $this->drupalCreateUser(array(
+      'administer page titles',
+      'administer taxonomy',
+      'access content',
+      'create page content',
+      'edit any page content',
+      'administer forums',
+      'create forum topics',
+      'set page title')
+    );
+    $this->drupalLogin($user);
+
+    // Create a vocabulary
+    $vocab = array(
+      'name' => 'Test Vocab',
+      'nodes[page]' => 'page',
+    );
+    $this->drupalPost('admin/content/taxonomy/add/vocabulary', $vocab, t('Save'));
+
+    // Bit of a hack - have to assume the VID is 2 (forum should have already taken VID 1) and TID is 1
+    // Create a term
+    $term = array(
+      'name' => 'Test Term Foo',
+    );
+    $this->drupalPost('admin/content/taxonomy/2/add/term', $term, t('Save'));
+
+
+
+
+
+
+    // Define our settings
+    $settings = array(
+      'page_title_default' => '[page-title] - DEFAULT TEST',
+      'page_title_front' => '[site-name]',
+      'page_title_user' => 'Profile For [user]',
+      'page_title_type_page' => 'PAGE NODE: [page-title]',
+      'page_title_type_page_showfield' => 1,
+      'page_title_type_forum' => 'Forum - [cat] - [page-title]',
+      'page_title_pager_pattern' => ' - page [current-page-number]',
+      'page_title_vocab_1' => 'FORUM: [cat]',
+      'page_title_vocab_2' => 'TERM: [page-title]',
+      'page_title_vocab_1_showfield' => 1,
+      'page_title_vocab_2_showfield' => 1,
+      'page_title_forum_root_title' => 'Welcome to [site-name] [page-title]',
+    );
+
+    // Save the settings
+    $this->drupalPost('admin/settings/page-title', $settings, t('Save configuration'));
+    $this->assertText(t('The configuration options have been saved.'), t('The configuration saved message was found'), 'Page Title');
+
+
+
+
+
+    /**
+     * Lets check the frontpage page title is working
+     */
+    $this->drupalGet('<front>');
+    $title = '<title>'. $settings['page_title_front'] .'</title>';
+    $this->pass(check_plain($title));
+    $title = str_replace('[site-name]', 'Drupal', $title);
+    $this->pass(check_plain($title));
+    $this->assertRaw($title, t('Correct frontpage Title in the head.'), 'Page Title');
+
+
+
+    /**
+     * Lets check a "default" page, such a the page title admin form
+     */
+    $this->drupalGet('admin/settings/page-title');
+    $title = '<title>'. $settings['page_title_default'] .'</title>';
+    $this->pass(check_plain($title));
+    $title = str_replace('[page-title]', 'Page title', $title);
+    $this->pass(check_plain($title));
+    $this->assertRaw($title, t('Correct default title in the head.'), 'Page Title');
+
+
+
+
+
+    /**
+     * Let's create a page node and check that
+     */
+
+    //Create a basic page node
+    $node = array(
+      'type' => 'page',
+      'title' => 'Test Page Node',
+      'body' => $this->randomName(16),
+      'taxonomy' => array(2 => 1), // Set taxonomy for vocab 2 to term 1 See Hack/assumption above
+    );
+
+    // Save the node
+    $node = $this->drupalCreateNode($node);
+
+    // Pass out a message to confirm the save
+    $this->pass(t('Created Node !nid', array('!nid' => $node->nid)), 'Page Title');
+
+    // Load the node page and check for the title in the head
+    $this->drupalGet('node/'. $node->nid);
+    $title = '<title>'. $settings['page_title_type_page'] .'</title>';
+    $this->pass(check_plain($title));
+    $title = str_replace('[page-title]', $node->title, $title);
+    $this->pass(check_plain($title));
+    $this->assertRaw($title, t('Correct page node type title in the head.'), 'Page Title');
+
+
+
+    // Post a page_title into the node and reload the node
+    $edit['page_title'] = 'I am a test Page Title field';
+    $this->drupalPost('node/'. $node->nid .'/edit', $edit, 'Save');
+    $node = node_load($node->nid, NULL, TRUE);
+
+    // Node load the node page and check for the title in the head
+    $this->drupalGet('node/'. $node->nid);
+    $title = '<title>'. $settings['page_title_type_page'] .'</title>';
+    $this->pass(check_plain($title));
+    $title = str_replace('[page-title]', $node->page_title, $title);
+    $this->pass(check_plain($title));
+    $this->assertRaw($title, t('Correct page node type title in the head.'), 'Page Title');
+
+
+
+
+    /**
+     *  TAXONOMY
+     */
+
+    // Lets check a taxonomy/term/tid page (should be term from earlier!)
+    // Load the term page and check for the title in the head
+    $this->drupalGet('taxonomy/term/1');
+    $title = '<title>'. $settings['page_title_vocab_2'] .'</title>';
+    $this->pass(check_plain($title));
+    $title = str_replace('[page-title]', $term['name'], $title);
+    $this->pass(check_plain($title));
+    $this->assertRaw($title, t('Correct taxonomy title in the head.'), 'Page Title');
+
+
+
+
+    // Lets check the pagenation suffix is working but appending it to taxonomy/term/1.
+    // This is a little messy - but it works for our purpose
+    // Remember, the page value in the URL is zero indexed. This means page=1 in URL is Page 2 on the site
+    $this->drupalGet('taxonomy/term/1', array('query' => 'page=1'));
+    $title = '<title>'. $settings['page_title_vocab_2'] . $settings['page_title_pager_pattern'] .'</title>';
+    $this->pass(check_plain($title));
+    $title = str_replace(array('[page-title]', '[current-page-number]'), array($term['name'], 2), $title);
+    $this->pass(check_plain($title));
+    $this->assertRaw($title, t('Correct page node type with pagenation suffix title in the head.'), 'Page Title');
+
+
+
+
+
+    /**
+     *  FORUMS
+     */
+    // TODO: Dirty hack to assume term ID will be 2....
+    $forum_container = array('name' => 'Test Container');
+    $this->drupalPost('admin/content/forum/add/container', $forum_container, t('Save'));
+
+    // TODO: Dirty hack to assume term ID will be 3....
+    $forum_forum = array('name' => 'Test Forum', 'page_title' => 'I AM A TEST FORUM');
+    $this->drupalPost('admin/content/forum/add/forum', $forum_forum, t('Save'));
+
+    //Create a basic forum topic node
+    $forum_node = array(
+      'type' => 'forum',
+      'title' => 'Test Forum Node',
+      'body' => $this->randomName(16),
+      'taxonomy' => array(1 => 3), // Set taxonomy for vocab 1 (forum vocab) to term 3 (the test forum)... See Hack/assumptions above
+    );
+
+    // Save the node
+    $forum_node = $this->drupalCreateNode($forum_node);
+
+    // Node load the node page and check for the title in the head
+    $this->drupalGet('node/'. $forum_node->nid);
+    $title = '<title>'. $settings['page_title_type_forum'] .'</title>';
+    $this->pass(check_plain($title));
+    $title = str_replace(array('[cat]', '[page-title]'), array($forum_forum['name'], $forum_node->title), $title);
+    $this->pass(check_plain($title));
+    $this->assertRaw($title, t('Correct forum node type title in the head.'), 'Page Title');
+
+
+    //Now test the forum root...
+    $this->drupalGet('forum');
+    $title = '<title>'. $settings['page_title_forum_root_title'] .'</title>';
+    $this->pass(check_plain($title));
+    $title = str_replace(array('[site-name]', '[page-title]'), array('Drupal', 'Forums'), $title);
+    $this->pass(check_plain($title));
+    $this->assertRaw($title, t('Correct forum root title in the head.'), 'Page Title');
+
+
+  }
+}

@@ -1,0 +1,98 @@
+<?php
+// $Id: mc_signatures.install,v 1.1.2.2 2010/12/06 13:19:46 hutch Exp $
+
+/**
+ * @file
+ * Install, update and uninstall functions for the exchanges module.
+ */
+
+
+/**
+ * Implementation of hook_install().
+ */
+function mc_signatures_install() {
+  drupal_install_schema('mc_signatures');
+
+  $names = variable_get('mc_subtypes', array());
+  $names += array(
+    INCOMING_SIGNED => t('Invoice'),
+    OUTGOING_SIGNED => t('Proffer')
+  );
+  variable_set('mc_subtypes', $names);
+
+  $mail = t('This is an automated notification.') ."\n\n".
+    t('!creator has recorded the following exchange:') ."\n\n". '!summary' .' '.
+    t('Click here to add your signature and finalise the exchange: !sign_link') ."\n\n".
+    t("You can change your mail notification settings by clicking 'edit' on your profile.");
+  variable_set('mc_signatures_notification_body', $mail);
+  variable_set('mc_signatures_notification_subject', t('Your signature needed'));
+}
+
+/**
+ * Implementation of hook_uninstall(˙˙˙).
+ * http://api.drupal.org/api/function/hook_uninstall/6
+ * Remove any tables or variables that the module sets.
+ */
+function mc_signatures_uninstall() {
+  drupal_uninstall_schema('mc_signatures');
+  variable_del('mc_signatures_notification_body');
+  variable_del('mc_signatures_notification_subject');
+
+  if(module_exists('views')) {
+    $view_ids = db_query("SELECT vid FROM {views_view} WHERE name = 'pending_exchanges'");
+    while ($vid = db_result($view_ids)) {
+      db_query("DELETE FROM {views_view} WHERE vid = %d", $vid);
+      db_query("DELETE FROM {views_display} WHERE vid = %d", $vid);
+    }
+  }
+}
+
+function mc_signatures_enable() {
+  variable_set('hide_submit_js_load_pages', TRUE);
+  variable_set('hide_submit_keypress', TRUE);
+  variable_set('hide_submit_script_mode', TRUE);
+  variable_set('hide_submit_js_load_pages', 'exchange*');
+}
+
+/**
+ * Implementation of hook_schema)().
+ * http://api.drupal.org/api/function/hook_schema/6
+ */
+function mc_signatures_schema() {
+  $schema['mc_unsigned'] = array(
+    'description' => 'signatories needed on pending exchanges',
+    'fields' => array(
+      'nid' => array(
+        'description' => t('the node to which this entry is attached'),
+        'type' => 'int',
+        'size' => 'normal',
+      ),
+      'uid' => array(
+        'description' => t('the user id of the payer'),
+        'type' => 'int',
+        'size' => 'normal',
+      )
+    ),
+    'primary key' => array('nid', 'uid')
+  );
+  return $schema;
+}
+
+/*
+ * set primary key, to fix a bug in the schema which failed to set them
+ */
+function mc_signatures_update_6001($ret = array()) {
+  db_add_primary_key($ret, 'mc_unsigned', array('nid', 'uid'));
+  return array();
+}
+
+/*
+ * bugfix retro correcting exchanges stuck in pending with no signatures
+ */
+function mc_signatures_update_6002() {
+  $result = db_query("select e.nid from mc_exchanges e left join mc_unsigned u on e.nid = u.nid where e.state = 1 and u.nid IS NULL");
+  while ($nid = db_result($result)) {
+    db_query("UPDATE {mcapi_exchanges} SET state = 0 WHERE nid = $nid");
+  }
+  return array();
+}

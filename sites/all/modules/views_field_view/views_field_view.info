@@ -1,0 +1,11 @@
+;$Id: views_field_view.info,v 1.1.2.1 2010/08/03 05:25:11 dereine Exp $
+name = views_field_view
+  description = 'Embeds a view into a view as field'
+core = 6.x
+
+; Information added by drupal.org packaging script on 2010-09-03
+version = "6.x-1.0-beta1"
+core = "6.x"
+project = "views_field_view"
+datestamp = "1283541410"
+

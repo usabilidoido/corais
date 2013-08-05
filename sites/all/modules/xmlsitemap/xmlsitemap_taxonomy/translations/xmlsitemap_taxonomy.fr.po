@@ -1,0 +1,55 @@
+# $Id: xmlsitemap_taxonomy.fr.po,v 1.1.2.1 2009/07/29 21:16:02 hass Exp $
+#
+# French translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  xmlsitemap.admin.inc,v 1.1.4.2 2009/06/22 15:06:06 earnie
+#  xmlsitemap_engines.admin.inc,v 1.1.2.15 2009/06/17 14:52:41 earnie
+#  xmlsitemap.pages.inc,v 1.1.4.4 2009/07/02 14:20:24 earnie
+#  xmlsitemap.module,v 1.20.2.66 2009/06/23 11:54:41 earnie
+#  xmlsitemap.install,v 1.5.2.48 2009/07/02 14:20:24 earnie
+#  xmlsitemap_engines.module,v 1.5.2.48 2009/06/19 14:35:05 earnie
+#  xmlsitemap.info,v 1.2.2.6 2009/06/22 15:06:06 earnie
+#  xmlsitemap_engines.info,v 1.2.2.3 2009/05/05 21:53:44 earnie
+#  xmlsitemap_node.module,v 1.19.2.126 2009/06/12 15:32:26 earnie
+#  xmlsitemap_node.info,v 1.2.2.4 2009/05/05 21:53:44 earnie
+#  xmlsitemap_taxonomy.module,v 1.1.2.18 2009/06/16 14:20:17 earnie
+#  xmlsitemap_taxonomy.info,v 1.1.2.2 2009/05/07 17:10:35 kiam
+#  xmlsitemap_user.module,v 1.12.2.105 2009/06/17 13:46:06 earnie
+#  xmlsitemap_user.info,v 1.2.2.4 2009/05/05 21:53:44 earnie
+#  xmlsitemap_user.install,v 1.6.2.61 2009/06/16 14:10:43 earnie
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: french translation for drupal6 xmlsitemap modules\n"
+"POT-Creation-Date: 2009-07-29 23:02+0200\n"
+"PO-Revision-Date: 2009-07-29 23:14+0100\n"
+"Last-Translator: Alexander Haß\n"
+"Language-Team: Sylvain Moreau, OWS <sylvain.moreau@ows.fr>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n>1);\n"
+"X-Poedit-Language: French\n"
+
+#: xmlsitemap_taxonomy/xmlsitemap_taxonomy.module:83
+msgid "This will be the default priority of terms in this vocabulary."
+msgstr "Ce sera la priorité par défaut des termes de ce vocabulaire."
+
+#: xmlsitemap_taxonomy/xmlsitemap_taxonomy.module:191
+#: xmlsitemap_taxonomy/xmlsitemap_taxonomy.info:0
+msgid "XML sitemap taxonomy"
+msgstr "XML sitemap taxonomy"
+
+#: xmlsitemap_taxonomy/xmlsitemap_taxonomy.module:192
+msgid "The module adds <a href=\"@terms\">taxonomy terms</a> (categories) to the sitemap. The term default priority may be changed while adding or editing vocabularies and the term default priority can be overridden while adding or editing terms."
+msgstr "Le modue ajoute les <a href=\"@terms\">termes de taxonomie</a> au sitemap. La priorité par défaut de terme peut être modifiée lors de l'ajour ou de l'édition des vocabulaires, et la priorité par défaut de terme peut être remplacée lors de l'ajout ou de l'édition de termes."
+
+#: xmlsitemap_taxonomy/xmlsitemap_taxonomy.module:0
+msgid "xmlsitemap_taxonomy"
+msgstr "xmlsitemap_taxonomy"
+
+#: xmlsitemap_taxonomy/xmlsitemap_taxonomy.info:0
+msgid "Add taxonomy term links to the sitemap."
+msgstr "Ajouter les liens de termes de taxonomie au sitemap."
+

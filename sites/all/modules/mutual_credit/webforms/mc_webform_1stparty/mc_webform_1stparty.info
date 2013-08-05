@@ -1,0 +1,13 @@
+; $Id: mc_webform_1stparty.info,v 1.1.2.2 2010/12/06 13:19:46 hutch Exp $
+name = 1stparty exchange form
+description = Form for users to enter their own exchanges
+package = Mutual Credit
+core = "6.x"
+dependencies[] = mc_webforms
+
+; Information added by drupal.org packaging script on 2012-03-24
+version = "6.x-2.5"
+core = "6.x"
+project = "mutual_credit"
+datestamp = "1332592555"
+

@@ -1,0 +1,235 @@
+<?php
+
+/**
+ * Implementation of hook_menu().
+ */
+function privatemsg_notify_menu() {
+  $items = array();
+  $items['user/%user/notifications/privatemsg'] = array(
+    'title' => 'Private Message',
+    'page callback' => 'privatemsg_notify_subscriptions',
+    'page arguments' => array(1),
+    'access callback' => 'notifications_content_access', 
+    'access arguments' => array(1, 'read privatemsg'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 10
+  );
+  
+  return $items;
+}
+
+/**
+ * Implementation of hook_privatemsg_message_insert()
+ */
+function privatemsg_notify_privatemsg_message_insert($message) {
+  // Now trigger notifications event
+  foreach ($message['recipients'] as $recipient) {
+	$event = array(
+	  'module' => 'privatemsg_notify',
+	  'uid' => $message['author']->uid,
+	  'oid' => $message['mid'],
+	  'type' => 'privatemsg',
+	  'action' => 'received',
+	  'save' => 1,
+	  'queue' => 1,
+	  'params' => array(
+	    'recipient_uid' => $recipient->uid,
+	    'recipient_name' => $recipient->name,
+	    'subject' => $message['subject'],
+	    'body' => $message['body'],
+	    'author' => $message['author'],
+	    'timestamp' => $message['timestamp'],
+	    'mid' => $message['mid'],
+	    'thread_id' => $message['thread_id']
+	  ),    
+    );
+	$return = notifications_event($event);
+  }
+  require_once drupal_get_path('module', 'notifications') .'/notifications.cron.inc';
+  notifications_process_rows(array('cron' => 1, 'module' => 'privatemsg_notify', 'send_interval' => 0));
+}
+/**
+ * Implementation of hook_notifications()
+ * 
+ */
+function privatemsg_notify_notifications($op, &$arg0 = NULL, $arg1 = NULL, $arg2 = NULL) {
+	switch ($op) {
+		case 'subscription types':
+		  $types['privatemsg'] = array(
+	        'event_type' => 'privatemsg',
+	        'title' => t('Private message'),
+			'access' => 'read privatemsg',
+	        'page callback' => 'privatemsg_notify_subscriptions',
+	        'user page' => 'user/%user/notifications/privatemsg',
+	        'fields' => array('method'),
+	        'description' => t('Subscribe to everything related to private messages.')
+	      );
+	      return $types;
+	    case 'subscription fields':
+	      // Information about available fields for subscriptions
+	      $fields['method'] = array(
+	        'name' => t('Sending method'),
+	        'field' => 'method',
+	        'type' => 'string',
+	        'options' => array(
+	          'received' => t('Received Messages'),
+	        ),
+	      );
+	      return $fields;
+	    case 'names':
+		  $subs = &$arg0;
+		  if ($subs->event_type == 'privatemsg') {
+		    $subs->type_name = t('New Private Msg');
+		  }
+		  break;
+	    case 'query':
+		  // $arg2 is $event object.
+		  if ($arg0 == 'event' && $arg1 == 'privatemsg' && ($params = $arg2->params)) {
+			$event = $arg2;  			
+  			//build query cases	    	   		    
+		    $query[] = array(
+			  'where' => array('s.uid = %d'),
+			  'where args' => array(0 => $params['recipient_uid']),
+			);
+			return $query;
+		  }
+		  break;
+		case 'event types':
+	      // Node inserts are not grouped by node but all together. The digest will look like:
+	      //   New content has been submitted
+	      //   - Story Title1 by Author1
+	      //   - Event Title2 by Author2
+	      $types[] = array(
+	        'type' => 'privatemsg',
+	        'action' => 'received',
+	        'name' => t('New private message from [method-name]'),
+	        'line' => t('[type-name] [title] by [author-name]'),
+	        'digest' => array('privatemsg', 'method'),
+	        'description' => t('Private message received'),
+	      );
+	      return $types;
+		case 'access':
+		  if ($arg0 == 'event' && $arg2->type == 'privatemsg' && $arg2->action == 'received' && user_access('read privatemsg', $arg1)) {
+			$access = TRUE;
+			return array($access);
+		  }
+		  else {
+			return array($access);
+		  }
+		  break;
+	}
+}
+/**
+ * Implementation of hook_messaging()
+ */
+function privatemsg_notify_messaging($op, $arg1 = NULL, $arg2 = NULL, $arg3 = NULL, $arg4 = NULL) {
+  switch ($op) {
+    case 'message groups':
+     $info['notifications-event-privatemsg-received'] = array(
+        'module' => 'privatemsg_notify',
+        'name' => t('Privatemsg notifications'),
+        'help' => t('All pieces of the "privatemsg" are available as tokens'),
+        'description' => t('Notifications of privatemsg received'),
+      );
+      return $info;
+    case 'message keys':      
+      $type = $arg1;
+      switch($type){
+        case 'notifications-event-privatemsg-received':
+          return array(
+		    'subject' => t('Subject for private message notifications'),
+            'header' =>  t('Header for private message notifications'),
+		    'main' => t('Body for private message notifications'),
+		    'footer' => t('Footer for private message notifications'),
+          );
+        }
+      break;
+    case 'messages':
+      $type = $arg1;
+      //privatemsg event notifications
+      if($type == 'notifications-event-privatemsg-received'){
+        return array(
+          'subject' => t('You have received a private message from [privatemsg-author]'),
+          'header' => t('Greetings [privatemsg-recipient]'),
+          'main' => t('Message : [privatemsg-body]'),
+          'footer' => array(
+            t('This is an automatic message from [site-name]'),
+            t('To manage your subscriptions, browse to [subscriptions-manage]'),
+            t('You can unsubscribe at [unsubscribe-url]'),
+          ),
+        );
+      }
+      break;
+	case 'tokens':
+	  if ($arg1 == 'notifications-event-privatemsg-received') {
+		$tokens[] = 'privatemsg';
+	  }
+	  return $tokens;
+	}
+}
+/**
+ * Implementation of notifications_query_alter().
+ */
+function privatemsg_notify_notifications_query_alter($query) {
+  if ($query['where args'][0] == 'privatemsg') {
+	$query['join'] = array();
+	$query['having'] = array();
+  }
+  return $query;
+}
+
+/**
+ * Implementation of hook_token_list().
+ */
+function privatemsg_notify_token_list($type = 'all') {
+  if ($type == 'privatemsg') {
+	$tokens = array();
+	$tokens['privatemsg']['privatemsg-subject']    = t('The privatemsg subject.');
+	$tokens['privatemsg']['privatemsg-body']    = t('The privatemsg body.');
+	$tokens['privatemsg']['privatemsg-author'] = t('The privatemsg\'s author name.');
+	$tokens['privatemsg']['privatemsg-recipient'] = t('The privatemsg\'s recipient name.');
+	$tokens['privatemsg']['privatemsg-timestamp'] = t('The privatemsg\'s sending date.');
+  }	
+  return $tokens;
+}
+/**
+ * Implementation of hook_token_values()
+ */
+function privatemsg_notify_token_values($type, $object = NULL, $options = array()) {
+  $values = array();
+  
+  if ($type == 'event' && $object->type == 'privatemsg' && $object->action == 'received') {
+    //print_r($object);
+    if ($object->params['mid'] !== $object->params['thread_id']) {
+	  $values['privatemsg-subject'] = 'RE: '.$object->params['subject'];
+	}
+	else {
+	  $values['privatemsg-subject'] = $object->params['subject'];
+	}
+	$values['privatemsg-recipient'] = $object->params['recipient'];
+	$values['privatemsg-body'] = $object->params['body'];
+	$values['privatemsg-author'] = theme('username', $object->params['author']);
+	$values['privatemsg-timestamp'] = format_date($object->params['timestamp'], 'small');
+  }
+  return $values;
+}
+
+/**
+ * Menu callback for privatemsg notify subscriptions.
+ */
+function privatemsg_notify_subscriptions($account = NULL) {
+  global $user;
+  if (!isset($account)) {
+    $account = $user;
+  }
+  //get current subscriptions if any
+  $subscriptions = notifications_get_subscriptions(array('type' => 'received', 'event_type' => 'privatemsg', 'uid' => $account->uid), array(), TRUE, 'value');
+   
+  $defaults = array('type' => 'received', 'event_type' => 'privatemsg', 'module' => 'privatemsg_notify');
+  $options = array('title' => t('Messages'));
+  $list = array('received' => t('Received Messages'));
+  
+  $output .= drupal_get_form('notifications_user_form', $account, 'received', $subscriptions, $list, $defaults, $options);
+  
+  return $output; 
+}

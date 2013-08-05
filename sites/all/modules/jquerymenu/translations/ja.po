@@ -1,0 +1,75 @@
+# $Id: ja.po,v 1.1 2009/03/18 14:41:03 imagine Exp $
+# -----------------------------------------------------------------------------
+# Japanese translation of Drupal (modules-)
+#
+# Copyright (c) 2009  Drupal Japan  ( http://drupal.jp/ )  /
+#                     Takafumi      ( jp.drupal@imagine **reverse order**)
+#
+# Generated from file:
+#  jquerymenu.module,v 1.12 2009/02/17 21:51:36 aaronhawkins
+#  jquerymenu.install,v 1.2 2008/12/28 19:26:22 aaronhawkins
+#  jquerymenu.info,v 1.2 2008/12/28 19:26:22 aaronhawkins
+#
+# -----------------------------------------------------------------------------
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2009-03-18 23:18+0900\n"
+"Last-Translator: Takafumi <jp.drupal@imagine **reverse order**>\n"
+"Language-Team: Drupal Japan\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+
+#: jquerymenu.module:27
+msgid "Choose which menus will have a Jquery menu version and a corresponding block"
+msgstr "jQueryメニューと、対応するブロックを持つメニューを指定してください。"
+
+#: jquerymenu.module:72
+msgid "Jquery menu blocks"
+msgstr "jQueryメニューブロック"
+
+#: jquerymenu.module:76
+msgid "Choose which menus you wish to create a jquery version for. <p> Please note that this only creates the block. You will still have to activate the block on the blocks page."
+msgstr "jQueryメニューを作成するメニューを指定してください。<p>これはブロックの作成のみを行うことに注意してください。 作成されたブロックは、ブロックのページで有効化する必要があります。"
+
+#: jquerymenu.module:80
+msgid "Disable animation."
+msgstr "アニメーションを無効にする"
+
+#: jquerymenu.module:81
+msgid "If checked your menus will open without any transition effects."
+msgstr "チェックを入れると、メニューを開く際にアニメーションを行いません。"
+
+#: jquerymenu.module:86
+msgid "Save"
+msgstr "保存"
+
+#: jquerymenu.module:112
+msgid "Your settings have been saved."
+msgstr "設定が保存されました。"
+
+#: jquerymenu.module:26
+msgid "Jquerymenu Configuration"
+msgstr "jQueryメニューの設定"
+
+#: jquerymenu.module:0
+msgid "jquerymenu"
+msgstr "jquerymenu"
+
+#: jquerymenu.install:12
+msgid "Stores information about which menus are activated"
+msgstr "有効化されたメニューに関する情報を格納します"
+
+#: jquerymenu.info:0
+msgid "Jquery Menu"
+msgstr "Jquery Menu"
+
+#: jquerymenu.info:0
+msgid "Enables expandable jquery menus."
+msgstr "展開可能なjQueryメニューを使用できるようにします。"
+
+#: jquerymenu.info:0
+msgid "Advanced Navigation Pack"
+msgstr "拡張ナビゲーションパック"
+

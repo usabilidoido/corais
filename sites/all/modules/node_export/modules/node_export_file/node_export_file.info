@@ -1,0 +1,12 @@
+name = Node export files
+description = "Export helper module for handling files (CCK FileField, Upload, and Image)."
+dependencies[] = node_export
+version = VERSION
+core = 6.x
+package = "Node export"
+; Information added by drupal.org packaging script on 2012-08-06
+version = "6.x-3.4"
+core = "6.x"
+project = "node_export"
+datestamp = "1344222738"
+

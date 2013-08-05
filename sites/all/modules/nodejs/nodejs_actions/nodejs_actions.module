@@ -1,0 +1,479 @@
+<?php
+
+/**
+ * Implementation of hook_action_info().
+ */
+function nodejs_actions_action_info() {
+
+  $actions = array(
+    'realtime_taxonomy_action' => array(
+      'description' => t('Publish realtime notifications of taxonomy activity.'),
+      'type' => 'taxonomy',
+      'configurable' => FALSE,
+      'hooks' => array(
+        'taxonomy' => array('insert', 'update', 'delete'),
+      ),
+    ),
+    'realtime_comment_action' => array(
+      'description' => t('Publish realtime notifications of comment activity.'),
+      'type' => 'comment',
+      'configurable' => FALSE,
+      'hooks' => array(
+        'comment' => array('insert', 'update', 'delete', 'view', 'validate', 'publish', 'unpublish'),
+      ),
+    ),
+    'realtime_user_notification' => array(
+      'description' => t('Publish realtime notifications of user activity.'),
+      'type' => 'user',
+      'configurable' => FALSE,
+      'hooks' => array(
+        'user' => array('login', 'logout', 'insert', 'delete', 'update', 'view'),
+      )
+    ),
+    'realtime_node_notification' => array(
+      'description' => t('Publish realtime notifications of node activity.'),
+      'type' => 'node',
+      'configurable' => FALSE,
+      'hooks' => array(
+        'nodeapi' => array('view', 'insert', 'update', 'delete'),
+      )
+    ),
+  );
+ 
+   if (module_exists('og')) {
+    $actions += array(
+		'realtime_og_user_insert_action' => array(
+		  'description' => t('Publish realtime notifications.'),
+		  'type' => 'og',
+		  'configurable' => FALSE,
+		  'hooks' => array(
+			'og' => array('user insert'),
+		  ),
+		),
+		'realtime_og_user_update_action' => array(
+		  'description' => t('Publish realtime notifications.'),
+		  'type' => 'og',
+		  'configurable' => FALSE,
+		  'hooks' => array(
+			'og' => array('user update'),
+		  ),
+		),
+		'realtime_og_user_delete_action' => array(
+		  'description' => t('Publish realtime notifications.'),
+		  'type' => 'og',
+		  'configurable' => FALSE,
+		  'hooks' => array(
+			'og' => array('user delete'),
+		  ),
+		),
+		'realtime_og_user_approve_action' => array(
+		  'description' => t('Publish realtime notifications.'),
+		  'type' => 'og',
+		  'configurable' => FALSE,
+		  'hooks' => array(
+			'og' => array('user approve'),
+		  ),
+		),
+		'realtime_og_user_deny_action' => array(
+		  'description' => t('Publish realtime notifications.'),
+		  'type' => 'og',
+		  'configurable' => FALSE,
+		  'hooks' => array(
+			'og' => array('user deny'),
+		  ),
+		),         
+		'realtime_og_user_request_action' => array(
+		  'description' => t('Publish realtime notifications.'),
+		  'type' => 'og',
+		  'configurable' => FALSE,
+		  'hooks' => array(
+			'og' => array('user request'),
+		  ),
+		),
+		'realtime_og_user_admin_new_action' => array(
+		  'description' => t('Publish realtime notifications.'),
+		  'type' => 'og',
+		  'configurable' => FALSE,
+		  'hooks' => array(
+			'og' => array('admin new'),
+		  ),
+		),
+	);
+   }
+
+   if (module_exists('user_relationships_api')) {
+    $actions += array(
+		'realtime_user_relationships_type_presave_action' => array(
+		  'description' => t('Publish realtime notifications.'),
+		  'type' => 'user_relationships_api',
+		  'configurable' => FALSE,
+		  'hooks' => array(
+			'user_relationships_api' => array('type_presave'),
+		  ),
+		),	
+		'realtime_user_relationships_type_insert_action' => array(
+		  'description' => t('Publish realtime notifications.'),
+		  'type' => 'user_relationships_api',
+		  'configurable' => FALSE,
+		  'hooks' => array(
+			'user_relationships_api' => array('type_insert'),
+		  ),
+		),
+		'realtime_user_relationships_type_update_action' => array(
+		  'description' => t('Publish realtime notifications.'),
+		  'type' => 'user_relationships_api',
+		  'configurable' => FALSE,
+		  'hooks' => array(
+			'user_relationships_api' => array('type_update'),
+		  ),
+		),
+		'realtime_user_relationships_type_delete_action' => array(
+		  'description' => t('Publish realtime notifications.'),
+		  'type' => 'user_relationships_api',
+		  'configurable' => FALSE,
+		  'hooks' => array(
+			'user_relationships_api' => array('type_delete'),
+		  ),
+		),
+		'realtime_user_relationships_type_load_action' => array(
+		  'description' => t('Publish realtime notifications.'),
+		  'type' => 'user_relationships_api',
+		  'configurable' => FALSE,
+		  'hooks' => array(
+			'user_relationships_api' => array('type_load'),
+		  ),
+		),
+		'realtime_user_relationships_presave_action' => array(
+		  'description' => t('Publish realtime notifications.'),
+		  'type' => 'user_relationships_api',
+		  'configurable' => FALSE,
+		  'hooks' => array(
+			'user_relationships_api' => array('presave'),
+		  ),
+		),
+		'realtime_user_relationships_request_action' => array(
+		  'description' => t('Publish realtime notifications.'),
+		  'type' => 'user_relationships_api',
+		  'configurable' => FALSE,
+		  'hooks' => array(
+			'user_relationships_api' => array('request'),
+		  ),
+		),
+		'realtime_user_relationships_cancel_action' => array(
+		  'description' => t('Publish realtime notifications.'),
+		  'type' => 'user_relationships_api',
+		  'configurable' => FALSE,
+		  'hooks' => array(
+			'user_relationships_api' => array('cancel'),
+		  ),
+		),
+		'realtime_user_relationships_update_action' => array(
+		  'description' => t('Publish realtime notifications.'),
+		  'type' => 'user_relationships_api',
+		  'configurable' => FALSE,
+		  'hooks' => array(
+			'user_relationships_api' => array('update'),
+		  ),
+		),
+		'realtime_user_relationships_approve_action' => array(
+		  'description' => t('Publish realtime notifications.'),
+		  'type' => 'user_relationships_api',
+		  'configurable' => FALSE,
+		  'hooks' => array(
+			'user_relationships_api' => array('approve'),
+		  ),
+		),
+		'realtime_user_relationships_disapprove_action' => array(
+		  'description' => t('Publish realtime notifications.'),
+		  'type' => 'user_relationships_api',
+		  'configurable' => FALSE,
+		  'hooks' => array(
+			'user_relationships_api' => array('disapprove'),
+		  ),
+		),
+		'realtime_user_relationships_remove_action' => array(
+		  'description' => t('Publish realtime notifications.'),
+		  'type' => 'user_relationships_api',
+		  'configurable' => FALSE,
+		  'hooks' => array(
+			'user_relationships_api' => array('remove'),
+		  ),
+		),																	
+	);
+   }
+  
+  return $actions;
+  
+}
+
+/**
+ * Callback to handle node notifications.
+ */
+function realtime_node_notification($context = array(), $op) {
+  global $user;
+  $userlink = l($user->name, 'user/' . $user->uid);
+  $link = l($context->title, 'node/' . $context->nid);
+  $body = t('The user !user did %action a node !link', array('!user' => $userlink, '%action' => t($op['op']), '!link' => $link));
+  nodejs_actions_enqueue_message(t('Node Activity'), $body);
+}
+
+/**
+ * Callback to handle user notifications.
+ */
+function realtime_user_notification($context = array(), $op) {
+  $link = l($context->name, 'user/' . $context->uid);
+  if ($op['op'] == "insert")
+    $body = t('The user !user has been created.', array('!user' => $link));
+  elseif ($op['op'] == "delete")
+    $body = t('The user !user has been deleted.', array('!user' => $link));
+  elseif ($op['op'] == "view") {
+    global $user;
+    $viewerlink = l($user->name, 'user/' . $user->uid);
+    $body = t('The user !viewer has viewed the user profile !user.', array('!viewer' => $viewerlink, '!user' => $link));
+  }
+  else
+    $body = t('The user !user has %action.', array('!user' => $link, '%action' => t($op['op'])));
+  nodejs_actions_enqueue_message(t('User Activity'), $body);
+}
+
+/**
+ * Callback to handle taxonomy notifications.
+ */
+function realtime_taxonomy_action($comment, $context = array()) {
+  $term = taxonomy_get_term(arg(3));
+  $name = $term->name;
+  $voc = taxonomy_vocabulary_load($term->vid);
+  $vocabulary = $voc->name;
+  $link = l($name, 'taxonomy/term/' . $term->tid);
+  $body = t('This term !link in the vocabulary !voca has been %action.', array('!link' => $link, '!voca' => $vocabulary, '%action' => t($context['op'])));
+  nodejs_actions_enqueue_message(t('Taxonomy activity'), $body);
+}
+
+/**
+ * Callback to handle comment notifications.
+ */
+function realtime_comment_action($comment, $context = array()) {
+  if (isset($comment->cid)) {
+    $cid = $comment->cid;
+    $subject = $comment->subject;
+    $action = t($context['op']);
+  }
+  else {
+    $cid = $context['cid'];
+    $subject = db_result(db_query("SELECT subject FROM {comments} WHERE cid = %d", $cid));
+  }
+  $link = l($comment->subject, 'node/' . $comment->nid, array('fragment' => 'comment-' . $comment->cid));
+  $body = t('The User !name did %action a comment !link .', array('!name' => $comment->namex, '%action' => $action, '!link' => $link));
+
+  nodejs_actions_enqueue_message($subject, $body);
+}
+
+/**
+ * Callback to handle nodejs notification when a New user joins a group.
+ */
+function realtime_og_user_insert_action($hook, $context = array()) {
+  $link = l($context['user']->name, 'user/' . $context['user']->uid);
+  $group = l($context['node']->title, 'node/' . $context['node']->nid);  
+  $body = t('This user !link has joined the group !group.', array('!link' => $link, '!group' => $group));
+  nodejs_actions_enqueue_message(t('Group activity'), $body);
+}
+
+/**
+ * Callback to handle nodejs notification when a changes their subscription to a group.
+ */
+function realtime_og_user_update_action($hook, $context = array()) {
+  $link = l($context->name, 'user/' . $context->uid);
+  $group = l($context['node']->title, 'node/' . $context['node']->nid);  
+  $body = t('This user !link has changed his subscription to the group !group.', array('!link' => $link, '!group' => $group));
+  nodejs_actions_enqueue_message(t('Group activity'), $body);
+}
+
+/**
+ * Callback to handle nodejs notification when a user leave a group.
+ */
+function realtime_og_user_delete_action($hook, $context = array()) {
+  $link = l($context['user']->name, 'user/' . $context['user']->uid);
+  $group = l($context['node']->title, 'node/' . $context['node']->nid);  
+  $body = t('This user !link has removed his membership to the group !group.', array('!link' => $link, '!group' => $group));
+  nodejs_actions_enqueue_message(t('Group activity'), $body);
+}
+
+/**
+ * Callback to handle nodejs notification when a user has been approved for membership to a group.
+ */
+function realtime_og_user_approve_action($hook, $context = array()) {
+  $link = l($context['user']->name, 'user/' . $context['user']->uid);
+  $group = l($context['node']->title, 'node/' . $context['node']->nid);  
+  $body = t('This user !link has been approved for membership to the group !group.', array('!link' => $link, '!group' => $group));
+  nodejs_actions_enqueue_message(t('Group activity'), $body);
+}
+
+/**
+ * Callback to handle nodejs notification when a user is denied membership to a group.
+ */
+function realtime_og_user_deny_action($hook, $context = array()) {
+  $link = l($context['user']->name, 'user/' . $context['user']->uid);
+  $group = l($context['node']->title, 'node/' . $context['node']->nid);  
+  $body = t('This user !link is denied membership to the group !group.', array('!link' => $link, '!group' => $group));
+  nodejs_actions_enqueue_message(t('Group activity'), $body);
+}
+
+/**
+ * Callback to handle nodejs notification when a user requests membership to a group.
+ */
+function realtime_og_user_request_action($hook, $context = array()) {
+  $link = l($context['user']->name, 'user/' . $context['user']->uid);
+  $group = l($context['node']->title, 'node/' . $context['node']->nid);  
+  $body = t('This user !link requests membership to the group !group.', array('!link' => $link, '!group' => $group));
+  nodejs_actions_enqueue_message(t('Group activity'), $body);
+}
+
+/**
+ * Callback to handle nodejs notification when a user requests membership to a group.
+ */
+function realtime_og_user_admin_new_action($hook, $context = array()) {
+  $link = l($context['user']->name, 'user/' . $context['user']->uid);
+  $group = l($context['node']->title, 'node/' . $context['node']->nid);  
+  $body = t('This user !link is added as an admin to the group !group.', array('!link' => $link, '!group' => $group));
+  nodejs_actions_enqueue_message(t('Group activity'), $body);
+}
+
+/**
+ * Callback to handle nodejs notification when a user relationship has been updated.
+ */
+function realtime_user_relationship_update_action($hook, $context = array()) {
+  $link = l($context['user']->name, 'user/' . $context['user']->uid);
+  $group = l($context['node']->title, 'node/' . $context['node']->nid);  
+  $body = t('This user !link has been approved for membership to the group !group.', array('!link' => $link, '!group' => $group));
+  nodejs_actions_enqueue_message(t('Group activity'), $body);
+}
+
+/**
+ * Callback to handle nodejs notification when a user relationship has been disapproved.
+ */
+function realtime_user_relationship_disapprove_action($hook, $context = array()) {
+  $link = l($context['user']->name, 'user/' . $context['user']->uid);
+  $group = l($context['node']->title, 'node/' . $context['node']->nid);  
+  $body = t('This user !link has been approved for membership to the group !group.', array('!link' => $link, '!group' => $group));
+  nodejs_actions_enqueue_message(t('Group activity'), $body);
+}
+
+/**
+ * Callback to handle nodejs notification when a user relationship has been removed.
+ */
+function realtime_user_relationship_remove_action($hook, $context = array()) {
+  $link = l($context['user']->name, 'user/' . $context['user']->uid);
+  $group = l($context['node']->title, 'node/' . $context['node']->nid);  
+  $body = t('This user !link has been approved for membership to the group !group.', array('!link' => $link, '!group' => $group));
+  nodejs_actions_enqueue_message(t('Group activity'), $body);
+}
+
+/**
+ * Callback to handle nodejs notification when a user relationship has been approved.
+ */
+function realtime_user_relationship_approve_action($hook, $context = array()) {
+  $link = l($context['user']->name, 'user/' . $context['user']->uid);
+  $group = l($context['node']->title, 'node/' . $context['node']->nid);  
+  $body = t('This user !link has been approved for membership to the group !group.', array('!link' => $link, '!group' => $group));
+  nodejs_actions_enqueue_message(t('Group activity'), $body);
+}
+
+/**
+ * Callback to handle nodejs notification when a user relationship has been presave.
+ */
+function realtime_user_relationship_presave_action($hook, $context = array()) {
+  $link = l($context['user']->name, 'user/' . $context['user']->uid);
+  $group = l($context['node']->title, 'node/' . $context['node']->nid);  
+  $body = t('This user !link has been approved for membership to the group !group.', array('!link' => $link, '!group' => $group));
+  nodejs_actions_enqueue_message(t('Group activity'), $body);
+}
+
+/**
+ * Callback to handle nodejs notification when a user relationship has been requested.
+ */
+function realtime_user_relationship_request_action($hook, $context = array()) {
+  $link = l($context['user']->name, 'user/' . $context['user']->uid);
+  $group = l($context['node']->title, 'node/' . $context['node']->nid);  
+  $body = t('This user !link has been approved for membership to the group !group.', array('!link' => $link, '!group' => $group));
+  nodejs_actions_enqueue_message(t('Group activity'), $body);
+}
+
+/**
+ * Callback to handle nodejs notification when a user relationship has been canceled.
+ */
+function realtime_user_relationship_cancel_action($hook, $context = array()) {
+  $link = l($context['user']->name, 'user/' . $context['user']->uid);
+  $group = l($context['node']->title, 'node/' . $context['node']->nid);  
+  $body = t('This user !link has been approved for membership to the group !group.', array('!link' => $link, '!group' => $group));
+  nodejs_actions_enqueue_message(t('Group activity'), $body);
+}
+
+/**
+ * Callback to handle nodejs notification when a user relationship has been approved.
+ */
+function realtime_user_relationships_type_presave_action($hook, $context = array()) {
+  $link = l($context['user']->name, 'user/' . $context['user']->uid);
+  $group = l($context['node']->title, 'node/' . $context['node']->nid);  
+  $body = t('This user !link has been approved for membership to the group !group.', array('!link' => $link, '!group' => $group));
+  nodejs_actions_enqueue_message(t('Group activity'), $body);
+}
+
+/**
+ * Callback to handle nodejs notification when a user relationship has been inserted.
+ */
+function realtime_user_relationships_type_insert_action($hook, $context = array()) {
+  $link = l($context['user']->name, 'user/' . $context['user']->uid);
+  $group = l($context['node']->title, 'node/' . $context['node']->nid);  
+  $body = t('This user !link has been approved for membership to the group !group.', array('!link' => $link, '!group' => $group));
+  nodejs_actions_enqueue_message(t('Group activity'), $body);
+}
+
+/**
+ * Callback to handle nodejs notification when a user relationship has been deleted.
+ */
+function realtime_user_relationships_type_delete_action($hook, $context = array()) {
+  $link = l($context['user']->name, 'user/' . $context['user']->uid);
+  $group = l($context['node']->title, 'node/' . $context['node']->nid);  
+  $body = t('This user !link has been approved for membership to the group !group.', array('!link' => $link, '!group' => $group));
+  nodejs_actions_enqueue_message(t('Group activity'), $body);
+}
+
+/**
+ * Callback to handle nodejs notification when a user relationship has been loaded.
+ */
+function realtime_user_relationships_type_load_action($hook, $context = array()) {
+  $link = l($context['user']->name, 'user/' . $context['user']->uid);
+  $group = l($context['node']->title, 'node/' . $context['node']->nid);  
+  $body = t('This user !link has been approved for membership to the group !group.', array('!link' => $link, '!group' => $group));
+  nodejs_actions_enqueue_message(t('Group activity'), $body);
+}
+
+/**
+ * Callback to handle nodejs notification when a user relationship has been updated.
+ */
+function realtime_user_relationships_type_update_action($hook, $context = array()) {
+  $link = l($context['user']->name, 'user/' . $context['user']->uid);
+  $group = l($context['node']->title, 'node/' . $context['node']->nid);  
+  $body = t('This user !link has been approved for membership to the group !group.', array('!link' => $link, '!group' => $group));
+  nodejs_actions_enqueue_message(t('Group activity'), $body);
+}
+
+/**
+ * Helper function for enqueueing 'nodejs_notify' channel messages.
+ *
+ * @param mixed $subject
+ * @param mixed $body
+ */
+function nodejs_actions_enqueue_message($subject, $body) {
+  $message = (object) array(
+    'broadcast' => TRUE,
+    'data' => (object) array(
+      'subject' => $subject,
+      'body' => $body,
+    ),
+    'channel' => 'nodejs_notify',
+  );
+
+  nodejs_enqueue_message($message);
+}
+

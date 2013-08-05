@@ -1,0 +1,11 @@
+<?php
+
+include_once('atrium_moderated_groups.features.inc');
+
+/**
+ * Implementation of hook_enable().
+ */
+function atrium_moderated_groups_enable() {
+  ctools_include('export');
+  ctools_export_set_status('spaces_presets', 'og_moderated', FALSE);
+}

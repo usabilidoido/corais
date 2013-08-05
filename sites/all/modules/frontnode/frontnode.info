@@ -1,0 +1,11 @@
+name = Front Node
+description = Allow users to set node as front page.
+package = e-direct
+version = 6.x-1.0-dev
+core = 6.x
+; Information added by drupal.org packaging script on 2011-02-25
+version = "6.x-1.x-dev"
+core = "6.x"
+project = "frontnode"
+datestamp = "1298619309"
+

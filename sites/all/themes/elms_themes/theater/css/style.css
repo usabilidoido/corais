@@ -1,0 +1,567 @@
+body  {
+	font: 100% Helvetica, Verdana, Arial, sans-serif;
+	background: #000 url(../images/bg.jpg) top center no-repeat fixed;
+	margin: 0 auto 20px auto; /* it's good practice to zero the margin and padding of the body element to account for differing browser defaults */
+	padding: 0;
+	text-align: center; /* this centers the container in IE 5* browsers. The text is then set to the left aligned default in the #container selector */
+	color: #000000;
+	font-size:12px;
+	line-height:1.5;
+	outline:none;
+}
+
+#skip a, #skip a:hover, #skip a:visited {
+  position: absolute;
+  left:-10000px;
+  top:auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+#skip a:active, #skip a:focus {
+  position: static;
+  width: auto;
+  height: auto;
+}
+
+td {
+	border:1px solid #1A1816;
+	background:#5a4a3d;
+	padding:5px;
+}
+td.active {
+	background:#85715B;
+}
+.acc  {
+	width: 685px;
+	border:none;
+	margin-left:-33px;
+}
+.acc div.script {
+	background-color: #fff;
+	color:#5a4a3d;
+}
+.acc div.video, .acc div.main, .acc div.audio {
+	background-color: #000;
+	
+}
+.acc p {
+	margin-bottom : 10px;
+	border: none;
+	text-decoration: none;
+	margin: 0px;
+	padding: 20px 10px;
+	text-align: center;
+}
+.acc a {
+	cursor:pointer;
+	display:block;
+	padding:5px;
+	margin-top: 0;
+	text-decoration: none;
+	font-weight: bold;
+	font-size: 12px;
+	color: #89e9fa;
+	background: #5a4a3d;
+}
+.acc a:hover {
+	background: #bcb000;
+}
+.acc a.selected {
+	color: #fff;
+	background: #4d3f34 url(../images/acc_active_bg.jpg) repeat-x top left;
+}
+.video {
+	padding:20px 0;
+}
+.title-heading {
+	font-weight:bold;
+	font-size:14px;
+}
+a:visited, a:link {
+	color:#1A1816;
+	font-weight:bold;
+	text-decoration:underline;
+}
+a:hover, a:active {
+	color:#fff;
+	text-decoration:none;
+}
+#container { 
+	width: 900px;  /* using 20px less than a full 800px width allows for browser chrome and avoids a horizontal scroll bar */
+	background: #000;
+	margin: 0 auto; /* the auto margins (in conjunction with a width) center the page */
+	border: none;
+	text-align: left; /* this overrides the text-align: center on the body element. */
+} 
+#header { 
+	background: #000 url(../images/stage_center_ob.jpg) no-repeat top center;
+	height:263px;
+ 	width:900px; 
+	
+} 
+#header h1, #mainContent h1 {
+	margin: 0; /* zeroing the margin of the last element in the #header div will avoid margin collapse - an unexplainable space between divs. If the div has a border around it, this is not necessary as that also avoids the margin collapse */
+	padding: 0px 0; /* using padding instead of margin will allow you to keep the element away from the edges of the div */
+	font-weight: bold;
+	font-size: 34px;
+	color:#fff0e3;
+}
+#mainContent h2 {
+	margin: 0; /* zeroing the margin of the last element in the #header div will avoid margin collapse - an unexplainable space between divs. If the div has a border around it, this is not necessary as that also avoids the margin collapse */
+	padding: 0px 0; /* using padding instead of margin will allow you to keep the element away from the edges of the div */
+	font-weight: bold;
+	font-size: 18px;
+	text-transform: capitalize;
+}
+#sub-nav h3{
+	margin: 0;
+	padding: 14px 0; /* using padding instead of margin will allow you to keep the element away from the edges of the div */
+	font-weight: bold;
+	font-size: 16px;
+}
+#header-lt {
+	background: url(../images/stage_left.png) no-repeat top right;
+	height:686px;
+ 	width:53px;
+	margin-left: -53px;
+	float:left;
+}
+#header-rt {
+	background: url(../images/stage_right.png) no-repeat top left;
+	height:280px;
+ 	width:44px; 
+	margin-right: -44px;
+	float:right;
+}
+#cupholder {
+	height:0px;
+	width:900px;
+	top:0px;
+	margin-left:-450px;
+	text-align:left;
+	overflow:visible;
+	left: 50%;
+	position:fixed;
+}
+#open-close {
+	background: url(../images/open_close_btn.png) no-repeat top left;
+	height:60px;
+ 	width:64px;
+	margin-top:30px;
+	margin-right: -74px;
+	float:right;
+	cursor:pointer;
+}
+#now-showing{
+	height:50px;
+ 	width:126px;
+	margin-left: -170px;
+	margin-top:102px;
+	float:left;
+	color:#FF0000;
+	line-height:1.2;
+	font-size:10px;
+	font-weight:bold;
+	overflow: hidden;
+	word-wrap: break-word;
+	text-align:left;
+	position:fixed;
+	top:0px;
+	text-shadow: 0 0 5px #C00;
+}
+.now-showing {
+	color:#000000;
+	text-shadow: 0 0 4px #000;
+}
+#main-menu {
+	background:#000 url(../images/nav_bg.png) repeat-x left top;
+	width:100%;
+	height:56px;
+}
+#menu-lt-image {
+	background: #000 url(../images/nav_left_theatre297.jpg) no-repeat top left;
+	width:248px;
+	height:56px;
+	float:left;
+}
+#sub-nav {
+	float: left; /* since this element is floated, a width must be given */
+	width: 205px; /* the actual width of this div, in standards-compliant browsers, or standards mode in Internet Explorer will include the padding and border in addition to the width */
+	background: url(../images/subnav_top.jpg) no-repeat top left; /* the background color will be displayed for the length of the content in the column, but no further */
+	padding: 20px 10px 20px 0px;
+	color:#b1b1b1;
+}
+#sub-nav ul.menu li{
+	list-style:none;
+	list-style-position:-5000;
+	
+}
+#sub-nav a:link, #sub-nav a:visited {
+	color:#fff;
+	text-decoration:none;
+}
+#sub-nav a:hover, #sub-nav a:active {
+	color:red;
+}
+#mainContent { 
+	margin: 0 0 0 215px;
+	background: #85715b;
+	color: #ffe5c6;
+}
+#mainContent .pad { 
+	padding: 20px 33px;
+}
+#content-bar {
+	width:671px;
+	height:35px;
+	background: url(../images/cnt_bar.png) top left repeat-x;
+	padding:7px 7px 0;
+}
+.unit-heading {
+	border-top:0px;
+	border-bottom:dashed 1px #ffe5c6;
+	border-left:0px;
+	border-right:0px;
+}
+#footer { 
+	padding: 10px;
+	font-size:10px;
+	background:#5a4a3d;
+	text-align:center;
+	color:#1a1816;
+	clear:both;
+}
+#footer-btm {
+	width:685px;
+	height:5px;
+	background: url(../images/ftr_btm.gif) bottom left no-repeat;
+}
+#info-tab {
+	width:79px;
+	height:16px;
+	background: url(../images/info_tab.gif) top left no-repeat;
+	margin-top:-10px;
+	margin-bottom:10px;
+	margin-left:580px;
+	cursor:pointer;
+}
+#info-tab:hover {
+	background-position: 0px -16px;
+	background-image:url(../images/info_tab.gif);
+	background-repeat:no-repeat;
+}
+.footer-copy {
+	display:none;
+}
+#footer p {
+	margin: 0; /* zeroing the margins of the first element in the footer will avoid the possibility of margin collapse - a space between divs */
+	padding: 10px 0; /* padding on this element will create space, just as the the margin would have, without the margin collapse issue */
+}
+.fltrt { /* this class can be used to float an element right in your page. The floated element must precede the element it should be next to on the page. */
+	float: right;
+	margin-left: 8px;
+}
+.fltlft { /* this class can be used to float an element left in your page */
+	float: left;
+	margin-right: 8px;
+}
+.clearfloat { /* this class should be placed on a div or break element and should be the final element before the close of a container that should fully contain a float */
+	clear:both;
+    height:0;
+    font-size: 1px;
+    line-height: 0px;
+}
+.content .print-link {
+ display:none;
+}
+/* content bar buttons*/
+.prev-btn {
+	width:32px;
+	height:31px;
+	background: url(../images/left_right_btns.png) top left no-repeat;
+	float:left;
+	cursor:pointer;
+}
+.prev-btn:hover{
+	background-position: 0 -62px;
+}
+.next-btn {
+	width:32px;
+	height:31px;
+	background-image: url(../images/left_right_btns.png);
+	background-position: 0	-31px;
+	float:left;
+	cursor:pointer;
+}
+.next-btn:hover{
+	background-position: 0 -93px;
+}
+#content-bar .search-btn {
+	width:46px;
+	height:31px;
+	background: url(../images/search_btn.png) top right;
+	float:left;
+	cursor:pointer;
+}
+#content-bar .search-btn:hover{
+	background-position: 0 -31px;
+}
+#content-bar .search-area {
+	height:22px;
+	width:136px;
+	padding:4px 2px 4px 2px;
+	background:url(../images/search_bg.png) top left repeat-x;
+	float:left;
+}
+#content-bar .search-end {
+	height:31px;
+	width:4px;
+	background:url(../images/search_rt.png) top left repeat-x;
+	float:right;
+}
+#content-bar #search input.form-text {
+	width:136px;
+	outline:none;
+	border:none;
+	color:#85715B;
+	background:transparent;
+	font-size:14px;
+	padding:2px;
+}
+#content-bar #search input:focus.form-text {
+	background:#fff;
+}
+#search input.form-submit {
+	display:none;
+}
+#content-bar #search-theme-form {
+	float:right;
+	width:190px;
+}
+/* mini bar*/
+#mini-bar #search-theme-form{
+	margin-right:10px;
+	float:right;
+	width:129px;
+}
+#mini-bar #search input.form-text {
+	width:96px;
+	outline:none;
+	border:none;
+	color:#85715B;
+	background:transparent;
+	font-size:12px;
+	padding:2px;
+	margin-top:1px;
+}
+#mini-bar #search input:focus.form-text {
+	background:transparent;
+}
+#mini-bar .search-btn {
+	width:24px;
+	height:21px;
+	background: url(../images/mini_search_btn.png) right no-repeat;
+	float:left;
+	cursor:pointer;
+}
+#mini-bar .search-btn:hover{
+	background-position: -1px;
+}
+#mini-bar .search-area {
+	height:21px;
+	width:96px;
+	padding:0px 2px;
+	background:url(../images/mini_search_bg.png) top left repeat-x;
+	float:left;
+}
+#mini-bar .search-end {
+	height:21px;
+	width:5px;
+	background:url(../images/mini_search_rt.png) top left repeat-x;
+	float:right;
+}
+
+#mini-bar {
+	width:685px;
+	height:28px;
+	background: url(../images/mb_bg.png) top left repeat-x;
+	display:none;
+	margin-left:-235px;
+	left:50%;
+	position:fixed;
+	top:0;
+	z-index:10000;
+	text-align:left;
+}
+#badge {
+	width:66px;
+	height:24px;
+	background: url(../images/mb_theatre297_badge.png) top left no-repeat;
+	margin-right:-66px;
+	float:right;
+}
+#mini-bar .prev-btn {
+	width:23px;
+	height:23px;
+	background: url(../images/mb_btns.jpg) top left no-repeat;
+	float:left;
+	cursor:pointer;
+}
+#mini-bar .prev-btn:hover{
+	background-position: 0 -23px;
+}
+#mini-bar .next-btn {
+	width:23px;
+	height:23px;
+	background-image: url(../images/mb_btns.jpg);
+	background-position: -23px 0;
+	float:left;
+	cursor:pointer;
+}
+#mini-bar .next-btn:hover{
+	background-position: -23px -23px;
+}
+#mini-bar #printlinks {
+	float:right;
+	margin:2px 10px 2px 10px;
+}
+/*Nice Menus main-nav*/
+#main-menu ul.nice-menu a {
+padding:10px 15px;
+font-size:16px;
+font-weight:bold;
+text-decoration:none;
+cursor:pointer;
+}
+#main-menu ul.nice-menu{
+margin-top:16px;
+margin-left:10px;
+height:10px;
+}
+#main-menu ul.nice-menu li ul a{
+padding:10px 20px;
+}
+#main-menu ul.nice-menu a:link, #main-menu ul.nice-menu a:visited {
+color:#959595;
+}
+#main-menu ul.nice-menu a:hover, #main-menu ul.nice-menu a:active {
+color:#ffe5c6;
+text-shadow:0 0 8px #18c1ff;
+}
+#main-menu ul.nice-menu li {
+border:none;
+background:transparent;
+}
+#main-menu ul.nice-menu li ul{
+margin-top:15px;
+font-size:12px;
+background:#fff;
+}
+#main-menu ul.nice-menu li ul a {
+font-size:12px;
+text-shadow:none;
+}
+#main-menu ul.nice-menu li ul a:hover, #main-menu ul.nice-menu li ul a:active {
+background:#1a1816;
+color:#fff;
+}
+#main-menu ul.nice-menu-down li {
+border-top:none;
+}
+#main-menu ul.nice-menu li ul li{
+}
+#main-menu ul.nice-menu li ul li ul{
+margin-top:0px;
+background:#1a1816;
+}
+#main-menu ul.nice-menu-down li li:hover.menuparent{
+background:#1a1816;
+}
+/*Nice Menus mini-bar*/
+#mini-bar ul.nice-menu a {
+padding:7px 15px;
+font-size:10px;
+text-decoration:none;
+cursor:pointer;
+}
+#mini-bar ul.nice-menu{
+z-index:10001;
+height:10px;
+}
+#mini-bar ul.nice-menu a:link, #mini-bar ul.nice-menu a:visited {
+color:#959595;
+}
+#mini-bar ul.nice-menu a:hover, #mini-bar ul.nice-menu a:active {
+color:#fff;
+}
+#mini-bar ul.nice-menu li {
+border:none;
+background:transparent;
+}
+#mini-bar ul.nice-menu li ul{
+margin-top:5px;
+font-size:10px;
+background:#fff;
+}
+#mini-bar ul.nice-menu li ul a {
+font-size:10px;
+color:#000;
+}
+#mini-bar ul.nice-menu li ul a:link, #mini-bar ul.nice-menu li ul a:visited {
+color:#959595;
+}
+#mini-bar ul.nice-menu li ul a:hover, #mini-bar ul.nice-menu li ul a:active {
+background:#1a1816;
+color:#fff;
+}
+#mini-bar ul.nice-menu-down li {
+border-top:none;
+}
+#mini-bar ul.nice-menu li ul li{
+}
+#mini-bar ul.nice-menu li ul li ul{
+margin-top:0px;
+background:#1a1816;
+}
+#mini-bar ul.nice-menu-down li li:hover.menuparent{
+background:#1a1816;
+}
+#mini-bar ul.nice-menu li ul li ul a:link, #mini-bar ul.nice-menu li ul li ul a:visited {
+color:#959595;
+}
+#mini-bar ul.nice-menu li ul li ul a:hover, #mini-bar ul.nice-menu li ul li ul a:active {
+color:#fff;
+}
+
+
+#tinymce{
+	background:#85715B !important;
+	text-align:left;
+	color:#FFE5C6;
+	margin: 5px;
+	padding:5px 5px 5px 33px;
+	font-size:12px;
+	font-family:Arial, Helvetica, sans-serif;
+	width:auto;
+	min-width:0px;
+}
+#printlinks {
+	float:right;
+	margin:7px 10px 2px 10px;
+}
+
+#tooltip {
+-moz-border-radius-bottomleft:0;
+-moz-border-radius-bottomright:0;
+-moz-border-radius-topleft:0;
+-moz-border-radius-topright:0;
+background:#bcb000;
+border:2px solid #000;
+color:#000000;
+display:none;
+max-width:20em;
+opacity:1;
+padding:4px;
+z-index:110000;
+}

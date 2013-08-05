@@ -1,0 +1,708 @@
+# $Id: sticky_notes.pot,v 1.1.2.1 2010/08/06 23:55:02 berliner Exp $
+#
+# LANGUAGE translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  sticky_notes.admin.inc,v 1.1.2.3 2010/05/18 12:15:12 berliner
+#  sticky_notes.module,v 1.1.2.7 2010/06/08 08:37:35 berliner
+#  sticky_notes.callbacks.inc,v 1.1.2.3 2010/05/07 13:23:40 berliner
+#  sticky_notes.install,v 1.1.2.4 2010/05/10 17:13:51 berliner
+#  sticky_notes.info: n/a
+#  sticky_notes.views.inc,v 1.1.2.1 2010/05/07 13:23:41 berliner
+#  views_handler_filter_sticky_notes_priority.inc,v 1.1 2010/03/09 16:45:34 berliner
+#  sticky_notes.forms.js,v 1.1 2010/03/09 16:45:34 berliner
+#  sticky_notes.js,v 1.1.2.4 2010/06/08 08:37:35 berliner
+#  sticky-notes-info-box.tpl.php,v 1.1.2.1 2010/05/07 13:23:41 berliner
+#  views_handler_field_link_path.inc,v 1.1 2010/03/09 16:45:34 berliner
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2010-08-06 18:29+0200\n"
+"PO-Revision-Date: 2010-08-06 18:33+0100\n"
+"Last-Translator: Ralf Baumbach <ralf.baumbach@gmail.com>\n"
+"Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: sticky_notes.admin.inc:32
+msgid "Basic settings"
+msgstr ""
+
+#: sticky_notes.admin.inc:37
+msgid "Default container selector"
+msgstr ""
+
+#: sticky_notes.admin.inc:38
+msgid "If you have a centered layout you should change this to your content containers CSS ID. A possible value could be \"#wrapper\". If you are not sure, look in the HTML source of your frontpage and identify the element that contains your content area. All notes will be positioned relative to this element. Changing this after having added notes will change the former position of those notes on the document, so handle with care! This selector is used when no other selector has been specified in the <a href=\"@theme-settings\">theme configuration</a>. If you use multiple themes for your site you should set this setting for each theme individually."
+msgstr ""
+
+#: sticky_notes.admin.inc:44
+msgid "Minimal z-index for sticky notes"
+msgstr ""
+
+#: sticky_notes.admin.inc:45
+msgid "If you encounter problems with the display of sticky notes, like partially hidden notes, you can try to increase this value."
+msgstr ""
+
+#: sticky_notes.admin.inc:52
+msgid "Always hide notes on page load"
+msgstr ""
+
+#: sticky_notes.admin.inc:53
+msgid "Check this option if you want sticky notes to be hidden when a page is loaded. Note that for users with sufficient permissions there will be a link in the info box that permits to show the notes, so this can not be used to generally always hide all notes."
+msgstr ""
+
+#: sticky_notes.admin.inc:59
+msgid "Automatic size adjustment in exposé view"
+msgstr ""
+
+#: sticky_notes.admin.inc:60
+msgid "Check this if you want that the sticky notes automatically change size to fit on your screen when you go into exposé mode."
+msgstr ""
+
+#: sticky_notes.admin.inc:66
+msgid "Allow default Drupal node operations"
+msgstr ""
+
+#: sticky_notes.admin.inc:67
+msgid "Check this option if you want to allow access to the default drupal node edit forms (e.g. node/add/sticky_notes)."
+msgstr ""
+
+#: sticky_notes.admin.inc:73
+msgid "Appearance"
+msgstr ""
+
+#: sticky_notes.admin.inc:74
+msgid "Here you can change the way sticky notes will be displayed."
+msgstr ""
+
+#: sticky_notes.admin.inc:79
+msgid "Width"
+msgstr ""
+
+#: sticky_notes.admin.inc:82
+msgid "The width in pixels. Leave empty to use default value (154px)."
+msgstr ""
+
+#: sticky_notes.admin.inc:87
+msgid "Height"
+msgstr ""
+
+#: sticky_notes.admin.inc:90
+msgid "The height in pixels. Leave empty to use default value (154px)."
+msgstr ""
+
+#: sticky_notes.admin.inc:95
+msgid "Note color"
+msgstr ""
+
+#: sticky_notes.admin.inc:98;106
+msgid "A color code as you would set it in a stylesheet (e.g. #FDFB8C, red, ...). Leave empty to use system default."
+msgstr ""
+
+#: sticky_notes.admin.inc:103
+msgid "Text color"
+msgstr ""
+
+#: sticky_notes.admin.inc:111
+msgid "Character limit"
+msgstr ""
+
+#: sticky_notes.admin.inc:114
+msgid "The maximum number of characters that a user can enter into a sticky note. Set to 0 for no limitation. Note that changing this setting after notes have already been created might prevent users from saving existing notes if the original note contains less that the specified amount of characters."
+msgstr ""
+
+#: sticky_notes.admin.inc:119
+msgid "Resizable notes"
+msgstr ""
+
+#: sticky_notes.admin.inc:120
+msgid "Check this, if you want that users can change the size of individual notes. Note that deactivating this option does not reset the size of already modified notes to the default size."
+msgstr ""
+
+#: sticky_notes.admin.inc:126
+msgid "Apply the given dimensions to all notes immediately."
+msgstr ""
+
+#: sticky_notes.admin.inc:127
+msgid "ATTENTION: This action can not be undone!"
+msgstr ""
+
+#: sticky_notes.admin.inc:133
+msgid "Info box"
+msgstr ""
+
+#: sticky_notes.admin.inc:134
+msgid "The info box provides a quick way to access sticky notes. It will be displayed in one of the four corners of your screen and contains links to add and hide the sticky notes or to show an exposé of all notes on the current page."
+msgstr ""
+
+#: sticky_notes.admin.inc:139
+msgid "Position"
+msgstr ""
+
+#: sticky_notes.admin.inc:141
+msgid "top left"
+msgstr ""
+
+#: sticky_notes.admin.inc:142
+msgid "top right"
+msgstr ""
+
+#: sticky_notes.admin.inc:143
+msgid "bottom left"
+msgstr ""
+
+#: sticky_notes.admin.inc:144
+msgid "bottom right"
+msgstr ""
+
+#: sticky_notes.admin.inc:146
+msgid "Where to show the info box."
+msgstr ""
+
+#: sticky_notes.admin.inc:152
+msgid "Automatically hide the info box"
+msgstr ""
+
+#: sticky_notes.admin.inc:153
+msgid "Check this, if you want that the info box will be hidden until you move your mouse in the selected corner."
+msgstr ""
+
+#: sticky_notes.admin.inc:159
+msgid "Provide hide / show buttons"
+msgstr ""
+
+#: sticky_notes.admin.inc:160
+msgid "Check this if you want that users can hide / show all notes at once."
+msgstr ""
+
+#: sticky_notes.admin.inc:166
+msgid "Timespan of visibility memory in days"
+msgstr ""
+
+#: sticky_notes.admin.inc:167
+msgid "The number of days that the visibility state should be remembered for each user so that notes remain hidden / visible while the user visits your site."
+msgstr ""
+
+#: sticky_notes.admin.inc:174;311;491
+msgid "Save"
+msgstr ""
+
+#: sticky_notes.admin.inc:193
+msgid "You must specify an integer value."
+msgstr ""
+
+#: sticky_notes.admin.inc:197
+msgid "You must specify a positive integer value or nothing for default width."
+msgstr ""
+
+#: sticky_notes.admin.inc:201
+msgid "You must specify a positive integer value or nothing for default height."
+msgstr ""
+
+#: sticky_notes.admin.inc:205
+msgid "You must specify a positive integer value or 0 for unlimited character length."
+msgstr ""
+
+#: sticky_notes.admin.inc:209
+msgid "You must specify a positive integer value for the visibility state memory."
+msgstr ""
+
+#: sticky_notes.admin.inc:241;354
+msgid "Your settings have been saved."
+msgstr ""
+
+#: sticky_notes.admin.inc:246
+msgid "All notes have been resized to the default settings."
+msgstr ""
+
+#: sticky_notes.admin.inc:274
+msgid "Priority level"
+msgstr ""
+
+#: sticky_notes.admin.inc:275
+msgid "You can define up to !max different priority levels for sticky notes. For each level you can chose a distinct colored pin. Note that only priority levels with a name will be accessible for notes. Levels with an empty name won't show up in the priority select boxes on the sticky note forms."
+msgstr ""
+
+#: sticky_notes.admin.inc:278
+msgid "None"
+msgstr ""
+
+#: sticky_notes.admin.inc:293;547
+msgid "Name"
+msgstr ""
+
+#: sticky_notes.admin.inc:296
+msgid "The name as it appears in the select box."
+msgstr ""
+
+#: sticky_notes.admin.inc:301;548
+msgid "Pin color"
+msgstr ""
+
+#: sticky_notes.admin.inc:304
+msgid "The color of the pin. If you set this to none then no pin is displayed."
+msgstr ""
+
+#: sticky_notes.admin.inc:331
+msgid "The default priority must have a name."
+msgstr ""
+
+#: sticky_notes.admin.inc:376;546
+msgid "Default"
+msgstr ""
+
+#: sticky_notes.admin.inc:377
+msgid "This section allows you to control the default visibility behaviour of sticky notes. These default settings can be overridden for each role."
+msgstr ""
+
+#: sticky_notes.admin.inc:381
+msgid "Show on every page except the listed pages."
+msgstr ""
+
+#: sticky_notes.admin.inc:382
+msgid "Show on only the listed pages."
+msgstr ""
+
+#: sticky_notes.admin.inc:384
+msgid "Enter one page per line as Drupal paths. The '*' character is a wildcard. Example paths are %blog for the blog page and %blog-wildcard for every personal blog. %front is the front page."
+msgstr ""
+
+#: sticky_notes.admin.inc:387
+msgid "Show if the following PHP code returns <code>TRUE</code> (PHP-mode, experts only)."
+msgstr ""
+
+#: sticky_notes.admin.inc:388
+msgid "If the PHP-mode is chosen, enter PHP code between %php. Note that executing incorrect PHP-code can break your Drupal site."
+msgstr ""
+
+#: sticky_notes.admin.inc:392;451
+msgid "Show sticky notes on specific pages"
+msgstr ""
+
+#: sticky_notes.admin.inc:395;454
+msgid "This concerns both notes and info box."
+msgstr ""
+
+#: sticky_notes.admin.inc:399;459
+msgid "Pages"
+msgstr ""
+
+#: sticky_notes.admin.inc:406;466
+msgid "Show sticky notes from specific roles"
+msgstr ""
+
+#: sticky_notes.admin.inc:409
+msgid "Show sticky notes only for the selected role(s). If you select no roles, sticky notes will be visible to all users."
+msgstr ""
+
+#: sticky_notes.admin.inc:414;474
+msgid "Default accessibility setting"
+msgstr ""
+
+#: sticky_notes.admin.inc:415;475
+msgid "Private"
+msgstr ""
+
+#: sticky_notes.admin.inc:415;475
+#: sticky_notes.module:1121
+msgid "Public"
+msgstr ""
+
+#: sticky_notes.admin.inc:417;477
+msgid "Wheather new sticky notes should be private or public by default."
+msgstr ""
+
+#: sticky_notes.admin.inc:422;482
+msgid "Allow user to change private / public"
+msgstr ""
+
+#: sticky_notes.admin.inc:424;484
+msgid "If checked, users can override the default private / public setting above."
+msgstr ""
+
+#: sticky_notes.admin.inc:434
+msgid "This section allows you to control sticky notes visibility for !role."
+msgstr ""
+
+#: sticky_notes.admin.inc:441
+msgid "Use default"
+msgstr ""
+
+#: sticky_notes.admin.inc:442
+msgid "Use global configuration."
+msgstr ""
+
+#: sticky_notes.admin.inc:442
+msgid "Use role specific configuration."
+msgstr ""
+
+#: sticky_notes.admin.inc:444
+msgid "The following seetings will only apply if the role specific configuration should be used."
+msgstr ""
+
+#: sticky_notes.admin.inc:469
+msgid "If left empty than all users with this role will be able to see the notes of all other users."
+msgstr ""
+
+#: sticky_notes.callbacks.inc:22
+msgid "+ Add note"
+msgstr ""
+
+#: sticky_notes.callbacks.inc:35
+msgid "Sticky Notes overview"
+msgstr ""
+
+#: sticky_notes.module:53
+msgid "This module provides sticky notes for Drupal sites. Please note that you need to have javascript enabled in your browser in order to see the notes and the info box."
+msgstr ""
+
+#: sticky_notes.module:56
+msgid "On this page you can change the global settings for the sticky notes module for your site."
+msgstr ""
+
+#: sticky_notes.module:59
+msgid "On this page you can set role specific settings for sticky notes. Note that the settings from the highest role a user belongs to will be the one that is used."
+msgstr ""
+
+#: sticky_notes.module:62
+msgid "On this page you can define the priority levels that can be associated to each note. If you don't want to use priorities  you can simply set all name fields to empty."
+msgstr ""
+
+#: sticky_notes.module:211
+msgid "The access to the default node forms for sticky notes has been disabled on the <a href=\"@settings-page\">settings page</a>."
+msgstr ""
+
+#: sticky_notes.module:412
+msgid "Sticky Note"
+msgstr ""
+
+#: sticky_notes.module:414
+msgid "A Sticky Note is a note with text, position and priority that you can attach to every page on your site. You can leave messages for other people you are working with or remind yourself of things that are still to be done."
+msgstr ""
+
+#: sticky_notes.module:418
+msgid "Note"
+msgstr ""
+
+#: (duplicate) sticky_notes.module:611;150
+#: sticky_notes.install:25
+#: ;31  sticky_notes.info:0
+msgid "Sticky Notes"
+msgstr ""
+
+#: sticky_notes.module:768
+msgid "Sticky Note on !link_path"
+msgstr ""
+
+#: sticky_notes.module:988
+msgid "On all pages"
+msgstr ""
+
+#: sticky_notes.module:995
+msgid "On all pages of this type"
+msgstr ""
+
+#: sticky_notes.module:997
+msgid "Only on the current page"
+msgstr ""
+
+#: sticky_notes.module:1003
+msgid "Keep original setting"
+msgstr ""
+
+#: sticky_notes.module:1077
+msgid "Visibility"
+msgstr ""
+
+#: sticky_notes.module:1087
+#: views/sticky_notes.views.inc:52
+#: views/views_handler_filter_sticky_notes_priority.inc:48
+msgid "Priority"
+msgstr ""
+
+#: sticky_notes.module:1135
+#: js/sticky_notes.forms.js:0
+msgid "all pages"
+msgstr ""
+
+#: sticky_notes.module:1140;1144
+#: js/sticky_notes.forms.js:0
+msgid "everybody"
+msgstr ""
+
+#: sticky_notes.module:1140;1144
+#: js/sticky_notes.forms.js:0
+msgid "me"
+msgstr ""
+
+#: sticky_notes.module:1146
+#: js/sticky_notes.forms.js:0
+msgid "Visible on @where for @who"
+msgstr ""
+
+#: sticky_notes.module:1212
+msgid "Sticky Notes Settings"
+msgstr ""
+
+#: sticky_notes.module:1217
+msgid "Container Selector"
+msgstr ""
+
+#: sticky_notes.module:1219
+msgid "If you have a centered layout you should change this to your content containers CSS ID. A possible value could be \"#wrapper\". If you are not sure, look in the HTML source of a page that uses this theme and identify the element that contains your content area. All notes will be positioned relative to this element. Changing this after having added notes will change the former position of those notes on the document, so handle with care!"
+msgstr ""
+
+#: sticky_notes.module:1277
+msgid "Note that this will not affect the sticky notes content type."
+msgstr ""
+
+#: sticky_notes.module:1422
+msgid "Anonymous"
+msgstr ""
+
+#: sticky_notes.module:1424
+msgid "Edit"
+msgstr ""
+
+#: sticky_notes.module:1424
+msgid "Edit Sticky Note"
+msgstr ""
+
+#: sticky_notes.module:1427
+msgid "Delete"
+msgstr ""
+
+#: sticky_notes.module:1427
+msgid "Delete Sticky Note"
+msgstr ""
+
+#: sticky_notes.module:1503
+msgid "Low"
+msgstr ""
+
+#: sticky_notes.module:1504
+msgid "Normal"
+msgstr ""
+
+#: sticky_notes.module:1505
+msgid "High"
+msgstr ""
+
+#: sticky_notes.module:1520
+msgid "White"
+msgstr ""
+
+#: sticky_notes.module:1521
+msgid "Red"
+msgstr ""
+
+#: sticky_notes.module:1522
+msgid "Orange"
+msgstr ""
+
+#: sticky_notes.module:1523
+msgid "Yellow"
+msgstr ""
+
+#: sticky_notes.module:1524
+msgid "Green"
+msgstr ""
+
+#: sticky_notes.module:1525
+msgid "Dark green"
+msgstr ""
+
+#: sticky_notes.module:1526
+msgid "Light blue"
+msgstr ""
+
+#: sticky_notes.module:1527
+msgid "Blue"
+msgstr ""
+
+#: sticky_notes.module:1528
+msgid "Navy"
+msgstr ""
+
+#: sticky_notes.module:1529
+msgid "Gray"
+msgstr ""
+
+#: sticky_notes.module:1530
+msgid "Black"
+msgstr ""
+
+#: sticky_notes.module:433
+msgid "access sticky notes"
+msgstr ""
+
+#: sticky_notes.module:434
+msgid "administer sticky notes"
+msgstr ""
+
+#: sticky_notes.module:435
+msgid "create sticky notes"
+msgstr ""
+
+#: sticky_notes.module:436
+msgid "create sticky notes with scope all pages"
+msgstr ""
+
+#: sticky_notes.module:437
+msgid "create sticky notes with scope all pages of a type"
+msgstr ""
+
+#: sticky_notes.module:438
+msgid "edit all sticky notes"
+msgstr ""
+
+#: sticky_notes.module:439
+msgid "edit own sticky notes"
+msgstr ""
+
+#: sticky_notes.module:440
+msgid "edit anonymous sticky notes"
+msgstr ""
+
+#: sticky_notes.module:441
+msgid "delete all sticky notes"
+msgstr ""
+
+#: sticky_notes.module:442
+msgid "delete own sticky notes"
+msgstr ""
+
+#: sticky_notes.module:443
+msgid "delete anonymous sticky notes"
+msgstr ""
+
+#: sticky_notes.module:444
+msgid "search sticky notes"
+msgstr ""
+
+#: sticky_notes.module:445
+msgid "view sticky notes overview"
+msgstr ""
+
+#: sticky_notes.module:111
+msgid "Add sticky note"
+msgstr ""
+
+#: sticky_notes.module:120
+msgid "Edit sticky note"
+msgstr ""
+
+#: sticky_notes.module:130
+msgid "Delete sticky note"
+msgstr ""
+
+#: sticky_notes.module:141
+msgid "Sticky note"
+msgstr ""
+
+#: sticky_notes.module:151;160
+msgid "Set preferences for sticky notes."
+msgstr ""
+
+#: sticky_notes.module:159
+msgid "Global settings"
+msgstr ""
+
+#: sticky_notes.module:169
+msgid "Priority settings"
+msgstr ""
+
+#: sticky_notes.module:170
+msgid "Set the priorities for sticky notes."
+msgstr ""
+
+#: sticky_notes.module:179
+msgid "Visibility settings"
+msgstr ""
+
+#: sticky_notes.module:180
+msgid "Set role-specific preferences for sticky notes."
+msgstr ""
+
+#: (duplicate) sticky_notes.install:27
+msgid "Correctly installed."
+msgstr ""
+
+#: (duplicate) sticky_notes.install:33
+msgid "without jQuery UI support, not functional"
+msgstr ""
+
+#: (duplicate) sticky_notes.install:34
+msgid "The <a href=\"@url\">jQuery UI</a> module is missing or not correctly installed."
+msgstr ""
+
+#: sticky_notes.info:0
+msgid "Provides Sticky Notes for Drupal that can be attached to pages to keep track of things."
+msgstr ""
+
+#: js/sticky_notes.js:0
+msgid "1 note"
+msgid_plural "@count notes"
+msgstr[0] ""
+msgstr[1] ""
+
+#: templates/sticky-notes-info-box.tpl.php:37
+msgid "Exposé"
+msgstr ""
+
+#: templates/sticky-notes-info-box.tpl.php:40
+msgid "Hide notes"
+msgstr ""
+
+#: templates/sticky-notes-info-box.tpl.php:41
+msgid "Show notes"
+msgstr ""
+
+#: views/sticky_notes.views.inc:40
+msgid "Path"
+msgstr ""
+
+#: views/sticky_notes.views.inc:41
+msgid "A link to the page that the note is attached to"
+msgstr ""
+
+#: views/sticky_notes.views.inc:53
+msgid "The notes priority"
+msgstr ""
+
+#: views/sticky_notes.views.inc:64
+msgid "Access"
+msgstr ""
+
+#: views/sticky_notes.views.inc:65
+msgid "Filter by access."
+msgstr ""
+
+#: views/views_handler_field_link_path.inc:25
+msgid "Link this field to the page it references"
+msgstr ""
+
+#: views/views_handler_field_link_path.inc:26
+msgid "This will override any other link you have set."
+msgstr ""
+
+#: views/views_handler_filter_sticky_notes_priority.inc:22
+msgid "Is equal to"
+msgstr ""
+
+#: views/views_handler_filter_sticky_notes_priority.inc:23
+msgid "Is not equal to"
+msgstr ""
+
+#: views/views_handler_filter_sticky_notes_priority.inc:32
+msgid "exposed"
+msgstr ""
+
+#: views/views_handler_filter_sticky_notes_priority.inc:37
+msgid "<Any>"
+msgstr ""
+

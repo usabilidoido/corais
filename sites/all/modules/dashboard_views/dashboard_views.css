@@ -1,0 +1,6 @@
+div.view-dashboard-views-book div.view-header,
+div.view-dashboard-views-project div.view-header {
+  border: none;
+  padding: 0;
+  background: transparent;
+}

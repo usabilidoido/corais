@@ -1,0 +1,15 @@
+name = "Atrium Moderated Groups"
+description = "Enable moderated groups in Open Atrium"
+core = "6.x"
+package = "Atrium"
+dependencies[] = "ctools"
+dependencies[] = "spaces"
+features[ctools][] = "spaces:spaces:3"
+features[spaces_presets][] = "og_moderated"
+
+; Information added by drupal.org packaging script on 2012-02-22
+version = "6.x-1.0-alpha2"
+core = "6.x"
+project = "atrium_moderated_groups"
+datestamp = "1329888639"
+

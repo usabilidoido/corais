@@ -1,0 +1,320 @@
+<?php
+include_once('atrium_username.features.inc');
+
+/**
+ * Get user name from profile node.
+ *
+ * Given a uid, returns the name of that account.
+ *
+ */
+function atrium_username_get_name($uid) {
+  static $users = array();
+  if($uid) {
+    if (!isset($users[$uid])) {
+      // get data from db DIRECTLY
+      $users[$uid] = db_result(db_query("SELECT title FROM {node} WHERE type='profile' AND uid=%d", $uid));
+    }
+    return $users[$uid];
+  }
+  else {
+    return NULL;
+  }
+}
+
+/**
+ * Override OA custom autocomplete callback that retrieves all users that
+ * a user has access to see.
+ * Return a list of title/name/email
+ */
+function atrium_username_autocomplete($string = '') {
+  $matches = array();
+  if ($len = strlen($string)) {
+
+    $query = "SELECT u.uid, u.name, n.title, u.mail
+              FROM {users} u LEFT JOIN {node} n ON (n.uid=u.uid  AND n.type='profile')
+              WHERE u.uid AND (LOWER(n.title) LIKE LOWER('%s%%') OR LOWER(u.name) LIKE LOWER('%s%%') OR LOWER(u.mail) LIKE LOWER('%s%%'))";
+    $query = db_rewrite_sql($query, 'users', 'uid', array($string, $string, $string));
+
+    $result = db_query_range($query, array($string, $string, $string), 0, 10);
+    while ($user = db_fetch_array($result)) {
+      foreach ($user as $key => $val) {
+        if (strncasecmp($string, $val, $len) === 0) {
+          $matches[$val] = $val . " [" . $user['uid'] . "]";
+        }
+      }
+    }
+  }
+  drupal_json($matches);
+}
+
+/**
+ * Get uid from title/name/mail
+ */
+function _atrium_username_get_uid($atrium_username) {
+  $query = "SELECT u.uid
+            FROM {users} u LEFT JOIN {node} n ON (n.uid=u.uid  AND n.type='profile')
+            WHERE n.title='%s' OR u.name='%s' OR u.mail='%s'";
+  $uid = db_result(db_query($query, array($atrium_username, $atrium_username, $atrium_username)));
+  return $uid;
+}
+
+/**
+ * Overrided submit handler for member addform.
+ * It handles title/name/mail
+ */
+function atrium_username_addform_submit(&$form, &$form_state) {
+  $atrium_username = $form_state['values']['username'];
+  if ($uid = _atrium_username_get_uid($atrium_username)) {
+    if ($account = user_load($uid)) {
+      og_save_subscription($form_state['values']['group']->nid, $account->uid, array('is_active' => 1));
+      drupal_set_message(t('Subscribed user %name to %group.', array('%name' => $atrium_username, '%group' => $form_state['values']['group']->title)));
+    }
+  }
+}
+
+/**
+ * Add validation handler for author name node form.
+ * It handles title/name/mail
+ */
+function atrium_username_node_form_validate(&$form, &$form_state) {
+  $atrium_username = $form_state['values']['name'];
+  if ($uid = _atrium_username_get_uid($atrium_username)) {
+    if ($account = user_load($uid)) {
+      $form_state['values']['name'] = $account->name;
+    }
+  }
+}
+
+/**
+ * Overrided AJAX/AHAH callback for user addform submission.
+ */
+function atrium_username_addform_ajax() {
+  if ($form = form_get_cache($_POST['form_build_id'], $form_state)) {
+    // Build submitted values.
+    $form_state = array('values' => $_POST);
+    foreach (element_children($form) as $key) {
+      if ($form[$key]['#type'] === 'value' && isset($form[$key]['#value'])) {
+        $form_state['values'][$key] = $form[$key]['#value'];
+      }
+    }
+    // Submit the form & retrieve messages.
+    atrium_username_addform_submit($form, $form_state);
+    $output = theme('status_messages');
+    $output = "<div class='atrium-members-ajax'>{$output}</div>";
+    drupal_json(array('status' => TRUE, 'data' => $output));
+    exit();
+  }
+  drupal_json(array('status' => FALSE, 'data' => ''));
+  exit();
+}
+
+/**
+ * Implementation of hook_theme_registry_alter().
+ * - simulate hook_preprocess for theme('username')
+ * - insert an hook_preprocess_block function _before_ proper theming
+ */
+function atrium_username_theme_registry_alter(&$theme_registry) {
+
+  // Get atrium_username module path.
+  $atrium_username_path = drupal_get_path('module', 'atrium_username');
+
+  // Simulate a preprocess function for theme("username").
+  $_SESSION['theme_registry_username_function'] = $theme_registry['username']['function'];
+  $theme_registry['username']['function'] = 'atrium_username_preprocess_username';
+  $theme_registry['username']['include files'] =  array($atrium_username_path . '/atrium_username.theme.inc');
+
+  // Theme user name in casetracker_comment_changes.
+  $theme_registry['casetracker_comment_changes']['function'] = 'atrium_username_theme_casetracker_comment_changes';
+  $theme_registry['casetracker_comment_changes']['include files'][] = $atrium_username_path . '/atrium_username.theme.inc';
+
+  // Insert custom preprocessor before theming (tao/ginkgo or anything else).
+  $preprocess_function = $theme_registry['block']['preprocess functions'];
+  array_splice($theme_registry['block']['preprocess functions'], 2, 0, 'atrium_username_preprocess_block');
+  $theme_registry['block']['include files'][] = $atrium_username_path . '/atrium_username.theme.inc';
+
+}
+
+/**
+* Implementation of hook_form_alter().
+* - views-exposed-form-casetracker-cases-page-1: casetracker filter
+* - comment_form: 'Assign to' options
+* - $form['notifications'] options
+* - atrium_members_addform: override submit hook, change label
+*/
+function atrium_username_form_alter(&$form, $form_state, $form_id) {
+  // casetracker filter
+  if ($form_id=='views_exposed_form' && $form['#id']=='views-exposed-form-casetracker-cases-page-1') {
+    foreach ($form['assign_to']['#options'] as $uid => $value) {
+      if (is_int($uid) && $uid>0) {
+        $atrium_username =  atrium_username_get_name($uid);
+        if (!empty($atrium_username)) {
+          $form['assign_to']['#options'][$uid] = $atrium_username;
+        }
+      }
+    }
+  }
+  // casetracker node form options
+  elseif ($form_id=='casetracker_basic_case_node_form') {
+    // Assign to
+    // Uses uid instead of user name to solve the issue:
+    // "casetracker_nodeapi case insert should not use is_numeric($record->assign_to)"
+    // http://drupal.org/node/923700
+    if (!empty($form['casetracker']['assign_to']['#options'])) {
+      $notification_team = array_flip($form['notifications']['notifications_team']['options']['#value']);
+      $assign_to = $form['casetracker']['assign_to']['#options'];
+      foreach ($assign_to as $key => $value) {
+        if (isset($notification_team[$key])) {
+          $uid = $notification_team[$key];
+          $atrium_username =  atrium_username_get_name($uid);
+          $name = $atrium_username ? $atrium_username : $value;
+          unset($form['casetracker']['assign_to']['#options'][$key]);
+          $form['casetracker']['assign_to']['#options'][$uid] = $name;
+        }
+      }
+      $default_value = $form['casetracker']['assign_to']['#default_value'];
+      if (isset($notification_team[$default_value])) {
+        $form['casetracker']['assign_to']['#default_value'] = $notification_team[$default_value];
+      }
+    }
+  }
+  // casetracker comment form options
+  elseif ($form_id=='comment_form') {
+    if (!empty($form['casetracker']['assign_to']['#options'])) {
+      $notification_team = array_flip($form['notifications']['notifications_team']['options']['#value']);
+      $assign_to = $form['casetracker']['assign_to']['#options'];
+      foreach ($assign_to as $key => $value) {
+        if (isset($notification_team[$key])) {
+          $uid = $notification_team[$key];
+          $atrium_username =  atrium_username_get_name($uid);
+          $name = $atrium_username ? $atrium_username : $value;
+          $form['casetracker']['assign_to']['#options'][$key] = $name;
+        }
+      }
+    }
+  }
+  // author name node form
+  elseif ($form_id == 'group_node_form') {
+    if (isset($form['author']['name']['#autocomplete_path'])) {
+      $atrium_username = atrium_username_get_name($form['uid']['#value']);
+      if ($atrium_username) {
+        $form['author']['name']['#default_value'] = $atrium_username;
+      }
+      $form['author']['name']['#autocomplete_path'] = 'members/add/autocomplete';
+      array_unshift($form['#validate'], 'atrium_username_node_form_validate');
+    }
+  }
+  // Change notification_team form options
+  if (!empty($form['notifications']['notifications_team']['options']['#value'])) {
+    foreach ($form['notifications']['notifications_team']['options']['#value'] as $uid => $name) {
+      $atrium_username =  atrium_username_get_name($uid);
+      $name = $atrium_username ? $atrium_username : $name;
+      $form['notifications']['notifications_team']['options']['#value'][$uid] = $name;
+    }
+  }
+  // Change submit hook for 'Add Existing users' form
+  if ($form_id=='atrium_members_addform') {
+    $form['username']['#title'] = t('Username or email');
+    $form['#submit'] = array('atrium_username_addform_submit');
+  }
+}
+
+/**
+* Implementation of hook_menu_alter().
+* Overrides members callbacks to use atrium_username
+* - 'members/add/autocomplete'
+* - 'members/add/ajax'
+*/
+function atrium_username_menu_alter(&$callbacks) {
+  $callbacks['members/add/autocomplete']['page callback'] = 'atrium_username_autocomplete';
+  $callbacks['members/add/ajax']['page callback']  = 'atrium_username_addform_ajax';
+}
+
+/**
+ * Implementation of hook_views_pre_render().
+ * - profile_display.page_1: override page title
+ */
+function atrium_username_views_pre_render(&$view) {
+
+  // set title for profile_display (http://drupal.org/node/1176080)
+  if ($view->name == 'profile_display' && $view->current_display == 'page_1') {
+    $uid = $view->args[0];
+    $atrium_username = atrium_username_get_name($uid);
+    if (!empty($atrium_username)) {
+      drupal_set_title($atrium_username);
+    }
+  }
+}
+
+/**
+ * Implementation of hook_token_values_alter().
+ */
+function atrium_username_token_values_alter(&$replacements, $context) {
+
+  // set user-name token
+  global $user;
+  $user_name = atrium_username_get_name($user->uid);
+  if ($user_name) {
+    $replacements['user-name'] = $user_name;
+  }
+
+  // set default value
+  $uid = $context['object']->uid;
+  $tokens = array();
+  switch ($context['type']) {
+    case 'user':
+      $tokens = array('user', 'user-raw');
+      break;
+    case 'comment':
+      $tokens = array('comment-author-name', 'comment-author-name-raw');
+      break;
+    case 'node':
+      $tokens = array('author-name', 'author-name-raw');
+      break;
+  }
+
+  // get atrium_username
+  $atrium_username = atrium_username_get_name($uid);
+  if (empty($atrium_username) || empty($tokens)) {
+    return;
+  }
+  $atrium_username_plain = check_plain($atrium_username);
+
+  // process tokens
+  foreach ($tokens as $token) {
+    $replacements[$token] = (substr($token, -4) == '-raw') ? $atrium_username : $atrium_username_plain;
+  }
+
+}
+
+/**
+ * Implementation of hook_preprocess_page().
+ * - set breadcrumb for member_section context (defined in atrium_members_context_page_condition)
+ */
+function atrium_username_preprocess_page(&$vars) {
+
+  // reset breadcrumb
+  $active_contexts = context_active_contexts();
+  if (isset($active_contexts['members_section'])) {
+    $account = menu_get_object('user');
+    $account = $account ? $account : menu_get_object('user_uid_optional');
+    $account = $account ? $account : menu_get_object('user_category');
+    if ($account) {
+      $breadcrumb = array(l(t('Home'), '<front>'));
+      $item = menu_get_item('members');
+      if ($item['access']) {
+        $breadcrumb[] = l($item['title'], $item['href']);
+      }
+      $item = menu_get_item("user/{$account->uid}");
+      if ($item['access']) {
+        $account_name = atrium_username_get_name($account->uid);
+        $account_name = $account_name ? $account_name : $account->name;
+        $breadcrumb[] = l($account_name, $item['href']);
+      }
+      drupal_set_breadcrumb($breadcrumb);
+      $vars['breadcrumb'] = theme('breadcrumb', drupal_get_breadcrumb());
+    }
+  }
+
+}
+
+

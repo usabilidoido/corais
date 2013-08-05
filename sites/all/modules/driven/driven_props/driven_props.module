@@ -1,0 +1,325 @@
+<?php
+// $Id: driven_props.module,v 1.2 2010/04/03 23:18:07 arhak Exp $
+
+function driven_props_get_type_enabled($driver_mod, $node_type) {
+  // this is the only flag under $section='driven_props'
+  // which might need to be directly accessed
+  // (i.e. without calling a wrapper functionality)
+  $section = 'driven_props';
+  $name = 'enabled';
+  $default = FALSE;
+  $settings = driven_props_get_type_settings($driver_mod, $node_type, $section);
+  return (isset($settings[$name]) ? $settings[$name] : $default);
+}
+
+function driven_props_get_type_setting($driver_mod, $node_type, $name, $default = NULL) {
+  // driver_mod will be interested on its settings under $section='settings'
+  $settings = driven_props_get_type_settings($driver_mod, $node_type);
+  return (isset($settings[$name]) ? $settings[$name] : $default);
+}
+
+function driven_props_get_type_settings($driver_mod, $node_type, $section = 'settings') {
+  // until now possible sections are: 'settings' & 'driven_props'
+  $varname = $driver_mod . ':type:' . $node_type . ':' . $section;
+  return variable_get($varname, array());
+}
+
+function driven_props_get_policies($driver_mod, $node_type, $refresh = FALSE) {
+  $policies = array();
+  
+  $section = 'driven_props';
+  $settings = driven_props_get_type_settings($driver_mod, $node_type, $section);
+  // drop the only key which isn't a realm
+  unset($settings['enabled']);
+  
+  $driven_props = driven_props_get_properties($driver_mod, $node_type, $refresh);
+  foreach ($driven_props as $property_id => $prop) {
+    $realm = $prop['realm'];
+    $target = $prop['target'];
+    $prop_settings = $settings[$realm][$target];
+    if (!$prop_settings['enabled'] || !isset($prop_settings['behaviors'])) {
+      continue;
+    }
+    $behaviors_settings = $prop_settings['behaviors'];
+    $behaviors_settings = _driven_props_filter_behaviors($driver_mod, $prop, $behaviors_settings);
+    foreach ($behaviors_settings as $behavior => $policy) {
+      $policies[$behavior][$property_id] = $policy;
+    }
+  }
+  
+  // ensure every behavior will be represented at least by an empty array
+  // to ensure behavior will be able to rely on their own index
+  // to support all policies delivered at once
+  // (e.g. driven_acp_apply_to_properties, driven_cck_producer_consumer_apply_to_properties)
+  $hook = 'driven_props_type_settings';
+  $type_settings = module_invoke($driver_mod, $hook);
+  if (isset($type_settings['behaviors'])) {
+    foreach ($type_settings['behaviors'] as $behavior) {
+      if (!isset($policies[$behavior])) {
+        $policies[$behavior] = array();
+      }
+    }
+  }
+  
+  return $policies;
+}
+
+function driven_props_get_properties($driver_mod, $node_type, $refresh = FALSE) {
+  // @d6 static cache
+  static $properties = array();
+  
+  if ($refresh) {
+    unset($properties[$driver_mod]);
+  }
+  
+  // a refresh request might pass a first NULL argument
+  // also content type creation will deliver an empty $node_type
+  if (empty($node_type)) {
+    return array();
+  }
+  
+  if (!isset($properties[$driver_mod][$node_type])) {
+    // could be !isset($settings['enabled']) || !$settings['enabled']
+    // but this is much clear 
+    if (!driven_props_get_type_enabled($driver_mod, $node_type)) {
+      return array();
+    }
+    $section = 'driven_props';
+    $settings = driven_props_get_type_settings($driver_mod, $node_type, $section);
+    // drop the only key which isn't a realm
+    unset($settings['enabled']);
+    
+    $available_props = driven_properties_available($node_type, $refresh);
+    // within the same request unsupported properties are not expected to change
+    // (e.g. a CCK widget won't change in the middle of a request involving driven props processing)
+    $unsupported = array();
+    $hook = 'unsupported_driven_props';
+    if (module_hook($driver_mod, $hook)) {
+      $unsupported = module_invoke($driver_mod, $hook, $available_props);
+    }
+    $driven_props = array();
+    foreach ($settings as $realm => $targets) {
+      foreach ($targets as $target => $prop_settings) {
+        if (!$prop_settings['enabled']) {
+          continue;
+        }
+        $property_id = $realm . ':' . $target;
+        if (!isset($available_props[$property_id])) {
+          // property gone (e.g. disabling modules)
+          continue;
+        }
+        if (isset($unsupported[$property_id])) {
+          // property became unsupported (e.g. changed CCK widget)
+          continue;
+        }
+        // copy
+        $driven_props[$property_id] = $available_props[$property_id];
+      }
+    }
+    
+    $properties[$driver_mod][$node_type] = $driven_props;
+  }
+  return $properties[$driver_mod][$node_type];
+}
+
+function driven_props_invoke_type_settings() {
+  $settings = array();
+  $hook = 'driven_props_type_settings';
+  // sort by module name
+  // don't let modules' weigth interfere
+  // with the order of menu's local tasks
+  // (see hook_menu)
+  foreach (module_implements($hook, TRUE) as $module) {
+    $settings[$module] = module_invoke($module, $hook); 
+  }
+  return $settings;
+}
+
+/**
+ * Implements hook_menu().
+ */
+function driven_props_menu() {
+  $menu = array();
+
+  $type_settings = driven_props_invoke_type_settings();
+  if (!empty($type_settings)) {
+    $weight = 10; // CCK uses 1 & 2, lets go last
+    // @d6
+    $types = node_get_types();
+    foreach ($type_settings as $driver_mod => $settings) {
+      foreach ($types as $key => $type) {
+        // mimic CCK behavior,
+        // they check node_hook in content types page,
+        // but not in hook_menu
+        
+        $uri = str_replace('_', '-', $driver_mod);
+        $node_type = $type->type;
+        $type_url_str = str_replace('_', '-', $node_type);
+        // @d6
+        $base_uri = 'admin/content/node-type/'. $type_url_str .'/driven-props';
+        // careful, base_uri without trailing slash to be used as default task
+        $full_uri = $base_uri . '/' . $uri;
+        $task_title = $settings['menu_title'];
+        $default_task = !isset($menu[$base_uri]);
+        
+        $menu[$default_task ? $base_uri : $full_uri] = array(
+          'title' => ($default_task && count($type_settings) > 1) ? 'Driven properties' : $task_title,
+          'page callback' => 'drupal_get_form',
+          'page arguments' => array('driven_props_overview_form', $driver_mod, $node_type),
+          'access arguments' => array('administer content types'),
+          'file' => 'driven_props.admin.inc',
+          'type' => MENU_LOCAL_TASK,
+          'weight' => $weight++,
+        );
+        if ($default_task) {
+          $menu[$full_uri] = array(
+            'title' => $task_title,
+            'type' => MENU_DEFAULT_LOCAL_TASK,
+            'weight' => -10,
+          );
+        }
+      }
+    }
+  }
+  
+  return $menu;
+}
+
+/**
+ * Implements hook_menu_alter(). 
+ */
+function driven_props_menu_alter(&$menu) {
+  // @d6
+  // if CCK is installed we'll use its content_types_overview_alter instead
+  if (!module_exists('content')) {
+    // @d6
+    $menu_types = &$menu['admin/content/types'];
+    
+    $menu_types['page callback'] = 'driven_props_types_overview';
+    $menu_types['file'] = 'driven_props.admin.inc';
+    $menu_types['file path'] = drupal_get_path('module', 'driven_props');
+  }
+}
+
+// helper function for driver mods
+function driven_props_delete_settings($driver_mod, $node_type) {
+  $varnames = array(
+    $driver_mod . ':type:' . $node_type . ':driven_props',
+    $driver_mod . ':type:' . $node_type . ':settings',
+  );
+  foreach ($varnames as $varname) {
+    variable_del($varname);
+  }
+}
+
+/**
+ * Implements hook_content_types_overview_alter().
+ */
+function driven_props_content_types_overview_alter(&$header, &$rows) {
+  module_load_include('inc', 'driven_props', 'driven_props.admin');
+  _driven_props_types_overview_alter($header, $rows);
+}
+
+function _driven_props_retrieve_behaviors_form($driver_mod, $prop) {
+  $behaviors_form = array();
+  $node_type = $prop['meta']['node_type'];
+  $target = $prop['meta']['target'];
+  $hook = 'driven_props_type_settings';
+  $type_settings = module_invoke($driver_mod, $hook);
+  
+  if (!isset($type_settings['behaviors'])) {
+    return array();
+  }
+  
+  // @TODO: this behavior thing needs to be reworked
+  // but I'll try to stick with its resulting data format
+  foreach ($type_settings['behaviors'] as $behavior) {
+    $function = $behavior . '_behavior_form';
+    // some behavior might not be available (i.e. disabled)
+    // or have no settings at all (e.g. driven_full_access is a behavior after all)
+    if (function_exists($function)) {
+      $behavior_form = $function($prop);
+      if (!empty($behavior_form)) {
+        $hook = 'prop_behavior_alter';
+        if (module_hook($driver_mod, $hook)) {
+          $function = $driver_mod . '_' . $hook;
+          $function($behavior_form, $node_type, $prop, $behavior);
+        }
+        $behaviors_form[$behavior] = $behavior_form;
+      }
+    }
+  }
+  if (!empty($behaviors_form)) {
+    $behaviors_form += array(
+      '#type' => 'fieldset',
+      '#title' => t('Property settings'),
+      '#description' => t('Property settings for:') . ' ' . $prop['target_title'],
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+    );
+  }
+  
+  return $behaviors_form;
+}
+
+/**
+ * helper function for property behavior settings retrieval.
+ * i.e. validate that saved settings are still applicable
+ * otherwise empty its settings (using NULL or empty array accordingly)
+ */
+function _driven_props_filter_behaviors($driver_mod, $prop, $behaviors_settings) {
+  $behaviors_form = _driven_props_retrieve_behaviors_form($driver_mod, $prop);
+  if (empty($behaviors_form)) {
+    return array();
+  }
+  
+  // within form_builder the form_id is only used by _form_builder_handle_input_element
+  // and only if the form isn't #programmed
+  $behaviors_form['#programmed'] = TRUE;
+  $behaviors_form['#tree'] = TRUE;
+  $form_id = NULL;
+  $form_state = array('values' => $behaviors_settings);
+  // make radios/checkboxes get expanded (as well as any #input element)
+  $behaviors_form = form_builder($form_id, $behaviors_form, $form_state);
+  _driven_props_filter_behaviors_values($behaviors_form, $behaviors_settings);
+  return $behaviors_settings;
+}
+
+function _driven_props_filter_behaviors_values($elements, &$behaviors_settings) {
+  $elements['#value'] = driven_form_state_value($elements['#parents'], $behaviors_settings);
+  $form_state = array('values' => &$behaviors_settings); // by ref
+  // @TODO: this is a limited version of what _form_validate takes care of
+  // therefore further behavior forms might require more support over here
+  // until now, just checking that #options are met
+  foreach (element_children($elements) as $key) {
+    if (isset($elements[$key]) && $elements[$key]) {
+      _driven_props_filter_behaviors_values($elements[$key], $behaviors_settings);
+    }
+  }
+  
+  if (isset($elements['#options']) && isset($elements['#value'])) {
+    if ($elements['#type'] == 'select') {
+      $options = form_options_flatten($elements['#options']);
+    }
+    else {
+      $options = $elements['#options'];
+    }
+    if (is_array($elements['#value'])) {
+      $value = $elements['#type'] == 'checkboxes' ? array_keys(array_filter($elements['#value'])) : $elements['#value'];
+      foreach ($value as $v) {
+        if (!isset($options[$v])) {
+          form_set_value($elements, array(), $form_state);
+        }
+      }
+    }
+    elseif (!isset($options[$elements['#value']])) {
+      form_set_value($elements, NULL, $form_state);
+    }
+  }
+}
+
+function _driven_props_behavior_value($element, $behaviors_settings) {
+  // having this simplicity wrapped in a function
+  // will help avoiding typo bugs
+  return driven_form_state_value($element['#parents'], $form_values);
+}

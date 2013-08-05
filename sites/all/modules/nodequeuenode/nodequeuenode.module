@@ -1,0 +1,798 @@
+<?php
+// $Id: nodequeuenode.module,v 1.2 2009/09/08 09:39:49 daniboy Exp $
+
+/**
+ * @file nodequeuenode.module
+ * Create a node for each Nodequeue.
+ */
+
+
+define('NODEQUEUENODE_VIEW_DEFAULT', -1);
+define('NODEQUEUENODE_VIEW_HIDDEN', -2);
+
+
+/**
+ * Node hooks.
+ */
+
+/**
+ * Implementation of hook_access().
+ */
+function nodequeuenode_access($op, $node, $account) {
+  
+  // Check whether the node is owned by the account
+  $own_user = ($op != 'create') && ($account->uid == $node->uid);
+  
+  // We need to know about the related subqueue and it's parent queue for all operations except create
+  if ($op != 'create') {
+    $sqid = nodequeuenode_related_get_sqid($node->nid);
+    $subqueue = subqueue_load($sqid);
+    $queue = nodequeue_load($subqueue->qid);
+    
+    // Check whether the account can manipulate the subqueue
+    $can_manipulate = nodequeue_queue_access($queue, $subqueue, $account);
+  }
+  switch ($op) {
+    case 'view':
+      // Prevents users who can't view the related subqueue from viewing the nodequeue node
+      if (module_exists('smartqueue_users') && !smartqueue_users_can_view($account, $queue, $subqueue)) {
+        return FALSE;
+      }
+      return
+        user_access('access all nodequeuenodes', $account) ||
+        ($own_user && user_access('access own nodequeuenodes', $account));
+      break;
+      
+    case 'create':
+      return user_access('create nodequeuenodes', $account);
+      break;
+      
+    case 'delete':
+      return
+        $can_manipulate && (
+        user_access('delete all nodequeuenodes', $account) ||
+        ($own_user && user_access('delete own nodequeuenodes', $account)));
+      break;
+      
+    case 'update':
+      return
+        $can_manipulate && (
+        user_access('edit all nodequeuenodes', $account) ||
+        ($own_user && user_access('edit own nodequeuenodes', $account)));
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_node_info().
+ */
+function nodequeuenode_node_info() {
+  return array(
+    'nodequeuenode' => array(
+      'name' => t('Nodequeuenode'),
+      'module' => 'nodequeuenode',
+      'description' => t("A nodequeue's related node."),
+      'has_title' => TRUE,
+      'has_body' => TRUE,
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_form().
+ */
+function nodequeuenode_form(&$node, $form_state) {
+  $type = node_get_types('type', $node);
+  $account = user_load($node->uid);
+  
+  // Append default title and body fields
+  if ($type->has_title) {
+    $form['title'] = array(
+      '#type' => 'textfield',
+      '#title' => check_plain($type->title_label),
+      '#required' => TRUE,
+      '#default_value' => $node->title,
+      '#weight' => -5
+    );
+  }
+  if ($type->has_body) {
+    $form['body_field'] = node_body_field($node, $type->body_label, $type->min_word_count);
+  }
+  
+  $sqid = arg(3);
+  
+  // We create a new node
+  if (empty($node->nid)) {
+    
+    // There is a sqid parameter
+    if (!empty($sqid)) {
+      
+      // Check if a node already exists for this subqueue
+      if ($existing_nid = nodequeuenode_related_get_nid($sqid)) {
+        drupal_set_message(t(_nodequeuenode_variable_get('message_relation_exists')));
+        drupal_goto("node/$existing_nid");
+        return;
+      }
+      
+      // Check if $sqid is really an existing subqueue, and if the nodequeue that owns this subqueue is nodes-enabled
+      $subqueue = nodequeue_load_subqueue($sqid);
+      if (!($subqueue && nodequeuenode_queue_is_active($subqueue->qid))) {
+        drupal_not_found();
+      }
+      
+      // Load the queue
+      $queue = nodequeue_load($subqueue->qid);
+      
+      // Check that the user is allowed to create a node for this sqid
+      if (!nodequeue_queue_access($queue, $subqueue)) {
+        drupal_access_denied();
+      }
+      
+      // Smartqueue per Users integration: Set the node's user to the subqueue's user
+      if (module_exists('smartqueue_users') && $queue->owner == 'smartqueue_users') {
+        $owning_user = user_load(smartqueue_users_get_subqueue_owner($subqueue));
+        if ($node->uid != $owning_user->uid) {
+          $node->uid = $owning_user->uid;
+          drupal_set_message(t("You are creating a Nodequeuenode for %user's existing Subqueue. It will be created in %user's name. Please be sure to use a format filter that %user can use or %user won't be able to edit this node!", array('%user' => $owning_user->name)), 'warning');
+        }
+      }
+      
+      // Add the sqid value to the form
+      $form['sqid'] = array(
+        '#type' => 'value',
+        '#value' => $sqid,
+      );
+    }
+    else if (module_exists('smartqueue_users') && (user_access('manipulate own user queue', $account) || user_access('manipulate all user queues', $account))) {
+      
+      // Get all the qids that belong to smartqueue_users
+      $db_result = db_query("SELECT qid FROM {nodequeue_queue} WHERE owner = 'smartqueue_users' AND qid IN (SELECT qid FROM {nodequeuenode_active})");
+      
+      $all_qids = array();      // Keeps the qids of all nodequeues of type smartqueue_users
+      $enabled_qids = array();  // Keeps the qids of all nodequeues of type smartqueue_users that the user can add a subqueue to
+      $disabled_qids = array(); // Keeps the qids of all nodequeues of type smartqueue_users that the user cannot add a subqueue to
+      
+      // Iterate each qid from the database and save in the all array
+      while ($qid = db_result($db_result)) {
+        $all_qids[] = $qid;
+      }
+      
+      // Load all of the above queues
+      $queues = nodequeue_load_queues($all_qids);
+      
+      foreach ($queues as $qid => $queue) {
+        
+        // Totally filter out nodequeues that the user can't access at all
+        if (nodequeue_queue_access($queue, NULL, $account)) {
+          
+          // Check if the user has reached it's subqueue limit, save to the relevant qids keeper array
+          if (!smartqueue_users_reached_subqueue_limit($node->uid, $qid)) {
+            $enabled_qids[] = $qid;
+          }
+          else {
+            $disabled_qids[] = $qid;
+          }
+          
+        }
+        
+      }
+      
+      // If there are no queues that the user can add subqueues to then access is denied
+      if (empty($enabled_qids)) {
+        drupal_access_denied();
+      }
+      
+      // Set the default qid for the radio select to 0 so that if nothing else changes it it won't default to anything
+      $default_qid = 0;
+      
+      // Create a Form API compatible options array for the radio select
+      foreach ($enabled_qids as $qid) {
+        $queue_options[$qid] = $queues[$qid]->title;
+      }
+      
+      // There is a qid parameter in the query string
+      if (isset($_GET['qid'])) {
+        
+        if (!in_array($_GET['qid'], $enabled_qids)) {
+          // The qid is not one of the valid selections - print a warning about this
+          drupal_set_message(t('Cannot add a subqueue to the selected queue. Select another.'), 'warning');
+        }
+        else {
+          // The qid is one of the valid selections - change the default for the form to select it
+          $default_qid = $_GET['qid'];
+        }
+        
+      }
+      
+      // There is only on option to select, so default to it
+      if (count($enabled_qids) == 1) {
+        $default_qid = array_shift($enabled_qids);
+      }
+      
+      $form['qid'] = array(
+        '#type' => 'radios',
+        '#title' => t('Queue'),
+        '#description' => t('Select the queue to add this nodequeuenode to.'),
+        '#default_value' => $default_qid,
+        '#options' => $queue_options,
+        '#required' => TRUE,
+        '#weight' => -4,
+      );
+      
+      // Add to the description of the form information about the queues that the user could usually add subqueues to, but are already full
+      if (!empty($disabled_qids)) {
+        $disabled_queues = array();
+        foreach ($disabled_qids as $qid) {
+          $disabled_queues[] = theme('placeholder', check_plain($queues[$qid]->title));
+        }
+        $form['qid']['#description'] .= ' ' . t('The following queues are full and cannot be selected: !queues', array('!queues' => implode(', ', $disabled_queues)));
+      }
+      
+    } else {
+      // We only allow creating Meta-nodes for existing subqueues
+      drupal_not_found();
+    }
+  }
+  
+  return $form;
+}
+
+/**
+ * Implementation of hook_delete().
+ */
+function nodequeuenode_delete($node) {
+  if (module_exists('smartqueue_users')) {
+    $sqid = nodequeuenode_related_get_sqid($node->nid);
+    $subqueue = subqueue_load($sqid);
+    $queue = nodequeue_load($subqueue->qid);
+    
+    if ($queue->owner == 'smartqueue_users') {
+      nodequeue_remove_subqueue($sqid);
+    }
+  }
+  
+  nodequeuenode_related_unset_nid($node->nid);
+}
+
+/**
+ * Implementation of hook_insert().
+ */
+function nodequeuenode_insert($node) {
+  if ($node->sqid) {
+    nodequeue_subqueue_update_title($node->sqid, $node->title);
+    nodequeuenode_related_set_nid($node->sqid, $node->nid);
+  }
+  else if (module_exists('smartqueue_users') && $node->qid) {
+    $queue = nodequeue_load($node->qid);
+    $subqueue = nodequeue_add_subqueue($queue, $node->title, smartqueue_users_get_next_reference_string($node->uid, $queue->qid));
+    nodequeuenode_related_set_nid($subqueue->sqid, $node->nid);
+  }
+  else {
+    drupal_set_message(t('Incomplete form error.'), 'error');
+  }
+}
+
+/**
+ * Implementation of hook_update().
+ */
+function nodequeuenode_update($node) {
+  $sqid = nodequeuenode_related_get_sqid($node->nid);
+  nodequeue_subqueue_update_title($sqid, $node->title);
+}
+
+/**
+ * Implementation of hook_view().
+ */
+function nodequeuenode_view($node, $teaser = FALSE, $page = FALSE) {
+  $node = node_prepare($node, $teaser);
+  
+  // Only display on page, not teaser
+  if (!$teaser && $page) {
+    
+    // Load the related subqueue
+    $sqid = nodequeuenode_related_get_sqid($node->nid);
+    $subqueue = subqueue_load($sqid);
+    
+    // Get the view type/id from the variables
+    $view_id = _nodequeuenode_settings_get('view', $subqueue->qid);
+    
+    switch ($view_id) {
+      // Default view - Add the default lisiting
+      case NODEQUEUENODE_VIEW_DEFAULT:
+        if ($subqueue->count > 0) {
+          $node->content['related_subqueue'] = array(
+            '#value' => nodequeue_view_nodes($sqid),
+            '#weight' => 1,
+          );
+        }
+        break;
+        
+      // Hidden view - Add nothing
+      case NODEQUEUENODE_VIEW_HIDDEN:
+        break;
+        
+      // Others
+      default:
+        
+        // Check if views is enabled, if so assume $view_id is a view's id
+        if (module_exists('views')) {
+          $view = views_get_view($view_id);
+          $node->content['related_subqueue'] = array(
+            '#value' => $view->execute_display('default', array($subqueue->sqid)),
+            '#weight' => 1,
+          );
+        }
+        break;
+    }
+  }
+  
+  return $node;
+}
+
+
+/**
+ * Menu hooks.
+ */
+
+/**
+ * Implementation of hook_menu().
+ */
+function nodequeuenode_menu() {
+  $items['node/subqueue/%subqueue'] = array(
+    'title' => 'Meta-node',
+    'access callback' => TRUE, // page callback is a redirector, the redirected paths will handle access permissions
+    'page callback' => 'nodequeuenode_related_view',
+    'page arguments' => array(2),
+    'type' => MENU_CALLBACK,
+  );
+  
+  // The tab menu item should only appear if the tab text is not empty
+  if (drupal_strlen(_nodequeuenode_variable_get('tab_title')) > 0) {
+    $items['node/%node/subqueue'] = array(
+      'title' => _nodequeuenode_variable_get('tab_title'),
+      'access callback' => 'nodequeuenode_related_can_manipulate',
+      'access arguments' => array(1),
+      'page callback' => 'nodequeue_related_manipulate',
+      'page arguments' => array(1),
+      'type' => MENU_LOCAL_TASK,
+    );
+  }
+  
+  return $items;
+}
+
+
+/**
+ * User hooks.
+ */
+
+/**
+ * Implementation of hook_perm().
+ */
+function nodequeuenode_perm() {
+  return array(
+    'access all nodequeuenodes',
+    'access own nodequeuenodes',
+    'create nodequeuenodes',
+    'delete all nodequeuenodes',
+    'delete own nodequeuenodes',
+    'edit all nodequeuenodes',
+    'edit own nodequeuenodes',
+  );
+}
+
+
+/**
+ * External modules integration hooks.
+ */
+
+/**
+ * Implementation of hook_views_api().
+ *
+ * Integration with Views.
+ */
+function nodequeuenode_views_api() {
+  return array(
+    'api' => 2.0,
+    'path' => drupal_get_path('module', 'nodequeuenode') .'/includes/views',
+  );
+}
+
+/**
+ * Implementation of hook_nodequeue_table().
+ */
+function nodequeuenode_nodequeue_table($table_id, &$header, &$rows, &$attributes, &$caption, $queues = NULL, $subqueues = NULL, $node = NULL) {
+  if ($table_id == 'smartqueue_users_profile') {
+    
+    $i = 0;
+    foreach ($subqueues as $sqid => $subqueue) {
+      // Redirect smartqueue users to their related nodequeuenode
+      if ($nid = nodequeuenode_related_get_nid($sqid)) {
+        $rows[$i][0]['data'] = l($subqueue->title, "node/$nid");
+      }
+      $i++;
+    }
+    
+  }
+}
+
+
+/**
+ * Nodequeue form alters.
+ */
+
+/**
+ * Implementation of hook_form_alter() for nodequeue_edit_queue_form.
+ */
+function nodequeuenode_form_nodequeue_edit_queue_form_alter(&$form, &$form_state) {
+  if (isset($form['placeholder'])) {
+    $qid = (isset($form['qid'])) ? $form['qid']['#value'] : 0;
+    
+    $form['placeholder']['nodequeuenode'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Nodequeue nodes'),
+      '#collapsed' => FALSE,
+      '#collapsible' => TRUE,
+    );
+    
+    $form['placeholder']['nodequeuenode']['nodequeuenode_active'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Enable relating subqueues to a meta-node.'),
+      '#default_value' => (int)nodequeuenode_queue_is_active($qid),
+    );
+    $form['placeholder']['nodequeuenode']['nodequeuenode_view'] = array(
+      '#type' => 'select',
+      '#title' => t('Subqueue display view'),
+      '#description' => t("Select the view to handle displaying the content of a nodequeuenode's subqueue."),
+      '#options' => _nodequeuenode_views_options(),
+      '#default_value' => _nodequeuenode_settings_get('view', $qid),
+    );
+    
+    $form['#submit'][] = '_nodequeuenode_form_nodequeue_edit_queue_form_submit';
+  }
+}
+
+/**
+ * Implementation of hook_form_alter() for nodequeue_admin_delete.
+ */
+function nodequeuenode_form_nodequeue_admin_delete_alter(&$form, &$form_state) {
+  $form['#submit'][] = '_nodequeuenode_form_nodequeue_admin_delete_submit';
+}
+
+/**
+ * Implementation of hook_form_alter() for smartqueue_users_subqueue_edit_form.
+ */
+function nodequeuenode_form_smartqueue_users_subqueue_edit_form_alter(&$form, &$form_state) {
+  $qid = $form['qid']['#value'];
+  $uid = $form['uid']['#value'];
+  
+  // Only act if this nodequeue can have nodes related to it's subqueues
+  if (nodequeuenode_queue_is_active($qid)) {
+    
+    // Are we editing an existing subqueue?
+    if ($sqid = $form['sqid']['#value']) {
+      
+      // If there is an existing related node then redirect to its edit page
+      if ($nid = nodequeuenode_related_get_nid($sqid)) {
+        drupal_goto("node/$nid/edit");
+        return;
+      }
+      
+      // There is no related node, redirect to add a nodequeuenode to it
+      drupal_goto("node/add/nodequeuenode/$sqid");
+      return;
+      
+    }
+    
+    // Redirect to the node creation form, handle subqueue data from there
+    drupal_goto("node/add/nodequeuenode", "qid=$qid");
+    return;
+    
+  }
+  
+}
+
+/**
+ * Implementation of hook_form_alter() for smartqueue_users_subqueue_remove_form.
+ */
+function nodequeuenode_form_smartqueue_users_subqueue_remove_form_alter(&$form, &$form_state) {
+  $sqid = $form['sqid']['#value'];
+  
+  if ($nid = nodequeuenode_related_get_nid($sqid)) {
+    drupal_goto("node/$nid/delete");
+  }
+}
+
+/**
+ * Implementation of hook_form_alter() for nodequeue_admin_settings.
+ */
+function nodequeuenode_form_nodequeue_admin_settings_alter(&$form, &$form_state) {
+  $form['nodequeuenode_tab_title'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Related subqueue tab name'),
+    '#description' => t('The text to display on the tab for Nodequeue Nodes to manipulate the related subqueue. Leave empty to not display this tab.'),
+    '#default_value' => _nodequeuenode_variable_get('tab_title'),
+    '#maxlength' => 255,
+  );
+  $form['buttons']['#weight'] = 9;
+  $form['#submit'][] = '_nodequeuenode_form_nodequeue_admin_settings_submit';
+}
+
+/**
+ * Implementation of submission form for nodequeue_edit_queue_form.
+ */
+function _nodequeuenode_form_nodequeue_edit_queue_form_submit(&$form, &$form_state) {
+  $qid = $form_state['values']['qid'];
+  
+  if ($form_state['values']['nodequeuenode_active']) {
+    nodequeuenode_queue_activate($qid);
+  }
+  else {
+    nodequeuenode_queue_deactivate($qid);
+  }
+  
+  _nodequeuenode_settings_set('view', $qid, $form_state['values']['nodequeuenode_view']);
+}
+
+/**
+ * Implementation of submission form for nodequeue_admin_delete.
+ */
+function _nodequeuenode_form_nodequeue_admin_delete_submit(&$form, &$form_state) {
+  nodequeuenode_queue_deactivate($form_state['values']['qid']);
+}
+
+/**
+ * Implementation of submission form for nodequeue_admin_settings.
+ */
+function _nodequeuenode_form_nodequeue_admin_settings_submit(&$form, &$form_state) {
+  module_invoke('menu', 'rebuild');
+}
+
+
+/**
+ * Links hooks.
+ */
+
+/**
+ * Implementation of hook_link_alter().
+ */
+function nodequeuenode_link_alter(&$links, $node) {
+  // Only act when we are altering the links of a node inside a subqueue, when the page is a nodequeuenode
+  if (arg(0) == 'node' && is_numeric($page_nid = arg(1)) && $node->nid != $page_nid) {
+    
+    // Load the (potential) nodequeuenode
+    $page_node = node_load($page_nid);
+    
+    // Is this infact a nodequeuenode?
+    if ($page_node->type == 'nodequeuenode') {
+      
+      // Load the related subqueue
+      $subqueue = subqueue_load($sqid = nodequeuenode_related_get_sqid($page_nid));
+      
+      // Iterate all the links
+      foreach ($links as $key => $link) {
+        
+        // Remove all the nodequeue links that act on different subqueues than this one
+        $matches = array();
+        if (preg_match('%^admin/content/nodequeue/\d+/[a-z-]+/(?P<sqid>\d+)/\d+$%', $link['href'], $matches)) {
+          if ($matches['sqid'] != $sqid) {
+            unset($links[$key]);
+          }
+        }
+        
+      }
+    }
+  }
+}
+
+
+/**
+ * Nodequeues functions.
+ */
+
+/**
+ * Check whether a nodequeue can have nodes related to it's subqueues.
+ */
+function nodequeuenode_queue_is_active($qid) {
+  return (bool)db_result(db_query('SELECT COUNT(qid) FROM {nodequeuenode_active} WHERE qid = %d LIMIT 1', $qid));
+}
+
+/**
+ * Allow nodes to be related to a nodequeue.
+ */
+function nodequeuenode_queue_activate($qid) {
+  // Only insert to the database if this queue isn't active
+  if (!nodequeuenode_queue_is_active($qid)) {
+    db_query('INSERT INTO {nodequeuenode_active} (qid) VALUES (%d)', $qid);
+  }
+}
+
+/**
+ * Prevent nodes from being related to a nodequeue.
+ */
+function nodequeuenode_queue_deactivate($qid) {
+  db_query('DELETE FROM {nodequeuenode_active} WHERE qid = %d LIMIT 1', $qid);
+  db_query('DELETE FROM {nodequeuenode_relation} WHERE sqid IN (SELECT sqid FROM {nodequeue_subqueue} WHERE qid = %d)', $qid);
+}
+
+
+/**
+ * Related nodes functions.
+ */
+
+/**
+ * Redirects the user to the node related to the subqueue, or to the
+ * node creation page if there is no such node.
+ */
+function nodequeuenode_related_view($subqueue) {
+  if (is_object($subqueue) && isset($subqueue->sqid)) {
+    $sqid = $subqueue->sqid;
+    
+    // Either goto the related node, or goto create it.
+    if ($nid = nodequeuenode_related_get_nid($sqid)) {
+      drupal_goto("node/$nid");
+    }
+    else {
+      drupal_goto("node/add/nodequeuenode/$sqid");
+    }
+  }
+  else {
+    drupal_not_found();
+  }
+}
+
+/**
+ * Redirect users to the manipulation page of the related subqueue.
+ */
+function nodequeue_related_manipulate($node) {
+  $subqueue = subqueue_load(nodequeuenode_related_get_sqid($node->nid));
+  $queue = nodequeue_load($subqueue->qid);
+  
+  // Integration with smartqueue_users
+  if (module_exists('smartqueue_users') && $queue->owner == 'smartqueue_users') {
+    $uid = smartqueue_users_get_subqueue_owner($subqueue);
+    drupal_goto("user/$uid/queue/$queue->qid/view/$subqueue->sqid");
+    return;
+  }
+  
+  drupal_goto("admin/content/nodequeue/$queue->qid/view/$subqueue->sqid");
+}
+
+/**
+ * Access control for nodequeue manipulation from meta-nodes.
+ */
+function nodequeuenode_related_can_manipulate($node) {
+  global $user;
+  
+  if ($node->type == 'nodequeuenode') {
+    $subqueue = subqueue_load(nodequeuenode_related_get_sqid($node->nid));
+    $queue = nodequeue_load($subqueue->qid);
+    
+    return nodequeue_queue_access($queue, $subqueue, $user);
+  }
+  
+  // Not a meta node.
+  return FALSE;
+}
+
+/**
+ * Get the nid of the related node of the subqueue by the sqid.
+ *
+ * @return an nid or FALSE if the relation doesn't exist.
+ */
+function nodequeuenode_related_get_nid($sqid) {
+  return db_result(db_query('SELECT nid FROM {nodequeuenode_relation} WHERE sqid = %d', $sqid));
+}
+
+/**
+ * Set a sqid/nid relation.
+ */
+function nodequeuenode_related_set_nid($sqid, $nid) {
+  if (!nodequeuenode_related_get_nid($sqid)) {
+    db_query('INSERT INTO {nodequeuenode_relation} (sqid, nid) VALUES (%d, %d)', $sqid, $nid);
+  }
+  else {
+    db_query('UPDATE {nodequeuenode_relation} SET nid = %d WHERE sqid = %d LIMIT 1', $nid, $sqid);
+  }
+}
+
+/**
+ * Unsets a relation by nid.
+ */
+function nodequeuenode_related_unset_nid($nid) {
+  db_query('DELETE FROM {nodequeuenode_relation} WHERE nid = %d LIMIT 1', $nid);
+}
+
+/**
+ * Get the sqid by the related node's nid.
+ */
+function nodequeuenode_related_get_sqid($nid) {
+  return db_result(db_query('SELECT sqid FROM {nodequeuenode_relation} WHERE nid = %d', $nid));
+}
+
+
+/**
+ * Private functions.
+ */
+
+/**
+ * Return the options for viewing subqueues in nodequeuenodes.
+ */
+function _nodequeuenode_views_options() {
+  $views = array(
+    NODEQUEUENODE_VIEW_HIDDEN => t('-Hidden-'),
+    NODEQUEUENODE_VIEW_DEFAULT => t('-Default display-'),
+  );
+  
+  if (module_exists('views')) {
+    foreach (views_get_all_views() as $view_id => $view) {
+      if ($view->base_table == 'node' && !$view->disabled) {
+        $views[$view_id] = $view_id;
+      }
+    }
+  }
+  
+  return $views;
+}
+
+/**
+ * Nodequeuenode's persistent variables helper getter function.
+ */
+function _nodequeuenode_variable_get($var) {
+  // If a value is returned by variable_get, return that value
+  if (($value = variable_get("nodequeuenode_$var", NULL)) !== NULL) {
+    return $value;
+  }
+  
+  // Otherwise, return the default value for this variable
+  switch ($var) {
+    case 'message_relation_exists':
+      return 'This subqueue already has a related node.';
+      break;
+      
+    case 'tab_title':
+      return 'Subqueue';
+      break;
+      
+    default:
+      return NULL;
+      break;
+  }
+}
+
+/**
+ * Nodequeuenode's persistent variables helper getter function.
+ */
+function _nodequeuenode_variable_set($var, $value) {
+  variable_set("nodequeuenode_$var", $value);
+}
+
+/**
+ * Nodequeuenode's settings getter.
+ */
+function _nodequeuenode_settings_get($var, $qid) {
+  if ($qid) {
+    // $qid is present, editing an existing nodequeue, get the settings
+    $setting = _nodequeuenode_variable_get($var);
+    
+    if (isset($setting[$qid])) {
+      return $setting[$qid];
+    }
+  }
+  
+  // No $qid (new nodequeue) or no existing setting, get the defaults
+  switch ($var) {
+    case 'view':
+      return NODEQUEUENODE_VIEW_DEFAULT;
+      break;
+  }
+}
+
+/**
+ * Nodequeuenode's settings setter.
+ */
+function _nodequeuenode_settings_set($var, $qid, $value) {
+  $setting = _nodequeuenode_variable_get($var);
+  $setting[$qid] = $value;
+  _nodequeuenode_variable_set($var, $setting);
+}

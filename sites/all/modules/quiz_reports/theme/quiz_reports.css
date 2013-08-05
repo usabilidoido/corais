@@ -1,0 +1,83 @@
+
+/*
+ * @file
+ * CSS file for quiz stats
+ */
+ 
+.revision-wrapper { margin:20px 0; }
+
+.icons-explanation { float:right; font-size:.85em; color:#666; }
+.icons-explanation ul { margin:0; padding:0; list-style:none; }
+.icons-explanation ul li { display:inline; padding-left:15px; margin-left:10px; }
+.icons-explanation ul li.correct { background: url(icons/icon_correct.png) center left no-repeat; }
+.icons-explanation ul li.wrong { background: url(icons/icon_wrong.png) center left no-repeat; }
+.icons-explanation ul li.not-evaluated { background: url(icons/icon_not_evaluated.png) center left no-repeat; }
+ 
+.accumulated { background-color:#dff0f9; border:solid 1px #d1e4f8; margin: 0 0 40px 0; }
+.accumulated a {color:#2885be; text-decoration:none; }
+.accumulated .row { overflow:auto; height:100%; padding:10px; }
+.accumulated .row .column { float:left; margin-right:30px;}
+.accumulated .row .column .text { font-size:1.1em; color:#333; }
+.accumulated .row .column .textsub { font-size:.85em; color:#666; line-height:1.2em; padding:3px 0 0 0; }
+.accumulated .graphs .expand { padding:10px; }
+.accumulated .graphs .expand a { background: url(icons/icon_collapsed.png) center left no-repeat; padding-left:10px; text-decoration:none; font-size:.85em; outline:none; }
+.accumulated .graphs .expand a.expanded { background: url(icons/icon_expanded.png) center left no-repeat; }
+.accumulated .graphs .graphs-wrapper { background-color:#fff; border-top:solid 1px #d1e4f8; padding:10px; height:530px; }
+
+.accumulated .graphs .graphs-wrapper .links { overflow:auto; height:30px; }
+.accumulated .graphs .graphs-wrapper .links ul { margin:0; padding:0; list-style:none; }
+.accumulated .graphs .graphs-wrapper .links ul li { display:inline; }
+.accumulated .graphs .graphs-wrapper .links ul li a,
+.accumulated .graphs .graphs-wrapper .links ul li span { float:left; padding:5px 10px; font-size:.85em; }
+.accumulated .graphs .graphs-wrapper .links ul li a { outline:none; }
+.accumulated .graphs .graphs-wrapper .links ul li span { color:#666; }
+
+.accumulated .graphs .graphs-wrapper.hidden { display:none;}
+.accumulated .graphs .graphs-wrapper .section { height:530px; top:0; left:0; padding:10px 40px 0 40px; }
+
+.quiz-stats-chart-space { margin-bottom:3px; }
+.quiz-charts-title { margin-top: 30px; margin-bottom: 10px; }
+
+.question-wrapper { margin:40px 0; }
+.question-wrapper table,
+.question-wrapper table tr td { border:none; background-color:transparent; }
+
+.question-wrapper .question { margin:0; border-bottom: solid 1px #ccc; }
+.question-wrapper .question .text { color:#333; font-weight:bold; }
+.question-wrapper .question .type { color:#999; font-size:.85em; margin-left:10px; }
+
+.question-wrapper .generic { text-align:right; font-size:.85em; color:#666; padding:2px 5px; margin-bottom: 12px; font-style: italic; background-color:#efefef; }
+.question-wrapper .generic span.item { margin-right:20px; }
+
+.question-wrapper .specific { font-size:.9em; }
+.question-wrapper .specific .no-statistics { font-style: italic; color:#999; }
+
+.question-wrapper .result .no-statistics { margin:20px 0; padding:10px 0; text-align: center; font-weight:bold; color:#666; font-size:.85em; border:solid 1px #ccc; }
+
+.question-wrapper .result table.horizontal-bars { width:100%; font-size:.9em; }
+.question-wrapper .result table.horizontal-bars tbody { border:none; }
+.question-wrapper .result table.horizontal-bars tr td { vertical-align:middle; padding:5px 0; /*white-space:nowrap;*/ }
+.question-wrapper .result table.horizontal-bars tr td.option { width:200px; text-align:right; color:#777; }
+.question-wrapper .result table.horizontal-bars tr td.meta { width:20px; }
+.question-wrapper .result table.horizontal-bars tr td.meta.correct { background: url(icons/icon_correct.png) center center no-repeat; }
+.question-wrapper .result table.horizontal-bars tr td.result { border-left:solid 1px #ccc; }
+.question-wrapper .result table.horizontal-bars tr td.result span.bar { width:200px; height:15px; background-color:#1A87D5; display:block; float:left; padding:0 0 3px 0; }
+.question-wrapper .result table.horizontal-bars tr td.result.correct span.bar { background-color:#92C63E; }
+.question-wrapper .result table.horizontal-bars tr td.result.neutral span.bar { background-color:#ccc; }
+.question-wrapper .result table.horizontal-bars tr td.result span.percent { font-size:.9em; margin-left:5px; color:#777; font-style:italic; }
+.question-wrapper .result table.horizontal-bars tr td.result span.bar span.percent { margin:0; padding:0 3px!important; margin-right:10px; color:#fff; float:right; }
+.question-wrapper .result table.horizontal-bars tr td.grid { border-top:solid 1px #ccc; padding:0; }
+.question-wrapper .result table.horizontal-bars tr td.grid div { background: url(icons/0p.png) 0 0 no-repeat;}
+.question-wrapper .result table.horizontal-bars tr td.grid div div { background: url(icons/bar.png) 10% 0 no-repeat;}
+.question-wrapper .result table.horizontal-bars tr td.grid div div div { background: url(icons/bar.png) 20% 0 no-repeat;}
+.question-wrapper .result table.horizontal-bars tr td.grid div div div div { background: url(icons/bar.png) 30% 0 no-repeat;}
+.question-wrapper .result table.horizontal-bars tr td.grid div div div div div { background: url(icons/bar.png) 40% 0 no-repeat; }
+.question-wrapper .result table.horizontal-bars tr td.grid div div div div div div { background: url(icons/50p.png) 50% 0 no-repeat;}
+.question-wrapper .result table.horizontal-bars tr td.grid div div div div div div div { background: url(icons/bar.png) 60% 0 no-repeat;}
+.question-wrapper .result table.horizontal-bars tr td.grid div div div div div div div div { background: url(icons/bar.png) 70% 0 no-repeat;}
+.question-wrapper .result table.horizontal-bars tr td.grid div div div div div div div div div { background: url(icons/bar.png) 80% 0 no-repeat; }
+.question-wrapper .result table.horizontal-bars tr td.grid div div div div div div div div div div { background: url(icons/bar.png) 90% 0 no-repeat; }
+.question-wrapper .result table.horizontal-bars tr td.grid div div div div div div div div div div div { background: url(icons/100p.png) 100% 0 no-repeat; height:21px; }
+
+.question-wrapper .result .properties ul { margin:0; padding:0; list-style:none; }
+.question-wrapper .result .properties ul li { display:inline; list-style:none; }

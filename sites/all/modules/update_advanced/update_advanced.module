@@ -1,0 +1,115 @@
+<?php
+// $Id: update_advanced.module,v 1.6 2009/10/04 02:15:48 davereid Exp $
+
+/**
+ * @file
+ * Provides advanced settings for the Update status module in core.
+ *
+ * Extends the settings tab at admin/reports/updates/settings to provide
+ * per-project controls for ignoring specific projects or even specific
+ * recommended releases.
+ *
+ * See the README.txt file for more information.
+ *
+ * @author Derek Wright ("dww") http://drupal.org/user/46549
+ */
+
+/**
+ * Implementation of hook_theme().
+ */
+function update_advanced_theme() {
+  return array(
+    'update_advanced_settings' => array(
+      'arguments' => array('form' => NULL),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ */
+function update_advanced_form_update_settings_alter(&$form, $form_state) {
+  module_load_include('inc', 'update_advanced', 'update_advanced.settings');
+  _update_advanced_alter_settings($form, $form_state);
+}
+
+/**
+ * Implementation of hook_update_projects_alter().
+ */
+function update_advanced_update_projects_alter(&$projects) {
+  if (variable_get('update_advanced_check_disabled', FALSE)) {
+    module_load_include('inc', 'update_advanced', 'update_advanced.compare');
+    _update_advanced_process_disabled_info_list($projects, module_rebuild_cache(), 'disabled-module');
+    _update_advanced_process_disabled_info_list($projects, system_theme_data(), 'disabled-theme');
+  }
+}
+
+/**
+ * Implementation of hook_update_status_alter().
+ *
+ * This compares the array of computed information about projects that are
+ * missing available updates with the saved settings. If the settings specify
+ * that a particular project or release should be ignored, the status for that
+ * project is altered to indicate it is ignored because of settings.
+ *
+ * @param $projects
+ *   Reference to an array of information about available updates to each
+ *   project installed on the system.
+ *
+ * @see update_calculate_project_data()
+ */
+function update_advanced_update_status_alter(&$projects) {
+  foreach ($projects as $project => $project_info) {
+    $ignored = update_advanced_is_project_ignored($project, $project_info);
+    if ($ignored !== FALSE) {
+      $projects[$project]['status'] = UPDATE_NOT_CHECKED;
+      $projects[$project]['reason'] = t('Ignored from settings');
+      if ($ignored !== TRUE) {
+        $projects[$project]['extra'][] = array(
+          'class' => 'admin-note',
+          'label' => t('Administrator note'),
+          'data' => $ignored,
+        );
+      }
+    }
+  }
+}
+
+/**
+ * Check if a project or a project's release has been set to be ignored.
+ *
+ * @param $project
+ *   A string with the project name.
+ * @param $update_info
+ *   An array with the information fetched from update.module.
+ * @return
+ *   A string with the administrator note or TRUE if the project should be
+ *   ignored in update results, or FALSE otherwise.
+ */
+function update_advanced_is_project_ignored($project, $update_info) {
+  static $settings;
+
+  if (!isset($settings)) {
+    $settings = variable_get('update_advanced_project_settings', array());
+  }
+
+  $ignored = FALSE;
+  if (isset($settings[$project]['check'])) {
+    if ($settings[$project]['check'] == 'never') {
+      // User has set this project to always be ignored.
+      $ignored = TRUE;
+    }
+    elseif (isset($update_info['recommended']) && $settings[$project]['check'] === $update_info['recommended']) {
+      // User has set this version to be ignored.
+      $ignored = TRUE;
+    }
+  }
+
+  if ($ignored && !empty($settings[$project]['notes'])) {
+    // Return the ignore note if available.
+    return $settings[$project]['notes'];
+  }
+  else {
+    return $ignored;
+  }
+}

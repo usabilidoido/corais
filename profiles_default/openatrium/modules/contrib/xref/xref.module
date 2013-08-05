@@ -1,0 +1,285 @@
+<?php
+// $Id$
+
+/**
+ * Implementation of hook_block().
+ */
+function xref_block($op = 'list', $delta = 0) {
+  switch ($op) {
+    case 'list':
+      return array(
+        'create' => array('info' => t('Crossref: Create referrer')),
+        'xref' => array('info' => t('Crossref: Referrers')),
+      );
+    case 'view':
+      switch ($delta) {
+        case 'create':
+          $node = menu_get_object();
+          if ($node && !empty($node->nid)) {
+            $xref_links = xref_links($node->type, $node->nid);
+            if (!empty($xref_links)) {
+              return array('subject' => t('Reference this'), 'content' => theme('links', $xref_links));
+            }
+          }
+          break;
+        case 'xref':
+          $node = menu_get_object();
+          if ($node) {
+            $xref_view = xref_view($node->type, $node->nid);
+            if (!empty($xref_view)) {
+              return array('content' => $xref_view);
+            }
+          }
+          break;
+      }
+      break;
+  }
+}
+
+/**
+ * Implemenation of hook_nodeapi().
+ */
+function xref_nodeapi(&$node, $op, $teaser = NULL, $page = NULL) {
+  switch ($op) {
+    case 'view':
+      // Node page
+      if ($page && !$teaser) {
+        // Xref links
+        if (variable_get('xref_links_'. $node->type, 'template') == 'node') {
+          $xref_links = xref_links($node->type, $node->nid);
+          if (!empty($xref_links)) {
+            $links = theme('links', $xref_links);
+            $node->content['xref_links'] = array(
+              '#weight' => -10, 
+              '#value' => theme('xref_links', $links, t('Reference this via')),
+            );
+          }
+        }
+
+        // Xref view
+        if (variable_get('xref_view_'. $node->type, true)) {
+          $xref_view = xref_view($node->type, $node->nid);
+          if (!empty($xref_view)) {
+            $node->content['xref_view'] = array('#weight' => 100, '#value' => $xref_view);
+          }
+        }
+      }
+      break;
+  }
+}
+
+/**
+ *  Implementation of hook_form_alter.
+ *
+ *  Adds xref setting to nodetype editing pages.
+ */
+function xref_form_alter(&$form, $form_state, $form_id) {
+  if ($form_id == 'node_type_form' && isset($form['identity']['type'])) {
+    $fields = xref_fields($form['#node_type']->type);
+    if (!empty($fields)) {
+      $types = array();
+      foreach ($fields as $k => $v) {
+        $types[$v['type_name']] = $v['type_name'];
+      }
+      $form['xref'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Cross reference settings'),
+        '#description' => t('This type of content can be referenced by: %type', array('%type' => implode(', ', $types))),
+        '#collapsible' => TRUE,
+        '#collapsed' => TRUE,
+      );
+      $form['xref']['xref_links'] = array(
+        '#type' => 'select',
+        '#title' => t('Display "Reference this via" links'),
+        '#options' => array(
+          FALSE => '-- '. t('Don\'t display') .' --',
+          'template' => t('Provide $xref_links variable in node.tpl.php'),
+          'node' => t('Display in node content'),
+        ),
+        '#default_value' => variable_get('xref_links_'. $form['#node_type']->type, 'template'),
+      );
+      $form['xref']['xref_view'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Display summary of referencing content'),
+        '#default_value' => variable_get('xref_view_'. $form['#node_type']->type, true),
+      );
+    }
+  }
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function xref_theme() {
+  return array('xref_links' => array());
+}
+
+/**
+ * Theme xref links.
+ */
+function theme_xref_links($links, $label) {
+  return "<div class='xref clear-block'><div class='label'>$label</div>$links</div>";  
+}
+
+/**
+ * Preprocessor for theme_node().
+ */
+function xref_preprocess_node(&$vars) {
+  $node = $vars['node'];
+  if (variable_get('xref_links_'. $node->type, 'template') == 'template') {
+    $links = xref_links($node->type, $node->nid);
+    if (!empty($links)) {
+      $links = theme('links', $links);
+      $vars['xref_links'] = theme('xref_links', $links, t('Reference this'));
+    }
+  }
+}
+
+/**
+ * API function.
+ */
+function xref_fields($nodetype, $reset = FALSE) {
+  static $fields;
+  if (!isset($fields) || $reset) {
+    $fields = array();
+  }
+  if (!isset($fields[$nodetype])) {
+    $fields[$nodetype] = array();
+    // Get nodereference fields that may reference this node
+    foreach (content_fields() as $field) {
+      if ($field['type'] == 'nodereference' && is_array($field['referenceable_types'])) {
+        foreach ($field['referenceable_types'] as $type) {
+          if ($type === $nodetype) {
+            $fields[$nodetype][$field['field_name']] = $field;
+          }
+        }
+      }
+    }
+  }
+  return $fields[$nodetype];
+}
+
+/**
+ * Provides links to create any nodes that could potentially reference this node.
+ */
+function xref_links($nodetype, $nid) {
+  $fields = array_keys(xref_fields($nodetype));
+  if ($fields) {
+    // Wrap each field in quotes in prep for SQL IN()
+    foreach ($fields as $k => $v) {
+      $fields[$k] = "'$v'";
+    }
+
+    // Build link of nodetypes with instances of all valid referencing fields
+    $links = array();
+
+    $node_types = node_get_types();
+    $fields = implode(',', $fields);
+    $result = db_query("SELECT field_name, type_name FROM {content_node_field_instance} WHERE widget_active = 1 AND field_name IN ($fields)");
+    while ($row = db_fetch_object($result)) {
+      if (node_access('create', $row->type_name)) {
+        $node = node_load($nid);
+        $type = $row->type_name;
+        $item = menu_get_item('node/add/'. str_replace('_', '-', $type));
+        if ($item['access']) {
+          $links[$type] = array(
+            'title' => t('via @nodetype', array('@nodetype' => $item['title'])),
+            'href' => $item['href'],
+            'query' => check_plain("edit[{$row->field_name}][0][nid][nid]= ". urlencode($node->title) ." [nid: {$nid}]"),
+          );
+        }
+      }
+    }
+    return $links;
+  }
+  return '';
+}
+
+/**
+ * Provides a view of any nodes that reference the given node.
+ *
+ * @param $nodetype
+ *  the node type of the content to detect references to.
+ *
+ * @param $nid
+ *  the nid of the content to detect references to.
+ *
+ * @param $fieldname
+ *   Optional. The id of the particular field to be used to build the view. If
+ *   omitted the first field returned by xref_fields() will be used.
+ *
+ * @param $viewname
+ *   Optional.
+ */
+function xref_view($nodetype, $nid, $fieldname = null, $viewname = null) {
+  $output = '';
+  $fields = xref_fields($nodetype);
+
+  if (empty($fields)) {
+    return '';
+  }
+
+  if (!empty($fieldname)) {
+    $field = $fields[$fieldname];
+  }
+  else {
+    $field = array_shift($fields);
+  }
+
+  if (empty($viewname)) {
+    $viewname = 'xref';
+  }
+
+  // Xref nodes
+  if ($view = views_get_view($viewname)) {
+    $field_info = content_database_info($field);
+    module_load_include('inc', 'content', 'includes/views/content.views');
+
+    $view->set_display();
+    $handler = $view->display['default']->handler;
+    $handler->override_option('arguments', array(
+      $field['field_name'] => array(
+        'default_action' => 'not found',
+        'style_plugin' => 'default_summary',
+        'style_options' => array(),
+        'wildcard' => 'all',
+        'wildcard_substitution' => 'All',
+        'title' => '',
+        'default_argument_type' => 'php',
+        'default_argument' => '',
+        'validate_type' => 'none',
+        'validate_fail' => 'not found',
+        'break_phrase' => 0,
+        'not' => 0,
+        'id' => $field['field_name'] .'_nid',
+        'table' => content_views_tablename($field),
+        'field' => $field['field_name'] .'_nid',
+        'relationship' => 'none',
+        'default_options_div_prefix' => '',
+        'default_argument_user' => 0,
+        'default_argument_fixed' => '',
+        'default_argument_php' => '',
+        'validate_argument_node_type' => array(),
+        'validate_argument_node_access' => 0,
+        'validate_argument_nid_type' => 'nid',
+        'validate_argument_vocabulary' => array(),
+        'validate_argument_type' => 'tid',
+        'validate_argument_is_member' => 0,
+        'validate_argument_php' => '',
+      ),
+    ));
+    $view->pre_execute(array($nid));
+    $view->execute();
+    if (count($view->result)) {
+      $output = $view->render();
+    }
+  }
+  return $output;
+}
+
+/**
+ * Implementation of hook_views_api().
+ */
+function xref_views_api() {
+  return array('api' => 2);
+}

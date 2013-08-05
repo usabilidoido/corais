@@ -1,0 +1,123 @@
+itweak_upload 6.x-2.x-dev
+-------------------------
+
+
+itweak_upload 6.x-2.6, 2012-05-02
+---------------------------------
+[#917270]  by iva2k: Fix $form['#node']->type for comment_driven
+[#706454]  by rbrandon: Fix-ahead for file path on new nodes when filefield_paths will change it after submit
+[NOISSUE]  by iva2k: Updated Readme and Rearranged Insert sub-section of Attachments configuration form for readability
+[NOISSUE]  by iva2k: Fixed description add-on not showing on custom class in Insert sub-section of content types
+[#1253692] by smokris: Add a hook for other modules to alter attachment links
+[NOISSUE]  by iva2k: Finished Insert feature preview of presets (no example image file copy to /default/files needed)
+[#1293338] by iva2k: Added show_attachments_description setting
+[#1320946] by rbrandon: Fix empty table elements when no rows to theme
+[NOISSUE]  by iva2k: Added "Login or register to view attached files" for anonymous users
+
+
+itweak_upload 6.x-2.5, 2011-08-28
+---------------------------------
+[#981628] by iva2k: Flexible configuration of gallery type (site-wide, node default, each view), iTweak Upload / jCarousel
+[#977256] by iva2k: Wrong mime type listed in CSS for Adobe InDesign Files
+[#956324] by Todd Nienkerk: Support more file types/extensions (ppt, odp, docx, etc.)
+[#544058] by iva2k: Support for jCarousel Lite
+[#673118] by iva2k: Support for insert.module (soft dependency)
+[#985650] by iva2k: Refactored code for possibility of adjusting link options (No new features)
+[NOISSUE] by iva2k: Touched up some CSS styling
+[#985650] by iva2k: Lightbox link to original for images
+[#673118] by iva2k: Fixed insert function JS errors
+[#1031904] by iva2k: Added comment to itweak_upload.css for use of "!important"
+[#1069974] by Mark Carver: Provide out-of-the box AJAX support for sites that use SSL (SecurePages), http://drupal.org/node/297035#comment-4111664
+[#1071746] by eoipso: Colorbox integration
+
+
+itweak_upload 6.x-2.4, 2010-11-27
+---------------------------------
+[NOISSUE] by iva2k: Redesigned mechanism of re-theming upload forms, using low weight and #pre_render
+[NOISSUE] by iva2k: Fixed theming on node previews
+[NOISSUE] by iva2k: Fixed broken comment preview in core (band-aid) for [#579900] [#302240] [#715178] [#429006] [#666680] [#397616] etc.
+[#714524] by iva2k: Removing imagecache files after files deleted. There are still ways to leave files behind (attach files but never save the node is one)
+[#588106] by iva2k: Duplicate listings removed when using download_count.module (patched or unpatched)
+[#588106] by iva2k: Use patched download_count.module [#720686] to display file download count/last download
+[#594114] by iva2k: New re-theming mechanism fixes issues with other modules (private_upload)
+[#594114] by iva2k: Support private_upload checkbox in iTweak Upload theming
+[#544058] by iva2k: Attempt for jCarousel Lite support, unfinished
+[#554344] by iva2k: Upload progress bar (using server-side uploadprogress or APC)
+[#705866] by iva2k: Highslide support
+[NOISSUE] by iva2k: Fixing doubled file rename in uploads when insert.module is enabled
+[#594114] by niteman, iva2k: Fixed private_upload file path
+[NOISSUE] by iva2k: Added a note for content type form Attachments/comments section when Nodecomment module is present
+[NOISSUE] by iva2k: Fixed regression of removing 'comment_upload_images' on content type form
+[NOISSUE] by iva2k: Fixed placement weight of 'itweak_upload_collapse' on content type form
+[NOISSUE] by iva2k: Removed preview for missing files
+[#737044] by iva2k: Prevent creating NULL children in form
+[#706888] by iva2k: Redoing invocation of hook_file_download for compatibility with webform and other picky modules
+[NOISSUE] by iva2k: Touched up CSS for IE6, IE7
+[NOISSUE] by iva2k: Removed clear:both from .itu-attachment-images to avoid gaps in the node body in Advanced Forum
+[#746142] by weaponx86: Caught extraneous comma in itweak_upload.js
+[#646460] by maximpodorov: Fancybox release support
+[#888198] by yhahn: Weight module on install
+[#729060] by iva2k: Disambiguate .remove class
+[#810268] by iva2k: add options to URL for non-preview links
+[#818298] by iva2k: Checking for function imagecache_file_delete() instead of just the module
+[#785774] by iva2k: preserve '#description' for upload form if it is set
+[#942956] by iva2k: Fixed "Remove file" regression
+[#883768] by iva2k: fixing comment preview when comment_upload module is disabled
+[#933252] by iva2k: Keep the files in hook_nodeapi for other modules (like inline)
+[#981576] by iva2k: Ready for 2.4 stable release
+
+
+(earlier for 6.x-2.4):
+[#561890] by iva2k: Increased weight to 10 (should load after comment_upload.module)
+[#672486] by genox: German translation
+[#642076] by afterdark: Brazilian Portugese translation
+[#646460] by maximpodorov: Fancybox support
+[NOISSUE] by iva2k: Shadowbox support
+[#544058] by iva2k: Crude jCarousel support
+[#575808] by ferdi: Use hook_imagecache_default_presets
+[#706888] by iva2k: Remove images from gallery if user has no permission to view/download them
+[#707360] by iva2k: Making extra checks to ensure image can be rendered
+[#542018] by iva2k: Using image description in lightbox, shadowbox
+[#711134] by maximpodorov: Fix for PHP 5.3 "Parameter 1 to itweak_upload_upload_form_current() expected to be a reference, value given"
+[NOISSUE] by iva2k: Updated Translation .pot file.
+
+itweak_upload 6.x-2.3, 2010-02-17
+---------------------------------
+SA-CONTRIB-2010-017 by iva2k: remove XSS vulnerability in file names
+
+itweak_upload 6.x-2.2, 2009-08-07
+---------------------------------
+[#537586] by iva2k: Fixed WSOD when ImageCache module is not installed.
+[#537586] by iva2k: Removed extra checks.
+[NOISSUE] by iva2k: Added "No preview" preset option (disables thumbnails) for graceful degradation without ImageCache.
+
+itweak_upload 6.x-2.1, 2009-07-29
+---------------------------------
+[NOISSUE] by iva2k: Getting ready for 2.1 release.
+
+itweak_upload 6.x-2.1-rc2, 2009-07-22
+-------------------------------------
+[NOISSUE] by iva2k: Added margin-right to attachments and images divs in itweak_upload.css (for cleaner advanced forum styling).
+[#520286] by jackinloadup: Fixed .eps icons not showing up.
+[NOISSUE] by iva2k: Added missing psd.png for mime-16.
+[#520912] by iva2k: Image CSS sprites for mime icons.
+[NOISSUE] by iva2k: Images (and other files via hook) preview in upload and comment_upload. Massive changes.
+[NOISSUE] by iva2k: Grouped "Attachment display" settings into sub-fieldsets.
+[NOISSUE] by iva2k: Moved admin settings into itweak_upload.admin.inc (code load performance optimization).
+[NOISSUE] by iva2k: Created site-wide settings for image preset and link display option (lightbox, thickbox, etc.).
+[NOISSUE] by iva2k: Cleanup. Translation .pot file.
+[NOISSUE] by iva2k: Updated README.txt.
+
+itweak_upload 6.x-2.0-rc1, 2009-07-14
+-------------------------------------
+[NOISSUE] by iva2k: Main functionality for 2.x - attachment display tweaks, image thumbnails.
+[NOISSUE] by iva2k: Main functionality for 2.x - attachment display tweaks for comments.
+[NOISSUE] by iva2k: Main functionality for 2.x - per-content type settings.
+[NOISSUE] by iva2k: Main functionality for 2.x - automatic profile for ImageCache, permissions.
+[NOISSUE] by iva2k: Main functionality for 2.x - thumbnail link display option (lightbox2, thickbox).
+[NOISSUE] by iva2k: Added collapsible setting for Attachments form.
+
+itweak_upload 6.x-1.0, 2009-07-03
+---------------------------------
+[NOISSUE] by iva2k: Initial commit, First Release.
+[NOISSUE] by iva2k: Initial commit, First Release - apply theme tweaks to comment attachments.

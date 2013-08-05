@@ -1,0 +1,20 @@
+<?php
+
+/**
+ * Implementation of hook_ctools_plugin_directory().
+ */
+function spaces_ui_ctools_plugin_directory($module, $plugin) {
+  if ($module == 'ctools' && $plugin == 'export_ui') {
+    return 'export_ui';
+  }
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function spaces_ui_theme() {
+  $items = array();
+  $base = array('arguments' => array('form' => array()));
+  $items['spaces_preset_list_new'] = $base;
+  return $items;
+}

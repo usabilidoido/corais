@@ -1,0 +1,35 @@
+<?php
+
+include_once('features_task.features.inc');
+
+/**
+* Implementation of hook_init().
+*/
+function features_task_init() {
+  drupal_add_css(drupal_get_path('module', 'features_task') .'/features_task.css');
+}
+
+/**
+* Implementation of hook_atrium_dashboard().
+*/
+function features_task_atrium_dashboard() {
+  $blocks = array();
+  $blocks['views_oa_custom_task-block_1'] = array(
+    'module' => 'views',
+    'delta' => 'oa_custom_task-block_1',
+    'weight' => 20,
+    'region' => 'right',
+  );
+  return $blocks;
+}
+
+function features_task_neat_trim($str, $n, $delim='...') { 
+   $len = strlen($str); 
+   if ($len > $n) { 
+       preg_match('/(.{' . $n . '}.*?)\b/', $str, $matches); 
+       return rtrim($matches[1]) . $delim; 
+   } 
+   else { 
+       return $str; 
+   } 
+} 

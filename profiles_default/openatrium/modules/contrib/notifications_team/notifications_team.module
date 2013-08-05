@@ -1,0 +1,780 @@
+<?php
+
+/**
+ * notifications_team provides a GUI for subscribing to content
+ *
+ * KNOWN ISSUE: Any users not available to the UI will be unsubscribed from 
+ *              content they may subscribe to using some other method.
+ */
+
+/**
+ * Implementation of hook_menu()
+ */
+function notifications_team_menu() {
+  $items = array();
+  $items['notifications_team/autocomplete/%'] = array(
+    'title' => 'Notifications_team autocomplete',
+    'page callback' => 'notifications_team_autocomplete', 
+    'page arguments' => array(2),
+    'access arguments' => array('subscribe other users'), 
+    'type' => MENU_CALLBACK
+  );
+  $items['admin/messaging/notifications/team_ui'] = array(
+    'title' => 'Team UI',
+    'description' => 'Team UI settings.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('notifications_team_ui_settings_form'),
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_LOCAL_TASK,
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_perms()
+ */
+function notifications_team_perm() {
+  return array('subscribe other users');
+}
+ 
+/**
+ * Implementation of hook_theme()
+ */
+function notifications_team_theme() {
+  return array(
+    'notifications_team_form' => array(),
+    'notifications_team_user_display' => array(
+      'arguments' => array('data' => NULL, 'separator' => NULL, 'user' => NULL),
+    ),
+    'notifications_team_user_plaintext' => array(
+      'arguments' => array('data' => NULL, 'separator' => NULL, 'user' => NULL),
+    ),
+  );
+}
+
+/**
+ * Get roles that have the permission
+ */
+function _notifications_team_get_roles($permission = 'subscribe to content') {
+  static $rids;
+
+  if (!isset($rids[$permission])) {
+    $rids[$permission] = array();
+    // Search for permission name not followed by a space (which can be other permission)
+    $result = db_query("SELECT DISTINCT rid FROM {permission} WHERE perm LIKE '%%%s,%%' OR perm LIKE '%%%s'", $permission, $permission);
+    while ($role = db_fetch_object($result)) {
+      $rids[$permission][$role->rid] = $role->rid;
+    }
+  }
+  return $rids[$permission];
+}
+
+/**
+ * Returns an array of minimal user account objects that have been
+ * checked for the 'subscribe to content' permission.
+ * 
+ * @param $like
+ *   String to match for autocomplete fields
+ * @param $limit
+ *   Maximum number of rows to return
+ * @param $gid
+ *   Group id if using organic groups
+ * @param $op
+ *   Operation to perform
+ *   - 'query' for regular query
+ *   - 'count' for count query
+ *   - 'reset' to reset the static cache, mostly for unit testing;
+ */
+function notifications_team_get_users($like = NULL, $limit = 0, $gid = 0, $uids = NULL, $op = 'query') {
+  static $users;
+  
+  if ($op == 'reset') {
+    $users = array();
+    return;
+  }
+  // This is our static cache id
+  $params = array($like ? $like : '', $gid, $uids ? implode(',', $uids) : '', $op);
+  $cid = implode(':', $params);
+
+  if (!isset($users[$cid])) {
+    if (($view = variable_get('notifications_team_user_view', '')) && module_exists('views')) {
+      $users[$cid] = notifications_team_get_users_view($view, $like, $limit, $gid, $uids, $op);
+    }
+    else {
+      $users[$cid] = notifications_team_get_users_default($like, $limit, $gid, $uids, $op);
+    }
+  }
+  return $users[$cid];
+}
+
+/**
+ * Count number of users that meet some conditions
+ * 
+ * @param $gid
+ *   Group id
+ */
+function notifications_team_count_users($gid) {
+  if (($view = variable_get('notifications_team_user_view', '')) && module_exists('views')) {
+    $users = notifications_team_get_users_view($view, $like, $limit, $gid);
+  }
+  else {
+    $users = notifications_team_get_users_default($like, $limit, $gid);
+  }  
+}
+
+/**
+ * Get list of users from predefined view
+ */
+function notifications_team_get_users_view($view_name, $string = NULL, $limit = 0, $gid = 0, $uids = NULL, $op = 'query') {
+  $result = $op == 'count' ? 0 : array();
+
+  if ($view = views_get_view($view_name)) {
+    // Use the default display
+    $view->set_display();
+
+    $view->preview = TRUE;
+    // If we have a $string filter, we find string fields in our view, and add conditions to narrow the results
+    // What we do is adding the information into the display handler so it can be retrieved later on hook_views_query_alter()
+    // The $search array contains an array of searchable fields in the view for each table (varchar, text)
+    if (isset($string) && ($search = _notifications_team_view_string_fields($view))) {     
+      $options = array(
+        'search_fields' => $search,
+        'string' => $string,
+        'match' => 'contains',
+      );
+    }
+    elseif ($uids) {
+      // If we just want some users, pass more parameters to the query alter
+      // This and the string search are exclusive options
+      $options = array(
+        'table' => 'users',
+        'field_id' => 'uid',
+        'ids' => $uids,
+      );
+    }
+    if (!empty($options)) {
+      $view->display_handler->set_option('notifications_team_options', $options);
+    }
+    // If we have a group id we set it as an argument
+    if ($gid) {
+      $view->pre_execute(array($gid));
+    } else {
+      $view->pre_execute();
+    }
+
+    if ($op == 'count') {
+      $view->set_items_per_page(1);
+      // Count operation: trick the view with some parameters.
+      // @todo: There should be a better way to do this (?)
+      $view->get_total_rows = TRUE;
+      $view->display_handler->preview();
+      $view->post_execute();
+      return $view->total_rows;
+    }
+    else {
+      $view->set_items_per_page($limit);
+      // Get the results. Render the fields separately to get the name
+      $view->display_handler->preview();
+      $view->post_execute();
+      $fields = $view->field;
+      $options = $view->style_plugin->row_plugin->options;
+      foreach ($view->result as $index => $row) {
+        $rendered = (array)$view->style_plugin->rendered_fields[$index];
+        $result[$row->uid] = _notifications_team_users_view_format($row, $rendered, $fields, $options);
+      }
+    }
+  }
+
+  return $result;  
+}
+
+/**
+ * Format user names from view
+ * 
+ * @param $user
+ *   User object resulting from the query
+ * @param $rendered
+ *   Rendered fields, usually as HTML
+ * @param $fields
+ *   Field definition objects from the view
+ * @param $options
+ *   Options form $view->style_plugin->row_plugin->options
+ */
+function _notifications_team_users_view_format($user, $rendered, $fields, $options) {
+  $inline = !empty($options['inline']) ? $options['inline'] : array('name');
+  $separator = !empty($options['separator']) ? $options['separator'] : ', ';  
+  // Build user name, just reassign field
+  $user->name = $user->users_name;
+  // Build html display part, get out excluded fields from rendered
+  foreach ($fields as $key => $field) {
+    if (!empty($field->options['exclude'])) {
+      unset($rendered[$key]);
+    }
+  }
+  $user->display = theme('notifications_team_user_display', $rendered, $separator, $user);
+  // Build plaintext display part
+
+  $text= array();
+  foreach ($inline as $key) {
+    // @TODO: There should be a better way of rendering the field as plaintext (?)
+    $text[$key] = check_plain($user->{$fields[$key]->field_alias}); //$fields[$key]->render($user);
+  }
+  $user->plaintext = theme('notifications_team_user_plaintext', $text, $separator, $user);
+
+  return $user; 
+}
+
+/**
+ * Get string fields from view to perform searches
+ * 
+ * @return array of table => array('field1', 'field2'...)
+ */
+function _notifications_team_view_string_fields($view) {
+  $search = array();
+  foreach ($view->display_handler->options['fields'] as $name => $field) {
+    $table = $field['table'];
+    if ($schema = drupal_get_schema($table)) {
+      $type = $schema['fields'][$name]['type'];
+      if ($type == 'varchar' || $type == 'text') {
+        $search[$table][] = $name;
+      }
+    }
+  }
+  return $search;
+}
+
+/**
+ * Get list of users that can be subscribed, default query, using og context when available
+ */
+function notifications_team_get_users_default($like = NULL, $limit = 0, $gid = NULL, $uids = NULL, $op = 'query') {
+  $users = array();
+  $where = $join = $args = array();
+  $order = '';
+  // Get roles that can subscribe. If none, returm empty (array or 0 for count)
+  $rids = _notifications_team_get_roles('subscribe to content');
+  if (!$rids) {
+    return ($op == 'count') ? 0 : array();
+  }
+  // Remove authenticated user if there
+  if (isset($rids[DRUPAL_AUTHENTICATED_RID])) {
+    unset($rids);
+  }
+  // Populate $gid automatically from group context.
+  // Avoid this behavior if $gid is specified explicitly.
+  if (empty($gid) && module_exists('og') && $oggroup = og_get_group_context()) {
+    $gid = $oggroup->nid;
+  }
+  // Build query
+  $sql_select = "SELECT DISTINCT u.uid, u.name, u.mail";
+  $sql_from = "FROM {users} u";
+  $where[] = "u.status > 0";
+  $order = "ORDER BY u.name ASC";
+  // Limit to certain users if passed $uids 
+  if ($uids) {
+    $where[] = 'u.uid IN (' . db_placeholders($uids) . ')';
+    $args = $uids;
+  }
+  // Add group condition if gid
+  if ($gid) {
+    $join[] = "INNER JOIN {og_uid} ou ON ou.uid = u.uid";
+    $where[] = "ou.nid = %d";
+    $args[] = $gid;
+    $where[] = "ou.is_active >= 1";
+    $where[] =  "ou.is_admin >= 0";
+    
+  }
+  // Add permission/role condition. If no roles (only authenticated user, add an uid condition)
+  if ($rids) {
+    $join[] = "LEFT JOIN {users_roles} r ON u.uid = r.uid";
+    $where[] = "(r.rid IN (" . db_placeholders($rids) . ') OR u.uid = 1)';
+    $args = array_merge($args, $rids);
+  }
+  else {
+    $where[] = "u.uid > 0";
+  }
+  
+  // Add string matching condition
+  if (!empty($like)) {
+    $where[] = "LOWER(u.name) LIKE LOWER('%s%%')";
+    $args[] = $like;
+  }
+  $sql_from .= ' ' . implode(' ', $join);
+  $sql_where = ' WHERE ' . implode(' AND ', $where);
+  // If it is a counting query, without order by, just count and return
+  if ($op == 'count') {
+    $sql = implode(' ', array('SELECT COUNT(DISTINCT u.uid)', $sql_from, $sql_where));
+    return db_result(db_query($sql, $args));
+  }
+  else {
+    $sql = implode(' ', array($sql_select, $sql_from, $sql_where, $order));
+    $result = $limit ? db_query_range($sql, $args, 0, $limit) : db_query($sql, $args);
+  }
+  while ($row = db_fetch_object($result)){
+    $users[$row->uid] = $row;
+  }
+
+  return $users;
+}
+
+/**
+ * Define a "delicious" like form subscribing users to nodes. 
+ * TODO - prepopulate with current user|case owner|case assignee
+ */
+function notifications_team_form($nid) {
+  $form = array();
+  $gid = module_exists('og') && ($group = og_get_group_context()) ? $group->nid : 0;
+  $count = notifications_team_get_users(NULL, 0, $gid, NULL, 'count');
+  
+  if ($count) {
+    // Check whether we need to list all or just an autocomplete form
+    $acomplete = $count > variable_get('notifications_team_max_options', 20);
+    // Get existing subscriptions.
+    if (is_numeric($nid)) {
+      $subscriptions = notifications_team_get_subscriptions($nid);
+      $subscribers = array_keys($subscriptions);
+    }
+    else {
+      $subscriptions = $subscribers = array();
+    }
+    // Select all users if not autocomplete or users with subscriptions otherwise
+    if ($acomplete) {
+      $users = notifications_team_get_users(NULL, 0, $gid, $subscribers);
+    }
+    else {
+      $users = notifications_team_get_users(NULL, 0, $gid);
+    }
+    // Build user names to display
+    $user_names = array();
+    if ($acomplete) {
+      // have an autocomplete box and only have users on the checkboxes that are already subscribed
+      foreach($subscribers as $uid) {
+        $user = $users[$uid];
+        $user_names[$uid] = isset($user->display) ? $user->display : $user->name;
+      }
+      asort($user_names);
+    }
+    elseif (count($users)) {
+      foreach ($users as $user) {
+        $user_names[$user->uid] = isset($user->display) ? $user->display : $user->name;
+      }
+    }
+    else {
+      // If we don't have any user available, display no form
+      return array();
+    }
+
+    // Build the form.
+    $form['notifications_team'] = array(
+      '#tree' => TRUE,
+      '#theme' => 'notifications_team_form',
+    );
+    $form['notifications_team']['selected']  = array(
+      '#type' => 'hidden',
+      '#default_value' => implode(',', $subscribers),
+    );
+    if ($acomplete) {
+      $form['notifications_team']['listed'] = array(
+        '#type' => 'textfield', 
+        '#autocomplete_path' => 'notifications_team/autocomplete/'. $gid,
+        '#default_value' => '',
+        '#description' => t('Enter list of usernames separated by commas'),
+        '#required' => FALSE,
+      );
+    }
+    else {
+      $form['team_checkall'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Notify all users'),
+        '#weight' => 0,
+      );      
+    }
+    if ($user_names) {
+      $form['notifications_team']['options'] = array(
+        '#type' => 'markup',
+        '#value' => $user_names,
+      );
+    }
+  }
+
+  return $form;
+}
+
+/**
+ * Get existing subscriptions for a node, indexed by uid
+ */
+function notifications_team_get_subscriptions($nid, $reset = FALSE) {
+  static $subscriptions;
+
+  if (!isset($subscriptions[$nid]) || $reset) {
+    $params = array('type' => 'thread', 'event_type' => 'node');
+    $conditions = array('nid' => $nid);
+    $subscriptions[$nid] = notifications_get_subscriptions($params, $conditions, TRUE, 'uid');
+  }
+  return $subscriptions[$nid];
+}
+
+/**
+ * Theme function for rendering the js-enabled team notifications widget.
+ */
+function theme_notifications_team_form($form) {
+  // Add javascript
+  drupal_add_js(drupal_get_path('module', 'notifications_team') .'/notifications_team.js', 'module');
+  drupal_add_css(drupal_get_path('module', 'notifications_team') .'/notifications_team.css');
+  $output = '';
+
+  // Render each of the user selector options
+  if ($form['options']['#value']) {
+    $options = '';
+    foreach ($form['options']['#value'] as $uid => $name) {
+      $options .= "<div><span class='uid-$uid'>$name</span></div>";
+    }
+    $form['options']['#value'] = $options;
+  }
+  // Render the entire form element
+  $output .= "<div class='notifications-team clear-block'>". drupal_render($form) ."</div>";
+  return $output;
+}
+
+/**
+ * Render user's data to display as HTML
+ */
+function theme_notifications_team_user_display($data, $separator, $user) {
+  return implode($separator, $data);
+}
+
+/**
+ * Render user's data to display as plain text, for autocomplete
+ */
+function theme_notifications_team_user_plaintext($data, $separator, $user) {
+  // Convert separator to plaintext 
+  return theme_notifications_team_user_display($data, $separator, $user);
+}
+
+/**
+ * Implementation of hook_comment().
+ * Acts as a pseudo-submit handler for the notifications team UI on the
+ * comment form to avoid submit handler clashes with other modules (in
+ * particular, comment_upload).
+ */
+function notifications_team_comment(&$comment, $op) {
+  switch ($op) {
+    case 'insert':
+    case 'update':
+      // Only run if the notifications_team key is actually set.
+      if (isset($comment['notifications_team'])) {
+        $uids =  explode(',', $comment['notifications_team']['selected']);
+
+        if ($comment['notifications_team']['listed']) {
+          $textunames = explode(',', $comment['notifications_team']['listed']);
+          foreach($textunames AS $uname) {
+            $u = db_fetch_object(db_query("SELECT uid FROM {users} WHERE name = '%s'", trim($uname)));
+            if ($u) {
+              $uids[] = $u->uid;
+            }
+          }
+        }
+
+        $nid = $comment['nid'];
+        notifications_team_update($nid, $uids, empty($comment['notifications_content_disable']));
+      }
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_nodeapi
+ *
+ * TODO Use notifications_ui_notifications('event trigger'...) and not hook_nodeapi. This would allow us to
+ * unify subscriptions processing for both nodes and comments into one place. ie we wouldn't need notifications_team_form_submit()
+ */
+function notifications_team_nodeapi(&$node, $op, $teaser) {
+  if (($op == 'update' || $op == 'insert') && $node->nid) {
+    if (isset($node->notifications_team)) {
+      $new_uids =  explode(',', $node->notifications_team['selected']);
+      if ($node->notifications_team['listed']) {
+        $textunames = explode(',', $node->notifications_team['listed']);
+        foreach($textunames AS $uname) {
+          $u = db_fetch_object(db_query("SELECT uid FROM {users} WHERE name = '%s'", trim($uname)));
+          if ($u) {
+            $new_uids[] = $u->uid;
+          }
+        }
+      }
+      notifications_team_update($node->nid, $new_uids, empty($node->notifications_content_disable));
+    }
+  }
+}
+
+/**
+ * Update subscriptions for a node.
+ *
+ * @param $nid
+ *  node id
+ * @param $new_uids
+ *  ids of users to subscribe to the node.
+ */
+function notifications_team_update($nid, $new_uids, $displaymsg = FALSE, $reset = FALSE) {
+  // Get and wipe existing subs for this thread
+  $subscriptions = notifications_team_get_subscriptions($nid, $reset);
+  $allowed = notifications_team_get_users(NULL, 0, 0);
+  // Create subscriptions
+  $doneuids = array();
+  $count = 0;
+  global $user;
+  // Template subscription
+  $template = array(
+    'type' => 'thread', 
+    'event_type' => 'node',
+    'fields' => array('nid' => $nid),
+  );
+  foreach ($new_uids as $uid) {
+    if (is_numeric($uid)) {
+      if (in_array($uid, $doneuids)) {
+        continue;
+      }
+      $doneuids[] = $uid;
+      if (!empty($subscriptions[$uid])) {
+        // We don't change existing subscriptions, just create new ones
+        unset($subscriptions[$uid]);
+        $result = TRUE;
+      }
+      // Only allow for subscribing users who have permission.
+      elseif (isset($allowed[$uid])) {
+        $subscription = $template + array('uid' => $uid);
+        // allow retention of personalized settings such as send method if user remains subscribed
+        $result = notifications_save_subscription($subscription);
+      }
+      else {
+        $result = FALSE;
+      }
+      if ($result && $user->uid != $uid) {
+        $count++;
+      }
+    }
+  }
+  // Delete all the subscriptins that were not 'revalidated'
+  foreach ($subscriptions as $subs) {
+    notifications_delete_subscription($subs->sid);
+  }
+  if ($count > 0 && $displaymsg) {
+    drupal_set_message(format_plural($count,"1 other user has been notified.","@count other users have been notified."));
+  }
+}
+
+/**
+ * Implementation of hook_form_alter().
+ *
+ * Adds the notifications_team_form and it's submission handler.
+ * 
+ * For comments, we do it only when comment events are enabled. For insert/edit we don't check event enabled
+ * as when creating / editing the node we may want to change which users get notifications for comments
+ */
+function notifications_team_form_alter(&$form, &$form_state, $form_id) {
+  global $user;
+  
+  if($form_id == 'node_type_form') {
+    if (isset($form['identity']['type'])) {
+      module_load_include('admin.inc', 'notifications_ui');
+      // Just in case we want to add more settings here
+      $form['notifications']['notifications_team_type'] = array(
+        '#type' => 'checkboxes',
+        '#title' => t('Team UI'),
+        '#default_value' => notifications_team_node_options($form['#node_type']->type),
+        '#options' => array(
+          'node' => t('<strong>In node form</strong>. A Team UI subform will be available when creating or editing nodes.'),
+          'comment' => t('<strong>In comment form</strong>. A Team UI subform will be available when posting comments.'),
+        ),
+        '#description' => t('Enable different display options for Team UI subscription forms.'),
+      );
+      if (!variable_get('notifications_team_per_type', 0)) {
+        $form['notifications']['notifications_team_type']['#disabled'] = TRUE;
+        $form['notifications']['notifications_team_type']['#description'] .= ' <strong>' . t('To enable these options check the <a href="@notifications-team-settings">Notifications Team settings</a>', array('@notifications-team-settings' => url('admin/messaging/notifications/team_ui'))) . '</strong>';
+      }
+    }
+  }
+  
+  if (user_access('subscribe other users')) {
+    if (isset($form['type']) && $form['type']['#value'] .'_node_form' == $form_id && 
+      ($form['nid']['#value'] && notifications_event_enabled('node', 'update') || !$form['nid']['#value'] && notifications_event_enabled('node', 'insert') )
+    ) {
+      _notifications_team_addform($form, $form['type']['#value'], 'node', $form['nid']['#value']);
+      if (isset($form_state['node_preview'])) {
+        $form['notifications']['notifications_team']['selected']['#default_value'] = $form_state['values']['notifications_team']['selected'];
+      }
+    }
+    elseif ($form_id == "comment_form" && notifications_event_enabled('node', 'comment')) {
+      $node = node_load($form['nid']['#value']);
+      _notifications_team_addform($form, $node->type, 'comment', $node->nid);
+    }
+  }
+}
+
+function notifications_team_ui_settings_form() {
+  $form['notifications_team_max_options'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Max Checkboxes'),
+    '#default_value' => variable_get('notifications_team_max_options', 20),
+    '#description'   => t('Maximum number of available users to show as individual checkboxes before using autocomplete form.'),
+  );
+
+  $views = array('' => '--');
+  if (module_exists('views')) {   
+    $all_views = views_get_all_views();
+    foreach ($all_views as $view) {
+      // Only 'users' views that have fields will work for our purpose.
+      if ($view->base_table == 'users' && !empty($view->display['default']->display_options['fields'])) {
+        if ($view->type == 'Default') {
+          $views[t('Default Views')][$view->name] = $view->name;
+        }
+        else {
+          $views[t('Existing Views')][$view->name] = $view->name;
+        }
+      }
+    }
+  }
+  $form['notifications_team_user_view'] = array(
+     '#title' => t('View for user selection'),
+     '#type' => 'select',
+     '#options' => $views,
+     '#default_value' => variable_get('notifications_team_user_view', ''),
+     '#description' => t('Optionally you can define a view for the list of available users. This view must have at least <i>user id</i> and <i>name</i> fields.'),
+     '#disabled' => count($views) == 1,
+  );
+  
+  $form['form_displays'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Team UI Display'),
+    '#collapsible' => TRUE,
+    '#description' => t('You can use the global settings here or set different options for each content type. In the second case these will be the defaults for new content types.'),
+  );
+  
+  $form['form_displays']['notifications_team_per_type'] = array(
+    '#type' => 'radios',
+    '#default_value' => variable_get('notifications_team_per_type', 0),
+    '#options' => array(
+      t('Use global settings on this page for all enabled content types.'),
+      t('Set up for each content type on <a href="@content-type-settings">Administer Content Types</a>.', array('@content-type-settings' => url('admin/content/types'))),
+    ),
+  );
+  
+  $form['form_displays']['notifications_team_options'] = array(
+    '#title' => t('Global settings'),
+    '#type' => 'checkboxes',
+    '#default_value' => variable_get('notifications_team_options', array('node', 'comment')),
+    '#options' => array(
+      'node' => t('<strong>In node form</strong>. A Team UI subform will be available when creating or editing nodes.'),
+      'comment' => t('<strong>In comment form</strong>. A Team UI subform will be available when posting comments.'),
+    ),
+    '#description' => t('Enable different display options for Team UI subscription forms.'),
+  );
+  
+  return system_settings_form($form);
+}
+
+/**
+ * Helper function adds new ui elements, and - if needed - submit hook.
+ *
+ * @param $form
+ *   The form api form array.
+ * @param $nid
+ *   Node id of the node to be subscribed to.
+ * @param $node_type
+ *   Type of node, used to determine if subs are active.
+ * @param $location
+ *   Form_alter location - either 'node' or 'comment'.
+ */
+function _notifications_team_addform(&$form, $node_type, $location = 'node', $nid = NULL) {
+  // Check to see it thread subscriptions are active for this content type.
+  if (notifications_content_type_enabled($node_type, 'thread') && notifications_team_node_options($node_type, $location)) {
+    $subscriptions_form = notifications_team_form($nid);
+    if (count($subscriptions_form)) {
+      if (isset($form['notifications'])) {
+        $form['notifications'] = array_merge($form['notifications'], $subscriptions_form);
+      }
+      else {
+        // We need to add the full notifications fieldset
+        $form['notifications'] = $subscriptions_form;
+        $form['notifications']['#type'] = 'fieldset';
+        $form['notifications']['#title'] = t('Notifications');
+        $form['notifications']['#collapsible'] = TRUE;  
+      }
+    }
+  }
+}
+
+/**
+ * Get settings value for content types
+ * 
+ * @param $type
+ *   Content type to get settings for
+ * @param $option
+ *   Optional option to check (each option can be enabled or disabled)
+ */
+function notifications_team_node_options($type = NULL, $option = NULL) {
+  // We can use global options or per content type options. The default is both
+  $options = variable_get('notifications_team_options', array('node', 'comment'));
+  if ($type && variable_get('notifications_team_per_type', 0)) {
+    $options = variable_get('notifications_team_type_' . $type, $options);
+  }
+  return $option ? in_array($option, $options, TRUE) : $options;
+}
+
+/**
+ * Helper function for autocompletion. Ony for user names
+ */
+function notifications_team_autocomplete($oggroup = 0, $notify = '') {
+  // The user enters a comma-separated list of destinations. We only autocomplete the last tag.
+  $array = split(',', $notify);
+  foreach ($array as $key => $entry) {
+    $array[$key] = trim($entry);
+  }
+
+  $string = trim(array_pop($array));
+  $matches = array();
+  if ($string) {
+    $prefix = count($array) ? implode(', ', $array) .', ' : '';
+    foreach (notifications_team_get_users($string, 10, $oggroup) as $user) {
+      $display = isset($user->plaintext) ? $user->plaintext : check_plain($user->name);
+      $matches[$prefix . $user->name] = $display;
+    }
+  }
+  drupal_json($matches);
+}
+
+/**
+ * Implementation of hook_views_api().
+ */
+function notifications_team_views_api() {
+  return array(
+    'api' => 2,
+  );
+}
+
+/**
+ * Implementation of hook views_query_alter()
+ */
+function notifications_team_views_query_alter($view, $query) {
+  if ($options = $view->display_handler->get_option('notifications_team_options')) {
+    if (!empty($options['string']) && !empty($options['search_fields'])) {
+      $match_clauses = array(
+        'contains' => "LIKE '%%%s%%'",
+        'equals' => "= '%s'",
+        'starts_with' => "LIKE '%s%%'",
+      );
+      $clause = isset($match_clauses[$options['match']]) ? $match_clauses[$options['match']] : $match_clauses['contains'];
+      // Add condition for each search field, this will be an OR group
+      $group = $query->set_where_group('OR');
+      foreach ($options['search_fields'] as $table => $table_fields) {
+        foreach ($table_fields as $field) {
+          $alias = $query->ensure_table($table);
+          $query->add_where($group, "$alias.$field $clause", $options['string']);          
+        }
+      }
+    }
+    elseif ($options['ids']) {
+      $alias = $query->ensure_table($options['table']);
+      $field = $options['field_id'];
+      $query->add_where(NULL, "$alias.$field IN (" . db_placeholders($options['ids']) . ')', $options['ids']);
+    }
+  }
+}

@@ -1,0 +1,48 @@
+/* $Id: jquerymenu.css,v 1.5 2010/05/05 07:50:55 aaronhawkins Exp $ */
+ul.jquerymenu li.parent {
+  list-style:none;
+  list-style-image:none;
+  background-image:none;
+}
+  ul.jquerymenu li.closed ul{
+  display:none;
+  }
+ul.jquerymenu li span.parent {
+  position: absolute;
+  margin-left: -15px;
+  margin-top: 6px;
+  width:9px;
+  height:9px;
+  /*display:block;*/
+}
+.ie ul.jquerymenu li span.parent{
+  margin-top: 4px;
+}
+ul.jquerymenu li.parent span.closed {
+  background-image: url(images/controls.png);
+  background-repeat: no-repeat;
+  background-position: 0px 0px;
+}
+ul.jquerymenu li.parent span.open {
+  background-image: url(images/controls.png);
+  background-repeat: no-repeat;
+  background-position: 0px -9px;
+}
+ul.jquerymenu li.parent span.closed:after {
+  content: "Expandible menu item";
+  visibility: hidden;
+}
+ul.jquerymenu li.parent span.open:after {
+  content: "Collapsible menu item";
+  visibility: hidden;
+}
+ul.jquerymenu li.parent span.parent {
+  cursor:pointer;
+}
+ul.jquerymenu li .jqm_link_edit {
+  display:none;
+	position:absolute;
+	width:45px;
+	margin-left:-40px;
+  margin-top:2px;
+}

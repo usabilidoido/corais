@@ -1,0 +1,251 @@
+<?php
+
+/**
+ * User permission component tests for Features
+ */
+class FserverTestCase extends DrupalUnitTestCase {
+  /**
+   * Test info.
+   */
+  public static function getInfo() {
+    return array(
+      'name' => t('Feature Server tests'),
+      'description' => t('Run tests for the Feature Server.') ,
+      'group' => t('Feature Server'),
+    );
+  }
+
+  /**
+   * Run test of tag parsing.
+   */
+  public function testTagParsing() {
+    module_load_include('module', 'fserver');
+
+    // Test Drupal CVS style tags
+    $tag = 'DRUPAL-6--1-0-random66';
+    $params = array('@tag' => $tag);
+    $parsed = fserver_parse_tag_name($tag);
+    $this->pass(print_r($parsed, TRUE));
+    $this->assertEqual('6.x', $parsed['core'], t('Core version parsed correctly for @tag', $params));
+    $this->assertEqual('1', $parsed['major'], t('Major version parsed correctly for @tag', $params));
+    $this->assertEqual('0', $parsed['patch'], t('Patch version parsed correctly for @tag', $params));
+    $this->assertEqual('random66', $parsed['extra'], t('Version extra parsed correctly for @tag', $params));
+    $this->assertEqual('random', $parsed['extratype'], t('Version extra type set correctly for @tag', $params));
+    $this->assertEqual(66, $parsed['extranum'], t('Version extra num set correctly for @tag', $params));
+    $this->assertEqual('6.x-1.0-random66', $parsed['version'], t('Version is correct for @tag', $params));
+
+    $tag = 'DRUPAL-6--1-0-unstable';
+    $params = array('@tag' => $tag);
+    $parsed = fserver_parse_tag_name($tag);
+    $this->pass(print_r($parsed, TRUE));
+    $this->assertEqual('6.x', $parsed['core'], t('Core version parsed correctly for @tag', $params));
+    $this->assertEqual('1', $parsed['major'], t('Major version parsed correctly for @tag', $params));
+    $this->assertEqual('0', $parsed['patch'], t('Patch version parsed correctly for @tag', $params));
+    $this->assertEqual('unstable', $parsed['extra'], t('Version extra parsed correctly for @tag', $params));
+    $this->assertEqual('unstable', $parsed['extratype'], t('Version extra type set correctly for @tag', $params));
+    $this->assertFalse(isset($parsed['extranum']), t('Version extra num is NULL for @tag', $params));
+    $this->assertEqual('6.x-1.0-unstable', $parsed['version'], t('Version is correct for @tag', $params));
+
+    $tag = 'DRUPAL-7--4-3-alpha4';
+    $params = array('@tag' => $tag);
+    $parsed = fserver_parse_tag_name($tag);
+    $this->pass(print_r($parsed, TRUE));
+    $this->assertEqual('7.x', $parsed['core'], t('Core version parsed correctly for @tag', $params));
+    $this->assertEqual('4', $parsed['major'], t('Major version parsed correctly for @tag', $params));
+    $this->assertEqual('3', $parsed['patch'], t('Patch version parsed correctly for @tag', $params));
+    $this->assertEqual('alpha4', $parsed['extra'], t('Version extra parsed correctly for @tag', $params));
+    $this->assertEqual('alpha', $parsed['extratype'], t('Version extra type set correctly for @tag', $params));
+    $this->assertEqual(4, $parsed['extranum'], t('Version extra num set correctly for @tag', $params));
+    $this->assertEqual('7.x-4.3-alpha4', $parsed['version'], t('Version is correct for @tag', $params));
+
+    $tag = 'DRUPAL-7--2-0-beta18';
+    $params = array('@tag' => $tag);
+    $parsed = fserver_parse_tag_name($tag);
+    $this->pass(print_r($parsed, TRUE));
+    $this->assertEqual('7.x', $parsed['core'], t('Core version parsed correctly for @tag', $params));
+    $this->assertEqual('2', $parsed['major'], t('Major version parsed correctly for @tag', $params));
+    $this->assertEqual('0', $parsed['patch'], t('Patch version parsed correctly for @tag', $params));
+    $this->assertEqual('beta18', $parsed['extra'], t('Version extra parsed correctly for @tag', $params));
+    $this->assertEqual('beta', $parsed['extratype'], t('Version extra type set correctly for @tag', $params));
+    $this->assertEqual(18, $parsed['extranum'], t('Version extra num set correctly for @tag', $params));
+    $this->assertEqual('7.x-2.0-beta18', $parsed['version'], t('Version is correct for @tag', $params));
+
+    $tag = 'drupal-8--30-230-rc1111';
+    $params = array('@tag' => $tag);
+    $parsed = fserver_parse_tag_name($tag);
+    $this->pass(print_r($parsed, TRUE));
+    $this->assertEqual('8.x', $parsed['core'], t('Core version parsed correctly for @tag', $params));
+    $this->assertEqual('30', $parsed['major'], t('Major version parsed correctly for @tag', $params));
+    $this->assertEqual('230', $parsed['patch'], t('Patch version parsed correctly for @tag', $params));
+    $this->assertEqual('rc1111', $parsed['extra'], t('Version extra parsed correctly for @tag', $params));
+    $this->assertEqual('rc', $parsed['extratype'], t('Version extra type set correctly for @tag', $params));
+    $this->assertEqual(1111, $parsed['extranum'], t('Version extra num set correctly for @tag', $params));
+    $this->assertEqual('8.x-30.230-rc1111', $parsed['version'], t('Version is correct for @tag', $params));
+
+    $tag = 'DRUPAL-6--1-0';
+    $params = array('@tag' => $tag);
+    $parsed = fserver_parse_tag_name($tag);
+    $this->assertEqual('6.x', $parsed['core'], t('Core version parsed correctly for @tag', $params));
+    $this->assertEqual('1', $parsed['major'], t('Major version parsed correctly for @tag', $params));
+    $this->assertEqual('0', $parsed['patch'], t('Patch version parsed correctly for @tag', $params));
+    $this->assertTrue(empty($parsed['extra']), t('Version extra is empty for @tag', $params));
+    $this->assertFalse(isset($parsed['extratype']), t('Version extra type is NULL for @tag', $params));
+    $this->assertFalse(isset($parsed['extranum']), t('Version extra num is NULL for @tag', $params));
+    $this->assertEqual('6.x-1.0', $parsed['version'], t('Version is correct for @tag', $params));
+
+    // Test Drupal git style tags
+    $tag = '6.x-1.0-random66';
+    $params = array('@tag' => $tag);
+    $parsed = fserver_parse_tag_name($tag);
+    $this->pass(print_r($parsed, TRUE));
+    $this->assertEqual('6.x', $parsed['core'], t('Core version parsed correctly for @tag', $params));
+    $this->assertEqual('1', $parsed['major'], t('Major version parsed correctly for @tag', $params));
+    $this->assertEqual('0', $parsed['patch'], t('Patch version parsed correctly for @tag', $params));
+    $this->assertEqual('random66', $parsed['extra'], t('Version extra parsed correctly for @tag', $params));
+    $this->assertEqual('random', $parsed['extratype'], t('Version extra type set correctly for @tag', $params));
+    $this->assertEqual(66, $parsed['extranum'], t('Version extra num set correctly for @tag', $params));
+    $this->assertEqual('6.x-1.0-random66', $parsed['version'], t('Version is correct for @tag', $params));
+
+    $tag = '6.x-1.0-unstable';
+    $params = array('@tag' => $tag);
+    $parsed = fserver_parse_tag_name($tag);
+    $this->pass(print_r($parsed, TRUE));
+    $this->assertEqual('6.x', $parsed['core'], t('Core version parsed correctly for @tag', $params));
+    $this->assertEqual('1', $parsed['major'], t('Major version parsed correctly for @tag', $params));
+    $this->assertEqual('0', $parsed['patch'], t('Patch version parsed correctly for @tag', $params));
+    $this->assertEqual('unstable', $parsed['extra'], t('Version extra parsed correctly for @tag', $params));
+    $this->assertEqual('unstable', $parsed['extratype'], t('Version extra type set correctly for @tag', $params));
+    $this->assertFalse(isset($parsed['extranum']), t('Version extra num is NULL for @tag', $params));
+    $this->assertEqual('6.x-1.0-unstable', $parsed['version'], t('Version is correct for @tag', $params));
+
+    $tag = '7.x-4.3-alpha4';
+    $params = array('@tag' => $tag);
+    $parsed = fserver_parse_tag_name($tag);
+    $this->pass(print_r($parsed, TRUE));
+    $this->assertEqual('7.x', $parsed['core'], t('Core version parsed correctly for @tag', $params));
+    $this->assertEqual('4', $parsed['major'], t('Major version parsed correctly for @tag', $params));
+    $this->assertEqual('3', $parsed['patch'], t('Patch version parsed correctly for @tag', $params));
+    $this->assertEqual('alpha4', $parsed['extra'], t('Version extra parsed correctly for @tag', $params));
+    $this->assertEqual('alpha', $parsed['extratype'], t('Version extra type set correctly for @tag', $params));
+    $this->assertEqual(4, $parsed['extranum'], t('Version extra num set correctly for @tag', $params));
+    $this->assertEqual('7.x-4.3-alpha4', $parsed['version'], t('Version is correct for @tag', $params));
+
+    $tag = '7.x-2.0-beta18';
+    $params = array('@tag' => $tag);
+    $parsed = fserver_parse_tag_name($tag);
+    $this->pass(print_r($parsed, TRUE));
+    $this->assertEqual('7.x', $parsed['core'], t('Core version parsed correctly for @tag', $params));
+    $this->assertEqual('2', $parsed['major'], t('Major version parsed correctly for @tag', $params));
+    $this->assertEqual('0', $parsed['patch'], t('Patch version parsed correctly for @tag', $params));
+    $this->assertEqual('beta18', $parsed['extra'], t('Version extra parsed correctly for @tag', $params));
+    $this->assertEqual('beta', $parsed['extratype'], t('Version extra type set correctly for @tag', $params));
+    $this->assertEqual(18, $parsed['extranum'], t('Version extra num set correctly for @tag', $params));
+    $this->assertEqual('7.x-2.0-beta18', $parsed['version'], t('Version is correct for @tag', $params));
+
+    $tag = '8.x-30.230-rc1111';
+    $params = array('@tag' => $tag);
+    $parsed = fserver_parse_tag_name($tag);
+    $this->pass(print_r($parsed, TRUE));
+    $this->assertEqual('8.x', $parsed['core'], t('Core version parsed correctly for @tag', $params));
+    $this->assertEqual('30', $parsed['major'], t('Major version parsed correctly for @tag', $params));
+    $this->assertEqual('230', $parsed['patch'], t('Patch version parsed correctly for @tag', $params));
+    $this->assertEqual('rc1111', $parsed['extra'], t('Version extra parsed correctly for @tag', $params));
+    $this->assertEqual('rc', $parsed['extratype'], t('Version extra type set correctly for @tag', $params));
+    $this->assertEqual(1111, $parsed['extranum'], t('Version extra num set correctly for @tag', $params));
+    $this->assertEqual('8.x-30.230-rc1111', $parsed['version'], t('Version is correct for @tag', $params));
+
+    $tag = '6.x-1.0';
+    $params = array('@tag' => $tag);
+    $parsed = fserver_parse_tag_name($tag);
+    $this->assertEqual('6.x', $parsed['core'], t('Core version parsed correctly for @tag', $params));
+    $this->assertEqual('1', $parsed['major'], t('Major version parsed correctly for @tag', $params));
+    $this->assertEqual('0', $parsed['patch'], t('Patch version parsed correctly for @tag', $params));
+    $this->assertTrue(empty($parsed['extra']), t('Version extra is empty for @tag', $params));
+    $this->assertFalse(isset($parsed['extratype']), t('Version extra type is NULL for @tag', $params));
+    $this->assertFalse(isset($parsed['extranum']), t('Version extra num is NULL for @tag', $params));
+    $this->assertEqual('6.x-1.0', $parsed['version'], t('Version is correct for @tag', $params));
+
+    $tag = $this->randomString(25);
+    $params = array('@tag' => $tag);
+    $parsed = fserver_parse_tag_name($tag);
+    $this->assertTrue(empty($parsed), t('Bad tag @tag was not parsed', $params));
+  }
+
+  /**
+   * Run test of tag parsing.
+   */
+  public function testPackageParsing() {
+    module_load_include('module', 'fserver');
+
+    // Test Drupal CVS style tags
+    $package = 'fserver-6.x-1.0-random66.tar.gz';
+    $params = array('@package' => $package);
+    $parsed = fserver_parse_package_name($package);
+    $this->pass(print_r($parsed, TRUE));
+    $this->assertEqual('6.x', $parsed['core'], t('Core version parsed correctly for @package', $params));
+    $this->assertEqual('1', $parsed['major'], t('Major version parsed correctly for @package', $params));
+    $this->assertEqual('0', $parsed['patch'], t('Patch version parsed correctly for @package', $params));
+    $this->assertEqual('random66', $parsed['extra'], t('Version extra parsed correctly for @package', $params));
+    $this->assertEqual('random', $parsed['extratype'], t('Version extra type set correctly for @package', $params));
+    $this->assertEqual(66, $parsed['extranum'], t('Version extra num set correctly for @package', $params));
+
+    $package = 'fserver-6.x-1.0-unstable.tgz';
+    $params = array('@package' => $package);
+    $parsed = fserver_parse_package_name($package);
+    $this->pass(print_r($parsed, TRUE));
+    $this->assertEqual('6.x', $parsed['core'], t('Core version parsed correctly for @package', $params));
+    $this->assertEqual('1', $parsed['major'], t('Major version parsed correctly for @package', $params));
+    $this->assertEqual('0', $parsed['patch'], t('Patch version parsed correctly for @package', $params));
+    $this->assertEqual('unstable', $parsed['extra'], t('Version extra parsed correctly for @package', $params));
+    $this->assertEqual('unstable', $parsed['extratype'], t('Version extra type set correctly for @package', $params));
+    $this->assertFalse(isset($parsed['extranum']), t('Version extra num is NULL for @package', $params));
+
+    $package = 'fserver-7.x-4.3-alpha4.tar.gz';
+    $params = array('@package' => $package);
+    $parsed = fserver_parse_package_name($package);
+    $this->pass(print_r($parsed, TRUE));
+    $this->assertEqual('7.x', $parsed['core'], t('Core version parsed correctly for @package', $params));
+    $this->assertEqual('4', $parsed['major'], t('Major version parsed correctly for @package', $params));
+    $this->assertEqual('3', $parsed['patch'], t('Patch version parsed correctly for @package', $params));
+    $this->assertEqual('alpha4', $parsed['extra'], t('Version extra parsed correctly for @package', $params));
+    $this->assertEqual('alpha', $parsed['extratype'], t('Version extra type set correctly for @package', $params));
+    $this->assertEqual(4, $parsed['extranum'], t('Version extra num set correctly for @package', $params));
+
+    $package = 'fserver-7.x-2.0-beta18.tgz';
+    $params = array('@package' => $package);
+    $parsed = fserver_parse_package_name($package);
+    $this->pass(print_r($parsed, TRUE));
+    $this->assertEqual('7.x', $parsed['core'], t('Core version parsed correctly for @package', $params));
+    $this->assertEqual('2', $parsed['major'], t('Major version parsed correctly for @package', $params));
+    $this->assertEqual('0', $parsed['patch'], t('Patch version parsed correctly for @package', $params));
+    $this->assertEqual('beta18', $parsed['extra'], t('Version extra parsed correctly for @package', $params));
+    $this->assertEqual('beta', $parsed['extratype'], t('Version extra type set correctly for @package', $params));
+    $this->assertEqual(18, $parsed['extranum'], t('Version extra num set correctly for @package', $params));
+
+    $package = 'drupal-8.x-30.230-rc1111.tar.gz';
+    $params = array('@package' => $package);
+    $parsed = fserver_parse_package_name($package);
+    $this->pass(print_r($parsed, TRUE));
+    $this->assertEqual('8.x', $parsed['core'], t('Core version parsed correctly for @package', $params));
+    $this->assertEqual('30', $parsed['major'], t('Major version parsed correctly for @package', $params));
+    $this->assertEqual('230', $parsed['patch'], t('Patch version parsed correctly for @package', $params));
+    $this->assertEqual('rc1111', $parsed['extra'], t('Version extra parsed correctly for @package', $params));
+    $this->assertEqual('rc', $parsed['extratype'], t('Version extra type set correctly for @package', $params));
+    $this->assertEqual(1111, $parsed['extranum'], t('Version extra num set correctly for @package', $params));
+
+    $package = 'fserver-6.x-1.0.tar.gz';
+    $params = array('@package' => $package);
+    $parsed = fserver_parse_package_name($package);
+    $this->assertEqual('6.x', $parsed['core'], t('Core version parsed correctly for @package', $params));
+    $this->assertEqual('1', $parsed['major'], t('Major version parsed correctly for @package', $params));
+    $this->assertEqual('0', $parsed['patch'], t('Patch version parsed correctly for @package', $params));
+    $this->assertTrue(empty($parsed['extra']), t('Version extra is empty for @package', $params));
+    $this->assertFalse(isset($parsed['extratype']), t('Version extra type is NULL for @package', $params));
+    $this->assertFalse(isset($parsed['extranum']), t('Version extra num is NULL for @package', $params));
+
+    $package = 'fserver-6.x-1.0.zip';
+    $params = array('@package' => $package);
+    $parsed = fserver_parse_package_name($package);
+    $this->assertTrue(empty($parsed), t('Zip was not parsed for @package', $params));
+  }
+}

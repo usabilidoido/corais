@@ -1,0 +1,14 @@
+body.with-taskbar {
+  margin-bottom: 25px!important;
+}
+
+#taskbar-container {
+  bottom: 0;
+}
+#taskbar {
+  border-bottom: none;
+}
+.taskbar-item-extra {
+  bottom: 25px;
+}
+

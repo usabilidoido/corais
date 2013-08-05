@@ -1,0 +1,47 @@
+diff -ruP PHPExcel.old/Classes/PHPExcel/NamedRange.php PHPExcel/Classes/PHPExcel/NamedRange.php
+--- PHPExcel.old/Classes/PHPExcel/NamedRange.php	2011-02-27 16:37:50.000000000 -0800
++++ PHPExcel/Classes/PHPExcel/NamedRange.php	2011-05-16 21:45:25.000000000 -0700
+@@ -79,10 +79,10 @@
+      * @param bool $pLocalOnly
+      * @param PHPExcel_Worksheet|null $pScope	Scope. Only applies when $pLocalOnly = true. Null for global scope.
+      */
+-    public function __construct($pName = null, PHPExcel_Worksheet $pWorksheet, $pRange = 'A1', $pLocalOnly = false, $pScope = null)
++    public function __construct($pName = null, $pWorksheet, $pRange = 'A1', $pLocalOnly = false, $pScope = null)
+     {
+     	// Validate data
+-    	if (is_null($pName) || is_null($pWorksheet)|| is_null($pRange)) {
++    	if (is_null($pName) || is_null($pRange)) {
+     		throw new Exception('Parameters can not be null.');
+     	}
+ 
+diff -ruP PHPExcel.old/Classes/PHPExcel/Reader/Excel5.php PHPExcel/Classes/PHPExcel/Reader/Excel5.php
+--- PHPExcel.old/Classes/PHPExcel/Reader/Excel5.php	2011-02-27 16:37:50.000000000 -0800
++++ PHPExcel/Classes/PHPExcel/Reader/Excel5.php	2011-05-16 20:44:56.000000000 -0700
+@@ -1037,18 +1037,21 @@
+ 				// Extract range
+ 				$explodes = explode('!', $definedName['formula']);
+ 
++        $localOnly = ($definedName['scope'] == 0) ? false : true;
++        $scope = ($definedName['scope'] == 0) ?
++          null : $this->_phpExcel->getSheetByName($this->_sheets[$definedName['scope'] - 1]['name']);
++
+ 				if (count($explodes) == 2) {
+ 					if ($docSheet = $this->_phpExcel->getSheetByName($explodes[0])) {
+ 						$extractedRange = $explodes[1];
+ 						$extractedRange = str_replace('$', '', $extractedRange);
+ 
+-						$localOnly = ($definedName['scope'] == 0) ? false : true;
+-						$scope = ($definedName['scope'] == 0) ?
+-							null : $this->_phpExcel->getSheetByName($this->_sheets[$definedName['scope'] - 1]['name']);
+-
+ 						$this->_phpExcel->addNamedRange( new PHPExcel_NamedRange((string)$definedName['name'], $docSheet, $extractedRange, $localOnly, $scope) );
+ 					}
+ 				}
++        else {
++			    $this->_phpExcel->addNamedRange( new PHPExcel_NamedRange((string)$definedName['name'], null, $definedName['formula'], $localOnly, $scope) );
++        }
+ 			}
+ 		}
+ 
+Binary files PHPExcel.old/Documentation/PHPExcel User Documentation û Reading Spreadsheet Files.doc and PHPExcel/Documentation/PHPExcel User Documentation û Reading Spreadsheet Files.doc differ
+Only in PHPExcel.old/Documentation: PHPExcel User Documentation Ð¦ Reading Spreadsheet Files.doc

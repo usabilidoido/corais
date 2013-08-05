@@ -1,0 +1,18 @@
+--- image_captcha/image_captcha.module.orig	2008-11-14 09:45:54.000000000 -0800
++++ image_captcha/image_captcha.module	2008-11-14 02:41:10.000000000 -0800
+@@ -133,11 +133,14 @@ function image_captcha_captcha($op, $cap
+         $seed = mt_rand();
+         $_SESSION['image_captcha'][$seed] = $code;
+         // build the result to return
++        $query = '<img src="'. check_url(url("image_captcha/$seed")) .'" alt="'. t('Image CAPTCHA') .'" title="'. t('Image CAPTCHA') .'" />';
+         $result = array();
+         $result['solution'] = $code;
++        $result['query'] = $query;
++        $result['type'] = 'image';
+         $result['form']['captcha_image'] = array(
+           '#type' => 'markup',
+-          '#value' => '<img src="'. check_url(url("image_captcha/$seed")) .'" alt="'. t('Image CAPTCHA') .'" title="'. t('Image CAPTCHA') .'" />',
++          '#value' => $query,
+           '#weight' => -2,
+         );
+         $result['form']['captcha_response'] = array(

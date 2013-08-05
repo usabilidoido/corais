@@ -1,0 +1,52 @@
+CHANGELOG for Time Tracker - Drupal 6
+
+Time Tracker 6.x-1.x-dev (August 9, 2012)
+  ** Lots of Changes up till now. Haven't been updating the changelog =(
+     I will try to summarize
+  Change Descriptions:
+    o Better views support for totals, totals with deductions etc.
+    o Various bugs (check issue queue...?)
+  Issue Queue:
+    o #1264654 by D34dMan: Refactored the time tracker time entry form, created save and delete api functions and added a couple hooks
+    o Issues by deekayen: Code style compliance patches
+    o #1481552 by JurriaanRoelofs: Exposed time estimate to node based views (sans relationship)
+
+Time Tracker 6.x-1.x-dev (May 25, 2011)
+  Change Descriptions:
+    o Added optional fields: billable, billed, deductions
+    o Enabled resuming for the time tracker timer on interval based time entries if deductions field is enabled
+  Issue Queue:
+    o #1104990 by ramsalt: Mark as billed and not billable option
+    o #1045682 by bibo: Option to insert pauses for any time entry
+    o #1159102 by Pomliane: Malformed HTML tag in translatable string
+    o #1159300 by Pomliane: Date format issues in date field
+
+Time Tracker 6.x-1.x-dev (April 3, 2011)
+
+    o Made permissions for viewing time entries even more granular. NOTE: Atrium Features have also been updated to match the change in permissions: #1103492: Another Permission - View Own Time Sheet Entries
+    o Many more small fixes and changes. See commit messages for more detail.
+
+Time Tracker 6.x-1.x-dev (March 3, 2011)
+
+    o Added time entry locking per issue: #1077394: Freezing time tracker entries
+    o Changed permission structure and updated README.txt
+    o Exposed start and end times to views
+    o #1072868: Exposing Billable
+    o Abstracted casetracker project pid handling per issue #1080692: 'pid' of casetracker project shouldn't be hardcoded into the database
+    o Updated the Atrium Time Tracker feature based on changes in issue #1080692: 'pid' of casetracker project shouldn't be hardcoded into the database
+
+Time Tracker 6.x-1.x-dev (December 15, 2010)
+
+    o Added a README file
+    o Casetracker dependency has been removed from all Time Tracker modules
+    o Theme functions added that were missing before
+    o Existing theme functions have been cleaned up for better usage
+    o Localization has been cleaned up per issue #990156: Localization is messed up
+
+Time Tracker 6.x-1.x-dev (December 3, 2010)
+
+    o Time Tracking using Time Intervals (Start and End Times) as well as durations [ADDED]
+    o Time Sheet configuration page to choose days of the week [ADDED]
+    o An active timers page [ADDED]
+    o A block that shows the current user all their active timers [ADDED]
+    o Better handling of permissions and a few new permissions added [ADDED]

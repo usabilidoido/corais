@@ -1,0 +1,136 @@
+<?php 
+
+/**
+ * @file scale_report.module
+ *
+ * Module must expose two functions: get_scale_reports and get_scale_themed_output
+ * These two functions are called from the quiz_stats module when generating statistics for this
+ * question type. 
+ * 
+ */
+
+/**
+ * Implementation of hook_help()
+ */
+function scale_report_help( $path, $arg ) {
+  $output = '';
+  
+  switch ( $path ) {
+    case 'admin/help#scale_report';
+      $output = '<p>' . t('Generates statistic for a multichoice question type') . '</p>';
+      break;
+  }
+  
+  return $output;
+}
+
+/**
+ * Implementation of hook_theme()
+ */
+function scale_report_theme() {
+  return array(
+    'scale_outputs' => array(
+      'arguments' => array( 'statistics' => NULL,  ),
+      'path' => drupal_get_path( 'module', 'scale_report' ) . '/theme',
+      'template' => 'scale_output',
+    ),
+  );
+}
+
+function scale_report_get_question_properties( $question ) {
+  
+  $properties = array();
+  
+  $sql = "SELECT
+            answers.id,
+          	answers.answer
+          FROM
+          	{quiz_scale_answer} answers
+          INNER JOIN
+          	{quiz_scale_node_properties} properties USING(answer_collection_id)
+          WHERE
+          	properties.vid = %d
+          	AND properties.nid = %d
+          ORDER BY
+          	answers.id ASC";
+  
+  $result = db_query($sql, $question->question_vid, $question->question_nid);
+  
+  $properties['options'] = array();
+  
+  while ($row = db_fetch_array($result)) {
+    $properties['options'][$row['id']] = $row['answer'];
+  }
+  
+  return $properties;
+}
+
+/**
+ * Themes the statistics.
+ *
+ * @param array $statistics
+ *      The statistics calculated in get_scale_question
+ * @return string
+ *      The HTML output for this question.
+ */
+function scale_get_themed_output( $statistics = NULL ) {
+    
+  // Just a check to see if we have stats
+  if ( $statistics == NULL )
+      return t("Statistics to populate theme is missing.");
+  
+  // Load question type specific CSS
+  drupal_add_css(drupal_get_path('module', 'scale_report') .'/scale_report.css', 'theme');
+  
+  // Return themed output
+  return theme( 'scale_outputs', $statistics );
+
+}
+
+/**
+ * Calculates and returns statistic for a given question in relation to a quiz
+ * node revision.
+ *
+ * @param object $quesetion
+ * @param int $vid
+ * @param array $generic
+ *    Stats that are generic for all question types.
+ * @return array
+ */
+#function get_scale_reports( $question, $vid ) {
+function scale_report_get_statistics( $question, $vid, $generic ) {
+  
+  $statistics = array();
+  
+  $properties = scale_report_get_question_properties($question);
+  
+  $statistics['options'] = $properties['options'];
+  
+  $sql = "SELECT 
+          COUNT(*) AS total,";
+  
+  $rows = count($properties['options'])-1;
+  
+  foreach ( $properties['options'] as $key => $value ) {
+    $sql .= "SUM(answers.answer_id=" . $key . ") AS '" . $key . "'" . ($rows > 0 ? "," : "") . "\n";
+    $rows--;
+  }
+  
+  $sql .= "FROM 
+             {quiz_scale_user_answers} answers
+           INNER JOIN
+             {quiz_node_results} results USING(result_id)
+           WHERE
+             results.vid = %d";
+  
+  $result = db_fetch_array(db_query($sql, $vid));
+  $total = $result['total'];
+  
+  foreach ($statistics['options'] as $key => $value) {
+    $result['percentage_' . $key] = $result[$key]/$total*100;
+  }
+  
+  $statistics['data'] = $result;
+    
+  return $statistics;
+}

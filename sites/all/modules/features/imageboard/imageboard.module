@@ -1,0 +1,9 @@
+<?php
+
+include_once('imageboard.features.inc');
+/**
+* Implementation of hook_init().
+*/
+function imageboard_init() {
+  drupal_add_css(drupal_get_path('module', 'imageboard') .'/imageboard.css');
+}

@@ -1,0 +1,645 @@
+<?php
+// $Id$
+
+
+/**
+ * Permission to edit and use relationships.
+ */
+define('GRAPHMIND_RELATIONSHIP_EDIT_PERM', 'access content');
+
+/**
+ * Default relationship id.
+ */
+define('GRAPHMIND_RELATIONSHIP_DEFAULT', 'default');
+
+
+/**
+ * Default depth for loading new relationships to the map.
+ */
+define('GRAPHMIND_RELATIONSHIP_DEFAULT_DEPTH', 3);
+
+/**
+ * Node preview block delta.
+ */
+define('GRAPHMIND_RELATIONSHIP_NODE_PREVIEW_BLOCK', 'nodePreviewBlock');
+
+
+/**
+ * Implementation of hook_menu().
+ * 
+ * @return type 
+ */
+function graphmind_relationship_menu() {
+  return array(
+    'graphmind_relationship_root_node' => array(
+      'type' => MENU_CALLBACK,
+      'access arguments' => array('access content'),
+      'page callback' => 'graphmind_relationship_root_node_autocomplete',
+      'page arguments' => array(1),
+    ),
+    'graphmind_relationship/node_preview/%node' => array(
+      'type' => MENU_CALLBACK,
+      'access callback' => 'node_access',
+      'access arguments' => array('view', 2),
+      'page callback' => 'graphmind_relationship_node_preview',
+      'page arguments' => array(2),
+    ),
+  );
+}
+
+
+/**
+ * Implementation of hook_services().
+ *
+ * @return array
+ */
+function graphmind_relationship_service() {
+  return array(
+    array(
+      '#method' => 'graphmindRelationship.addRelationship',
+      '#access arguments' => array(GRAPHMIND_RELATIONSHIP_EDIT_PERM),
+      '#callback' => 'graphmind_relationship_on_add_relationship',
+      '#file' => array('file' => 'inc', 'module' => 'graphmind_relationship'),
+      '#args' => array(
+        array(
+          '#name' => 'source_nid',
+          '#type' => 'int',
+          '#description' => t('Source node ID.'),
+          '#optional' => FALSE,
+        ),
+        array(
+          '#name' => 'target_nid',
+          '#type' => 'int',
+          '#description' => t('Target node ID.'),
+          '#optional' => FALSE,
+        ),
+        array(
+          '#name' => 'relationship_rid',
+          '#type' => 'int',
+          '#description' => t('Relationship ID,'),
+          '#optional' => TRUE,
+        ),
+      ),
+    ),
+    array(
+      '#method' => 'graphmindRelationship.deleteRelationship',
+      '#access arguments' => array(GRAPHMIND_RELATIONSHIP_EDIT_PERM),
+      '#file' => array('file' => 'inc', 'module' => 'graphmind_relationship'),
+      '#callback' => 'graphmind_relationship_on_delete_relationship',
+      '#args' => array(
+        array(
+          '#name' => 'source_nid',
+          '#type' => 'int',
+          '#description' => t('Source node ID.'),
+          '#optional' => FALSE,
+        ),
+        array(
+          '#name' => 'target_nid',
+          '#type' => 'int',
+          '#description' => t('Target node ID.'),
+          '#optional' => FALSE,
+        ),
+        array(
+          '#name' => 'relationship_rid',
+          '#type' => 'int',
+          '#description' => t('Relationship ID,'),
+          '#optional' => TRUE,
+        ),
+      ),
+    ),
+    array(
+      '#method' => 'graphmindRelationship.getRelationships',
+      '#access arguments' => array(GRAPHMIND_RELATIONSHIP_EDIT_PERM),
+      '#file' => array('file' => 'inc', 'module' => 'graphmind_relationship'),
+      '#callback' => 'graphmind_relationship_on_get_relationships',
+      '#args' => array(
+        array(
+          '#name' => 'source_nid',
+          '#type' => 'int',
+          '#description' => t('Source node ID.'),
+          '#optional' => FALSE,
+        ),
+        array(
+          '#name' => 'relationship_rid',
+          '#type' => 'int',
+          '#description' => t('Relationship ID.'),
+          '#optional' => TRUE,
+        ),
+      ),
+    ),
+    array(
+      '#method' => 'graphmindRelationship.getSubtree',
+      '#access arguments' => array(GRAPHMIND_RELATIONSHIP_EDIT_PERM),
+      '#file' => array('file' => 'inc', 'module' => 'graphmind_relationship'),
+      '#callback' => 'graphmind_relationship_get_subtree',
+      '#args' => array(
+        array(
+          '#name' => 'nid',
+          '#type' => 'int',
+          '#description' => t('Node ID.'),
+          '#optional' => FALSE,
+        ),
+        array(
+          '#name' => 'depth',
+          '#type' => 'int',
+          '#description' => t('Maximum level or relationships.'),
+          '#optional' => TRUE,
+        ),
+      ),
+    ),
+    array(
+      '#method' => 'graphmindRelationship.checkUpdate',
+      '#access arguments' => array(GRAPHMIND_RELATIONSHIP_EDIT_PERM),
+      '#file' => array('file' => 'inc', 'module' => 'graphmind_relationship'),
+      '#callback' => 'graphmind_relationship_check_update',
+      '#args' => array(
+        array(
+          '#name' => 'tree',
+          '#type' => 'object',
+          '#description' => t('Tree of node IDs.'),
+          '#optional' => FALSE,
+        ),
+        array(
+          'name' => 'depth',
+          'type' => 'int',
+          'description' => t('Depth'),
+          'optional' => FALSE,
+          'source' => 'data',
+        ),
+      ),
+    ),
+    array(
+      '#method' => 'graphmindRelationship.getUserColor',
+      '#access arguments' => array('access content'),
+      '#file' => array('file' => 'inc', 'module' => 'graphmind_relationship'),
+      '#callback' => 'graphmind_relationship_get_user_color',
+      '#args' => array(
+        array(
+          '#name' => 'uid',
+          '#type' => 'int',
+          '#description' => t('User ID.'),
+          '#optional' => FALSE,
+        ),
+      ),
+    ),
+  );
+}
+
+
+/**
+ * Create a relationship - if not exist already.
+ *
+ * @param integer $source_nid
+ * @param integer $target_nid
+ * @param string $relationship_rid
+ * @return boolean
+ */
+function graphmind_relationship_add_relationship($source_nid, $target_nid, $relationship_rid = NULL) {
+  if ($relationship_rid == NULL) {
+    $relationship_rid = GRAPHMIND_RELATIONSHIP_DEFAULT;
+  }
+
+  $count = db_result(db_query('
+    SELECT COUNT(*)
+    FROM {graphmind_relationship}
+    WHERE
+      source_nid = %d AND
+      target_nid = %d AND
+      relationship_rid = \'%s\'
+  ', $source_nid, $target_nid, $relationship_rid));
+
+  if ($count == 0) {
+    $rel = new stdClass();
+    $rel->relationship_rid = $relationship_rid;
+    $rel->source_nid = $source_nid;
+    $rel->target_nid = $target_nid;
+    drupal_write_record('graphmind_relationship', $rel);
+  }
+
+  return TRUE;
+}
+
+
+/**
+ * Remove relationship. Remove all if kind of the relationship is not defined.
+ *
+ * @param integer $source_nid
+ * @param integer $target_nid
+ * @param string $relationship_rid
+ * @return boolean
+ */
+function graphmind_relationship_delete_relationship($source_nid, $target_nid, $relationship_rid = NULL) {
+  $query = '
+    DELETE
+    FROM {graphmind_relationship}
+    WHERE
+      source_nid = %d AND
+      target_nid = %d
+  ';
+  $params = array($source_nid, $target_nid);
+
+  if ($relationship_rid !== NULL) {
+    $query .= ' AND relationship_rid = \'%s\'';
+    $params[] = $relationship_rid;
+  }
+
+  db_query($query, $params);
+
+  return TRUE;
+}
+
+
+/**
+ * Retreive relationships of a node.
+ *
+ * @param integer $source_nid
+ * @param string $relationship_rid
+ * @return array
+ */
+function graphmind_relationship_get_relationships($source_nid, $relationship_rid = NULL) {
+  $query = 'SELECT * FROM {graphmind_relationship} WHERE source_nid = %d';
+  $params = array($source_nid);
+
+  if ($relationship_rid !== NULL) {
+    $query .= ' AND relationship_rid = \'%s\'';
+    $params[] = $relationship_rid;
+  }
+  
+  $res = db_query($query, $params);
+  $relationships = array();
+  while ($row = db_fetch_object($res)) {
+    $relationships[] = $row;
+  }
+
+  return $relationships;
+}
+
+
+/**
+ * Implementation of hook_graphmind_plugin_info().
+ *
+ * @return array
+ */
+function graphmind_relationship_graphmind_plugin_info() {
+  return array(
+    'graphmind_relationship' => array(
+      // Module implement this plugin
+      'module' => 'graphmind_relationship',
+      // Name of the plugin in flash (src/plugin/Plugin.as)
+      'plugin' => 'Relationship',
+      'name' => t('Graphmind relationship'),
+      'description' => t('Makes GraphMind a relationship browser.'),
+    ),
+  );
+}
+
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ * Altering the node form.
+ *
+ * @param array $form
+ * @param array $form_status
+ */
+function graphmind_relationship_form_graphmind_node_form_alter(&$form, $form_status) {
+  $node_types = node_get_types();
+  $node_type_options = array('' => t('- Select type -'));
+  foreach ((array)$node_types as $type_name => $node_type) {
+    $node_type_options[$type_name] = $node_type->name;
+  }
+  
+  $form['graphmind']['graphmind_relationship'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Relationship plugin'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    'data' => array(
+      'graphmind_relationship_depth' => array(
+        '#type' => 'textfield',
+        '#title' => t('Depth of loaded relationships'),
+        '#description' => t('This value will be the maximum depth of levels when a node is loading it\'s relationsips.'),
+      ),
+      'graphmind_relationship_root_node' => array(
+        '#type' => 'textfield',
+        '#title' => t('Root node'),
+        '#autocomplete_path' => 'graphmind_relationship_root_node',
+        '#description' => t('Root node of the map. Only available if the map is empty.
+          Use the autocomplete field to find a valid node.'),
+      ),
+      'graphmind_relationship_default_created_node_type' => array(
+        '#type' => 'select',
+        '#title' => t('Default node type for instant node creation'),
+        '#options' => $node_type_options,
+        '#description' => t('This will be the default node type when creating a node from the map.'),
+      ),
+    ),
+  );
+  
+  $info = graphmind_relationship_get_node_setting($form['#node']->nid);
+  $form['graphmind']['graphmind_relationship']['data']['graphmind_relationship_depth']['#default_value'] =
+    ($info && $info->setting['depth']) ? $info->setting['depth'] : GRAPHMIND_RELATIONSHIP_DEFAULT_DEPTH;
+  
+  $form['graphmind']['graphmind_relationship']['data']['graphmind_relationship_root_node']['#default_value'] = 
+    ($info && $info->setting['root_node']) ? $info->setting['root_node'] : '';
+  
+  $form['graphmind']['graphmind_relationship']['data']['graphmind_relationship_default_created_node_type']['#default_value'] =
+    ($info && $info->setting['default_created_node_type']) ? $info->setting['default_created_node_type'] : '';
+}
+
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ * Altering the site wide admin settings form.
+ *
+ * @param array $form
+ * @param array $form_status
+ */
+function graphmind_relationship_form_graphmind_service_admin_form_alter(&$form, $form_status) {
+  $form['graphmind_relationship'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Relationship plugin'),
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+    '#weight' => 0,
+    'data' => array(
+      'graphmind_relationship_depth' => array(
+        '#type' => 'textfield',
+        '#title' => t('Depth of loaded relationships'),
+        '#description' => t('This value will be the maximum depth of levels when a node is loading it\'s relationsips.'),
+        '#default_value' => variable_get('graphmind_relationship_depth', GRAPHMIND_RELATIONSHIP_DEFAULT_DEPTH),
+      ),
+    ),
+  );
+}
+
+
+/**
+ * Get settings of a node.
+ *
+ * @param integer $nid
+ * @return object
+ */
+function graphmind_relationship_get_node_setting($nid) {
+  $info = db_fetch_object(db_query('SELECT * FROM {graphmind_relationship_node_info} WHERE nid = %d', $nid));
+
+  if ($info) {
+    $info->setting = unserialize($info->setting);
+    return $info;
+  }
+
+  return FALSE;
+}
+
+
+/**
+ * Save settings of a node.
+ *
+ * @param integer $nid
+ * @param array $setting
+ */
+function graphmind_relationship_save_node_setting($nid, $setting = array()) {
+  $info = graphmind_relationship_get_node_setting($nid);
+  
+  if (!$info) {
+    $record = new stdClass();
+    $record->nid = $nid;
+    $record->setting = serialize($setting);
+    drupal_write_record('graphmind_relationship_node_info', $record);
+  } else {
+    $record = new stdClass();
+    $record->nid = $nid;
+    $record->setting = serialize($setting);
+    drupal_write_record('graphmind_relationship_node_info', $record, 'nid');
+  }
+
+  return TRUE;
+}
+
+
+/**
+ * Implementation of hook_graphmind_flashvars_alter().
+ *
+ * @param array $flashvars
+ */
+function graphmind_relationship_graphmind_flashvars_alter(&$flashvars) {
+  $nid = arg(1);
+  $info = graphmind_relationship_get_node_setting($nid);
+  if ($info && $info->setting['depth']) {
+    $flashvars['graphmindRelationshipDepth'] = $info->setting['depth'];
+  }
+  if ($info && $info->setting['default_created_node_type']) {
+    $flashvars['graphmindRelationshipDefaultCreatedNodeType'] = str_replace('_', '-', $info->setting['default_created_node_type']);
+  }
+}
+
+
+/**
+ * Implementation of hook_nodeapi().
+ *
+ * @param object $node
+ * @param string $op
+ * @param string $a3
+ * @param string $a4
+ */
+function graphmind_relationship_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+  switch ($op) {
+    case 'view':
+      if ($node->type == 'graphmind') {
+        drupal_add_js(drupal_get_path('module', 'graphmind_relationship') . '/js/script.js');
+        drupal_add_js(array('graphmindRelationshipBasePath' => url('<front>', array('absolute' => TRUE))), 'setting');
+      }
+      if (module_exists('prepopulate')) {
+        $node->content['graphmind_relationship'] = array(
+          '#value' => 
+            '<div class="graphmind_relationship_link">' . 
+            l(
+              t('Create a new mindmap from this node'), 
+              'node/add/graphmind', 
+              array('query' => array('edit[graphmind][graphmind_relationship][data][graphmind_relationship_root_node]' => $node->title . ' [' . $node->nid . ']'))
+            ) . 
+            '</div>',
+        );
+      }
+      break;
+    case 'insert':
+      if (isset($_SESSION['graphmind_relationship_parent'])) {
+        $_SESSION['graphmind_relationship_child'] = $node->nid;
+      }
+      
+      _graphmind_relationship_save_node_setting($node);
+      break;
+    case 'update':
+      _graphmind_relationship_save_node_setting($node);
+      $_SESSION['graphmindRelationshipCloseWindow'] = 0;
+      break;
+    case 'delete':
+      db_query('DELETE FROM {graphmind_relationship} WHERE source_nid = %d OR target_nid = %d', $node->nid);
+      break;
+    case 'load':
+      if ($node->type == 'graphmind') {
+        $info = graphmind_relationship_get_node_setting($node->nid);
+        if ($info && isset($info->setting['root_node']) && empty($node->body)) {
+          // Load root node xml
+          $root_node_nid = preg_replace("/^.*\[(\d*)\]$/", '$1', $info->setting['root_node']);
+          if ((int)$root_node_nid > 0) {
+            $root_node = node_load($root_node_nid);
+            $username = urlencode($root_node->name);
+            $time = time();
+            $user_access = (int)node_access('update', $root_node, user_load($root_node->uid));
+            $node_url = urlencode(url('node/' . $root_node->nid, array('absolute' => TRUE)));
+            $amfphp_gateway = urlencode(url('services/amfphp', array('absolute' => TRUE)));
+            $title = htmlentities($root_node->title);
+            $node->body =
+"<map version=\"0.9.0\">
+  <node CREATED=\"{$time}\" MODIFIED=\"{$time}\" ID=\"ID_0\" FOLDED=\"false\" TEXT=\"{$title}\" LINK=\"{$node_url}\" TYPE=\"node\" >
+    <attribute NAME=\"userid\" VALUE=\"{$root_node->uid}\"/>
+    <attribute NAME=\"graphmindEditable\" VALUE=\"{$user_access}\"/>
+    <attribute NAME=\"type\" VALUE=\"graphmind\"/>
+    <attribute NAME=\"nid\" VALUE=\"{$root_node->nid}\"/>
+    <attribute NAME=\"title\" VALUE=\"{$title}\"/>
+    <attribute NAME=\"name\" VALUE=\"{$username}\"/>
+    <site URL=\"{$amfphp_gateway}\" />
+  </node>
+</map>";
+          }
+        }
+      }
+      break;
+  }
+}
+
+
+/**
+ * Implementation of hook_init().
+ */
+function graphmind_relationship_init() {
+  /**
+   * Specific GET parameter indicates that the node creation is for the Flex plugin.
+   */
+  if (
+    arg(0) == 'node' &&
+    arg(1) == 'add' &&
+    isset($_GET['graphmind_relationship_parent']) &&
+    (int)$_GET['graphmind_relationship_parent'] > 0
+  ) {
+    $_SESSION['graphmind_relationship_parent'] = $_GET['graphmind_relationship_parent'];
+  }
+
+  /**
+   * Right after node insert we have to pass params back to Flex and close the window.
+   */
+  $loadjs = FALSE;
+  if (isset($_SESSION['graphmind_relationship_child']) && (int)$_SESSION['graphmind_relationship_child'] > 0) {
+    drupal_add_js(array('graphmindRelationship' => array('child_nid' => $_SESSION['graphmind_relationship_child'])), 'setting');
+    unset($_SESSION['graphmind_relationship_child']);
+    $loadjs = TRUE;
+  }
+  
+  if (isset($_SESSION['graphmindRelationshipCloseWindow'])) {
+    if ($_SESSION['graphmindRelationshipCloseWindow'] == 0) {
+      drupal_add_js(array('graphmindRelationshipCloseWindow' => TRUE), 'setting');
+      unset($_SESSION['graphmindRelationshipCloseWindow']);
+      $loadjs = TRUE;
+    } else {
+      $_SESSION['graphmindRelationshipCloseWindow']--;
+    }
+  }
+  
+  if (arg(0) == 'node' && (int)arg(1) > 0) {
+    $node = node_load(arg(1));
+    if ($node->type == 'graphmind') {
+      $plugins = graphmind_service_plugins_get($node->nid);
+      if (in_array('Relationship', $plugins)) {
+        drupal_add_js(array('graphmindRelationshipCloseWarning' => TRUE), 'setting');
+      }
+    }
+  }
+  
+  if ($loadjs) {
+    drupal_add_js(drupal_get_path('module', 'graphmind_relationship') . '/js/script.js');
+  }
+}
+
+
+/**
+ * Page callback - results a list of node titles for the autocomplete field.
+ * 
+ * @param string $fragment 
+ */
+function graphmind_relationship_root_node_autocomplete($fragment) {
+  $result = db_query(db_rewrite_sql('
+    SELECT nid, title
+    FROM {node} n
+    WHERE title LIKE \'%%%s%%\'
+    LIMIT 10
+  '), $fragment);
+  
+  $nodes = array();
+  while ($row = db_fetch_object($result)) {
+    $nodes[$row->title . ' ['. $row->nid . ']'] = $row->title;
+  }
+    
+  drupal_json($nodes);
+}
+
+
+/**
+ * Helper function for saving node settings.
+ * 
+ * @param object $node 
+ */
+function _graphmind_relationship_save_node_setting($node) {
+  if ($node->type == 'graphmind') {
+    if (isset($node->graphmind_relationship_depth)) {
+      graphmind_relationship_save_node_setting($node->nid, array(
+        'depth' => $node->graphmind_relationship_depth,
+        'root_node' => $node->graphmind_relationship_root_node,
+        'default_created_node_type' => $node->graphmind_relationship_default_created_node_type,
+      ));
+    }
+  }
+}
+
+
+/**
+ * Returns the node view.
+ * 
+ * @param object $node 
+ */
+function graphmind_relationship_node_preview($node) {
+  if ($node) {
+    echo node_view($node);
+  } else {
+    echo t('Missing view.');
+  }
+  
+  module_invoke_all('exit');
+  exit();
+}
+
+
+/**
+ * Implementation of hook_block().
+ * 
+ * @param string $op
+ * @param string $delta
+ * @param array $edit
+ * @return string 
+ */
+function graphmind_relationship_block($op = 'list', $delta = 0, $edit = array()) {
+  switch ($op) {
+    case 'list':
+      $blocks = array();
+      $blocks[GRAPHMIND_RELATIONSHIP_NODE_PREVIEW_BLOCK] = array(
+        'info' => t('Node preview for GraphMind'),
+      );
+      return $blocks;
+    case 'view':
+      $block = array();
+      if ($delta == GRAPHMIND_RELATIONSHIP_NODE_PREVIEW_BLOCK) {
+        $block['subject'] = t('Node Preview');
+        $block['content'] = '<div id="graphmindNodePreview"></div>';
+      }
+      return $block;
+  }
+}

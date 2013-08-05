@@ -1,0 +1,221 @@
+<?php
+/**
+ * @file
+ *   Taskbar module installation.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function taskbar_schema() {
+  $schema = array();
+  $schema['taskbar_region'] = array(
+    'description' => 'Regions in taskbar',
+    'fields' => array(
+      'name' => array(
+        'type' => 'varchar', 
+        'length' => 32, 
+        'not null' => TRUE,
+        'description' => 'The machine name of the region',
+      ),
+      'title' => array(
+        'type' => 'varchar', 
+        'length' => 255, 
+        'not null' => TRUE,
+        'description' => 'The title (friendly name) of the region',
+      ),
+      'weight' => array(
+        'type' => 'int',
+        'size' => 'small',
+        'description' => 'The region weight',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('name'),
+  );
+  $schema['taskbar_item'] = array(
+    'description' => 'Items in taskbar',
+    'fields' => array(
+      'name' => array(
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'description' => 'The machine name of the item',
+      ),
+      'title' => array(
+        'type' => 'varchar', 
+        'length' => 255, 
+        'not null' => TRUE,
+        'description' => 'The title (friendly name) of the item',
+      ),
+      'provider' => array(
+        'type' => 'varchar', 
+        'length' => 32, 
+        'not null' => TRUE,
+        'description' => 'The item provider',
+      ),
+      'region' => array(
+        'type' => 'varchar', 
+        'length' => 32, 
+        'not null' => TRUE,
+        'description' => 'The region of the item',
+      ),
+      'status' => array(
+        'type' => 'int',
+        'size' => 'tiny',
+        'description' => 'The status of the item (1 = enabled)',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'weight' => array(
+        'type' => 'int',
+        'size' => 'small',
+        'description' => 'The weight of the item',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'settings' => array(
+        'type' => 'text',
+        'size' => 'big',
+        'description' => 'The settings of the item',
+        'not null' => TRUE,
+        'serialize' => TRUE,
+        'object default' => array(),
+      ),
+    ),
+    'primary key' => array('name'),
+  );
+  $schema += taskbar_schema_6003();
+  return $schema;
+}
+
+/**
+ * Implements hook_install().
+ */
+function taskbar_install() {
+  drupal_install_schema('taskbar');
+  taskbar_install_sample_data();
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function taskbar_uninstall() {
+  drupal_uninstall_schema('taskbar');
+  db_query("DELETE FROM {variable} WHERE name LIKE 'taskbar_block_display_%%'");
+  variable_del('taskbar_autoclose');
+  variable_del('taskbar_provide_sample_items');
+  variable_del('taskbar_style');
+  variable_del('taskbar_time');
+  variable_del('taskbar_titlebar');
+  variable_del('taskbar_update');
+  variable_del('taskbar_update_method');
+}
+
+/**
+ * Update 6001.
+ */
+function taskbar_update_6001() {
+  $ret = array();
+  $ret[] = update_sql('DROP TABLE {taskbar_item}');
+  $ret[] = update_sql('DROP TABLE {taskbar_region}');
+  drupal_install_schema('taskbar');
+  taskbar_install_sample_data();
+  return $ret;
+}
+
+/**
+ * Update 6002.
+ */
+function taskbar_update_6002() {
+  $result = db_query("SELECT name, settings FROM {taskbar_item} WHERE provider = 'link'");
+  while ($row = db_fetch_object($result)) {
+    $row->settings = unserialize($row->settings);
+    foreach ($row->settings['links'] as &$link) {
+      $link['url'] = $link['path'];
+      $link['title'] = $link['text'];
+      unset($link['path'], $link['text']);
+    }
+    db_query("UPDATE {taskbar_item} SET settings = '%s' WHERE name = '%s'", serialize($row->settings), $row->name);
+  }
+  $ret = array();
+  return $ret;
+}
+
+function taskbar_schema_6003() {
+  $schema = array();
+  $schema['taskbar_update'] = array(
+    'description' => 'Update status for taskbar item',
+    'fields' => array(
+      'name' => array(
+        'type' => 'varchar',
+        'description' => 'The machine name of the item',
+        'length' => 32, 
+        'not null' => TRUE,
+      ),
+      'uid' => array(
+        'type' => 'int',
+        'description' => 'The uid of the user.',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'created' => array(
+        'type' => 'int',
+        'description' => 'The time when this update was recorded.',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'indexes' => array(
+      'name' => array('name'),
+      'uid' => array('uid'),
+      'created' => array('created'),
+    ),
+  );
+  return $schema;
+}
+
+/**
+ * Update 6003.
+ */
+function taskbar_update_6003() {
+  $ret = array();
+  $schema = taskbar_schema_6003();
+  foreach ($schema as $name => $table) {
+    db_create_table($ret, $name, $table);
+  }
+  return $ret;
+}
+
+/**
+ * #1239224: Ajax and realtime settings are per item.
+ */
+function taskbar_update_6004() {
+  $items = taskbar_get_items();
+  $providers = taskbar_get_providers();
+  foreach ($items as $item) {
+    $item->settings['ajax'] = (boolean) $providers[$item->provider]['ajax'];
+    $item->settings['refresh'] = FALSE;
+    if ($item->provider == 'ajaxblock') {
+      $item->provider = 'block';
+    }
+    taskbar_item_save($item);
+  }
+  variable_set('taskbar_update_method', variable_get('taskbar_update', 'ajax'));
+  variable_del('taskbar_update');
+  return array();
+}
+
+/**
+ * Inserts sample data
+ */
+function taskbar_install_sample_data() {
+  $regions = array('left' => 'Left region', 'center' => 'Center region', 'right' => 'Right region');
+  $weight = 0;
+  foreach ($regions as $name => $title) {
+    db_query("INSERT INTO {taskbar_region} (name, title, weight) VALUES ('%s', '%s', %d)", $name, $title, $weight++);
+  }
+}

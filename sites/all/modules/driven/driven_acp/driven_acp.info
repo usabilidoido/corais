@@ -1,0 +1,20 @@
+; $Id: driven_acp.info,v 1.1 2010/03/27 22:56:51 arhak Exp $
+
+name = Driven Access Control Policies
+description = Exposes an API to apply grained access control policies.
+
+package = Driven
+; @d6
+core = 6.x
+
+dependencies[] = driven
+
+; @d7
+files[] = driven_acp.module
+
+; Information added by drupal.org packaging script on 2010-05-01
+version = "6.x-1.0-alpha3"
+core = "6.x"
+project = "driven"
+datestamp = "1272741606"
+

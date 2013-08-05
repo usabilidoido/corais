@@ -1,0 +1,124 @@
+<?php
+// $Id: modalframe_exclude_node.module,v 1.1 2010/09/21 12:05:56 mfer Exp $
+
+/**
+ * @file
+ *
+ * @copyright (C) Copyright 2010 Palantir.net
+ * @license http://www.gnu.org/licenses/gpl-2.0.html
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/**
+ * Implementation of hook_form_alter().
+ *
+ * Non-cck items are set to values here. This way the existing values in the
+ * forms as entered elsewhere are maintained.
+ */
+function modalframe_exclude_node_form_alter(&$form, &$form_state, $form_id) {
+  if (isset($form['type']) && isset($form['#node']) && $form['type']['#value'] .'_node_form' == $form_id) {
+    // Make sure to only exclude the fields in the modalFrame windows.
+    if (automodal_request_is_child()) {
+      $excludes = variable_get('modalframe_exclude_node_'. $form['type']['#value'], array());
+      foreach ($excludes as $key => $value) {
+        // fieldsets need to be hidden from the user.
+        if (!empty($form[$value]) && !empty($form[$value]['#type']) && $form[$value]['#type'] == 'fieldset') {
+          $form[$value]['#access'] = FALSE;
+        }
+        // Non-fieldsets needs to be handled as data.
+        elseif (!empty($form[$value]) && !empty($form[$value]['#type']) && $form[$value]['#type'] != 'value') {
+          $form[$value]['#type'] = 'value';
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Implementation of hook_field_access().
+ *
+ * For CCK fields we need to use a hook in order make sure the values they
+ * contain are not lost.
+ */
+function modalframe_exclude_node_field_access($op, $field, $account, $node = NULL) {
+  if ($op == 'edit' && automodal_request_is_child()) {
+    $excludes = variable_get('modalframe_exclude_node_'. $node->type, array());
+    if (in_array($field['field_name'], $excludes)) {
+      return FALSE;
+    }
+  }
+  return TRUE;
+}
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ *
+ * This is for the fieldset on the form to allow for the exclusion of portions
+ * of the node add/edit form.
+ */
+function modalframe_exclude_node_form_node_type_form_alter(&$form, &$form_state) {
+  $form['modalframe_exclude_node'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Exclude Fields From ModalFrame'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    '#description' => t('Select fields to be removed from the node form displayed in a ModalFrame window. Note: required fields cannot be hidden.'),
+  );
+
+  // We get the form and look for available fields.
+  $form_state = array('storage' => NULL, 'submitted' => FALSE);
+  module_load_include('inc', 'node', 'node.pages');
+  global $user;
+  $node = array('uid' => $user->uid, 'name' => (isset($user->name) ? $user->name : ''), 'type' => $form['#node_type']->type, 'language' => '');
+  $node_form = drupal_retrieve_form($form['#node_type']->type .'_node_form', $form_state, $node);
+  drupal_prepare_form($form['#node_type']->type .'_node_form', $node_form, $form_state);
+
+  $allowed_fields = modalframe_exclude_node_get_fields($node_form);
+
+  $form['modalframe_exclude_node']['modalframe_exclude_node'] = array(
+    '#type' => 'checkboxes',
+    '#title' => t('Available to hide'),
+    '#default_value' => variable_get('modalframe_exclude_node_'. $form['#node_type']->type, array()),
+    '#options' => $allowed_fields,
+  );
+}
+
+/**
+ * Generate a list of fields on a form that can be excluded.
+ *
+ * When the form is analyzed for a list of fields it only takes into account top
+ * level form elements. Items inside fieldsets cannot, yet, be individually
+ * removed.
+ *
+ * @param array $form
+ *   A FAPI form array.
+ * @return array
+ *   An array of field names that can be excluded.
+ */
+function modalframe_exclude_node_get_fields($form) {
+  $allowed_fields = array();
+  foreach (element_children($form) as $key => $value) {
+    // We only act on displayed items that are not required. This only allows
+    // for top level elements to be disabled. For example, that means a
+    // fieldset can be disabled but its individual elements cannot.
+    if ($form[$value]['#type'] != 'value' && $form[$value]['#type'] != 'hidden'
+      && $form[$value]['#type'] != 'token' /* && !$form[$value]['#required'] */) {
+      $title = ($form[$value]['#title']) ? $form[$value]['#title'] : $value;
+      $allowed_fields[$value] = $title;
+    }
+  }
+
+  return $allowed_fields;
+}

@@ -1,0 +1,52 @@
+/* change or overwrite if necessary */
+#ajBodyCover {position:absolute;top:0;left:0;width:100%;height:100%;z-index:10000} /* where */
+#ajBodyCover {background:#000;-moz-opacity:0.25;filter:alpha(opacity=25);opacity:0.25;-khtml-opacity:0.25} /* style */
+
+#ajControl {position:absolute;top:30px;right:30px;z-index:20000;text-align:left} /* where */
+#ajControl {font-family:Arial,sans-serif;background:#fff;width:350px;border:3px solid #000} /* style */
+#ajControl table {width:100%}
+
+#ajControlNavi td {padding:5px 10px}
+#ajControlNavi td {font-size:1.5em;font-weight:bold;color:#000;border-bottom:1px solid #000}
+
+#ajControlBody td {padding:10px}
+
+#ajControlInfo td {padding:5px 10px;font-size:0.9em;color:#999;background:#eee;border-top:1px solid #ddd}
+#ajControlInfo a {color:#999}
+
+a#ajPrev, a#ajNext {color:#000;padding:0 10px;background:#f99;text-decoration:none;margin-right:10px}
+a#ajPrev.disabled, a#ajNext.disabled {color:#ccc;background:#eee;cursor:default;display:none}
+
+#ajCloseCell {text-align:right}
+#ajClose {background:#fff;color:#999;text-decoration:none;padding-left:10px;padding-right:10px}
+#ajClose:hover {background:#ccc;color:#000}
+
+#ajCount {margin-left:20px}
+
+/* my changes */
+#ajBodyCover {background:#999} /* style */
+
+#ajControl {background:url(bg.gif);padding:5px 10px;border:1px solid #666}
+#ajControlInfo td {border-top:0}
+
+#ajControlInfo td {background:url(bg.gif);padding:5px 0px 5px 0;color:#666}
+#ajControlInfo td a {color:#666}
+#ajControlBody td {background:#fff;color:#000;padding:10px 10px;border-top:1px solid #666;border-right:1px solid #878787;border-bottom:1px solid #666;border-left:1px solid #666;}
+#ajControlBody img {border:1px solid #707070;padding:2px;background:#fff}
+
+#ajControlNavi #ajCount {line-height:25px}
+
+#ajControlNavi td {padding:5px 0px 5px 0;color:#666;border:0;font-size:1em}
+a#ajPrev, 
+a#ajNext {padding:0;margin:0;width:27px;height:25px;display:block;float:left}
+
+a#ajPrev {background:url(prev.gif) no-repeat}
+a#ajNext {background:url(next.gif) no-repeat}
+a#ajNext.disabled {background:url(nextDisabled.gif) no-repeat;display:block}
+a#ajPrev.disabled {background:url(prevDisabled.gif) no-repeat;display:block}
+
+#ajPlayerCell {width:100%}
+#ajCloseCell {width:28px}
+a#ajClose {padding:0;display:block;width:28px;height:25px;background:url(close.gif) no-repeat !important}
+
+a#ajPrev span, a#ajNext span, a#ajClose span  {display:none}

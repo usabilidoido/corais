@@ -1,0 +1,14 @@
+name = "Outline Designer Book integration"
+description = "Usability improvements to the core-optional Book module that allows the rapid building of content outlines."
+dependencies[] = "book"
+dependencies[] = "outline_designer"
+package = "Outline Designer"
+project = "outline_designer_book"
+core = "6.x"
+
+; Information added by drupal.org packaging script on 2012-06-21
+version = "6.x-2.0-beta3"
+core = "6.x"
+project = "outline_designer"
+datestamp = "1340302000"
+

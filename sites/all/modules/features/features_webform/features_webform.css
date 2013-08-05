@@ -1,0 +1,37 @@
+/**
+  Large Tab icon
+  icon.png = 40X40px
+  [menu name] = .info => features[menu][] = "tasks"
+  **note: if [menu name] contains "" replace with "-"
+*/
+
+#features-menu li a.icon-forms span.icon { 
+   background:url(icon.png) no-repeat; 
+}
+
+/**
+  Create content, small icon
+  icon-small.png = 20X20px
+  [project name] = .info => project = "features_task"
+  **note: if [project name] contains "" leave alone
+*/
+
+span.spaces-feature.feature-features_webform {
+  background:url(icon-small.png) no-repeat;
+}
+
+span.spaces-feature.feature-features_webform_report {
+  background:url(icon-small.png) no-repeat;
+}
+
+/*
+  Border around the oa_custom_webform view LI's
+*/
+div.view-id-oa_custom_webform div.item-list li.views-row{
+  border: none;
+  margin-bottom: 5px;
+}
+
+div.view-id-oa_custom_webform div.item-list li.views-row-last{
+  margin-bottom: 0px;
+}

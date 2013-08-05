@@ -1,0 +1,116 @@
+<html>
+<head><title>InputDraw - Documentation</title></head>
+<body>
+	<h1>Documentation</h1>
+<h2>What is the installation process?</h2>
+<p>First copy all package files to your site. They are: </p>
+<ul>
+<li>swfobject.js</li>
+<li>inputdraw.js</li>
+<li>inputdraw.non-commercial.v1.5.swf</li>
+</ul>
+<p>Finally, in the Head part of your site include both javascript sources:</p>
+<textarea   readonly  COLS="65"  ROWS="5" >
+
+<script src="[JS_PATH]swfobject.js" type="text/javascript"></script>
+<script src="[JS_PATH]inputdraw.js" type="text/javascript"></script>  
+</textarea>
+<p>Being [JS_PATH] the actual path to these two files.<br/>Now we are ready to go!!</p>
+<h2>How to insert a widget?</h2>
+<p>A widget can be used as an editor or just as a viewer. They are very similar, so lets look at both:</p>
+<h3>Editor</h3>
+<p>First you need a something like a Div to serve as placing tag for the widget. So, just add a Div with an Id of your choice:</p>
+<textarea readonly COLS="65"  ROWS="3"  >
+
+<div id="place"></div>
+</textarea>
+<p>Then, you need to place a Hidden Field to which the widget will export the SVG. Don’t forget to put this field inside the desired Form:</p>
+<textarea readonly COLS="65"  ROWS="3"  >
+
+<input type="hidden" id="svgdraw" />
+</textarea>
+<p>Don’t disregard that this field needs to have an Id also.<br/>Finally, you need to create our widget using javascript. Just need to instantiate our widget passing both Id’s and a few more info that we’ll discuss later.</p>
+<textarea readonly COLS="65"  ROWS="5"  >
+
+<script type="text/javascript">
+new InputDraw("[SWF_PATH]inputdraw.non-commercial.v1.5.swf", "place", {id:"svgdraw", width:"300", height:"300", animation:60});
+</script>
+</textarea>
+<p>Both javascript libraries will take care of the rest and load the widget when the page is finally loaded, this is, they will automatically add some code to the Body Onload event. By default, the widget source will be also its repository, in this casa, the hidden field. So, if you fill the hidden field, it will appear in the widget as it starts.</p>
+<h3>Viewer</h3>
+<p>The only difference between this and the editor is that you don’t provide an “id” in the javacript InputDraw Class instantiation options. So, you will to have to define a source for the viewer.<br/> There are three types of source: Passing a field Id, an Url or directly SVG content. Note that this is also possible to do in the editor.</p>
+<h2>InputDraw: javascript class – How does it work?</h2>
+<p>Next we will present the various parameters of this class constructer. InputDraw takes three parameters. First is the actual path of the flash file; just indicate the file in your site. Second is the placement Id, which is normally the Id of the Div created to hold the widget. Finally, there are and hash of options. They are:</p>
+<ul>
+<li><b>id</b> - This is the most important one, if defined, your widget will be an editor, if not, it will be just a viewer. The value should be a hidden field or another field to here you want to export the draw SVG description. </li>
+<li><b>src_id</b> - Source id is the Id of the field that will be the initial SVG source to the widget, if not defined, it will be the “id”.</li>
+<li><b>src</b> - This is an alternative for a SVG source, it should be an URL or path for the SVG file.</li>
+<li><b>src_svg</b> - Another way to initiate the widget with some draw is to pass the SVG as text directly. To do so use this field.</li>
+<li><b>animation</b> - Finally, this is the animation value. If zero, there will be no animation presenting the sourced drawing. Any another integer will be the animation delay. So, bigger values will result in slower drawing.</li>
+</ul>
+<p>The source precedence is “src_id” > “src_svg” > “src”. If none is set, then it will be “id”</p>
+<h2>What else can I do ?</h2>
+<p>There are some more options to do fun and nice to have stuff:
+<ul>
+<li><b>color</b> - This defines the background color of the widget. If this isn't set, the widget will be transparent. (example: #ffffff) </li>
+<li><b>grid_style</b> - For  <u>grid version</u>, this will define grid style. The style is determined by three parameters:<ul>
+	<li>Width</li>
+	<li>Opacity</li>
+	<li>Color - in RGB(xxx,xxx,xxx) format</li>
+	<li><u>Example:</u> "2 0.6 rgb(255,0,0)" creates a red grid with a opacity of 60% and 2 of width.</li></ul></li>
+<li><b>grid_geom</b> - For  <u>grid version</u>, this will define grid geometry. The geometry is determined by three parameters:<ul>
+	<li>Number of Horizontal Lines</li>
+	<li>X Offset</li>
+	<li>Y Offset</li>
+	<li><u>Example:</u> "25 10 -20" creates a grid with 25 lines on the horizontal (the grid is composed by squares) that starts 10 pixels to the right and ends 20 above the bottom.</li></ul></li>
+<li><b>stroke_style</b> - For  <u>plain version</u>, this will define the stroke style. The style is determined by three parameters:<ul>
+	<li>Width</li>
+	<li>Opacity</li>
+	<li>Color - in RGB(xxx,xxx,xxx) format</li>
+	<li><u>Example:</u> "2 0.6 rgb(255,0,0)" creates a red grid with a opacity of 60% and 2 of width.</li></ul></li>
+<li><b>stroke_width</b> - For  <u>plain version</u>, this will define the stroke width.</li>
+<li><b>background_image</b> - set the background. Just put the image path or url.</li>
+<li><b>undo</b> - set the undo icon. Just put the image path or url.</li>
+<li><b>clean</b> - set the clean icon. Just put the image path or url.</li>
+<li><b>form_integration</b> - true or false.Default, true. If false, the widget won't put the SVG source on the "id" Input field.</li>
+<li><b>tools_color</b><u>Example:</u> 0xFF0000 - Sets the Tools (color, size, opacity) background color to Red.</li>
+<li><b>disable</b> - Used to disable tools like Undo button. It's a string with the options separeted by space. Example: "color undo clean". Options avaliable:<ul>
+	<li>clean - Clear Button</li>
+	<li>undo - Undo Button</li>
+	<li>size - Stroke Size</li>
+	<li>color - Stroke Color</li>
+	<li>opacity - Stroke Opacity</li></ul></li>
+<li><b>onpath</b> - Sets the name of the function that will be callback when a stroke is done. It will pass the SVG Path string-xml as argument.</li>	
+<li><b>onsvg</b> - Sets the name of the function that will be callback when the Widget svg content is changed. It will pass the SVG string-xml as argument.</li>	
+</ul>
+</p>
+<h2>How about the JavaScript API ?</h2>
+<p>InputDraw as a new API so you can interact with it using Javascript. When creating a new instance of inputdraw, save it in a var. The InputDraw Javascript Class has now the following helping functions:
+<ul>
+	<li><b>Undo()</b> - Will make one undo action.</li>
+	<li><b>Clean()</b> - Clears the content.</li>
+	<li><b>OnSvg(String func)</b> - Will hook the func so it is called on SVG change. Set the func to '' (empty) to "unhook".</li>
+	<li><b>OnPath(String func)</b> - Will hook the func so it is called on stroke. Set the func to '' (empty) to "unhook".</li>
+	<li><b>AddSvg(String svg)</b> - Will replace the content with the svg content. Note that at this time, only Inpudraw-produced svg will work.</li>
+	<li><b>AddSvgAnimated(String svg,int animation)</b> - Will replace the content with the svg content in animation.The animation argument will set the animation delay. Note that at this time, only Inpudraw-produced svg will work.</li>
+	<li><b>AddPath(String path)</b> - Adds a stroke the the svg content. Note that at this time, only paths with the same format of those created by InputDraw will work. Example: &lt;path d="M 347 200 l -1 -1 l -7 -2 l -10 3 l 14 26 l 19 18" opacity="1" stroke="rgb(1,1,1)" stroke-width="2"/&gt;</li>
+	<li><b>SetStyle(String style)</b> - Changes the stroke style. The format is identical to stroke_style. You can use * instead of one of the options to mantain the present value. Example "10 * *" will only change the stroke size to ten.</li>
+</ul>
+Example - Setting a hook on InputDraw to display as an alert every svg change:<br/>
+<textarea readonly COLS="95"  ROWS="6"  >
+
+<script type="text/javascript">
+var draw = new InputDraw("[SWF_PATH]inputdraw.non-commercial.v1.5.swf", "place", {id:"svgdraw", width:"300", height:"300", animation:60});
+draw.OnSvg("alert");
+</script>
+</textarea>
+</p>
+<h2>And for Ajax calls ?</h2>
+<p>If you are using Ajax, the Onload of Body won’t be called, so just put the following javascript command on complete or in a javascript tag in the end of the content:</p>
+<textarea readonly COLS="65"  ROWS="4"  >
+
+<script type="text/javascript">
+InputDrawLoad();
+</script>
+</textarea>
+</body>

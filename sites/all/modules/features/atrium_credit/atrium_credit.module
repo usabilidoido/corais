@@ -1,0 +1,7 @@
+<?php
+
+include_once('atrium_credit.features.inc');
+
+function atrium_credit_init() {
+  drupal_add_css(drupal_get_path('module', 'atrium_credit') . '/atrium_credit.css');
+}

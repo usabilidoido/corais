@@ -1,0 +1,7 @@
+<?php
+/**
+ * hook_uninstall implementation
+ */
+function commentblock_uninstall() {
+  variable_del('commentblock_settings_content_types');
+}

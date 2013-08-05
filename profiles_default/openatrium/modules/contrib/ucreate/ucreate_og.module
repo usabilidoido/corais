@@ -1,0 +1,131 @@
+<?php
+// $Id: ucreate_og.module,v 1.2.4.10 2010/07/14 14:49:51 alexb Exp $
+/*
+ * @file
+ * Sign up users to og groups when creating them with U create.
+ */
+
+
+/**
+ * Implementation of hook_form_alter().
+ *
+ * Adds group check boxes to a ucreate form.
+ */
+function ucreate_og_form_alter(&$form, $form_state, $form_id) {
+  if ($form_id == 'ucreate_user_form') {
+    _ucreate_og_form($form);
+  }
+}
+
+/**
+ * Implementation of hook_mail_alter().
+ */
+function ucreate_og_mail_alter(&$message) {
+  if ($message['id'] == 'ucreate_ucreate-create' && $account = _ucreate_og_get_last_edit()) {
+    if (is_array($account['ucreate_og_group_titles'])) {
+      $message['body'][] = "\n\n". t('We also added you as member to the group(s): !groups', array('!groups' => implode(', ', $account['ucreate_og_group_titles'])));
+    }
+  }
+}
+/**
+ * Implementation of hook_user().
+ */
+function ucreate_og_user($op, &$edit, &$account, $category = NULL) {
+  // @todo:
+  // $edit['og_register']
+  // Assume that whoever calls us here has actually permissions to sign up users :)
+  // -> ucreate users permissions circumvent og group permissions.
+  if ($op == 'insert' && $edit['og_register']) {
+    if (!is_array($edit['og_register']) && is_numeric($edit['og_register'])) {
+      $edit['og_register'] = array($edit['og_register'] => 1);
+    }
+    foreach ($edit['og_register'] as $gid => $register) {
+      if ($register) {
+        og_save_subscription($gid, $account->uid, array('is_active' => 1));
+        $group_title = db_result(db_query('SELECT title FROM {node} WHERE nid = %d', $gid));
+        $edit['ucreate_og_group_titles'][] = $group_title;
+      }
+    }
+    _ucreate_og_set_last_edit($edit);
+  }
+}
+
+/**
+ * Set last account edit.
+ * This is a crutch for being able to access
+ * user information in ucreate_og_mail_alter().
+ */
+function _ucreate_og_set_last_edit($account_edit = NULL) {
+  static $edit;
+  if ($account_edit) {
+    $edit = $account_edit;
+  }
+  return $edit;
+}
+
+/**
+ * Get last account edit.
+ * This is a crutch for being able to access
+ * user information in ucreate_og_mail_alter().
+ */
+function _ucreate_og_get_last_edit() {
+  return _ucreate_og_set_last_edit();
+}
+
+/**
+ * This function adds an OG group selection fieldset and provides default settings by user/group context.
+ */
+function _ucreate_og_form(&$form) {
+  if (isset($_GET['gids'])) {
+    og_set_group_context(node_load($_GET['gids'][0]));
+  }
+  $og = og_get_group_context();
+
+  // Set up OG register checkboxes
+  $form['og_register'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Groups'),
+    'og_register' => array(
+      '#type' => 'checkboxes',
+    ),
+  );
+
+  // Allow user to add new user to her groups
+  global $user;
+  if (is_array($user->og_groups)) {
+    $group_options = $user->og_groups;
+  }
+  else if ($og) {
+    $group_options = array($og);
+  }
+
+  $options = array();
+  foreach ($group_options as $group) {
+    $group = (object) $group;
+    if ($group->status) {
+      $options[$group->nid] = '<span class="og-registration-'. $group->nid .'">'. t('Subscribe to @name.', array('@name' => $group->title)) .'</span>';
+      if ($group->selective) {
+        $options[$group->nid] .= ' '. t('(approval needed)');
+      }
+    }
+  }
+  $form['og_register']['og_register']['#options'] = $options;
+  // Completely disable OG options if there are no groups
+  if (empty($options)) {
+    unset($form['og_register']);
+  }
+  // Disable OG options (and select it) if only 1 group
+  else if (count($options) == 1) {
+    // We need to process this correctly (differently) on the hook_user() insert handler
+    $form['og_register']['og_register']['#type'] = 'hidden';
+    $form['og_register']['og_register']['#value'] = key($options);
+
+    $form['og_register']['message']['#type'] = 'item';
+    $group = array_shift($group_options);
+    $form['og_register']['message']['#value'] = t('This user will be added to !group.', array('!group' => $group['title']));
+  }
+  // If group context is set, select it by default
+  else if ($og) {
+    $form['og_register']['og_register']['#default_value'] = array($og->nid);
+  }
+}

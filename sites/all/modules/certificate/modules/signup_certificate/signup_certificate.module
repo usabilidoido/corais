@@ -1,0 +1,11 @@
+<?php
+
+function signup_certificate_access_certificate($node, $user) {
+  if (in_array($node->type, signup_content_types())) {
+    $sql = "select 1 from {signup_log} where nid = %d and uid = %d and attended = 1";
+    $attended = db_result(db_query($sql, $node->nid, $user->uid));
+    return (bool) $attended;
+  }
+}
+
+

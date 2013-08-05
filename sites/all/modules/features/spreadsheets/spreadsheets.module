@@ -1,0 +1,8 @@
+<?php
+
+include_once('spreadsheets.features.inc');
+
+function spreadsheets_init() {
+  drupal_add_css(drupal_get_path('module', 'atrium_spreadsheets') . '/atrium_spreadsheets.css');
+  drupal_add_css(drupal_get_path('module', 'spreadsheets') . '/atrium_spreadsheets.css');
+}

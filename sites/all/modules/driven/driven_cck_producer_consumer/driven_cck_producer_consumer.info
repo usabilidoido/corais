@@ -1,0 +1,26 @@
+; $Id: driven_cck_producer_consumer.info,v 1.1 2010/04/03 23:20:47 arhak Exp $
+
+name = Driven CCK Producer/Consumer Policies
+description = Exposes an API to apply inbound/outbound policies to fields with multiplicity.
+
+package = Driven
+; @d6
+core = 6.x
+
+dependencies[] = driven
+dependencies[] = driven_cck
+; make cck dependency explicit (using their constants)
+dependencies[] = content
+; it will rely on equality for validators
+dependencies[] = driven_diff
+
+; @d7
+files[] = driven_cck_producer_consumer.module
+files[] = driven_cck_producer_consumer.inc
+
+; Information added by drupal.org packaging script on 2010-05-01
+version = "6.x-1.0-alpha3"
+core = "6.x"
+project = "driven"
+datestamp = "1272741606"
+

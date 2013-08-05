@@ -1,0 +1,12 @@
+; $Id: context_reaction_theme.info,v 1.1 2010/02/17 20:46:33 brynbellomy Exp $
+name = "Context Reaction: Theme"
+description = "Adds a reaction to change the theme.  Depends on Context 3."
+package = "Context"
+dependencies[] = context
+core = "6.x"
+; Information added by drupal.org packaging script on 2010-10-25
+version = "6.x-2.1"
+core = "6.x"
+project = "context_reaction_theme"
+datestamp = "1288032633"
+

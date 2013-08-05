@@ -1,0 +1,64 @@
+<?php
+
+/**
+ * @file nodequeue_annotate.install
+ * Installation hooks for Nodequeue Annotate.
+ */
+
+
+/**
+ * Implementation of hook_schema().
+ */
+function nodequeue_annotate_schema_alter(&$schema) {
+  if (isset($schema['nodequeue_nodes'])) {
+    $schema['nodequeue_nodes']['fields']['annotation'] = array(
+      'description' => t('An annotation for this node assignment.'),
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => FALSE,
+    );
+  }
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function nodequeue_annotate_install() {
+  $ret = array();
+  $schema['nodequeue_nodes'] = array();
+  nodequeue_annotate_schema_alter($schema);
+  foreach ($schema['nodequeue_nodes']['fields'] as $name => $spec) {
+    db_add_field($ret, 'nodequeue_nodes', $name, $spec);
+  }
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function nodequeue_annotate_uninstall() {
+  $ret = array();
+  db_drop_field($ret, 'nodequeue_nodes', 'annotation');
+  
+  variable_del('nodequeue_annotate_js_title_add');
+  variable_del('nodequeue_annotate_js_title_edit');
+  variable_del('nodequeue_annotate_js_button_cancel');
+  variable_del('nodequeue_annotate_js_button_remove');
+  variable_del('nodequeue_annotate_js_button_add');
+  variable_del('nodequeue_annotate_js_button_edit');
+  variable_del('nodequeue_annotate_js_success_add');
+  variable_del('nodequeue_annotate_js_success_edit');
+  variable_del('nodequeue_annotate_js_success_remove');
+  variable_del('nodequeue_annotate_js_added_link_replacement');
+  variable_del('nodequeue_annotate_link_title');
+  variable_del('nodequeue_annotate_tab_column');
+  variable_del('nodequeue_annotate_tab_add');
+  variable_del('nodequeue_annotate_tab_edit');
+  variable_del('nodequeue_annotate_form_page_title');
+  variable_del('nodequeue_annotate_form_title');
+  variable_del('nodequeue_annotate_form_description');
+  variable_del('nodequeue_annotate_form_submit_add');
+  variable_del('nodequeue_annotate_form_submit_edit');
+  variable_del('nodequeue_annotate_form_link_add');
+  variable_del('nodequeue_annotate_form_link_remove');
+  variable_del('nodequeue_annotate_truncate_length');
+}

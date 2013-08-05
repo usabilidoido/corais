@@ -1,0 +1,383 @@
+@charset "UTF-8";
+/* CSS Document */
+
+body
+{
+	background: #27251e;	
+	font-family:  Helvetica, Arial, sans-serif;
+	color: #27251e;
+}
+
+#skip a, #skip a:hover, #skip a:visited {
+  position: absolute;
+  left:-10000px;
+  top:auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+#skip a:active, #skip a:focus {
+  position: static;
+  width: auto;
+  height: auto;
+}
+
+a
+{
+	color: #27251e;
+	text-decoration: none;
+	
+}
+
+a:hover
+{
+	font-weight:bold;	
+}
+
+#superfish a:hover
+{
+	font-weight: normal;	
+}
+
+#footer a
+{
+	font-weight: bold;	
+}
+
+#footer a:hover
+{
+	text-decoration:underline;	
+}
+
+#right a:hover
+{
+	font-weight: normal;	
+}
+
+#wrapper
+{
+		background: url('../images/middle_space.png') 324px 0px repeat-y #27251e;
+
+	width: 1024px;
+}
+
+#right
+{
+	background: #f1f1f1;
+	width: 700px;
+	float: left;
+
+}
+
+
+/*  ----------------------------------- 	LEFT	------------------------------------------------*/
+
+#left
+{
+	width: 324px;
+	background: url('../images/left_bg.png') top right no-repeat #27251e;
+	float: left;
+	padding-top: 150px;
+	min-height: 481px;
+
+}
+
+
+
+#main_navigation
+{
+	text-transform: uppercase;
+	float:right;
+	margin-bottom: 70px;
+	width: 100%;
+	
+}
+
+
+#main_navigation a
+{
+	color: #f1f1f1;
+	text-decoration:none;
+}
+
+
+
+
+#sub_navigation
+{
+	min-height: 100px;
+	background: none;
+	color: #989898;
+	float: right;
+	margin-bottom: 70px;
+	width: 100%;
+}
+
+#sub_navigation a
+{
+	color: #989898;
+	font-size: 12px;
+	letter-spacing: 0.3em;
+
+}
+#sub_navigation li
+{
+	list-style-image: none;
+	list-style-type: none;
+	text-align:right;
+	line-height: 0.7em;
+}
+
+#sub_navigation h2
+{
+	text-align: right;
+	text-transform: uppercase;
+	font-weight: normal;
+	font-size: 16px;
+	letter-spacing: 0.2em;
+	margin-right: 0.5em;
+	font-weight: bold;
+}
+
+#sub_navigation a:hover
+{
+	color: 	#d7b353;
+}
+
+
+
+#extra
+{
+	
+	float: right;
+}
+
+#extra_tab
+{
+	width: 40px;
+	height: 150px;
+	float:right;
+	background: url('../images/extra_pnt.png') 50% 50%  no-repeat #f1f1f1;
+	
+	cursor: pointer;
+	
+	-moz-border-radius-topleft: 10px; 
+	-moz-border-radius-bottomleft: 10px; 
+
+	-webkit-border-top-left-radius: 10px;
+	-webkit-border-bottom-left-radius: 10px;
+
+
+	
+}
+
+#extra_content
+{
+	background: #f1f1f1;
+	float: right;
+	padding-top: 10px;
+	
+	overflow: hidden;
+	-moz-border-radius-bottomleft: 5px; 
+	-webkit-border-bottom-left-radius: 5px;	
+	
+}
+
+#extra_content .block
+{
+	width:260px;	
+}
+
+/* ------------------------------------------	RIGHT	----------------------------------------- */
+
+
+
+#header
+{
+	height: 70px;
+	background: #d7b353;
+	padding-right: 10px;
+	padding-top: 30px;
+}
+
+#gallery
+{
+	width: inherit;
+	position: absolute;
+	z-index: 100;
+}
+
+#gallery_tab
+{
+	width: 130px;
+	height: 20px;
+	background: #27251e;
+	cursor: pointer;
+	position:absolute;
+	right:0px;
+	
+	padding-top: 5px;
+	
+	color:#f1f1f1;
+	text-align: center;
+	font-size: 12px;
+		-moz-border-radius-bottomleft: 5px; 
+
+	-webkit-border-bottom-left-radius: 5px;
+}
+
+#gallery_content
+{
+	width: 500px;
+	background: #d7b353;
+	padding-left: 100px;
+	padding-right: 100px;
+	overflow: hidden;
+}
+
+#gallery_exit
+{
+	background: url('../images/gallery_exit.png');
+	height: 32px;
+	width: 32px;
+	position: absolute;
+	bottom: 10px;
+	right: 10px;
+	cursor: pointer;
+	display: none;
+	
+}
+
+.gallery_thumb
+{
+	width: 80px;
+	height: 80px;
+	border: 3px solid #27251e;
+	margin: 7px;
+	float: left;
+}
+
+#site_title
+{
+	float: right;	
+}
+
+#content
+{
+	background: url('../images/next_arrow.png') bottom right no-repeat  ;
+	padding: 20px 75px;
+	padding-bottom: 50px;
+}
+
+
+/* ------------------------------ 	FOOTER ----------------------------------------------*/
+
+#footer
+{
+	width: 1024px;
+	background: url('../images/footer_building.png') bottom right no-repeat ;
+	overflow: hidden;
+	
+	
+}
+#footer_content
+{
+	height: 152px;
+	margin-left: 330px;
+	padding-top: 100px;
+	font-size:10px;
+}
+
+
+/* -----------------------------	STICKY FOOTER	--------------------------- */
+* 
+{
+	margin: 0;
+}
+
+html, body 
+{
+	height: 100%;
+}
+
+.wrapper 
+{
+	min-height: 100%;
+	height: auto !important;
+	height: 100%;
+	margin: 0 auto -152px;
+}
+
+.footer, .push 
+{
+	height: 152px;
+	clear:both;
+}
+
+.footer
+{
+	margin: 0 auto;	
+}
+
+
+
+
+
+.hide
+{
+	display: none;	
+}
+
+.show
+{
+	display: block;	
+}
+
+
+
+
+
+
+
+
+
+/* -----------------------------   CLEARFIX STUFF   ------------------------- */
+
+.clearfix:after 
+{
+	content: ".";
+	display: block;
+	clear: both;
+	visibility: hidden;
+	line-height: 0;
+	height: 0;
+}
+ 
+.clearfix 
+{
+	display: inline-block;
+}
+ 
+html[xmlns] .clearfix
+{
+	display: block;
+}
+ 
+* html .clearfix 
+{
+	height: 1%;
+}
+
+
+/* ---------------------------- ARROW FOR SUPERFISH BOXES -------------------------------- */
+
+
+#arrow
+{
+	width: 25px;
+	height: 39px;
+	background: url('../images/sf_arrow.png') no-repeat;
+	position:absolute;
+	left: -25px;
+	top: 10px;
+}

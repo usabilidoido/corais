@@ -1,0 +1,191 @@
+<p>
+The following contributed modules are supported:
+</p>
+
+<ul>
+<li><a href="#auto_nodetitle">Automatic Nodetitles</a></li>
+<li><a href="#domain">Domain Access</a></li>
+<li><a href="#location">Location</a></li>
+<li><a href="#modr8">Modr8 (Moderate)</a></li>
+<li><a href="#og">Organic Groups</a></li>
+<li><a href="#ubercart">Ubercart</a></li>
+</ul>
+
+<a name="auto_nodetitle"></a>
+<h3>Automatic Nodetitles</h3>
+
+<p>
+The <a href="http://drupal.org/project/auto_nodetitle"><em>Automatic Nodetitles</em> module</a> is <strong>fully supported</strong>. <em>Node import</em> respects following settings:</p>
+
+<dl>
+<dt>Disabled</dt>
+<dd>The <em>Title</em> field is required and mappable.</dd>
+<dt>Automatically generate the title and hide the title field</dt>
+<dd>The <em>Title</em> field is not required and not mappable.</dd>
+<dt>Automatically generate the title if the title field is left empty</dt>
+<dd>The <em>Title</em> field is not required and mappable.</dd>
+</dl>
+
+<a name="domain"></a>
+<h3>Domain Access</h3>
+
+<p>
+The <a href="http://drupal.org/project/domain"><em>Domain Access</em> module</a> is <strong>fully supported</strong>.
+</p>
+
+<h4>Content fields</h4>
+
+<table border="0">
+<thead>
+<tr><th>Content field</th><th>Format</th></tr>
+</thead>
+<tbody>
+<tr><td>Send to all affliates</td><td><a href="&topic:node_import/input-format&#boolean">Boolean</a></td></tr>
+<tr><td>Publish to</td><td><a href="&topic:node_import/input-format&#allowed-values">Allowed values</a><br />
+You can use either the <strong>Id</strong> or the <strong>Site name</strong> from the <a href="/admin/build/domain/view">Domain list</a>. To publish to the primary domain use <em>-1</em>.</td></tr>
+</tbody>
+</table>
+
+<a name="location"></a>
+<h3>Location</h3>
+
+<p>
+The <a href="http://drupal.org/project/location"><em>Location</em> module</a> is <strong>fully supported</strong>.
+</p>
+
+<h4>Content fields</h4>
+
+<table border="0">
+<thead>
+<tr><th>Content field</th><th>Format</th></tr>
+</thead>
+<tbody>
+<tr><td>Location name</td><td>Any string</td></tr>
+<tr><td>Additional</td><td>Any string</td></tr>
+<tr><td>Street</td><td>Any string</td></tr>
+<tr><td>City</td><td>Any string</td></tr>
+<tr><td>State/Province</td><td>Any string</td></tr>
+<tr><td>Postal code</td><td>Any string</td></tr>
+<tr><td>Country</td><td>Two-letter ISO code (eg "us") or full country (eg "United States").</td></tr>
+<tr><td>Phone number</td><td>Any valid phone number</td></tr>
+<tr><td>Fax number</td><td>Any valid fax number</td></tr>
+<tr><td>Latitude</td><td>Any valid latitude</td></tr>
+<tr><td>Longitude</td><td>Any valid longitude</td></tr>
+</tbody>
+</table>
+
+<a name="modr8"></a>
+<h3>Modr8 (Moderate)</h3>
+
+<p>
+The <a href="http://drupal.org/project/modr8"><em>Modr8</em> module</a> is <strong>fully supported</strong>.
+</p>
+
+<h4>Content fields</h4>
+
+<table border="0">
+<thead>
+<tr><th>Content field</th><th>Format</th></tr>
+</thead>
+<tbody>
+<tr><td>In moderation queue</td><td><a href="&topic:node_import/input-format&#boolean">Boolean</a></td></tr>
+</tbody>
+</table>
+
+<a name="og"></a>
+<h3>Organic groups</h3>
+
+<p>
+The <a href="http://drupal.org/project/og"><em>Organic Groups</em> module</a> is <strong>fully supported</strong>.
+</p>
+
+<h4>Content fields</h4>
+
+<p>
+Content types can be a <em>Group node</em> or a <em>Standard group post</em>. The available content fields differ between the two types. No content fields are added for content types that are none of the two.
+</p>
+
+<h5>Group node</h5>
+
+<table border="0">
+<thead>
+<tr><th>Content field</th><th>Format</th></tr>
+</thead>
+<tbody>
+<tr><td>Description</td><td>Any string</td></tr>
+<tr><td>Mission statement</td><td>Any string (body of node)</td></tr>
+<tr><td>Membership requests</td><td><a href="&topic:node_import/input-format&#allowed-values">Allowed values</a><dl>
+<dt>0</dt>
+<dd>Open</dd>
+<dt>1</dt>
+<dd>Moderated</dd>
+<dt>2</dt>
+<dd>Invite only</dd>
+<dt>3</dt>
+<dd>Closed</dd>
+</dl></td></tr>
+<tr><td>Registration form</td><td><a href="&topic:node_import/input-format&#boolean">Boolean</a></td></tr>
+<tr><td>List in groups directory</td><td><a href="&topic:node_import/input-format&#boolean">Boolean</a></td></tr>
+</tbody>
+</table>
+
+<h5>Standard group post</h5>
+
+<table border="0">
+<thead>
+<tr><th>Content field</th><th>Format</th></tr>
+</thead>
+<tbody>
+<tr><td>Audience</td><td><a href="&topic:node_import/input-format&#allowed-values">Allowed values</a>. The groups the content is added to can be specified by ...</td></tr>
+</tbody>
+</table>
+
+<a name="ubercart"></a>
+<h3>Ubercart</h3>
+
+<p>
+Of the <a href="http://drupal.org/project/ubercart"><em>Ubercart</em> module</a> the <em>Ubercart product</em> module is <strong>fully supported</strong>. Other parts of the module pack are not supported yet.
+</p>
+
+<h4>Content fields</h4>
+
+<table border="0">
+<thead>
+<tr><th>Content field</th><th>Format</th></tr>
+</thead>
+<tbody>
+<tr><td>SKU</td><td>Any string</td></tr>
+<tr><td>List price</td><td>Any valid number</td></tr>
+<tr><td>Cost</td><td>Any valid number</td></tr>
+<tr><td>Sell price</td><td>Any valid number</td></tr>
+<tr><td>Shippable</td><td><a href="&topic:node_import/input-format&#boolean">Boolean</a></td></tr>
+<tr><td>Weight</td><td>Any valid number</td></tr>
+<tr><td>Weight unit</td><td><a href="&topic:node_import/input-format&#allowed-values">Allowed values</a><dl>
+<dt>lb</dt>
+<dd>Pounds</dd>
+<dt>kg</dt>
+<dd>Kilograms</dd>
+<dt>oz</dt>
+<dd>Ounces</dd>
+<dt>g</dt>
+<dd>Grams</dd>
+</dl></td></tr>
+<tr><td>Dimensions unit</td><td><a href="&topic:node_import/input-format&#allowed-values">Allowed values</a><dl>
+<dt>in</dt>
+<dd>Inches</dd>
+<dt>ft</dt>
+<dd>Feet</dd>
+<dt>cm</dt>
+<dd>Centimeters</dd>
+<dt>mm</dt>
+<dd>Millimeters</dd>
+</dl></td></tr>
+<tr><td>Length</td><td>Any valid number</td></tr>
+<tr><td>Width</td><td>Any valid number</td></tr>
+<tr><td>Height</td><td>Any valid number</td></tr>
+<tr><td>Package quantity</td><td>Any valid number</td></tr>
+<tr><td>Default cart quantity</td><td>Any valid number</td></tr>
+<tr><td>Weight</td><td><a href="&topic:node_import/input-format&#weight">Weight</a> (-25:25)</td></tr>
+</tbody>
+</table>
+

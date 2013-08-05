@@ -1,0 +1,15 @@
+
+Since version 3.6.1 Bluff is dual licensed - MIT and GPL - so it can be
+distributed together with Charts and Graphs code.
+
+Unfortunately, to implement IE support Bluff needs excanvas.js from Google and
+excanvas.js is licensed under the Apache License so excanvas.js can't be 
+distributed with Charts and Graphs code.
+
+If you want IE support, please grab the excanvas_r3.zip file available at
+http://code.google.com/p/explorercanvas/downloads/list.
+
+From this zipped file take excanvas.js or excanvas.compiled.js and place it at
+the DV_MODULE_PATH/apis/charts_graphs_bluff/bluff directory. Please remember to
+rename excanvas.compiled.js file to excanvas.js if you choose to use 
+excanvas.compiled.js.

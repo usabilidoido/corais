@@ -1,0 +1,11 @@
+name = Booknav
+description = A module for showing full book navigation
+core = 6.x
+dependencies[] = book
+
+; Information added by drupal.org packaging script on 2011-04-15
+version = "6.x-1.0"
+core = "6.x"
+project = "booknav"
+datestamp = "1302859614"
+

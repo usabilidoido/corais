@@ -1,0 +1,13 @@
+; $Id
+name = Sticky Notes
+description = "Provides Sticky Notes for Drupal that can be attached to pages to keep track of things."
+version = "6.x-1.5"
+core = "6.x"
+dependencies[] = modalframe
+
+; Information added by drupal.org packaging script on 2011-02-25
+version = "6.x-1.x-dev"
+core = "6.x"
+project = "sticky_notes"
+datestamp = "1298620272"
+

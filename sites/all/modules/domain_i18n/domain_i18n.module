@@ -1,0 +1,393 @@
+<?php
+// $Id: domain_i18n.module,v 1.3.2.1 2010/12/29 00:41:25 nonsie Exp $
+
+/**
+ * @file
+ * @defgroup domain_i18n
+ * Domain Internationalization: manage domain specific
+ * multilingual variables
+ */
+
+/**
+ * Implementation of hook_help().
+ */
+function domain_i18n_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#domain_i18n':
+      $output = t('Domain internationalization');
+      return $output;
+    case 'admin/build/domain/i18n':
+      $output = t('Domain Internationalization allows to customize multilingual variables per domain and language.
+      Please select which of the enabled multilingual variables you would like to use for each domain. If domain
+      specific multilingual variables are not set up, site default variables or Domain Conf variables are used instead.');
+      return $output;
+  }
+}
+
+/**
+ * Implementation of hook_init().
+ *
+ * Initializes language dependent domain variables.
+ */
+function domain_i18n_init() {
+  global $_domain;
+  global $language;
+
+  // If not in bootstrap, variable init.
+  if (!_domain_i18n_is_bootstrap()) {
+    $default_frontpage = variable_get('site_frontpage', 'node');
+    domain_i18n_variable_init($_domain);
+    // Domain i18n can possibly alter front page
+    global $conf;
+    $domain_i18n_frontpage = $conf['site_frontpage'];
+    // Now we check whether this is still the frontpage and if it should be a different one.
+    if (isset($domain_i18n_frontpage) && $default_frontpage != $domain_i18n_frontpage && $_GET['q'] == drupal_get_normal_path($default_frontpage)) {
+      $_GET['q'] = drupal_get_normal_path($domain_i18n_frontpage, $language->language);
+    }
+  }
+}
+
+/**
+ * Check whether we are in bootstrap mode
+ */
+function _domain_i18n_is_bootstrap() {
+  return !function_exists('drupal_get_headers');
+}
+
+/**
+ * Initialization of domain specific multilingual variables.
+ *
+ * @param $language
+ *   Language to retrieve variables. Defaults to current language.
+ * @param $prefix
+ *   Variable name prefix to load just a selected group of variables.
+ */
+function domain_i18n_variable_init($domain, $langcode = NULL, $prefix = '') {
+  global $conf;
+  global $language;
+  $langcode = isset($langcode) ? $langcode : $language->language;
+  $domain_id = $domain['domain_id'];
+  // Multilingual variables defined by module in settings.php
+  $module_defined_variables = $conf['domain_i18n_variables'];
+
+  // Multilingual settings per domain
+  $domain_i18n_settings = variable_get('domain_i18n_settings', '');
+
+  // Only override $conf if there's something to override with
+  if (isset($domain_i18n_settings[$domain_id]) && count($domain_i18n_settings[$domain_id]) > 0) {
+    $variables = _domain_i18n_variable_init($langcode, $domain_id, $prefix, TRUE);
+    $domain_i18n_values = array();
+    foreach ($domain_i18n_settings[$domain_id] as $name) {
+      $_domain_i18n_conf[$name] = isset($variables[$name]) ? $variables[$name] : (isset($conf[$name]) ? $conf[$name] : '');
+      array_push($domain_i18n_values, $name);
+    }
+    $conf = array_merge($conf, $_domain_i18n_conf);
+    $_domain_i18n_conf = $domain_i18n_values;
+  }
+}
+
+/**
+ * Implementation of hook_menu().
+ *
+ * Domain Internationalization only provides administrative menu items.
+ */
+function domain_i18n_menu() {
+  $items = array();
+  $items['admin/build/domain/i18n'] = array(
+    'title' => 'Multilingual variables',
+    'access arguments' => array('administer domains'),
+    'page callback' => 'domain_i18n_settings_page',
+    'file' => 'domain_i18n.admin.inc',
+    'description' => 'Multilingual variable settings for the Domain Access module.',
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/build/domain/i18n/variables/%domain'] = array(
+    'title' => 'Multilingual variables',
+    'description' => 'Administer multilingual variables',
+    'access arguments' => array('administer domains'),
+    'type' => MENU_CALLBACK,
+    'page arguments' => array(5),
+    'page callback' => 'domain_i18n_variables_page',
+    'file' => 'domain_i18n.admin.inc',
+    'weight' => -9
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function domain_i18n_theme() {
+  $themes = array(
+    'domain_i18n_variables_overview_form' => array(
+      'arguments' => array('form' => array()),
+    ),
+  );
+  return $themes;
+}
+
+
+/**
+ * Implements hook_block().
+ *
+ * Domain-switcher block for domain specific site names.
+ */
+function domain_i18n_block($op = 'list', $delta = 0, $edit = array()) {
+  global $_domain, $conf;
+  $blocks = array();
+  switch ($op) {
+    case 'list':
+      $blocks[0] = array(
+        'info' => t('Domain Internationalization domain switcher'),
+        'description' => t('Domain Internationalization domain switcher for use cases
+          where site name is localized per language and per domain.'),
+        'cache' => BLOCK_NO_CACHE,
+      );
+      return $blocks;
+      break;
+    case 'view':
+      switch ($delta) {
+        case 0:
+          // Multilingual variables defined by module in settings.php
+          $module_defined_variables = $conf['domain_i18n_variables'];
+          global $language;
+          $custom_sitename = FALSE;
+          if (is_array($module_defined_variables)) {
+            $custom_sitename = in_array('site_name', $module_defined_variables);
+          }
+          $block['subject'] = t('Domain i18n domain switcher');
+          $items = array();
+          $domains = domain_domains();
+          foreach ($domains as $domain) {
+            if ($domain['valid']) {
+              if ($custom_sitename) {
+                // Lookup i18n specififc sitename
+                $domain_i18n = domain_i18n_domain_variable_get($domain['domain_id'], $language->language);
+                $domain_i18n_sitename = '';
+                if (is_array($domain_i18n[$domain['domain_id']]['site_name'])) {
+                  $domain_i18n_sitename = $domain_i18n[$domain['domain_id']]['site_name'][$language->language];
+                }
+                $title = !empty($domain_i18n_sitename)  ? unserialize($domain_i18n_sitename) : $domain['sitename'];
+              }
+              else {
+                $title = $domain['sitename'];
+              }
+              $items[] = array(
+                'data' => l($title, domain_get_uri($domain)),
+                'class' => $_domain['domain_id'] == $domain['domain_id'] ? 'active' : '',
+                );
+            }
+          }
+          $block['content'] = theme('item_list', $items);
+          break;
+      }
+      return $block;
+      break;
+  }
+}
+
+/**
+ * Return a list of supported languages.
+ *
+ * @param $domain_id
+ *   Domain ID
+ */
+function domain_i18n_supported_languages($domain_id) {
+  $languages = array();
+  if ($domain_id > 1) {
+    if (module_exists('domain_locale')) {
+      $languages = domain_locale_lookup($domain_id);
+    }
+    else {
+      $languages = locale_language_list('name');
+    }
+  }
+  else {
+    $languages = locale_language_list('name');
+  }
+  return $languages;
+}
+
+/**
+ * Return a list of allowed multilingual variables per domain
+ *
+ * @param $domain_id
+ *   Domain ID
+ * @return
+ *   array of allowed multilingual variables per domain
+ */
+function domain_i18n_variable_settings($domain_id) {
+  $domain_i18n_variables = variable_get('domain_i18n_settings', array());
+  $domain_variables = array();
+  if (count($domain_i18n_variables) > 0) {
+    $domain_variables = array_key_exists($domain_id, $domain_i18n_variables) ? $domain_i18n_variables[$domain_id] : array();
+  }
+  return $domain_variables;
+}
+
+/**
+ * Return a list variables
+ *
+ * Return a list of all domain specific multilingual variables
+ * or list of variables in specified language.
+ */
+function domain_i18n_domain_variable_get($domain_id, $language = FALSE) {
+  return _domain_i18n_variable_get($domain_id, $language);
+}
+
+
+
+/**
+ * Implements hook_domainupdate().
+ */
+function domain_i18n_domainupdate($op, $domain, $edit = array()) {
+  switch ($op) {
+    case 'delete':
+        domain_i18n_domain_delete($domain['domain_id']);
+    break;
+  }
+}
+
+/**
+ * Delete domain variables settings and individual variables
+ *
+ * @param $domain_id
+ *   Domain id
+ */
+function domain_i18n_domain_delete($domain_id) {
+  $settings = variable_get('domain_i18n_settings', array());
+  if (isset($settings[$domain_id])) {
+    unset($settings[$domain_id]);
+  }
+  variable_set('domain_i18n_settings', $settings);
+  domain_i18n_variable_delete($domain_id);
+}
+
+/**
+ * Delete specified variable(s) values for a domain
+ *
+ * @param $domain_id
+ *   Int domain id
+ * @param $name
+ *   String variable name
+ * @param $language
+ *   String language code
+ */
+function domain_i18n_variable_delete($domain_id, $name = FALSE, $language = FALSE) {
+  $params = array();
+  $condition = '';
+  if ($name) {
+    if ($language) {
+      $language = trim($language);
+      $enabled_languages = domain_i18n_supported_languages($domain_id);
+      if (array_key_exists($language, $enabled_languages)) {
+        db_query("DELETE FROM {domain_i18n_variables} WHERE domain = '%s' AND name = '%s' AND language = '%s'", $domain_id, db_escape_string($name), $language);
+      }
+      else {
+        db_query("DELETE FROM {domain_i18n_variables} WHERE domain = '%s' AND name ='%s'", $domain_id, db_escape_string($name));
+      }
+    }
+    else {
+        db_query("DELETE FROM {domain_i18n_variables} WHERE domain = '%s' AND name ='%s'", $domain_id, db_escape_string($name));
+    }
+  }
+  elseif ($language) {
+    $language = trim($language);
+    $enabled_languages = domain_i18n_supported_languages($domain_id);
+    if (array_key_exists($language, $enabled_languages)) {
+      db_query("DELETE FROM {domain_i18n_variables} WHERE domain = '%s' AND language ='%s'", $domain_id, $language);
+    }
+  }
+  else {
+    db_query("DELETE FROM {domain_i18n_variables} WHERE domain = '%s'", $domain_id);
+  }
+}
+
+/**
+ * Writes domain_i18n record(s)
+ *
+ * @param $variables
+ *   Array of variables to be stored
+ */
+function domain_i18n_variable_insert($variables = array()) {
+  if (count($variables) > 0) {
+    foreach ($variables as $set) {
+      if (array_key_exists('domain', $set) && $set['domain'] >=0) {
+        drupal_write_record('domain_i18n_variables', $set);
+      }
+    }
+  }
+}
+
+/**
+ * Retrieve domain and language specific varaible values
+ *
+ * @param $domain_id
+ *   Domain id
+ * @param $language
+ *   String language code
+ * @return
+ *   array of variables, where domain and variable name are keys
+ */
+function _domain_i18n_variable_get($domain_id, $language = '') {
+  $sql = "SELECT domain, name, language, value FROM {domain_i18n_variables}";
+  $domain_variables = array();
+  $domain = isset($domain_id) && $domain_id >= 0 ? $domain_id : '';
+  $language = !empty($language) && drupal_strlen($language) == 2 ? $language : '';
+  // Alter select query based on available parameters
+  $query = db_query("SELECT domain, name, language, value FROM {domain_i18n_variables}
+  WHERE language LIKE '%s%' AND domain = %d ORDER BY domain", $language, $domain);
+
+  while ($row = db_fetch_array($query)) {
+    $domain_variables[$row['domain']][$row['name']][$row['language']] = $row['value'];
+  }
+  return $domain_variables;
+}
+
+/**
+ * Retrieve allowed domain_i18n variables
+ *
+ * Retrieves a multidimensional array of multilingual variables defined by
+ * module in settings.php using variable names and domain ids as keys.
+ *
+ * @return
+ *   array of allowed variables
+ */
+function _domain_i18n_variables_settings() {
+  $settings = variable_get('domain_i18n_settings', '');
+  $domain_i18n_settings = array();
+  if (is_array($settings)) {
+    global $conf;
+    $domain_i18n_variables = $conf['domain_i18n_variables'];
+    foreach ($settings as $domain_id => $domain_variables) {
+      foreach ($domain_variables as $key => $value) {
+        if (is_array($domain_i18n_variables) && in_array($value, $domain_i18n_variables)) {
+          $domain_i18n_settings[$value][$domain_id] = $domain_id;
+        }
+      }
+    }
+  }
+  return $domain_i18n_settings;
+}
+
+/**
+ * Load domain and language specific multilingual variables into array.
+ *
+ * @param $langcode
+ *   language code string
+ * @param $domain_id
+ *   Domain id
+ * @param $prefix
+ *   Variable name
+ * @return
+ *   array of variables
+ * @todo caching?
+ */
+function _domain_i18n_variable_init($langcode, $domain_id, $prefix = '') {
+  $variables = array();
+    $result = db_query("SELECT * FROM {domain_i18n_variables} WHERE language='%s' AND domain='%s' AND name LIKE '%s%'", $langcode, $domain_id, $prefix);
+    while ($variable = db_fetch_object($result)) {
+      $variables[$variable->name] = unserialize($variable->value);
+    }
+  return $variables;
+}

@@ -1,0 +1,12 @@
+; $Id: userpoints_top_contributors.info,v 1.1.4.1 2008/06/02 19:52:18 kmillecam Exp $
+name = User Points Top Contributors
+description = Creates blocks and pages that list a community's Top Contributors.
+package = Userpoints
+core = 6.x
+dependencies[] = userpoints
+; Information added by drupal.org packaging script on 2010-04-12
+version = "6.x-1.4"
+core = "6.x"
+project = "userpoints_top_contributors"
+datestamp = "1271097609"
+

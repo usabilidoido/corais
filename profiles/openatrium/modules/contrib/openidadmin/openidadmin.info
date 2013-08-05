@@ -1,0 +1,13 @@
+; $Id: openidadmin.info,v 1.1 2009/09/22 20:52:59 jmiccolis Exp $ 
+name = OpenID Admin
+description = "Allows bulk operations for OpenID administration."
+dependencies[] = openid
+core = 6.x
+
+
+; Information added by drupal.org packaging script on 2010-02-17
+version = "6.x-1.2"
+core = "6.x"
+project = "openidadmin"
+datestamp = "1266434108"
+

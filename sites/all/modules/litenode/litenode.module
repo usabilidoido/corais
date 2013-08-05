@@ -1,0 +1,319 @@
+<?php
+// $Id$
+/**
+ * Implementation of hook_views_api().
+ */
+function litenode_views_api() {
+  return array(
+    'api' => 2,
+  );
+}
+
+/**
+ * Display the view as an HTML list element
+ */
+function template_preprocess_litenode_view(&$vars) {
+  $vars['view']->style_plugin->preprocess($vars);
+}
+
+/**
+ * Wrapper around cache_get() to make it easier for context to pull different
+ * datastores from a single cache row.
+ */
+function litenode_cache_get($key, $reset = FALSE) {
+  static $cache;
+  if (!isset($cache) || $reset) {
+    $cache = cache_get('litenode', 'cache');
+    $cache = $cache ? $cache->data : array();
+  }
+  return !empty($cache[$key]) ? $cache[$key] : FALSE;
+}
+
+/**
+ * Wrapper around cache_set() to make it easier for context to write different
+ * datastores to a single cache row.
+ */
+function litenode_cache_set($key, $value) {
+  $cache = cache_get('litenode', 'cache');
+  $cache = $cache ? $cache->data : array();
+  $cache[$key] = $value;
+  cache_set('litenode', $cache, 'cache', CACHE_TEMPORARY);  
+}
+
+/**
+ * Retrieve the fields that should be merged dynamically into litenode views.
+ */
+function litenode_views_fields($reset = FALSE) {
+  static $fields;
+  if (!isset($fields) || $reset) {
+    $fields = array();
+    $cache = litenode_cache_get('fields');
+    if (!$cache || $reset) {
+      foreach (module_implements('litenode') as $module) {
+        $function = "{$module}_litenode";
+        $data = $function();
+        foreach ($data as $key => $info) {
+          if (!empty($info['fields'])) {
+            $fields[$key] = $info['fields'];
+          }
+        }
+      }
+      litenode_cache_set('fields', $fields);
+    }
+    else {
+      $fields = $cache;
+    }
+  }
+  return $fields;
+}
+
+/**
+ * Retrieve the node to view field mapping.
+ */
+function litenode_views_fieldmap($reset = FALSE) {
+  static $fieldmap;
+  if (!isset($fieldmap) || $reset) {
+    $fieldmap = array();
+    $cache = litenode_cache_get('fieldmap');
+    if (!$cache || $reset) {
+      foreach (module_implements('litenode') as $module) {
+        $function = "{$module}_litenode";
+        $data = $function();
+        foreach ($data as $key => $info) {
+          if (!empty($info['map'])) {
+            $fieldmap = array_merge($fieldmap, $info['map']);
+          }
+        }
+      }
+      litenode_cache_set('fieldmap', $fieldmap);
+    }
+    else {
+      $fieldmap = $cache;
+    }
+  }
+  return $fieldmap;
+}
+
+/**
+ * Implementation of hook_litenode().
+ */
+function litenode_litenode() {
+  $info = array();
+
+  // Node module
+  $info['node'] = array();
+  $info['node']['module'] = t('Node');
+  $info['node']['required'] = TRUE;
+  $info['node']['map'] = array(
+    'nid' => 'nid',
+    'type' => 'node_type',
+    'status' => 'node_status',
+    'created' => 'node_created',
+    'changed' => 'node_changed',
+    'comment' => 'node_comment',
+    'promote' => 'node_promote',
+    'moderate' => 'node_moderate',
+    'sticky' => 'node_sticky',
+    'title' => 'node_title',
+    'body' => 'node_revisions_body',
+    'format' => 'node_revisions_format',
+    'teaser' => 'node_revisions_teaser',
+
+    // Node revisions
+    'log' => 'node_revisions_log',
+    'revision_timestamp' => 'node_revisions_timestamp',
+    'vid' => 'node_revisions_vid',
+    // 'revision_uid',
+  );
+  $info['node']['fields'] = array(
+    'nid' => array(
+      'id' => 'nid',
+      'table' => 'node',
+      'field' => 'nid',
+    ),
+    'type' => array(
+      'id' => 'type',
+      'table' => 'node',
+      'field' => 'type',
+    ),
+    'status' => array(
+      'id' => 'status',
+      'table' => 'node',
+      'field' => 'status',
+    ),
+    'created' => array(
+      'id' => 'created',
+      'table' => 'node',
+      'field' => 'created',
+    ),
+    'changed' => array(
+      'id' => 'changed',
+      'table' => 'node',
+      'field' => 'changed',
+    ),
+    'comment' => array(
+      'id' => 'comment',
+      'table' => 'node',
+      'field' => 'comment',
+    ),
+    'promote' => array(
+      'id' => 'promote',
+      'table' => 'node',
+      'field' => 'promote',
+    ),
+    'sticky' => array(
+      'id' => 'sticky',
+      'table' => 'node',
+      'field' => 'sticky',
+    ),
+    'title' => array(
+      'id' => 'title',
+      'table' => 'node',
+      'field' => 'title',
+    ),
+    'body' => array(
+      'id' => 'body',
+      'table' => 'node_revisions',
+      'field' => 'body',
+    ),
+    'teaser' => array(
+      'id' => 'teaser',
+      'table' => 'node_revisions',
+      'field' => 'teaser',
+    ),
+    'moderate' => array(
+      'id' => 'moderate',
+      'table' => 'node',
+      'field' => 'moderate',
+    ),
+    'log' => array(
+      'id' => 'log',
+      'table' => 'node_revisions',
+      'field' => 'log',
+    ),
+    'vid' => array(
+      'id' => 'vid',
+      'table' => 'node_revisions',
+      'field' => 'vid',
+    ),
+    'timestamp' => array(
+      'id' => 'timestamp',
+      'table' => 'node_revisions',
+      'field' => 'timestamp',
+    ),
+  );
+
+  // User module -- Required
+  $info['user'] = array();
+  $info['user']['module'] = t('User');
+  $info['user']['required'] = TRUE;
+  $info['user']['map'] = array(
+    'uid' => 'users_uid',
+    'picture' => 'users_picture',
+    'name' => 'users_name',
+    // 'data',
+  );
+  $info['user']['fields'] = array(
+    'name' => array(
+      'id' => 'name',
+      'table' => 'users',
+      'field' => 'name',
+    ),
+    'picture' => array(
+      'id' => 'picture',
+      'table' => 'users',
+      'field' => 'picture',
+    ),
+    'uid' => array(
+      'id' => 'uid',
+      'table' => 'users',
+      'field' => 'uid',
+    ),
+  );
+
+  // Comment module
+  if (module_exists('comment')) {
+    $info['comment'] = array();
+    $info['comment']['module'] = t('Comment');
+    // We require this since comment will pull this information anyway in hook_link().
+    $info['comment']['required'] = TRUE;
+    $info['comment']['map'] = array(
+      'last_comment_timestamp' => 'node_comment_statistics_last_comment_timestamp',
+      'last_comment_name' => 'node_comment_statistics_last_comment_name',
+      'comment_count' => 'node_comment_statistics_comment_count',
+      'comment_new' => 'node_new_comments',
+    );
+    $info['comment']['fields'] = array(
+      'comment_count' => array(
+        'id' => 'comment_count',
+        'table' => 'node_comment_statistics',
+        'field' => 'comment_count',
+      ),
+      'new_comments' => array(
+        'id' => 'new_comments',
+        'table' => 'node',
+        'field' => 'new_comments',
+      ),
+      'last_comment_name' => array(
+        'id' => 'last_comment_name',
+        'table' => 'node_comment_statistics',
+        'field' => 'last_comment_name',
+      ),
+      'last_comment_timestamp' => array(
+        'id' => 'last_comment_timestamp',
+        'table' => 'node_comment_statistics',
+        'field' => 'last_comment_timestamp',
+      ),
+    );
+  }
+
+  // Taxonomy uses its own loader -- see litenode_taxonomy_node_get_terms().
+  if (module_exists('taxonomy')) {
+    $info['taxonomy'] = array();
+    $info['taxonomy']['module'] = t('Taxonomy');
+    $info['taxonomy']['map'] = array();
+    $info['taxonomy']['fields'] = array();
+  }
+
+  // Upload uses its own loader -- see litenode_upload_load().
+  if (module_exists('upload')) {
+    $info['upload'] = array();
+    $info['upload']['module'] = t('Upload');
+    $info['upload']['map'] = array();
+    $info['upload']['fields'] = array();
+  }
+
+  if (module_exists('og')) {
+    $info['og'] = array();
+    $info['og']['module'] = t('Organic Groups');
+    $info['og']['required'] = TRUE;
+    $info['og']['map'] = array(
+      'og_public' => 'og_ancestry_is_public',
+      // Other fields are mapped based on node type
+    );
+    $info['og']['fields'] = array(
+      'private' => array(
+        'id' => 'private',
+        'table' => 'og',
+        'field' => 'private',
+      ),
+      'selective' => array(
+        'id' => 'selective',
+        'table' => 'og',
+        'field' => 'selective',
+      ),
+      'group_nid' => array(
+        'id' => 'group_nid',
+        'table' => 'og_ancestry',
+        'field' => 'group_nid',
+      ),
+      'is_public' => array(
+        'id' => 'is_public',
+        'table' => 'og_ancestry',
+        'field' => 'is_public',
+      ),
+    );
+  }
+
+  return $info;
+}

@@ -1,0 +1,497 @@
+<?php
+/**
+ * @file patch_manager.module
+ * Patch manager provides developers with tools for managing patches.
+ */
+
+/**
+ * Return values for the patch function
+ *
+ * patch's exit status is 0 if all hunks are applied successfully,
+ * 1 if some hunks cannot be applied,
+ * and 2 if  there  is  more  serious trouble.
+ */
+define('PATCH_MANAGER_SUCCESS', 0);
+define('PATCH_MANAGER_WARNING', 1);
+define('PATCH_MANAGER_ERROR',   2);
+
+
+/**
+ * Implementation of hook_menu().
+ */
+function patch_manager_menu() {
+  $items = array();
+
+  $items['admin/build/patch'] = array(
+    'title'            => 'Patches',
+    'description'      => 'Patch management of core and contributed modules.',
+    'access arguments' => array('administer patch manager'),
+    'page callback'    => 'patch_manager_list',
+    'type'             => MENU_NORMAL_ITEM,
+  );
+
+  $items['admin/build/patch/list'] = array(
+    'title'            => 'List',
+    'description'      => 'List patches stored with the patch manager.',
+    'access arguments' => array('administer patch manager'),
+    'type'             => MENU_DEFAULT_LOCAL_TASK,
+  );
+
+  $items['admin/build/patch/configure'] = array(
+    'title'            => 'Configure',
+    'description'      => 'Configure settings for patch manager.',
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('patch_manager_settings_form'),
+    'access arguments' => array('administer patch manager'),
+    'weight'           => 30,
+    'type'             => MENU_LOCAL_TASK,
+  );
+
+  $items['admin/build/patch/add'] = array(
+    'title'            => 'Add',
+    'description'      => 'Add a new patch.',
+    'page callback'    => 'drupal_goto',
+    'page arguments'   => array('node/add/patch'),
+    'access arguments' => array('administer patch manager'),
+    'weight'           => 20,
+    'type'             => MENU_LOCAL_TASK,
+  );
+
+  $items['admin/build/patch/scan'] = array(
+    'title'            => 'Scan',
+    'description'      => 'Scan for patches.',
+    'page callback'    => 'patch_manager_page_scan',
+    'access arguments' => array('administer patch manager'),
+    'weight'           => 40,
+    'type'             => MENU_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+
+
+/**
+ * Implementation of hook_perm().
+ */
+function patch_manager_perm() {
+  return array('administer patch manager');
+}
+
+
+/**
+ * Implementation of hook_access().
+ */
+function patch_manager_access($op, $node, $account) {
+  switch ($op) {
+    case 'create':
+    case 'update':
+    case 'delete':
+      return user_access('administer patch manager', $account);
+  }
+}
+
+/**
+ * Implementation of hook_form().
+ */
+function patch_manager_form(&$node) {
+  $type = node_get_types('type', $node);
+
+  $form['title'] = array(
+    '#type'          => 'textfield',
+    '#description'   => t('Short description of the patch.'),
+    '#title'         => check_plain($type->title_label),
+    '#required'      => TRUE,
+    '#size'          => 50,
+    '#weight'        => -6,
+    '#attributes'    => array('style' => 'width: auto'),
+    '#default_value' => !empty($node->title) ? $node->title : NULL,
+  );
+
+  $form['body'] = array(
+    '#type'          => 'textarea',
+    '#title'         => check_plain($type->body_label),
+    '#description'   => t('Optional notes for this patch, why is this patch necessary for this site? When can be removed?'),
+    '#required'      => FALSE,
+    '#rows'          => 3,
+    '#weight'        => -2,
+    '#default_value' => !empty($node->body) ? $node->body : NULL,
+  );
+
+  return $form;
+}
+
+
+/**
+ * Implementation of hook_views_api().
+ */
+function patch_manager_views_api() {
+  return array(
+    'api'  => 2.0,
+    'path' => drupal_get_path('module', 'patch_manager'),
+  );
+}
+
+
+/**
+ * Implementation of hook_node_info().
+ *
+ * @todo Remove default publish to front page
+ */
+function patch_manager_node_info() {
+  $items = array();
+
+  $items['patch'] = array(
+    'name'           => t('Patch'),
+    'module'         => 'patch_manager',
+    'description'    => t('A <em>patch</em> is used by developers to store a patch file, and keep track of information related to that patch.'),
+    'title_label'    => t('Patch name'),
+    'has_body'       => 1,
+    'body_label'     => t('Patch notes'),
+    'locked'         => 0,
+  );
+
+  return $items;
+}
+
+
+/**
+ * Implementation of hook_nodeapi().
+ */
+function patch_manager_nodeapi(&$node, $op, $teaser) {
+  switch ($op) {
+    case 'view':
+      if ($node->type === 'patch' && user_access('administer patch manager')) {
+        $form = drupal_get_form('patch_manager_node_actions_form', $node);
+        $node->content['patch_manager'] = array(
+          '#value' => $form,
+        );
+      }
+  }
+}
+
+
+/**
+ * Implementation of hook_action_info().
+ */
+function patch_manager_action_info() {
+  return array(
+    'patch_manager_apply_action' => array(
+      'type'         => 'node',
+      'description'  => t('Apply patch'),
+      'configurable' => FALSE,
+      'hooks'        => array('any' => TRUE),
+    ),
+    'patch_manager_revert_action' => array(
+      'type'         => 'node',
+      'description'  => t('Revert patch'),
+      'configurable' => FALSE,
+      'hooks'        => array('any' => TRUE),
+    ),
+  );
+}
+
+
+/**
+ * Implementation of hook_theme().
+ */
+function patch_manager_theme() {
+  return array(
+    'patch_manager_formatter_issuelink' => array(
+      'arguments' => array('element' => NULL),
+    ),
+  );
+}
+
+
+/**
+ * Implementation of hook_field_formatter_info().
+ */
+function patch_manager_field_formatter_info() {
+  $formats = array();
+
+  $formats['issuelink'] = array(
+    'label'           => t('Issue link'),
+    'field types'     => array('text'),
+    'multiple values' => CONTENT_HANDLE_CORE,
+  );
+
+  return $formats;
+}
+
+
+/**
+ * Configuration form for patches
+ */
+function patch_manager_settings_form() {
+  $form = array();
+
+  $form['patch_manager_path_patch'] = array(
+    '#type'          => 'textfield',
+    '#title'         => t('Patch binary path'),
+    '#description'   => t('Enter the full path to your systems patch binary.'),
+    '#default_value' => variable_get('patch_manager_path_patch', '/usr/bin/patch'),
+    '#validate'      => array('patch_manager_settings_form_validate'),
+    '#required'      => TRUE,
+  );
+
+  return system_settings_form($form);
+}
+
+
+
+/**
+ * Form submit handler
+ */
+function patch_manager_settings_form_validate($form, $form_state) {
+  $status = _patch_manager_status($form_state['values']['patch_manager_path_patch']);
+  if (!$status) {
+    form_set_error('patch_manager_path_patch', t('Unable to execute patch binary, check that the binary exists and is executable.'));
+  }
+}
+
+
+/**
+ * Discover patches
+ *
+ * This is more for debugging than anything useful.
+ */
+function patch_manager_page_scan() {
+  
+  // Scan for patches
+  $headers = array(
+    t('Patch'),
+    t('Path'),
+  );
+  $dir = dirname($_SERVER['SCRIPT_FILENAME']);
+  $mask = '.patch$|.diff$';
+  $patches = file_scan_directory($dir, $mask);
+  $rows = array();
+  foreach ($patches as $patch) {
+    $filename = str_replace("{$dir}/", '', $patch->filename);
+    $rows[] = array($patch->basename, l($filename, $filename));
+  }
+  $output = theme('table', $headers, $rows);
+  
+  // Registered patches
+  $headers = array(
+    t('Title'),
+    t('Patch'),
+    t('Module'),
+    t('Issue'),
+    t('Description'),
+    t('Patchdir'),
+  );
+  $rows = patch_manager_list_patches();
+  $output .= theme('table', $headers, $rows);
+  
+  return $output;
+}
+
+
+/**
+ * Render the list depending on what we have available (simple, or views_bulk_operations).
+ */
+function patch_manager_list() {
+  $display_id = module_exists('views_bulk_operations') ?
+    'bulklist' :
+    'simplelist';
+
+  $view = views_get_view('patches');
+  if (!$view || !$view->access($display_id)) {
+    return drupal_not_found();
+  }
+
+  drupal_set_title($view->get_title());
+  return $view->preview($display_id);
+}
+
+
+/**
+ * Get the list of patches.
+ *
+ * This function invokes hook_patch().
+ */
+function patch_manager_list_patches() {
+  $list = module_invoke_all('patch');
+  drupal_alter('patch', $list);
+  return $list;
+}
+
+
+/**
+ * Provide a form for nodes to perform simple actions
+ */
+function patch_manager_node_actions_form($form_state, $node) {
+  $form = array();
+
+  $form['#node'] = $node;
+
+  $form['patch_manager_apply'] = array(
+    '#type'   => 'submit',
+    '#value'  => 'Apply patch',
+    '#submit' => array('patch_manager_node_actions_form_apply_submit'),
+  );
+
+  $form['patch_manager_revert'] = array(
+    '#type'  => 'submit',
+    '#value' => 'Revert patch',
+    '#submit' => array('patch_manager_node_actions_form_reverse_submit'),
+  );
+
+  return $form;
+}
+
+
+/**
+ * Reverse the patch in a node view context
+ *
+ * @todo Reduce code duplication
+ */
+function patch_manager_node_actions_form_reverse_submit($form, $form_state) {
+  $result = patch_manager_runpatch($form['#node'], '-R');
+
+  if ($result->status === PATCH_MANAGER_SUCCESS) {
+    drupal_set_message(t('All parts of the patch were successfully reverted.'));
+  } else {
+    _patch_manager_display_errors($result);
+  }
+}
+
+
+/**
+ * Apply the patch in a node view context
+ *
+ * @todo Reduce code duplication
+ */
+function patch_manager_node_actions_form_apply_submit($form, $form_state) {
+  $result = patch_manager_runpatch($form['#node']);
+
+  if ($result->status === PATCH_MANAGER_SUCCESS) {
+    drupal_set_message(t('All parts of the patch were applied successfully.'));
+  } else {
+    _patch_manager_display_errors($result);
+  }
+}
+
+
+/**
+ * Run a patch operation
+ */
+function patch_manager_runpatch($node, $flags = '') {
+
+  // Pull the values from the node
+  $patchfile = $node->field_patch[0]['filepath'];
+  $module    = $node->field_module[0]['value'];
+
+  // Get the path from which to apply this patch
+  // We start with the path to drupal core, then if it's a contrib module
+  // try and find that patch. If we can't find the contrib module, stay with
+  // drupal core.
+  $root = dirname($_SERVER['SCRIPT_FILENAME']);
+  if ($module !== 'core') {
+    if ($modulepath = drupal_get_path('module', $module)) {
+      $root = $modulepath;
+    }
+  }
+
+  // Give the patchfile an absolute path
+  $patchfile = realpath($patchfile);
+
+  // Run the command
+  $patch = variable_get('patch_manager_path_patch', '/usr/bin/patch');
+  $cmd = sprintf('%s -p1 --verbose %s -d %s -i %s',
+    $patch,
+    $flags,
+    escapeshellarg($root),
+    escapeshellarg($patchfile)
+  );
+  exec($cmd, $output, $ret);
+  watchdog('patch_manager', 'Ran shell command (%command) which finished with status @status', array('%command' => $cmd, '@status' => $ret));
+
+  // Return the results
+  $status = new stdClass;
+  $status->cmd    = $cmd;
+  $status->output = $output;
+  $status->status = (int) $ret;
+
+  return $status;
+}
+
+
+/**
+ * Patch apply action
+ *
+ * @todo Reduce code duplication with below function
+ */
+function patch_manager_apply_action(&$object, $context = array()) {
+  $result = patch_manager_runpatch($object);
+
+  if ($result->status === PATCH_MANAGER_SUCCESS) {
+    drupal_set_message(t('Patch (@title) was applied successfully', array('@title' => $object->title)));
+  } else {
+    _patch_manager_display_errors($result);
+  }
+}
+
+
+/**
+ * Patch revert action
+ *
+ * @todo Reduce code duplication with above function
+ */
+function patch_manager_revert_action(&$object, $context = array()) {
+  $result = patch_manager_runpatch($object, '-R');
+
+  if ($result->status === PATCH_MANAGER_SUCCESS) {
+    drupal_set_message(t('Patch (@title) was reversed successfully', array('@title' => $object->title)));
+  } else {
+    _patch_manager_display_errors($result);
+  }
+}
+
+
+/**
+ * Check status of the patch binary
+ */
+function _patch_manager_status($path) {
+  if (!$path) {
+    $path = variable_get('patch_manager_path_patch', '/usr/bin/patch');
+  }
+
+  if (file_exists($path) && is_executable($path)) {
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
+
+/**
+ * Quick and nasty function because I'm not sure what to do with errors
+ */
+function _patch_manager_display_errors($result) {
+  drupal_set_message(t('Patching did not go smoothly.'));
+  drupal_set_message(t('This command was issued: %command', array('%command' => $result->cmd)));
+  drupal_set_message(t('This was the output from patch: <pre>@output</pre>', array('@output' => implode("\n", $result->output))));
+}
+
+
+/**
+ * Theme an issue link
+ */
+function theme_patch_manager_formatter_issuelink($element) {
+  $nid = $value = $element['#item']['value'];
+  if (!$nid) {
+    return NULL;
+  }
+
+  // Parse out the comment ID
+  if (strpos($nid, '/') !== FALSE) {
+    list ($nid, $comment) = explode('/', $nid);
+  }
+
+  // Display
+  return l($value, 'http://drupal.org/node/' . $nid);
+}
+

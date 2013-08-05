@@ -1,0 +1,15 @@
+; $Id: simpletest.info,v 1.4.2.2.2.4 2009/04/23 05:39:51 boombatower Exp $
+name = "Atrium test"
+description = "Provides a framework for unit and functional testing for Atrium."
+package = Development
+version = VERSION
+core = "6.x"
+dependencies[] = simpletest
+
+
+; Information added by drupal.org packaging script on 2012-07-26
+version = "6.x-1.3"
+core = "6.x"
+project = "atrium_features"
+datestamp = "1343327209"
+

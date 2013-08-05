@@ -1,0 +1,58 @@
+<?php
+
+/**
+ * Implementation of hook_schema()
+ */
+function webform_paths_schema() {
+  $schema['webform_paths'] = array(
+    'description' => t('The base table for re-usable webforms.'),
+    'fields' => array(
+      'pathid' => array(
+        'description' => t('The primary identifier for a re-usable webform.'),
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE),
+      'nid' => array(
+        'description' => t('The identifier for a node.'),
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE),
+      'title' => array(
+        'description' => t('The title of this webform path.'),
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => ''),
+      'path' => array(
+        'description' => t('The path of this webform path.'),
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => ''),
+      'message' => array(
+        'description' => t('A message to be displayed to the user.'),
+        'type' => 'text',
+        'not null' => TRUE,
+        'size' => 'medium'),
+      ),
+    'indexes' => array(
+      'nid'                 => array('nid'),
+      ),
+    'unique keys' => array(
+      'path'     => array('path')
+      ),
+    'primary key' => array('pathid'),
+    );
+
+  return $schema;
+}
+
+function webform_paths_install() {
+  drupal_install_schema('webform_paths');
+  drupal_set_message('Webform paths module has been successfully installed.');
+}
+
+function webform_paths_uninstall() {
+  drupal_uninstall_schema('webform_paths');
+  drupal_set_message('Webform paths module has been successfully uninstalled.');
+}

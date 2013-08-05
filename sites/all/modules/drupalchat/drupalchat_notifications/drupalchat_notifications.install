@@ -1,0 +1,66 @@
+<?php
+
+/**
+ * @file
+ * Installation file for the DrupalChat Notifications module.
+ */
+
+/**
+ * Implementation of hook_install().
+ */
+function drupalchat_notifications_install() {
+  $success = drupal_install_schema('drupalchat_notifications');
+
+  if ($success) {
+    drupal_set_message(st('The DrupalChat Notifications module installed tables successfully.'));
+  }
+  else {
+    drupal_set_message(st('The installation of the DrupalChat Notifications module failed.'), 'error');
+  }
+}
+
+function drupalchat_notifications_uninstall() {
+  drupal_uninstall_schema('drupalchat_notifications');
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function drupalchat_notifications_schema() {
+  $schema = array();
+
+  $schema['drupalchat_notifications'] = array(
+    'fields' => array(
+      'nfid' => array(
+        'description' => 'Uid of the sender.',
+        'type' => 'int',
+        'not null' => TRUE,  
+        'unsigned' => TRUE,
+      ),
+      'uid' => array(
+        'description' => 'Uid of the receiver.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+      ),
+      'message' => array(
+        'type' => 'text',
+        'size' => 'big', 
+        'not null' => TRUE,
+        'description' => 'Chat message.',
+      ),
+      'timestamp' => array(
+        'description' => 'The Unix timestamp when the XMPP account was created.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+      ),
+    ),
+    'primary key' => array('nfid'),
+    'indexes' => array(
+      'uid' => array('uid'),
+    ),    
+  );
+
+  return $schema;
+}

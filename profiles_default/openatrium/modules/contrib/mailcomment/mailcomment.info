@@ -1,0 +1,14 @@
+; $Id: mailcomment.info,v 1.1 2009/11/16 14:18:30 developmentseed Exp $
+name = Mail Comment
+description = Gateway module for responding to posts via mail
+package = "Notifications"
+dependencies[] = notifications
+dependencies[] = mailhandler
+core = 6.x
+
+; Information added by drupal.org packaging script on 2010-02-18
+version = "6.x-1.0"
+core = "6.x"
+project = "mailcomment"
+datestamp = "1266451212"
+

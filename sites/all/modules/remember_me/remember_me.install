@@ -1,0 +1,47 @@
+<?php
+
+/**
+ * @file
+ * Contains install and update functions for remember_me.
+ */
+
+/**
+ * Implementation of hook_install().
+ */
+function remember_me_install() {
+  // Place session management first in the module queue
+  db_query("UPDATE {system} SET weight = -99 WHERE name = 'remember_me'");
+}
+
+/**
+ * Implementation of hook_disable().
+ */
+function remember_me_disable() {
+  // User object data field will have 'remember_me' key forever after you disable the module, lets remove that.
+  $result = db_query("SELECT uid FROM {users} WHERE data LIKE '%%remember_me%%'");
+  while ($user = db_fetch_object($result)) {
+    user_save($user, array('remember_me' => NULL), 'remember-me');
+  }
+
+  drupal_set_message(t('Successfully removed the remember_me key from all user objects.'));
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function remember_me_uninstall() {
+  
+  $conf = variable_init();
+
+  // Delete all remember_me variables
+  foreach ($conf as $key => $value) {
+    if (strpos($key, 'remember_me') === 0) {
+      variable_del($key);
+    }
+  }
+
+  // Remove record from system table when uninstalling the module to reset weight
+  db_query("DELETE FROM {system} WHERE name = 'remember_me'");
+
+  drupal_set_message(t('Successfully removed all data for remember_me.'));
+}

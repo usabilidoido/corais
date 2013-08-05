@@ -1,0 +1,85 @@
+<?php
+
+/**
+ * @file
+ * Install, update, and uninstall functions for tokenauth.
+ */
+
+/**
+ * Implementation of hook_schema().
+ */
+function tokenauth_schema() {
+  $schema['tokenauth_tokens'] = array(
+   'description'     => 'Stores information about each user\'s token',
+   'fields'          => array(
+     'uid'             => array(
+       'description'     => 'The user\'s {users}.uid',
+       'type'            => 'int',
+       'size'            => 'normal',
+       'not null'        => TRUE,
+     ),
+     'token'        => array(
+       'description'     => 'The user specific token',
+       'type'            => 'varchar',
+       'length'          => 50,
+       'not null'        => TRUE,
+     ),
+   ),
+   'primary key'       => array('token'),
+   'unique keys'         => array(
+     'uid_key'           => array('uid')
+   ),
+  );
+ return $schema;
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function tokenauth_install() {
+  drupal_install_schema('tokenauth');
+  // Tokenauth must authenticate the user before other modules can deny anonymous access.
+  db_query("UPDATE {system} SET weight='-15' WHERE name='tokenauth'");
+}
+
+/**
+ * Implementation of hook_enable().
+ */
+function tokenauth_enable() {
+  // Assign tokens for each user.
+  $result = db_query("SELECT u.uid FROM {users} u LEFT JOIN {tokenauth_tokens} tt ON u.uid = tt.uid WHERE tt.token IS NULL AND u.uid > 0");
+  while ($row = db_fetch_object($result)) {
+    tokenauth_insert($row->uid);
+  }
+  // Clean up orphaned tokens from users removed while module disabled
+  db_query("DELETE tt.* FROM {tokenauth_tokens} tt WHERE NOT EXISTS (SELECT * FROM {users} u WHERE u.uid=tt.uid)");
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function tokenauth_uninstall() {
+  drupal_uninstall_schema('tokenauth');
+  variable_del('tokenauth_length');
+  variable_del('tokenauth_pages');
+  variable_del('tokenauth_reset');
+  variable_del('tokenauth_text');
+}
+
+/**
+ * Make sure tokenauth has a low module weight.
+ */
+function tokenauth_update_6106() {
+  $ret = array();
+  return $ret;
+}
+
+/**
+ * Make sure tokenauth has a low module weight.
+ */
+function tokenauth_update_6107() {
+  $ret = array();
+  // Make sure existing tokenauth installations operate at the proper weight.
+  $ret[] = update_sql("UPDATE {system} SET weight='-15' WHERE name='tokenauth'");
+  return $ret;
+}

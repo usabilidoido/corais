@@ -1,0 +1,58 @@
+=== Slideshare 6.x-1.x-dev ===
+
+- Working on listing README.txt inline per http://drupal.org/node/161085
+- Working on creating a help page per http://drupal.org/node/632280
+- Working on adding SimpleTests, cf. http://drupal.org/simpletest
+
+- Added support for content generation (using Devel module) for SlideShare
+  fields.
+- Added a helper link directly to the Slideshare configuration page when the
+  API keys haven't been set.
+- Updated INSTALL.txt, module-wide language cleanup and consistent use of
+  "SlideShare" name.
+- Added an install confirmation message and an uninstall function.
+- Updates to .info file to conform to best practices, and updated README.txt.
+- Moved Slideshare from the "Content" (CCK) package in the module listings to
+  the "Media" package, where other Embedded Media Field modules are listed.
+- Simple code cleanup from Coder and associated modules.
+
+=== Slideshare 6.x-1.0-beta3 ===
+
+- Updated this CHANGELOG.txt file. Sorry for not catching it previously!
+
+=== Slideshare 6.x-1.0-beta2 ===
+
+- New project maintainer: rootwork
+
+Bugfixes:
+- Stripped CVS keywords (Git migration)
+- #1062102 by pescetti: warning: Parameter 6 to emvideo_slideshare_video() expected to be a reference, value given
+- #760698 by wojtha: Regex To Extract Embed Code over-simplified and defaults to Slideshare for all emvideo
+
+=== Slideshare 6.x-1.0-beta1 ===
+
+2009-12-05
+- sfyn: Added parsing for all embed formats, updated URL parsing, and added input checking functions to the extract hook
+
+2009-11-25
+- bug report #476646 by Steel Rat: Slideshare embed responds to custom
+  dimensions.
+
+2009-11-23
+- bug report #639514 by sfyn: Fixed bug introduced by original patch preventing
+  other providers from functioning
+
+2009-11-22
+- Upgrading INSTALL.txt
+- Right API link: http://www.slideshare.net/developers/applyforapi
+- bug report #639478 by sfyn: providers/slideshare.inc has an outdated link to
+  apply for the api keys
+- bug report #639514 by sfyn: SlideShare does not accept url arguments
+
+2009-04-06
+- #425054 by bohz: Slideshare.inc - Call-time pass-by-reference deprecated 
+  problem corrected
+
+2009-03-07
+- Initial commit of slideshare module. Slideshare integration with emvideo 
+  module.

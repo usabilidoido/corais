@@ -1,0 +1,14 @@
+name = Content Taxonomy Autocomplete
+description = Defines a autocomplete widget type for content_taxonomy
+dependencies[] = content 
+dependencies[] = content_taxonomy 
+dependencies[] = taxonomy
+package = CCK
+core = 6.x
+
+; Information added by drupal.org packaging script on 2011-05-11
+version = "6.x-2.x-dev"
+core = "6.x"
+project = "content_taxonomy"
+datestamp = "1305115487"
+

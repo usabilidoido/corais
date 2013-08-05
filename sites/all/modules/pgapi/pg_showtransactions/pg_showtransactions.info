@@ -1,0 +1,15 @@
+; $Id: pg_showtransactions.info,v 1.2 2010/10/31 05:12:08 gor Exp $
+name = Show transactions
+description = Show transactions in PGAPI.
+dependencies[] = pgapi
+package = "Payment Gateway API Tools"
+version = VERSION
+core = 6.x
+
+
+; Information added by drupal.org packaging script on 2012-03-20
+version = "6.x-2.0-beta1"
+core = "6.x"
+project = "pgapi"
+datestamp = "1332259543"
+

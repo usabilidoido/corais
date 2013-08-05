@@ -1,0 +1,57 @@
+// $Id: API.txt,v 1.1.2.2 2010/09/21 14:09:46 mfer Exp $
+
+The automodal module allows other modules to add easily add modalFrame
+configurations for their modules. This includes a function to add the settings
+and a hook that allows the settings added by other calls to be altered. This is
+a fairly straight forward process.
+
+The Basics
+----------
+To add modalFrame to a url use automodal_add(). For example:
+
+automodal_add('.my_selector', array('width' => 200));
+
+This will cause anything in the page with that selector to open a modalFrame
+with a width of 200px. The content will be that of the href attribute on the link.
+
+For complete details on the available settings as the second argument see
+the automodal_add() functions documentation in automodal.module.
+
+Hooks
+-----
+Additionally, there is a hook_automodal_alter() function that is called each time
+automodal_add() adds a selector to the page. A simple example of using it looks
+like:
+
+function example_automodal_alter(&$settings, $selector) {
+  if ($selector == '.automodal') {
+    $settings['width'] = 900;
+  }
+}
+
+To act on the closing arguments there is a hook at well in
+hook_automodal_close_args_alter(). This hook allows modules to plug into the
+case where a form has caused a Modal Frame to close and act on it.
+
+Extending JavaScript
+--------------------
+In JavaScript there are two hook like functions. For examples of the details
+described below in use see automodal.js.
+
+Modal Frame allows for a single onSubmit function to be called when a form is
+submitted. In automodal we extend it allowing for many modules to have their
+functions called when onSubmit is called.
+
+To use this define a function at Drupal.automodal.onSubmitCallback.foo, where
+foo is a name for your callback. Be careful to properly namespace this function
+so it does not collide with others. The arguments are args are statusMessages.
+While statusMessages comes from Modal Frame the args variable comes from PHP
+and can me added to and altered with hook_automodal_close_args_alter().
+
+There is also the ability to alter the settings passed into Modal Frame. This
+is similar to a Drupal alter function. Define a function at
+Drupal.automodal.settingsAlter.foo, where foo is a name for your callback. Be
+careful to properly namespace this function so it does not collide with others.
+The single argument passed in is settings. This is the settings as passed into
+Modal Frame. Unlike Drupal alter hooks, you need to return settings at the end
+of the function.

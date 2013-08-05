@@ -1,0 +1,230 @@
+<?php
+
+/**
+ * @file
+ * Provides URL variable-based authentication to allowed pages.
+ */
+
+include_once('tokenauth.inc');
+
+/**
+ * Implementation of hook_perm().
+ */
+function tokenauth_perm() {
+  return array('access tokenauth', 'administer tokenauth');
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function tokenauth_menu() {
+  $items['admin/settings/tokenauth'] = array(
+    'title' => t('Token authentication'),
+    'description' => t('Configure token behavior to allow users to authenticate per page-load via URL.'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('tokenauth_admin_settings'),
+    'access arguments' => array('administer tokenauth'),
+    'file' => 'tokenauth.pages.inc',
+  );
+  $items['admin/settings/tokenauth/reset'] = array(
+    'title' => t('Reset tokens'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('tokenauth_reset_confirm'),
+    'access arguments' => array('administer tokenauth'),
+    'file' => 'tokenauth.pages.inc',
+    'type' => MENU_CALLBACK
+  );
+  $items['user/%user/tokenauth'] = array(
+    'title' => t('Token authentication'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('tokenauth_user_profile_form', 1),
+    'access callback' => 'tokenauth_profile_access',
+    'access arguments' => array(1),
+    'file' => 'tokenauth.pages.inc',
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['user/%user/tokenauth/reset'] = array(
+    'title' => t('Reset token'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('tokenauth_user_reset_confirm'),
+    'access callback' => 'tokenauth_profile_access',
+    'access arguments' => array(1),
+    'file' => 'tokenauth.pages.inc',
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Implementation of hook_help().
+ */
+function tokenauth_help($path, $arg) {
+  switch ($path) {
+    // Main help for tokenauth module.
+    case 'admin/help#tokenauth':
+      return '<p>' . t('Token Authentication provides URL-based authentication via an alphanumeric token unique to each user.') . '</p>';
+  }
+}
+
+/**
+ * Access callback for tokenauth view/edit.
+ */
+function tokenauth_profile_access($account) {
+  return (user_access('administer users') || ($GLOBALS['user']->uid == $account->uid)) && user_access('access tokenauth') && $account->uid > 0;
+}
+
+/**
+ * Implementation of hook_init().
+ */
+function tokenauth_init() {
+  global $user;
+  // Process any provided token and log in user
+  if (user_is_anonymous() && isset($_REQUEST['token']) && tokenauth_allowed_pages($_GET['q'])) {
+    if ($uid = tokenauth_get_user($_REQUEST['token'])) {
+      $account = user_load($uid);
+      if (user_access('access tokenauth', $account)) {
+        $user = $account;
+        // Store the fact that this user authenticated via token. Needed for logout.
+        $_SESSION['tokenauth_auth'] = TRUE;
+        if (function_exists('session_save_session')) {
+          session_save_session(FALSE);
+        }
+        elseif (function_exists('drupal_save_session')) {
+          drupal_save_session(FALSE);
+        }
+        watchdog('user', 'Page @page loaded for %name via token authentication.', array('@page' => $_GET['q'], '%name' => $account->name));
+      }
+    }
+    // Supplied an invalid token
+    if (empty($_SESSION['tokenauth_auth'])) {
+      drupal_access_denied();
+      exit();
+    }
+  }
+
+  // Trigger tokenauth context condition.
+  if (module_exists('context') && function_exists('context_get_plugin') && $plugin = context_get_plugin('condition', 'tokenauth_auth')) {
+    $plugin->execute((int)isset($_SESSION['tokenauth_auth']));
+  }
+}
+
+/**
+ * Implementation of hook_exit().
+ * Deliberately insure that this session will not be saved by sess_write(). Safety.
+ * @see user_logout
+ */
+function tokenauth_exit() {
+  global $user;
+  if (isset($_SESSION['tokenauth_auth'])) {
+    // Destroy the current session:
+    session_destroy();
+    // Load the anonymous user
+    $user = drupal_anonymous_user();
+  }
+}
+
+/**
+ * Implementation of hook_url_outbound_alter().
+ * Appends the current user's token to any path run through url()
+ * that also passes tokenauth's allowed pages filter.
+ */
+function tokenauth_url_outbound_alter(&$path, &$options, $original_path) {
+  if (isset($_SESSION['tokenauth_auth']) && $_REQUEST['token'] == ($token = tokenauth_get_token())
+    && tokenauth_allowed_pages($original_path)) {
+
+    if (is_array($options['query'])) {
+      $options['query']['token'] = $token;
+    }
+    elseif (!$options['query']) {
+      $options['query'] = 'token=' . $token;
+    }
+    else {
+      $options['query'] .= '&token=' . $token;
+    }
+  }
+}
+
+/**
+ * Implementation of hook_user().
+ */
+function tokenauth_user($op, &$edit, &$account, $category = NULL) {
+  switch ($op) {
+    case 'update':
+      if (isset($account->tokenauth_token)) {
+        tokenauth_reset_user($account->uid, $account->tokenauth_token);
+      }
+      break;
+    case 'insert':
+      tokenauth_insert($account->uid);
+      break;
+    case 'delete':
+      $sql = 'DELETE FROM {tokenauth_tokens} WHERE uid = %d';
+      db_query($sql, $account->uid);
+  }
+}
+
+/// Token Integration ///
+
+/**
+ * Implementation of hook_token_list().
+ */
+function tokenauth_token_list($type = 'user') {
+  if ($type == 'user' || $type == 'all') {
+    $tokens['user']['tokenauth-token'] = t("The user's tokenauth token.");
+    return $tokens;
+  }
+}
+
+/**
+ * Implementation of hook_token_values()
+ */
+function tokenauth_token_values($type, $object = NULL, $options = array()) {
+  if ($type == 'user') {
+    $user = $object;
+    $tokens['tokenauth-token'] = tokenauth_get_token($object->uid);
+    return $tokens;
+  }
+}
+
+/// Context Integration ///
+
+/**
+ * Implementation of hook_ctools_plugin_api().
+ */
+function tokenauth_ctools_plugin_api($module, $api) {
+  if ($module == 'context' && $api == 'plugins') {
+    return array('version' => 3);
+  }
+}
+
+/**
+ * Implementation of hook_context_registry().
+ */
+function tokenauth_context_registry() {
+  $registry = array();
+  $registry['conditions'] = array(
+    'tokenauth_auth' => array(
+      'title' => t('Token Authentication'),
+      'description' => t('Set this context based on whether or not the user is logged in via the Token Authentication module.'),
+      'plugin' => 'tokenauth_context_condition_tokenauth',
+    ),
+  );
+  return $registry;
+}
+
+/**
+ * Implementation of hook_context_plugins().
+ */
+function tokenauth_context_plugins() {
+  $plugins = array();
+  $plugins['tokenauth_context_condition_tokenauth'] = array(
+    'handler' => array(
+      'path' => drupal_get_path('module', 'tokenauth') . '/plugins',
+      'file' => 'tokenauth_context_condition_tokenauth.inc',
+      'class' => 'tokenauth_context_condition_tokenauth',
+      'parent' => 'context_condition',
+    ),
+  );
+  return $plugins;
+}

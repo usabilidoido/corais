@@ -1,0 +1,16 @@
+$Id: CHANGELOG.txt,v 1.1.2.5 2010/07/14 14:54:45 alexb Exp $
+
+UCreate 6.x 1.0 beta 4 2010-07-14
+---------------------------------
+
+- #653518 rfay: hook_mail and hook_mail_alter should treat body as array.
+- #726292 Matthew Davidson: Fix Ucreate form not showing group name for admins
+  of only one group.
+- #801244 GuyPaddock: Grammar fix for "You have created an account...".
+- Wouter Haffmans: Don't show unpublished groups as options when creating new
+  users.
+
+UCreate 6.x 1.0 beta 3 2010-02-17
+---------------------------------
+
+- Starting the changelog.

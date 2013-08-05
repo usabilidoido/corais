@@ -1,0 +1,45 @@
+<?php
+
+/**
+ * Implements certificate_map_options().
+ */
+function certificate_test_certificate_map_options() {
+  for ($i = 65; $i <= 90; $i++) {
+    $char = chr($i);
+    $chars[$char] = $char;
+  }
+  return array(
+    'firstletter' => $chars,
+  );
+}
+
+/**
+ * Implements certificate_map().
+ */
+function certificate_test_certificate_map($node, $user, $map_type, $options) {
+  if ($map_type == 'firstletter') {
+    foreach ($options as $option) {
+      // User selected $option
+      if ($user->name[0] == $option) {
+        // User's first letter matched selected options.
+        return $option;
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_access_certificate().
+ *
+ * Has user finished this activity?
+ */
+function certificate_test_access_certificate($node, $user) {
+  if ($node->type == 'certificate_activity') {
+    if (isset($GLOBALS['certificate_ok']) || isset($_GET['certificate_ok'])) {
+      return TRUE;
+    }
+    else {
+      return 'Custom access denied message.';
+    }
+  }
+}

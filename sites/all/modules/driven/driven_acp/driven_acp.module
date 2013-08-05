@@ -1,0 +1,111 @@
+<?php
+// $Id: driven_acp.module,v 1.2 2010/04/03 23:18:07 arhak Exp $
+
+/**
+ * Callback for property behavior settings form.
+ */
+function driven_acp_behavior_form($prop) {
+  // @TODO: unify multigroup's behaviors
+  // right now not having feedback from users requesting multigroup support
+  // (in addition, D7 version of multigroup haven't been planed yet [#695636-8], [#494100-58])
+  // therefore, this is postponed until an official release exists (either D6 or D7)
+  if (!empty($prop['meta']['group_name']) && $prop['meta']['group_type'] === 'multigroup') {
+    // temporary withdraw policies support for fields within a multigroup
+    // until a unified settings for multigroup be implemented
+    return FALSE;
+  }
+  
+  // IMPORTANT: every behavior form needs a "none" option
+  // to act as if the behavior wasn't enabled at all
+  // which will be the default behavior when settings haven't been saved yet
+  $form = array(
+    '#type' => 'fieldset',
+    '#title' => t('Access Control Policy'),
+    '#collapsible' => TRUE,
+  );
+  $form['acp'] = array(
+    '#type' => 'radios',
+    '#options' => array(
+      'none' => t('None'),
+      'deny_for_roles' => t('Deny for selected roles'),
+      'deny_all_roles' => t('Deny for all roles except selected ones'),
+      'grant_for_roles' => t('Grant for selected roles'),
+      'grant_all_roles' => t('Grant for all roles except selected ones'),
+    ),
+    '#default_value' => 'none',
+  );
+  $form['roles'] = array(
+    '#type' => 'checkboxes',
+    '#title' => t('Roles'),
+    '#options' => user_roles(),
+    '#default_value' => array(),
+  );
+  return $form;
+}
+
+function _driven_acp_eval($acp, $rids) {
+  global $user;
+  $selected = (count(array_intersect(array_keys($user->roles), $rids)) > 0);
+  switch ($acp) {
+    case 'deny_for_roles':
+      return ($selected ? 'denied' : NULL);
+    case 'deny_all_roles':
+      return ($selected ? NULL : 'denied');
+    case 'grant_for_roles':
+      return ($selected ? 'granted' : 'denied');
+    case 'grant_all_roles':
+      return ($selected ? 'denied' : 'granted');
+    case 'none': // no break;
+    default:
+      // settings might haven't been saved yet
+      // act as if the module wasn't enabled
+      return NULL;
+  }
+}
+
+function driven_acp_apply_to_properties(&$driven_props, $policies) {
+  if (isset($policies['driven_acp'])) {
+    // we got all policies at once (which can't be mistaken with a realm:target)
+    // lets pick up only ours
+    // (this supports delivering all policies returned by driven_props_get_policies)
+    // in the worse case it will be an empty array
+    $policies = $policies['driven_acp'];
+  }
+  
+  foreach ($driven_props as $property_id => &$prop) {
+    $policy = $policies[$property_id];
+    if (empty($policy)) {
+      continue;
+    }
+    $result = _driven_acp_eval($policy['acp'], $policy['roles']);
+    // $result should be one of: NULL, 'granted', 'denied'
+    if (isset($result)) {
+      $prop['#access'] = ($result == 'granted' ? TRUE : FALSE);
+    }
+    elseif (!isset($prop['#access'])) {
+      // we might wan't to avoid overriding whatever #access might have before
+      // but if it is not set, lets make clear we evaluated and abstained
+      $prop['#access'] = NULL;
+    }
+  }
+}
+
+function driven_acp_apply_to_form(&$node_form, $driven_props, $policies) {
+  // if policy is not set then properties are expected
+  // to have Access Control Policies already applied
+  if (isset($policies)) {
+    // otherwise apply our policies to the received copy of $driven_props
+    driven_acp_apply_to_properties($driven_props, $policies);
+  }
+  driven_access_control_to_form($node_form, $driven_props);
+}
+
+function driven_acp_apply_to_form_values(&$node_values, $node_form, $driven_props, $policies) {
+  // if policy is not set then properties are expected
+  // to have Access Control Policies already applied
+  if (isset($policies)) {
+    // otherwise apply our policies to the received copy of $driven_props
+    driven_acp_apply_to_properties($driven_props, $policies);
+  }
+  driven_access_control_to_form_values($node_form, $driven_props);
+}

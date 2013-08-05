@@ -1,0 +1,210 @@
+<p>
+Some documentation on how to construct a file to import. <!-- TODO -->
+</p>
+
+<h3>How to create a file to import</h3>
+
+<p>
+TODO
+</p>
+
+<h3>Column content</h3>
+
+<p>
+Some content fields can be preprocessed specially for the convience
+of the user. For example it is more portable to specify a user by
+name or e-mail address than by internal UID.
+</p>
+
+<a name="allowed-values"></a>
+<h4>Allowed values</h4>
+
+<p>
+If you can select a value with a set of radio buttons, you can use
+either <strong>the key</strong> or <strong>the value</strong> of the
+set of options. For example, if the radio buttons read <em>One</em>
+(with internal key <em>1</em>), <em>Two</em> (with internal key
+<em>2</em>) and <em>Three</em> (with internal key <em>3</em>) you
+can use any of following values to select <em>Two</em>:
+</p>
+
+<pre>
+2
+Two
+two
+</pre>
+
+<a name="book-reference"></a>
+<h4>Book reference</h4>
+
+<p>
+Just like a <a href="#node-reference">Node reference</a>, a <em>Book
+reference</em>, such as the <em>Book</em> of a <em>Book outline</em>,
+can be specified by <strong>NID</strong> or <strong>Title</strong>
+(case insensitive).
+</p>
+
+<p>
+To specify that a page should not be added to a <em>Book outline</em>
+you can specify <strong>&lt;none&gt;</strong>. To create a new
+toplevel book specify <strong>&lt;new&gt;</strong>.
+</p>
+
+<a name="book-page-reference"></a>
+<h4>Book page reference</h4>
+
+<p>
+Just like a <a href="#node-reference">Node reference</a>, a <em>Book
+page reference</em>, such as the <em>Parent item</em> of a
+<em>Book outline</em>, can be specified by <strong>NID</strong>
+or <strong>Title</strong> (case insensitive).
+</p>
+
+<p class="warning">
+You can not have a book page inside the same book with the same
+title.
+</p>
+
+<a name="boolean"></a>
+<h4>Boolean</h4>
+
+<p>
+A <em>Boolean</em> content field, for example <em>Published</em>, can
+be specified by following <strong>True</strong> values (case insensitive):
+</p>
+
+<pre>
+1
+on
+yes
+true
+On          - translated
+Yes         - translated
+True        - translated
+</pre>
+
+<p>
+or by following <strong>False</strong> values (case insensitive):
+</p>
+
+<pre>
+0
+off
+no
+false
+Off         - translated
+No          - translated
+False       - translated
+</pre>
+
+<a name="date"></a>
+<h4>Date</h4>
+
+<p>
+If you map a <em>Date</em> content field, such as <em>Authored on</em>,
+you will be presented with the option on how to interpret the data in
+the file column.
+</p>
+
+<p>
+For example, if you specify the <strong>Custom date format</strong> as
+<em>m/d/Y</em>, dates need to be in the <em>12/23/2008</em> format,
+while if you specify <em>d/m/Y</em> they need to be in the
+<em>23/12/2008</em> format.
+</p>
+
+<p>
+Dates in <strong>UNIX timestamp</strong> or the <strong>ISO format</strong>
+(2008-12-23) will always be accepted.
+</p>
+
+<a name="filepath"></a>
+<h4>File path</h4>
+
+<p>
+A field that reference a <em>File</em>, such as the <em>CCK FileField</em>,
+<em>CCK ImageField</em> or <em>Core attachments</em> (of the <em>Upload</em>
+module), need to contain a <strong>filepath</strong> relative to the
+directory in which the files are stored.
+</p>
+
+<p>
+You need to manually move the files to the correct location prior doing
+the import.
+</p>
+
+<p>
+For example, if you have an image <code>butterfly.jpg</code> that is
+used in a <em>CCK ImageField</em> field which stores its files in a
+configured directory <code>sites/default/files/butterflies</code> your
+CSV file needs to contain <code>butterfly.jpg</code> as value and you
+need to manually copy or FTP the image file to
+<code>sites/default/files/butterflies/butterfly.jpg</code>.
+</p>
+
+<a name="input-format"></a>
+<h4>Input format</h4>
+
+<p>
+An <em>Input format</em> field, for example of the <em>Body</em>, can
+be specified by <strong>ID</strong> or <strong>Name</strong> (case
+insensitive). For example, on a default Drupal installation, following
+values will be accepted for <em>Filtered HTML</em>:
+</p>
+
+<pre>
+Filtered HTML
+filtered html
+1
+</pre>
+
+<a name="node-reference"></a>
+<h4>Node reference</h4>
+
+<p>
+A <em>Node reference</em>, such as the fields defined by the <em>Node
+reference</em> module, can be specified by <strong>NID</strong> or
+<strong>Title</strong> (case insensitive). For example, a node
+<em>Hello world!</em> with NID <em>574</em> can be specified as:
+</p>
+
+<pre>
+Hello world!
+hello world!
+574
+</pre>
+
+<a name="user-reference"></a>
+<h4>User reference</h4>
+
+<p>
+A <em>User reference</em>, such as <em>Authored by</em>, can be specified
+by <strong>UID</strong>, <strong>Username</strong> (case insensitive) or
+<strong>E-mail address</strong> (case insensitive). For example, a user
+<em>Joe Doe</em> with e-mail address <em>Joe.Doe@example.org</em> and UID
+<em>42</em> can be specified as:
+</p>
+
+<pre>
+Joe Doe
+joe doe
+Joe.Doe@example.org
+joe.doe@example.org
+42
+</pre>
+
+<a name="weight"></a>
+<h4>Weight</h4>
+
+<p>
+A <em>Weight</em>, such as for <em>Book outline</em>, can be specified
+as an <strong>Integer</strong> only. The following are all valid
+weights:
+</p>
+
+<pre>
+-5
+0
+9
+</pre>
+

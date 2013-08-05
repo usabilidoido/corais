@@ -1,0 +1,23 @@
+--- image_fupload_imagefield/image_fupload_imagefield.module  2010-05-11 14:20:34.000000000 -0500
++++ image_fupload_imagefield/image_fupload_imagefield.module  2010-05-11 14:11:55.000000000 -0500
+@@ -1,5 +1,5 @@
+ <?php
+-// $Id: image_fupload_imagefield.module,v 1.32 2009/04/06 21:15:41 grandcat Exp $
++// $Id: image_fupload_imagefield.module,v 1.33 2009/04/08 12:44:42 grandcat Exp $
+
+ /**
+  * Implementation of hook_help
+@@ -477,7 +477,7 @@ function image_fupload_imagefield_widget
+  * Assign default properties to item and delegate to filefield.
+  */
+ function image_fupload_imagefield_widget($form, $form_state, $field, $items, $delta = 0) {
+-  $element = module_invoke('imagefield', 'widget', $form, $form_state, $field, $items, $delta);
++  $element = call_user_func('imagefield_widget', &$form, &$form_state, $field, $items, $delta);
+   return $element;
+ }
+
+@@ -629,4 +629,3 @@ function image_fupload_validate_total_fi
+   }
+   return $errors;
+ }
+-

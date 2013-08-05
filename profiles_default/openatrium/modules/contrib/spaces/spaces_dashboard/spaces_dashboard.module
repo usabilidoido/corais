@@ -1,0 +1,461 @@
+<?php
+
+include_once('spaces_dashboard.features.inc');
+
+/**
+ * Implementation of hook_theme()
+ */
+function spaces_dashboard_theme() {
+  $items = array();
+  $items['spaces_dashboard_admin_form'] = array(
+    'arguments' => array('form' => array()),
+    'file' => 'spaces_dashboard.admin.inc',
+    'path' => drupal_get_path('module', 'spaces_dashboard'),
+  );
+  $items['spaces_dashboard_admin_region_form'] = array(
+    'arguments' => array('form' => array()),
+    'file' => 'spaces_dashboard.admin.inc',
+    'path' => drupal_get_path('module', 'spaces_dashboard'),
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_perm().
+ */
+function spaces_dashboard_perm() {
+  return array('administer dashboards');
+}
+
+/**
+ * Implementation of hook_menu()
+ */
+function spaces_dashboard_menu() {
+  $items = array();
+  $items['dashboard'] = array(
+    'title' => 'Dashboard',
+    'menu_name' => 'features',
+    'page callback' => 'spaces_dashboard_page',
+    'page arguments' => array('custom-1'),
+    'access callback' => 'spaces_dashboard_access',
+    'access arguments' => array('feature', 'custom-1', 'site'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+  for ($i = 1; $i < 6; $i++) {
+    $items["dashboard/custom-{$i}"] = array(
+      'title' => 'Dashboard',
+      'title callback' => 'spaces_dashboard_title',
+      'title arguments' => array("custom-{$i}"),
+      'page callback' => 'spaces_dashboard_page',
+      'page arguments' => array("custom-{$i}"),
+      'access callback' => 'spaces_dashboard_access',
+      'access arguments' => array('feature', "custom-{$i}", 'site'),
+      'type' => $i === 1 ? MENU_DEFAULT_LOCAL_TASK : MENU_LOCAL_TASK,
+      'weight' => $i,
+    );
+  }
+  $items['dashboard/add'] = array(
+    'title' => 'Add custom',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('spaces_dashboard_add'),
+    'access callback' => 'spaces_dashboard_access',
+    'access arguments' => array('admin'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 100,
+    'file' => 'spaces_dashboard.admin.inc',
+  );
+  $items['admin/settings/dashboard'] = array(
+    'title' => 'Dashboard settings',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('spaces_dashboard_admin_form'),
+    'access callback' => 'spaces_dashboard_access',
+    'access arguments' => array('admin'),
+    'file' => 'spaces_dashboard.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+  $items['admin/settings/dashboard/blocks'] = array(
+    'title' => 'Block settings',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+  $items['admin/settings/dashboard/regions'] = array(
+    'title' => 'Region settings',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('spaces_dashboard_admin_region_form'),
+    'access callback' => 'spaces_dashboard_access',
+    'access arguments' => array('admin'),
+    'file' => 'spaces_dashboard.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  // Spaces support.
+  if (module_exists('spaces')) {
+    $items['features/spaces_dashboard'] = $items['admin/settings/dashboard'];
+    $items['features/spaces_dashboard']['title'] = 'Settings';
+    $items['features/spaces_dashboard/block'] = $items['admin/settings/dashboard/blocks'];
+    $items['features/spaces_dashboard/regions'] = $items['admin/settings/dashboard/regions'];
+  }
+  if (module_exists('spaces_user')) {
+    $items['user/%user/dashboard'] = array(
+      'title' => 'Dashboard',
+      'title callback' => 'spaces_dashboard_title_user',
+      'title arguments' => array(1),
+      'page callback' => 'spaces_dashboard_page',
+      'page arguments' => array('custom-1'),
+      'access callback' => 'spaces_dashboard_access_user',
+      'access arguments' => array(1, 'feature', 'custom-1'),
+      'type' => MENU_LOCAL_TASK,
+    );
+    for ($i = 1; $i < 6; $i++) {
+      $items["user/%user/dashboard/custom-{$i}"] = array(
+        'title' => 'Dashboard',
+        'title callback' => 'spaces_dashboard_title',
+        'title arguments' => array("custom-{$i}"),
+        'page callback' => 'spaces_dashboard_page',
+        'page arguments' => array("custom-{$i}"),
+        'access callback' => 'spaces_dashboard_access_user',
+        'access arguments' => array(1, 'feature', "custom-{$i}"),
+        'type' => $i === 1 ? MENU_DEFAULT_LOCAL_TASK : MENU_LOCAL_TASK,
+        'weight' => $i,
+      );
+    }
+    $items['user/%user/dashboard/add'] = array(
+      'title' => 'Add custom',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('spaces_dashboard_add'),
+      'access callback' => 'spaces_dashboard_access_user',
+      'access arguments' => array(1, 'admin'),
+      'type' => MENU_LOCAL_TASK,
+      'weight' => 100,
+      'file' => 'spaces_dashboard.admin.inc',
+    );
+  }
+  return $items;
+}
+
+/**
+ * Menu title callback.
+ */
+function spaces_dashboard_title($dashboard = NULL) {
+  $custom = variable_get('spaces_dashboard_custom', array('custom-1' => t('Dashboard')));
+  return isset($dashboard) && !empty($custom[$dashboard]) ? $custom[$dashboard] : t('Dashboard');
+}
+
+/**
+ * Menu title callback.
+ */
+function spaces_dashboard_title_user($account) {
+  global $user;
+  return ($user->uid == $account->uid) ?  t('My dashboard') : t('Dashboard');
+}
+
+/**
+ * Menu access callback.
+ *
+ * Because spaces_dashboard provides a speciality callback for the user space
+ * which can be visible at the same time as the normal callback we need a
+ * slightly more complex access check for the main callback.
+ *
+ * @param $op
+ *   The operation to check access for, either 'feature' for whether the user
+ *   may view the dashboard feature or 'admin' for whether the user may alter
+ *   the dashboard in question.
+ * @param $dashboard
+ *   String identifier for the dashboard page to check access on.
+ * @param $type
+ *   The type of dashboard, 'user' or 'site'.
+ * @param $space
+ *   The space to check access against. If not provided the current space
+ *   will be used.
+ */
+function spaces_dashboard_access($op = 'feature', $dashboard = NULL, $type = NULL, $space = NULL) {
+  // Make sure the requested dashboard exists.
+  if (isset($dashboard)) {
+    $custom = variable_get('spaces_dashboard_custom', array('custom-1' => t('Dashboard')));
+    if (empty($custom[$dashboard]) && $dashboard !== 'custom-1') {
+      return FALSE;
+    }
+  }
+  // Non-spaces usage.
+  if (!module_exists('spaces')) {
+    switch ($op) {
+      case 'admin':
+        return user_access('administer dashboards');
+      default:
+        return user_access('access content');
+    }
+  }
+  // Spaces usage.
+  $space = isset($space) ? $space : spaces_get_space();
+  $type = !isset($type) && isset($space->type) ? $space->type : $type;
+  switch ($type) {
+    case 'user':
+      if ($space && $space->type === 'user') {
+        // This check ensures that only the user that the dashboard belongs
+        // to (and admins) can view and edit the user's dashboard.
+        global $user;
+        $access = $user->uid == $space->id || user_access('administer dashboards');
+        return $access && spaces_access_feature($op, 'spaces_dashboard');
+      }
+      return FALSE;
+    case 'og':
+      if($space && $space->type === 'og') {
+        switch ($op) {
+          case 'admin':
+            return spaces_access_admin(NULL, $space);
+          default:
+            return spaces_access_feature($op, 'spaces_dashboard');
+          break;
+        }
+        return FALSE;
+      }
+    default:
+      // When the dashboard is turned on for a different space type and the
+      // user space is active do a separate access check for the dashboard.
+      if ($space && $space->type === 'user') {
+        switch ($op) {
+          case 'admin':
+            return user_access('administer dashboards');
+          default:
+            if ($features = $space->controllers->variable->get('spaces_features', 'original')) {
+              return user_access('access content') && !empty($features['spaces_dashboard']);
+            }
+            break;
+        }
+        return FALSE;
+      }
+      // Otherwise, do a normal spaces access check.
+      switch ($op) {
+        case 'admin':
+          return user_access('administer dashboards');
+        default:
+          return spaces_access_feature($op, 'spaces_dashboard');
+      }
+      break;
+  }
+}
+
+/**
+ * Access callback for the user Dashboard.
+ */
+function spaces_dashboard_access_user($account, $op = 'feature', $dashboard = NULL) {
+  return spaces_dashboard_access($op, $dashboard, 'user', spaces_load('user', $account->uid));
+}
+
+/**
+ * Empty page callback for dashboard feature.
+ */
+function spaces_dashboard_page($dashboard = NULL) {
+  if (isset($dashboard)) {
+    $context = context_load("spaces_dashboard-{$dashboard}");
+    if (!$context) {
+      $context = ctools_export_new_object('context');
+      $context->name = "spaces_dashboard-{$dashboard}";
+      $context->description = 'Dashboard';
+      $context->tag = 'Dashboard';
+      context_save($context);
+    }
+    context_set('spaces', 'dashboard', "spaces_dashboard-{$dashboard}");
+    context_set('context', "spaces_dashboard-{$dashboard}", $context);
+  }
+  return '';
+}
+
+/**
+ * Preprocessor for theme('context_block_editable_region').
+ * Only allow regions that have been set to editable to be changed.
+ */
+function spaces_dashboard_preprocess_context_block_editable_region(&$vars) {
+  if (module_exists('context_layouts') && context_isset('context', 'spaces_dashboard')) {
+    $layout = context_layouts_get_active_layout(FALSE);
+    $regions = variable_get('spaces_dashboard_regions', array());
+    if (!empty($regions[$layout])) {
+      $vars['editable'] = !empty($regions[$layout][$vars['region']]);
+    }
+  }
+}
+
+/**
+ * Implementation of hook_block().
+ */
+function spaces_dashboard_block($op, $delta = null) {
+  if ($op == 'list') {
+    return array('editor' => array('info' => t('Dashboard'), 'admin' => true));
+  }
+  elseif ($op == 'view' && $delta == 'editor') {
+    // Ensure that the dashboard editor does not appear on the same page as
+    // the context editor. The two will collide.
+    $editor = FALSE;
+    $context = context_get('spaces', 'dashboard') ? context_get('context', context_get('spaces', 'dashboard')) : FALSE;
+    if (spaces_dashboard_access('admin') && $context) {
+      return array(
+        'subject' => t('Dashboard'),
+        'content' => drupal_get_form('spaces_dashboard_editor', array($context)),
+      );
+    }
+  }
+}
+
+/**
+ * Form builder: spaces dashboard editor. Clones and overrides form built by
+ * context_ui_editor().
+ */
+function spaces_dashboard_editor(&$form_state, $contexts) {
+  $form = array();
+  if ($context = context_get('spaces', 'dashboard')) {
+    context_set('spaces_dashboard', 'form_build', TRUE);
+
+    // Clone the context_ui_editor form and make some changes.
+    $form = context_ui_editor($form_state, $contexts);
+    unset($form['contexts'][$context]['#type']);
+    // Hide conditions.
+    $form['contexts'][$context]['condition']['#access'] = FALSE;
+    // Hide reactions other than blocks.
+    foreach (array_keys(context_reactions()) as $reaction) {
+      if ($reaction !== 'block' && isset($form['contexts'][$context]["reaction-{$reaction}"])) {
+        $form['contexts'][$context]["reaction-{$reaction}"]['#access'] = FALSE;
+      }
+    }
+    // Alter allowed layouts
+    if (module_exists('context_layouts')) {
+      $layouts = variable_get('spaces_dashboard_layouts', array());
+      if (!empty($layouts) && isset($form['contexts'][$context]['reaction-block']['layout'])) {
+        $layouts = array_filter($layouts);
+        $layouts[0] = 1;
+        $form['contexts'][$context]['reaction-block']['layout']['layout']['#options'] = array_intersect_key($form['contexts'][$context]['reaction-block']['layout']['layout']['#options'], $layouts);
+      }
+    }
+    // We need to call this alter manually against our form.
+    if (module_exists('spaces') && $space = spaces_get_space()) {
+      spaces_form_context_ui_editor_alter($form, $form_state);
+    }
+  }
+  return $form;
+}
+
+/**
+ * Preprocessor for theme('context_block_browser').
+ */
+function spaces_dashboard_preprocess_context_block_browser(&$vars) {
+  // Check a static cache flag that alerts us to being within the build of the
+  // spaces_dashboard_editor form build.
+  if (context_get('spaces_dashboard', 'form_build')) {
+    foreach ($vars['blocks'] as $category => $blocks) {
+      foreach ($blocks as $bid => $block) {
+        // Recategorize blocks by feature.
+        if (spaces_dashboard_block_access($block)) {
+          $block_module = spaces_dashboard_get_module($block);
+          if ($block_module != $category) {
+            if (!isset($vars['categories']['#options'][$block_module])) {
+              $info = context_get_info('module', $block_module);
+              $vars['categories']['#options'][$block_module] = isset($info['name']) ? $info['name'] : $block_module;
+            }
+            unset($vars['blocks'][$category][$bid]);
+            $vars['blocks'][$block_module][$bid] = $block;
+          }
+        }
+        // Remove any blocks not enabled for this space type.
+        else {
+          unset($vars['blocks'][$category][$bid]);
+        }
+      }
+    }
+    // Remove empty categories.
+    foreach ($vars['categories']['#options'] as $k => $v) {
+      if ($k != '0' && empty($vars['blocks'][$k])) {
+        unset($vars['categories']['#options'][$k]);
+      }
+    }
+    // Sort
+    asort($vars['categories']['#options']);
+
+    // Clear out the form build flag.
+    context_set('spaces_dashboard', 'form_build', FALSE);
+  }
+}
+
+/**
+ * Retrieve the module that a block conceptually belongs to.
+ * Will detect the feature that provides block X as a default block
+ * if using Views, Panels or other block-providing modules.
+ */
+function spaces_dashboard_get_module($block) {
+  $map = features_get_component_map();
+  switch ($block->module) {
+    case 'views':
+      $delta = $block->delta;
+      // if this is 32, this should be an md5 hash.
+      if (strlen($delta) == 32) {
+        $hashes = variable_get('views_block_hashes', array());
+        if (!empty($hashes[$delta])) {
+          $delta = $hashes[$delta];
+        }
+      }
+      list($name, $display_id) = explode('-', $delta);
+      return !empty($map['views'][$name]) ? reset($map['views'][$name]) : 'views';
+    case 'panels_mini':
+      return isset($map['panels_mini'][$block->delta]) ? $map['panels_mini'][$block->delta] : 'panels_mini';
+    default:
+      return $block->module;
+  }
+}
+
+/**
+ * Determine whether this block is accessible for use with the dashboard.
+ * Modules should implement hook_spaces_dashboard_block_access_alter()
+ * if they would like to implement more complex rules for dashboard block
+ * access.
+ *
+ * @param $block
+ *   A block object with at least the ->module & ->delta properties.
+ *
+ * @return
+ *   TRUE if the block may be used. FALSE otherwise.
+ */
+function spaces_dashboard_block_access($block, $reset = FALSE) {
+  static $access;
+  if ((!isset($access) || $reset) && $plugin = context_get_plugin('reaction', 'block')) {
+    $blocks = $plugin->get_blocks();
+    $access = array_fill_keys(array_keys($blocks), 0);
+    $access = array_merge($access, variable_get('spaces_dashboard_blocks', array()));
+    drupal_alter('spaces_dashboard_block_access', $access);
+  }
+  return isset($access[$block->bid]) ? (bool) $access[$block->bid] : FALSE;
+}
+
+/**
+ * Implementation of hook_spaces_dashboard_block_access_alter() on behalf of Views.
+ */
+function views_spaces_dashboard_block_access_alter(&$access) {
+  static $views;
+  foreach ($access as $bid => $allowed) {
+    list($module, $delta) = explode('-', $bid, 2);
+    if ($module === 'views') {
+      // if this is 32, this should be an md5 hash.
+      if (strlen($delta) == 32) {
+        $hashes = variable_get('views_block_hashes', array());
+        if (!empty($hashes[$delta])) {
+          $delta = $hashes[$delta];
+        }
+      }
+      // Ensure that this Views delta is well-formed.
+      if (strpos($delta, '-') !== FALSE) {
+        // Special Views blocks
+        if (substr($delta, 0, 1) == '-') {
+          list($nothing, $type, $name, $display_id) = explode('-', $delta);
+        }
+        // Normal Views blocks
+        else {
+          list($name, $display_id) = explode('-', $delta);
+        }
+        // Load the view
+        if (!isset($views[$name])) {
+          $views[$name] = views_get_view($name);
+        }
+        if ($view = $views[$name]) {
+          $access[$bid] = $allowed && $view->access($display_id);
+          $view->destroy();
+        }
+      }
+    }
+  }
+}

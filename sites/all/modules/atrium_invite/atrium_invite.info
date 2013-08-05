@@ -1,0 +1,7 @@
+; $Id$
+name = "Atrium Invite"
+description = "This patches Open Atrium to add a menu item for inviting members of other groups."
+package = "Atrium"
+version = 6.x-1.0
+core = 6.x
+dependencies[] = og_invite_link

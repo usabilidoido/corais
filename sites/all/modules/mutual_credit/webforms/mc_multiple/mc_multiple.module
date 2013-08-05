@@ -1,0 +1,384 @@
+<?php
+// $Id: mc_multiple.module,v 1.1.2.4 2010/12/15 22:04:04 matslats Exp $
+
+/**
+ * Mutual Credit API forms for multiple exchanges
+ * A series of four forms for creating mass exchanges: alltoone, onetoall, manytoone, onetomany
+ * On the 'many' forms the user selects the users to trade from ALL the users on the system.
+ * but on the 'all' forms the user selects the users NOT to trade
+ */
+
+/**
+ * http://api.drupal.org/api/function/hook_help/6
+ */
+function mc_multiple_help($path, $args) {
+  if ($args[1] == 'multiple') {
+    return t("On the 'many' forms, enter the names of the involved users.") .' '. t("On the 'all' forms all users will be involved except the ones entered.");
+  }
+}
+
+/**
+ * http://api.drupal.org/api/function/hook_menu/6
+ */
+function mc_multiple_menu() {
+  $items['exchange/multiple'] = array(
+    'title' => 'Multiple',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('alltoone_form'),
+    'access arguments' => array('create 3rdparty exchanges'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 5,
+  );
+  $items['exchange/multiple/alltoone'] = array(
+    'title' => 'All to one',
+    'access arguments' => array('create 3rdparty exchanges'),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => 1,
+  );
+  $items['exchange/multiple/onetoall'] = array(
+    'title' => 'One to all',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('onetoall_form'),
+    'access arguments' => array('create 3rdparty exchanges'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 2,
+  );
+  $items['exchange/multiple/onetomany'] = array(
+    'title' => 'One to many',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('onetomany_form'),
+    'access arguments' => array('create 3rdparty exchanges'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 3,
+  );
+  $items['exchange/multiple/manytoone'] = array(
+    'title' => 'Many to one',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('manytoone_form'),
+    'access arguments' => array('create 3rdparty exchanges'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 4,
+  );
+  //this saves making an installer file, coz I'm in a hurry!
+  db_query("UPDATE {system} SET weight = %d WHERE name = 'mc_multiple'",
+    array(':weight' => db_result(db_query("SELECT weight FROM {system} WHERE name = 'mc_webforms'")))
+  );
+  return $items;
+}
+
+
+function mc_multiple_forms() {
+  $forms['onetoall_form'] = array(
+    'callback' => 'mc_multiple_form',
+    'callback arguments' => array(array('payer_uid' => 'one', 'payee_uid_array'=>'all'))
+  );
+  $forms['alltoone_form'] = array(
+    'callback' => 'mc_multiple_form',
+    'callback arguments' => array(array('payer_uid_array' => 'all', 'payee_uid'=>'one'))
+  );
+  $forms['manytoone_form'] = array(
+    'callback' => 'mc_multiple_form',
+    'callback arguments' => array(array('payer_uid_array' => 'many', 'payee_uid'=>'one'))
+  );
+  $forms['onetomany_form'] = array(
+    'callback' => 'mc_multiple_form',
+    'callback arguments' => array(array('payer_uid' => 'one', 'payee_uid_array'=>'many'))
+  );
+  return $forms;
+}
+
+/*
+ * Implementation of webforms hook, hook_mc_exchange_forms
+ */
+function mc_multiple_exchange_type_info() {
+  $types = array(
+    'alltoone' => array(
+      'title' => t('All-to-one'),
+      'edit' => 'mc_edit_form'
+    ),
+    'onetoall' => array(
+      'title' => t('One-to-all'),
+      'edit' => 'mc_edit_form'
+    ),
+    'manytoone' => array(
+      'title' => t('Many-to-one'),
+      'edit' => 'mc_edit_form'
+    ),
+    'onetomany' => array(
+      'title' => t('One-to-many'),
+      'edit' => 'mc_edit_form'
+    )
+  );
+  return $types;
+}
+
+/*
+ * Handles all four multiple exchange forms
+ */
+//$mode imply what widgets to use and which way around. Widgets are 'one', 'many' and 'all'
+function mc_multiple_form($form_state, $fields) {
+  module_load_include('inc', 'mc_webforms');
+  //get the default exchange form, with defaults
+  $node = NULL;
+  if (isset($form_state['values']) && is_array($form_state['values'])) {
+    $node = (object)$form_state['values'];
+  }
+  $form = mcapi_form_exchange($node);
+
+  $form['quantity']['#description'] = t("If the currency permits divisions, express them with a decimal point and hundredths. E.g. 1 hour 30 mins = '1.50'");
+  //need to be explicit because these because this function is called from hook_forms
+  //$form['quantity']['#element_validate']['']
+  $form['#validate'] = array('mc_multiple_form_validate');
+  $form['#submit'] = array('mc_multiple_form_submit');
+  $form['exchange_type'] = array(
+    '#type' => 'hidden',
+    '#value' => implode('to', $fields),
+  );
+  //this can't be in the api because the node-form tries to add and screws up.
+  $form['type'] = array(
+    '#type' => 'hidden',
+    '#value' => 'exchange',
+  );
+  //if unaltered, this will go through as zero, or EXCHANGE_STATE_FINISHED
+  $form['state']['#type'] = 'hidden';
+
+  foreach ($fields as $field => $widget) {
+    if ($widget == 'one') {
+      $form[$field]['#type'] = 'mc_trader';
+    }
+    else {
+      //copy the original field to a new fieldname, and pluralise it
+      $orig_fieldname = substr($field, 0, -6); //strips off the '_array'
+      $form[$field] = $form[$orig_fieldname];
+      unset($form[$orig_fieldname]);
+      $form[$field]['#title'] = $field == 'payer_uid_array' ? t('Payers') : t('Payees');
+      $form[$field]['#type'] = 'mc_traders';
+      $form[$field]['#element_validate'] = array('mc_validate_traders');
+      $form[$field]['#default_value'] = $form_state['values'][$field];
+      if ($widget == 'all') {
+        $form[$field]['#description'] = t("Select the accounts to be ignored. Use CTRL click to select more than one.");
+        $form[$field]['#title'] = $field == 'payer_uid_array' ? t('Excluded payers') : t('Excluded payees');
+        $form[$field]['#invert'] = TRUE;
+      }
+      elseif ($widget == 'many'){
+        $form[$field]['#description'] = t("Select the accounts. Use CTRL click to select more than one.");
+        $form[$field]['#invert'] = FALSE;
+      }
+    }
+  }
+  mc_webforms_extra_fields($form, $form_state);
+
+  $form['preview'] = array (
+    '#type' => 'submit',
+    '#value' => t('Test exchanges'),
+    '#weight' => 29,
+    '#submit' => array('preview_mass_exchanges')
+  );
+  $form['submit'] = array (
+    '#type' => 'submit',
+    '#value' => t('Generate exchanges'),
+    '#weight' => 30,
+  );
+
+  if (isset($form_state['#previews']) && count($form_state['#previews'])) {
+    $element['#children'] = '<div class="fieldset-wrapper">'.implode("<br />", $form_state['#previews']) . '</div>';
+    $element['#title'] = t('Previews');
+    $element['#collapsible'] = TRUE;
+    $form['#prefix'] = theme('fieldset', $element);
+  }
+  return $form;
+}
+
+function mc_multiple_form_validate($form, &$form_state) {
+  //just check that the quantity isn't zero. And in the third party form
+  if ($form_state['values']['quantity'] <= 0) {
+    form_set_error('quantity', t('You cannot exchange a negative amount.'));
+  }
+}
+
+function mc_multiple_form_submit(&$form, &$form_state) {
+  if (isset($form_state['values']['payee_uid_array'])) {
+    $one = $payer = _mc_check_trader($form_state['values']['payer_uid']);
+    $all = $payee = _mc_check_traders($form_state['values']['payee_uid_array'], $form['payee_uid_array']['#invert']);
+    $message = t("all to one multiple payment of @amount for @description", array(
+      '@description' => $form_state['values']['title'],
+      '@amount' => theme('money', $form_state['values']['quantity'],$form_state['values']['cid'], FALSE)
+    ));
+  }
+  else {
+    $one = $payee = _mc_check_trader($form_state['values']['payee_uid']);
+    $all = $payer = _mc_check_traders($form_state['values']['payer_uid_array'], $form['payer_uid_array']['#invert']);
+    $message = t("One to all multiple payment of @amount for @description", array(
+      '@description' => $form_state['values']['title'],
+      '@amount' => theme('money', $form_state['values']['quantity'], $form_state['values']['cid'], FALSE)
+    ));
+  }
+
+  $node_arrays = prepare_mass_exchanges(
+    (array)$payer,
+    (array)$payee,
+    $form_state['values']
+  );
+  $results = array();
+  foreach ($node_arrays as $values) {
+    $results[] = mcapi_add_node($values['payer_uid'], $values['payee_uid'], $values['quantity'], $values);
+  }
+  $fail = FALSE;
+  foreach ($results as $result) {
+    if (!isset($result->success)) {
+      $fail++;
+      if (count($result->messages)) {
+        while (list($type, $messages) = each($result->messages)) {
+          while (list($key, $message) = each($messages)) {
+            drupal_set_message($message, $type);
+          }
+        }
+      }
+    }
+  }
+  if (!$fail) {
+    drupal_set_message(t('All exchanges created'));
+    watchdog('Multiple Payments', '!message', array('!message' => $message));
+    if (user_access('access site reports') && module_exists('dblog')) {
+      $form['#redirect'] = 'admin/reports/dblog';
+    }
+  }
+  else{
+    drupal_set_message(t("@num of these exchanges failed", array('@num' => $fail)), 'error');
+    drupal_set_message('<pre>'.print_r($results, 1).'</pre>');
+  }
+}
+
+function preview_mass_exchanges($form, &$form_state) {
+  if (isset($form_state['values']['payee_uid_array'])) {
+    $one = $payer = _mc_check_trader($form_state['values']['payer_uid']);
+    $all = $payee = _mc_check_traders($form_state['values']['payee_uid_array'], $form['payee_uid_array']['#invert']);
+    $each_total = $form_state['values']['quantity'];
+  }
+  else {
+    $one = $payee = _mc_check_trader($form_state['values']['payee_uid']);
+    $all = $payer = _mc_check_traders($form_state['values']['payer_uid_array'], $form['payer_uid_array']['#invert']);
+    $each_total = -$form_state['values']['quantity'];
+  }
+  $total = count($all) * -$each_total;
+  //handle duplicates and produce warning message
+  //you might expect this in the form validation, but its easier to do it here rather than parse all the exchanges again.
+  //check that none of the payements are from and to the same person
+  if ($key = array_search($one, $all)) {
+    unset($all[$key]);
+  }
+  //check limits for the one user, then all the others
+  $warnings[] = mc_api_check_user_limits(user_load($one), $total, $form_state['values']['cid']);
+  foreach ($all as $key => $transactee) {
+    $warnings[] = mc_api_check_user_limits(user_load($transactee), $each_total, $form_state['values']['cid']);
+  }
+  foreach (array_filter($warnings) as $warning) {
+    drupal_set_message($warning, 'warning');
+  }
+  foreach (prepare_mass_exchanges((array)$payer, (array)$payee, $form_state['values']) as $faux_node) {
+    $form_state['#previews'][] = theme('exchange_summary', (object)$faux_node);
+  }
+  $form_state['rebuild'] = TRUE;
+}
+
+function prepare_mass_exchanges($payers, $payees, $values) {
+  $exchanges = array();
+  //make a list of all the exchanges
+  foreach ($payers as $payer_uid) {
+    foreach ($payees as $payee_uid) {
+      if ($payer_uid == $payee_uid) continue;
+      $exchanges[] = array(
+        'payer_uid' => $payer_uid,
+        'payee_uid' => $payee_uid
+      )
+      + $values;
+    }
+  }
+  return $exchanges;
+}
+
+/**
+ * Implementation of hook_elements().
+ * This form element builds on mc_trader defined in mc_webforms
+ * it returns multiple values, either as a comma-seperated textfield, or an array
+ * if also has an invert option
+ * note that at no time can a form element change the nested-depth of the value it returns
+ * so conversion between strings and arrays doesn't work.
+ */
+function mc_multiple_elements() {
+  //this field handles all trader selection, single and multiple.
+  //there are two variables on the webform settings page to control it.
+  $type['mc_traders'] = array(
+    '#input' => TRUE,
+    '#process' => array('field_process_mc_traders'),
+  );
+  return $type;
+}
+function field_process_mc_traders(&$element, $edit, &$form_state, $form) {
+  //process as though it were a single trader select
+  $element = field_process_mc_trader($element, $edit, $form_state, $form);
+  $element['#element_validate'] = array('mc_validate_traders');
+
+  $element['#theme'] = 'mc_trader';
+  if (variable_get('mc_trader_autocomplete', TRUE)) {
+    $element['#type'] = 'textfield';
+    if (module_exists('views')) {
+      //borrow the views ajax callback for selecting multiple users
+      $element['#autocomplete_path'] = 'admin/views/ajax/autocomplete/user';
+    }
+    $element['#description'] =  t('Usernames, emails, or user IDs (mixed is ok)');
+    $element['#submit'] = array('mc_submit_traders_autocomplete');
+    $element['#attributes']['style'] = 'width:100%';
+    //convert the displayed users to usernames
+    if (isset($element['#value'])) {
+      $values = drupal_explode_tags($element['#value']);
+      $names = array();
+      foreach ($values as $value) {
+        $uid = _mc_check_trader($value);
+        $account = user_load($uid);
+        $names[] = $account->name;
+      }
+      $element['#value'] = drupal_implode_tags($names);
+    }
+  }
+  else {//using the multi-select widget
+    unset ($element['#options'][0]);
+    $element['#multiple'] = TRUE;
+  }
+  $element['#required'] = !$element['#invert'];
+  return $element;
+}
+
+//validate traders for the validation phase, not changing input variables
+function mc_validate_traders(&$element, &$form_state){
+  //we might be getting an array OR a comma separated list here, depending on the widget chosen
+  if (is_string($element['#value'])) {
+    $traders = explode(',', $element['#value']);
+  }
+  else {
+    $traders = array($element['#value']);
+  }
+  if ($element['#invert']) {//#invert is added by the form builder
+    $traders = array_diff(array_keys(get_trader_list()), $traders);
+  }
+  foreach ($traders as $trader) {
+    _mc_check_trader(trim($trader), $element);
+  }
+}
+
+//return trader uids whether given an array or comma separated list
+function _mc_check_traders($traders, $invert = FALSE) {
+  //we might be getting an array or a comma separated list here
+  if (is_string($traders)) {
+    $traders = drupal_explode_tags($traders);
+  }
+  $new_values = array();
+  foreach ($traders as $value) {
+    $new_values[] = _mc_check_trader($value);
+  }
+  if ($invert) {
+    $new_values = array_diff(array_keys(get_trader_list()), $new_values);
+  }
+
+  return $new_values;
+}

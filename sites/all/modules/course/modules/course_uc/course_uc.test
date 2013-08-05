@@ -1,0 +1,72 @@
+<?php
+
+require_once drupal_get_path('module', 'course') . '/tests/CourseTestCase.test';
+
+/**
+ * Test class for dealing with adding and removing elements from the course
+ * outline.
+ */
+class CourseObjectUbercartTestCase extends CourseTestCase {
+
+  public static function getInfo() {
+    // Note that getInfo() strings are not translated with t().
+    return array(
+      'name' => 'Course Ubercart',
+      'description' => 'Ensure that the Ubercart integration functions properly.',
+      'group' => 'Course',
+    );
+  }
+
+  public function getModules() {
+    $modules = parent::getModules();
+    $modules[] = 'uc_store';
+    $modules[] = 'uc_order';
+    $modules[] = 'uc_product';
+    $modules[] = 'ca';
+    $modules[] = 'course_uc';
+    return $modules;
+  }
+
+  function setUp() {
+    parent::setUp();
+
+    variable_set('signup_node_default_state_course_test', 'enabled_on');
+  }
+
+  function testUbercartEnrollment() {
+    global $user;
+
+    module_load_include('inc', 'uc_product', 'uc_product.admin');
+
+    // Mark our course_test content type as a product.
+    $form = array();
+    $form_state = array();
+    $form_state['values']['name'] = 'course_test';
+    $form_state['values']['description'] = 'course_test';
+    $form_state['values']['pcid'] = 'course_test';
+    $form['pcid']['#type'] = '';
+    uc_product_class_form_submit($form, $form_state);
+
+    // Create a product node.
+    $courseNode = $this->createCourseNode();
+    $courseNode->sell_price = 5;
+    node_save($courseNode);
+
+    $result = course_enrol_access($courseNode);
+    $this->assertFalse($result['success'], 'User prevented from enrolling into paid course.');
+    $result = course_enrol_access($courseNode);
+    $this->assertFalse($result['success'], 'User prevented from taking paid course.');
+
+    $order = uc_order_new($user->uid);
+    uc_order_product_save($order->order_id, $courseNode);
+    uc_order_update_status($order->order_id, 'pending');
+    uc_order_update_status($order->order_id, 'completed');
+
+    // Check newly granted access to course.
+    $result = course_enrol_access($courseNode, $user, TRUE);
+    $this->assertTrue($result['success'], 'User granted access to enroll into course.');
+    $result = course_take_course_access($courseNode);
+    $this->assertTrue($result['success'], 'User granted access to take course.');
+  }
+
+}

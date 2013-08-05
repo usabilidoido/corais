@@ -1,0 +1,70 @@
+/*
+  Large Tab icon
+  icon.png = 40X40px
+  [menu name] = .info => features[menu][] = "tasks"
+  #features-menu li a.icon-[menu name] span.icon
+*/
+#features-menu li a.icon-tasks span.icon {
+  background:url(icon.png) no-repeat;
+}
+
+/*
+  Create content, small icon
+  icon-small.png = 20X20px
+  [project name] = .info => project = "features_task"
+  span.spaces-feature.feature-[project name]
+*/
+#block-views-add_task_group-block_1 .block-title {
+  background: url(/sites/all/modules/features/features_task/icon-small.png) 5px no-repeat !important;
+  padding: 5px 10px 0 30px !important;
+}
+#block-views-add_task_group-block_1 .block-title.toggle-active {
+  background: #666 url(/sites/all/modules/features/features_task/icon-small.png) 5px no-repeat !important;
+  padding: 5px 10px 0 30px !important;
+}
+
+span.spaces-feature.feature-features_task {
+  background:url(icon-small.png) no-repeat;
+}
+
+
+
+div#edit-field-parentid-0-value-wrapper{
+  visibility:hidden;
+}
+
+/* hiding the dropdown selectors at end of draggable view tables */
+table#draggableview_oa_custom_task2_1 td.views-field-value0,
+table#draggableview_oa_custom_files_1 td.views-field-value0  {
+  visibility:hidden;
+}
+
+/* priority indicators */
+span.priority-high {
+  width: 100px;
+  background-color: #c03;
+  color: #fff;
+  padding: 5px 10px;
+}
+span.priority-med {
+  width: 100px;
+  background-color: #ff0;
+  padding: 5px 10px;
+}
+span.priority-low {
+  width: 100px;
+  background-color: #3c3;
+  padding: 5px 10px;
+}
+
+/* color tasks and milestones if they are completed or not */
+span.completed {
+  color: #ccc;
+}
+tr:hover span.completed {
+  color: #666;
+}
+span.notcompleted {
+  color: #000;
+}
+

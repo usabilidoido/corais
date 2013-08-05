@@ -1,0 +1,14 @@
+name = Nodejs Notifications
+description = Adds a client to pages for displaying realtime notification from node.js for drupal 6.
+package = Nodejs
+version = VERSION
+core = 6.x
+dependencies[] = nodejs
+
+
+; Information added by drupal.org packaging script on 2012-01-05
+version = "6.x-1.x-dev"
+core = "6.x"
+project = "nodejs"
+datestamp = "1325724447"
+

@@ -1,0 +1,412 @@
+<?php
+/**
+ * @file
+ * The JQuerymenu module parses hierarchical link arrays and renders them as click and expand menu blocks.
+ */
+
+/**
+ * Implementation of hook_init().
+ */
+function jquerymenu_init() {
+  drupal_add_css(drupal_get_path('module', 'jquerymenu') .'/jquerymenu.css');
+  $settings = array(
+    'jquerymenu' => array(
+      'hover' => variable_get('jq_menu_hover', 0),
+      'animate' => variable_get('jq_menu_animate', 0),
+      'edit_link' => variable_get('jq_edit_link', 0),
+      'click_to_expand' => variable_get('jq_click_to_expand', 0),
+    )
+  );  
+  drupal_add_js($settings, 'setting');   
+  drupal_add_js(drupal_get_path('module', 'jquerymenu') .'/jquerymenu.js');
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function jquerymenu_menu() {
+  $items = array();
+  $items['admin/settings/jquerymenu'] = array(
+    'title' => 'Jquerymenu Configuration',
+    'description' => t('Choose which menus will have a Jquery menu version and a corresponding block'),
+    'access arguments' => array('administer menu'),
+    'type' => MENU_NORMAL_ITEM,
+    'page callback' => 'jq_config'
+  );
+  return $items;
+}
+
+
+/**
+ * Implements hook_perm
+ */
+function jquerymenu_perm() {
+  return array('administer jquerymenu');
+}
+
+/**
+ * Admin page for jquery menu module.
+ */
+
+function jq_config() {
+  $result = db_query("SELECT menu_name, title FROM {menu_custom}");
+  $output = '';
+  while ($menu = db_fetch_object($result)) {
+    $menulist[$menu->menu_name] = $menu->title;
+    $output .= $menu->title;
+  }
+  return drupal_get_form('jq_configuration_form');
+}
+function jq_configuration_form() {
+  $result = db_query("SELECT menu_name, title FROM {menu_custom}");
+  $menulist = array();
+  while ($menu = db_fetch_object($result)) {
+    $menulist[$menu->menu_name] = $menu->title;
+  }
+  $result = db_query("SELECT menu_name FROM {jquerymenus}");
+  $enabledmenus = array();  
+  while ($enabled = db_fetch_object($result)) {
+    $enabledmenus[] = $enabled->menu_name;
+  }
+  $defaultvalue = array();
+  foreach ($menulist as $index => $value) {
+    foreach ($enabledmenus as $em) {
+      if ($index == $em) {
+        $defaultvalue[] = $index;
+      }
+      else {
+        $defaultvalue[] = 0;
+      }
+    }
+  }
+  $form['jq_activate'] = array(
+    '#type' => 'checkboxes',
+    '#title' => t('Jquery menu blocks'),
+    '#options' => $menulist,
+    '#default_value' => $defaultvalue,
+    '#multiple' => TRUE,
+    '#description' => t('Choose which menus you wish to create a jquery version for. <p> Please note that this only creates the block. You will still have to activate the block on the blocks page.'),
+  );
+  $form['jq_animate'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Disable animation.'),
+    '#description' => t('If checked your menus will open without any transition effects.'),
+    '#default_value' => variable_get('jq_menu_animate', 0),
+  );
+  $form['jq_parentlink'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Disable links for menu items with children.'),
+    '#description' => t('If checked, menu items which contain children will not have hyperlinks, rather will use plain titles.'),
+    '#default_value' => variable_get('jq_menu_parentlink', 0),
+  );
+  $form['jq_clicktoexpand'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Click to expand'),
+    '#description' => t('If checked, a parent menu item will expand/collapse its children instead of following the link.'),
+    '#default_value' => variable_get('jq_click_to_expand', 0),
+  );    
+  $form['jq_editlink'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Display Edit Link.'),
+    '#description' => t('If checked the edit link will display when hovering over menu items to those having administration privileges. This setting will only affect menus directly created by the jquery menu module. Other modules that implement the edit link will have their own settings.'),
+    '#default_value' => variable_get('jq_edit_link', 1),
+  );
+  $form['jq_menu_hover'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Expand children on hover.'),
+    '#description' => t('If checked the child menu items will be displayed when hovering over the parent menu item.'),
+    '#default_value' => variable_get('jq_menu_hover', 0),
+  );
+  $form['jq_submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save'),
+  );
+  return $form;
+}
+
+function jq_configuration_form_submit($form, &$form_state) {
+  $animate = $form_state['values']['jq_animate'];
+  variable_set('jq_menu_animate', $animate);
+  $parentlink = $form_state['values']['jq_parentlink'];
+  variable_set('jq_menu_parentlink', $parentlink);
+  $editlink = $form_state['values']['jq_editlink'];
+  variable_set('jq_edit_link', $editlink);
+  $hover = $form_state['values']['jq_menu_hover'];
+  variable_set('jq_menu_hover', $hover);
+  $clicktoexpand = $form_state['values']['jq_clicktoexpand'];
+  variable_set('jq_click_to_expand', $clicktoexpand);
+  $choices = $form_state['values']['jq_activate'];
+  $result = db_query("SELECT menu_name FROM {jquerymenus}");
+  $enabledmenus = array();
+  while ($enabled = db_fetch_object($result)) {
+    $enabledmenus[] = $enabled->menu_name;
+  }
+  foreach ($choices as $menuname => $value) {
+    
+    if ($value != '0' && !in_array($value, $enabledmenus)) {
+      db_query("INSERT INTO {jquerymenus} (menu_name) VALUES ('%s')", $value);
+    }
+    if ($value == '0') {
+      $delta = db_result(db_query("SELECT mid FROM {jquerymenus} WHERE menu_name = '%s'", $menuname));
+      $delta = $delta - 1 ;
+      db_query("DELETE FROM {jquerymenus} WHERE menu_name = '%s'", $menuname);
+      db_query("DELETE FROM {blocks} WHERE module = 'jquerymenu' AND delta = '%s'", $delta);
+    }
+  }
+  drupal_set_message(t('Your settings have been saved.'), $type = 'status', $repeat = FALSE);
+  
+}
+
+/**
+ * Implementation of hook_block().
+ */
+
+function jquerymenu_block($op = 'list', $delta = 0, $edit = array()) {
+  $result = db_query("SELECT mid, menu_name FROM {jquerymenus}");
+  $enabledmenus = array();
+  while ($enabled = db_fetch_object($result)) {
+    $enabledmenus[$enabled->mid] = $enabled->menu_name;
+  }
+  switch ($op) {
+    case 'list':
+      foreach ($enabledmenus as $mid => $name) {
+        $title = db_result(db_query("SELECT title FROM {menu_custom} WHERE menu_name = '%s'", $name));
+        if (empty($title)) {
+          db_query("DELETE FROM {jquerymenus} WHERE menu_name = '%s'", $name);
+          db_query("DELETE FROM {blocks} WHERE module = 'jquerymenu' AND delta = %d", $mid);
+        }
+    
+        $blocks[$mid]['info']  = $title .' - Jquerymenu';
+        $blocks[$mid]['cache'] = BLOCK_NO_CACHE;
+      }
+    return $blocks;
+    
+    case 'view':
+      global $user;
+      $old_activemenu = menu_get_active_menu_name();
+      
+      foreach ($enabledmenus as $mid => $menuname) {
+        $menutree = menu_tree_all_data($menuname);
+	if (module_exists('i18n_menu')) {
+	  $menutree = i18n_menu_localize_tree($menutree);
+	}	
+        if (!empty($menutree)) {
+          if ($delta == $mid) {
+            if ($menuname == 'navigation' && !empty($user->uid)) {
+              $title = theme('username', $user);
+            }
+            else {
+              $title = db_result(db_query("SELECT title FROM {menu_custom} WHERE menu_name = '%s'", $menuname));
+            }
+            menu_set_active_menu_name($menuname);
+            $trail = jqmenu_trail_creator();
+            $block['subject'] = $title;
+            $block['content'] = theme('menu_creation_by_array', $menutree, $trail);
+            
+          }
+        } 
+      }
+      menu_set_active_menu_name($old_activemenu);
+  }
+  //end switch ($op)
+  return $block;
+}
+
+function theme_menu_creation_by_array($tree, $trail) {
+  $menu_output = recursive_link_creator($tree, $trail);
+  if (!empty($menu_output)) {
+    //We create the shell to hold the menu outside the recursive function.
+    // Add a div that only shows up for that pesky IE so that we can style it into obedience.
+    $output  = '<!--[if IE]><div class="ie"><![endif]-->';
+    $output .= '<ul class="menu jquerymenu">';
+    $output .= $menu_output;
+    $output .= '</ul>';
+    $output .= '<!--[if IE]></div><![endif]-->';
+    return $output;
+  }
+}
+
+function jqmenu_trail_creator() {
+    $activetrail = menu_get_active_trail();
+    $url_array = array();
+    $output = '';
+    foreach ($activetrail as $trail) {
+      //Create an array of only the paths for easy evaluation.
+      if (isset($trail['href'])) {
+        $url_array[] = $trail['href'];
+        
+      }
+    }
+    return $url_array;
+  
+  }
+function recursive_link_creator($items = array(), $trail) {
+  $url_array = $trail;
+  $i = 0;
+  $count = 0;
+  $output = "";
+  $nextlevel = '';
+  
+  if (!isset($edit_access)) {
+    $edit_access = 'administer menu'; //http://drupal.org/node/911726
+  }
+  
+  if (!empty($items)) {
+    foreach ($items as $item) {
+      $classes = array();
+      $state = 'closed';
+      // If there are submenu items we assign the parent a class.
+      if (!empty($item['link']['has_children'])) {
+        $nextlevel = '';
+        $nextlevel = recursive_link_creator($item['below'],$url_array);
+        if (!empty($nextlevel)) {
+          $classes[] = 'parent';
+        }
+      }
+      
+      // If the menu item is expanded or in the active trail and if has children add the "open" class.
+      if (!empty($item['link']['expanded']) || ((in_array($item['link']['href'], $url_array) || ($_GET['q'] == $item['link']['href'])) && !empty($item['link']['has_children']) && !empty($nextlevel))) {
+        $classes[] = 'open';
+        $state = 'open';
+      }
+      elseif (!empty($item['below']) && !empty($nextlevel)) {
+        $classes[] = 'closed';
+      }
+  
+      if (in_array($item['link']['href'], $url_array)) {
+        $classes[] = 'active-trail';
+      }
+      
+      if ($_GET['q'] == $item['link']['href']) {
+        $classes[] = 'active';
+      }
+      $options = array();
+      if (isset($item['link']['options'])) {
+        $options = $item['link']['options'];
+      }
+      if (variable_get('jq_edit_link', 1) == 1) {
+        if (empty($item['link']['editpath'] )) {
+          if (!empty($item['link']['mlid'])) {
+            $editpath = 'admin/build/menu/item/'.$item['link']['mlid'].'/edit';
+          }
+        }
+        else {
+          $editpath = $item['link']['editpath'];
+        }
+      }
+      if (empty($item['link']['editaccess'])) {
+        $editaccess = 'administer menu';
+      }
+      else {
+        $editaccess = $item['link']['editaccess'];
+      }
+      if (empty($item['link']['edit_text'])) {
+        $edit_text = t('Edit this link');
+      }
+      else {
+        $edit_text = $item['link']['edit_text'];
+      }
+      if (!empty($item['link']['to_arg_functions'])) {
+        $toarg_array = array();
+        $patharray = explode('/', $item['link']['href']);
+        foreach ($patharray as $chunk) {
+          if ($chunk != '%') {
+            $toarg_array[] = $chunk;
+          }
+          else {
+            $function = $item['link']['to_arg_functions'];
+            $function = explode('"', $function);
+            $function = $function[1];
+            $toarg_array[] = $function('%');
+          }
+        }
+        
+      $path = implode('/', $toarg_array);  
+      }
+      else {
+        $path = $item['link']['href'];
+      }
+      if ($item['link']['hidden'] == 1 && !empty($item['link']['has_children'])) {
+        $output .= recursive_link_creator($item['below'], $url_array);
+      }
+      if ($item['link']['hidden'] != 1 && $item['link']['hidden'] != -1) {
+        $output .= '<li'. (empty($classes) ? '>' : ' class="'. implode(' ', $classes) .'">');
+        $output .= theme('jqmenu_links', $item['link']['title'], $path, $options, $state, $classes, $item['link']['has_children'], $editpath, $edit_text, $edit_access);
+          if (!empty($item['link']['has_children'])) {
+            if (!empty($nextlevel)) {
+              $output .= '<ul>';
+              // If the link has children call the function on itself.
+              $output .= $nextlevel;
+              $output .= '</ul>';
+            }
+          }
+        $output .= '</li>';
+      }
+    }
+  }
+  return $output;
+}
+function jquerymenu_theme() {
+  return array(
+    'jqmenu_links' => array(
+      'arguments' => array(
+        'title' => NULL,
+        'path' => NULL,
+        'options' => NULL,
+        'state' => NULL,
+        'classes' => NULL,
+        'has_children' => NULL,
+        'editpath' => NULL,)
+    ),
+    'menu_creation_by_array' => array(
+      'arguments' => array(
+        'tree' => NULL,
+        'trail' => NULL,
+      ),
+    ),
+  );
+}
+
+function theme_jqmenu_links($title, $path, $options, $state, $classes, $has_children, $editpath = NULL, $edit_text = NULL, $edit_access) {
+  global $base_path;
+  $module_path = $base_path . drupal_get_path('module', 'jquerymenu');
+  $parentlink = variable_get('jq_menu_parentlink', 0);
+  $output = '';
+  // This is the span that becomes the little plus and minus symbol.
+  $plus = '<span'. (empty($classes) ? '>' : ' class="'. implode(' ', $classes) .'">') .'</span>';
+  $link = l($title, $path, $options);
+  if ($editpath != NULL && user_access($edit_access)) {
+    $editbox = jqm_edit_box($editpath, $edit_text);
+    if ($has_children != 0) {
+      //$output .= $editbox  . $plus . l($title, $path, $options);
+      $output .= $parentlink ? $editbox . $plus . $title : $editbox . $plus . $link;      
+    }
+    else {
+      //$output .= $editbox  . l($title, $path, $options);
+    $output .= $editbox . $link;
+    }
+  }
+  else {
+    if ($has_children != 0) {
+      //$output .= $plus . l($title, $path, $options);
+      $output .= $parentlink ? $plus . $title : $plus . $link;
+    }
+    else {
+      //$output .= l($title, $path, $options);
+      $output .= $link;
+    }
+  }
+  return $output;
+}
+function jqm_edit_box($editpath, $edit_title = NULL) {
+  $options['html'] = TRUE;
+  if (!empty($edit_title)) {
+    $options['attributes']['title'] = $edit_title;
+  }
+  else {
+    $options['attributes']['title'] = t('Edit');
+  }
+  $path = base_path().drupal_get_path('module', 'jquerymenu');
+  $editimage = '<img src="' . $path . '/images/edit.png" alt="edit menu" />';
+  return '<span class="jqm_link_edit">'.l($editimage, $editpath, $options).'</span>';
+}

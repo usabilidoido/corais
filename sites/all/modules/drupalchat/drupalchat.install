@@ -1,0 +1,148 @@
+<?php
+
+/**
+ * @file
+ * Installation file for the DrupalChat module.
+ */
+
+/**
+ * Implementation of hook_install().
+ */
+function drupalchat_install() {
+  $success = drupal_install_schema('drupalchat');
+
+  if ($success) {
+    drupal_set_message(st('The DrupalChat module installed tables successfully.'));
+  }
+  else {
+    drupal_set_message(st('The installation of the DrupalChat module failed.'), 'error');
+  }
+}
+
+function drupalchat_uninstall() {
+  drupal_uninstall_schema('drupalchat');
+  variable_del('drupalchat_polling_method');
+  variable_del('drupalchat_refresh_rate');
+  variable_del('drupalchat_send_rate');
+  variable_del('drupalchat_ur_name');
+  variable_del('drupalchat_ur_activate');
+  variable_del('drupalchat_theme');
+  variable_del('drupalchat_yui_path');
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function drupalchat_schema() {
+  $schema = array();
+
+  $schema['drupalchat_msg'] = array(
+    'fields' => array(
+	  'message_id' => array(
+        'type' => 'varchar',
+        'length' => 50,
+        'not null' => TRUE,
+        'description' => 'ID of chat message.',
+      ),
+      'uid1' => array(
+        'description' => 'Uid of the sender.',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+      ),
+      'uid2' => array(
+        'description' => 'Uid of the receiver.',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+      ),
+      'message' => array(
+        'type' => 'text',
+        'size' => 'big', 
+        'not null' => TRUE,
+        'description' => 'Chat message.',
+      ),
+      'timestamp' => array(
+        'description' => 'The Unix timestamp when the XMPP account was created.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+      ),
+    ),
+    'indexes' => array(
+      'uid1' => array('uid1'),
+      'uid2' => array('uid2'),
+    ),
+  );
+  $schema['drupalchat_users'] = array(
+    'fields' => array(
+      'uid' => array(
+        'description' => 'The user uid.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+      ),
+      'session' => array(
+        'description' => 'Current session id.',
+        'type' => 'varchar',
+        'length' => 60,
+        'not null' => TRUE,
+      ),
+      'name' => array(
+        'description' => 'Name of the user.',
+        'type' => 'varchar',
+        'length' => 60,
+        'not null' => TRUE,
+      ),
+      'status' => array(
+        'description' => 'Unix timestamp of last activity.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,      
+        'default' => 0,
+        'size' => 'tiny',
+      ),      
+      'timestamp' => array(
+        'description' => 'Unix timestamp of last activity.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+      ),
+    ),
+    /*'primary key' => array('uid', 'session'),*/
+	'indexes' => array(
+      'uid' => array('uid'),
+      'session' => array('session'),
+    ),
+  );
+
+  return $schema;
+}
+function drupalchat_update_6001() {
+  menu_rebuild();
+  drupal_rebuild_theme_registry();
+  return array();
+}
+function drupalchat_update_6002() {
+	drupalchat_uninstall();
+	drupalchat_install();  
+	menu_rebuild();
+	drupal_rebuild_theme_registry();
+  return array();
+}
+
+function drupalchat_update_6003() {
+	drupalchat_uninstall();
+	drupalchat_install();  
+	menu_rebuild();
+	drupal_rebuild_theme_registry();
+  return array();
+}
+
+function drupalchat_update_6004() {
+	drupalchat_uninstall();
+	drupalchat_install();  
+	menu_rebuild();
+	drupal_rebuild_theme_registry();
+  return array();
+}

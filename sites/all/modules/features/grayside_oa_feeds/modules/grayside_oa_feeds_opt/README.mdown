@@ -1,0 +1,7 @@
+OA Feeds [Optional]
+-------------------
+
+This module is a small enhancement of the OA Feeds module. It adds a checkbox to every group node. If this checkbox is 
+deliberated checked "on", that group's content will be included in the Recent activity RSS feed. If it is left unchecked, the 
+group content will be ignored by the RSS feed. This is intended to allow sites with sensitive information to have the necessary 
+controls to not allow any content to be exposed to public RSS readers.

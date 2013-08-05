@@ -1,0 +1,12 @@
+name = Data Admin UI
+description = Admin UI for Data Module
+package = Data
+dependencies[] = data
+dependencies[] = schema
+core = 6.x
+; Information added by drupal.org packaging script on 2012-03-06
+version = "6.x-1.1"
+core = "6.x"
+project = "data"
+datestamp = "1331073948"
+

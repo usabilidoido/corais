@@ -1,0 +1,20 @@
+
+div.finder-wizard-header {
+  margin: 0 0 5px;
+  padding: 5px;
+  background: #f1ddff none repeat scroll 0 0;
+  border: 1px solid #6920f0;
+  color: #1f00aa;
+}
+
+div.finder-wizard-buttons {
+  clear: both;
+}
+
+div.finder-wizard-buttons input.form-submit {
+  float: left;
+}
+
+div.finder-wizard-buttons div.ahah-progress {
+  float: right;
+}

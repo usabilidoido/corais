@@ -1,0 +1,470 @@
+<?php
+
+/**
+ * Unit tests for variable controller
+ */
+class SpacesVariableControllerTestCase extends DrupalWebTestCase {
+
+  /**
+   * Test info.
+   */
+  public function getInfo() {
+    return array(
+      'name' => t('Controller: variable'),
+      'description' => t('Unit test for variable controller.') ,
+      'group' => t('Spaces'),
+    );
+  }
+
+  /**
+   * Set up test.
+   */
+  public function setUp() {
+    parent::setUp(
+      'ctools',
+      'features',
+      'spaces',
+      'spaces_user'
+    );
+  }
+
+  /**
+   * Test override inheritance of variable controller.
+   */
+  public function test() {
+    ctools_include('export');
+    $preset = ctools_export_new_object('spaces_presets');
+    $preset->name = 'testpreset';
+    $preset->title = 'Test preset';
+    $preset->space_type = 'user';
+    $preset->value = array(
+      'variable' => array('foo' => 'bar')
+    );
+    spaces_preset_save($preset);
+
+    variable_set('foo', 'foo');
+
+    // Force a cache clear.
+    spaces_types(true);
+    $info = &ctools_static('ctools_plugin_info', array());
+    $info = array();
+
+    $space = spaces_load('user', 0);
+    if ($space == FALSE) {
+      $this->fail('Could not load user space');
+      // return and prevent the test from going haywire.
+      return;
+    }
+    else {
+      $this->pass('Loaded user space');
+    }
+    // Activate space.
+    $space->activate();
+
+    // Original
+    $this->assertTrue($space->controllers->variable->get('foo') === 'foo', t('Inheritance (Original)'));
+
+    // Preset
+    $space->controllers->variable->set('spaces_preset_user', 'testpreset');
+    $space->init_overrides();
+    $this->assertTrue($space->controllers->variable->get('foo') === 'bar', t('Inheritance (Original > Preset)'));
+
+    // Original > Preset > Space
+    $space->controllers->variable->set('foo', 'baz');
+    $this->assertTrue($space->controllers->variable->get('foo') === 'baz', t('Inheritance (Original > Preset > Space)'));
+
+    // Original > Space
+    $space->controllers->variable->del('spaces_preset_user');
+    $space->init_overrides();
+    $this->assertTrue($space->controllers->variable->get('foo') === 'baz', t('Inheritance (Original > Space)'));
+
+    // Put the preset back
+    $space->controllers->variable->set('spaces_preset_user', 'testpreset');
+    $space->init_overrides();
+
+    // Specific environment gets
+    $this->assertTrue($space->controllers->variable->get('foo', 'original') === 'foo', t('Environment (Original)'));
+    $this->assertTrue($space->controllers->variable->get('foo', 'preset') === 'bar', t('Environment (Preset)'));
+    $this->assertTrue($space->controllers->variable->get('foo', 'space') === 'baz', t('Environment (Space)'));
+
+    // Clean up.
+    variable_del('foo');
+    spaces_delete('user', 0);
+    spaces_preset_delete('testpreset');
+  }
+}
+
+/**
+ * Unit tests for context controller
+ */
+class SpacesContextControllerTestCase extends DrupalWebTestCase {
+
+  /**
+   * Test info.
+   */
+  public function getInfo() {
+    return array(
+      'name' => t('Controller: context'),
+      'description' => t('Unit test for context controller.') ,
+      'group' => t('Spaces'),
+    );
+  }
+
+  /**
+   * Set up test.
+   */
+  public function setUp() {
+    parent::setUp(
+      'context',
+      'ctools',
+      'features',
+      'spaces',
+      'spaces_user'
+    );
+  }
+
+  /**
+   * Test override inheritance of variable controller.
+   */
+  public function test() {
+    ctools_include('export');
+
+    // Create a test context.
+    $context = ctools_export_new_object('context');
+    $context->name = 'testcontext';
+    $context->conditions = array('path' => array('values' => array('<front>')));
+    $context->reactions = array();
+    $saved = context_save($context);
+    $this->assertTrue($saved, "Context 'testcontext' saved.");
+
+    // Create a test preset.
+    $preset = ctools_export_new_object('spaces_presets');
+    $preset->name = 'testpreset';
+    $preset->title = 'Test preset';
+    $preset->space_type = 'user';
+    $preset->value = array(
+      'context' => array('testcontext:condition:path' => array('values' => array('node'))),
+    );
+    spaces_preset_save($preset);
+
+    // Force a cache clear.
+    spaces_types(true);
+    $info = &ctools_static('ctools_plugin_info', array());
+    $info = array();
+
+    $space = spaces_load('user', 0);
+    if ($space == FALSE) {
+      $this->fail('Could not load user space');
+      // return and prevent the test from going haywire.
+      return;
+    }
+    else {
+      $this->pass('Loaded user space');
+    }
+    // Activate space.
+    $space->activate();
+
+    // Original
+    $this->assertTrue($space->controllers->context->get('testcontext:condition:path') === array('values' => array('<front>')), t('Inheritance (Original)'));
+
+    // Original > Preset
+    $space->controllers->variable->set('spaces_preset_user', 'testpreset');
+    $space->init_overrides();
+    $this->assertTrue($space->controllers->context->get('testcontext:condition:path') === array('values' => array('node')), t('Inheritance (Original > Preset)'));
+
+    // Original > Preset > Space
+    $space->controllers->context->set('testcontext:condition:path', array('values' => array('user')));
+    $this->assertTrue($space->controllers->context->get('testcontext:condition:path') === array('values' => array('user')), t('Inheritance (Original > Preset > Space)'));
+
+    // Original > Space
+    $space->controllers->variable->del('spaces_preset_user');
+    $space->init_overrides();
+    $this->assertTrue($space->controllers->context->get('testcontext:condition:path') === array('values' => array('user')), t('Inheritance (Original > Space)'));
+
+    // Put the preset back
+    $space->controllers->variable->set('spaces_preset_user', 'testpreset');
+    $space->init_overrides();
+
+    // Specific environment gets
+    $this->assertTrue($space->controllers->context->get('testcontext:condition:path', 'original') === array('values' => array('<front>')), t('Environment (Original)'));
+    $this->assertTrue($space->controllers->context->get('testcontext:condition:path', 'preset') === array('values' => array('node')), t('Environment (Preset)'));
+    $this->assertTrue($space->controllers->context->get('testcontext:condition:path', 'space') === array('values' => array('user')), t('Environment (Space)'));
+
+    // Clean up.
+    context_delete('testcontext');
+    spaces_delete('user', 0);
+    spaces_preset_delete(spaces_preset_load('testpreset'));
+  }
+}
+
+/**
+ * Tests for basic spaces functionality.
+ */
+class SpacesTestCase extends DrupalWebTestCase {
+
+  /**
+   * Test info.
+   */
+  public function getInfo() {
+    return array(
+      'name' => t('Spaces'),
+      'description' => t('Test access control and simple feature settings using as example the "Feature test" feature that ships with Features.') ,
+      'group' => t('Spaces'),
+    );
+  }
+
+  /**
+   * Set up test.
+   */
+  public function setUp() {
+    parent::setUp(
+      'ctools',
+      'features',
+      'features_test',
+      'spaces',
+      'spaces_test'
+    );
+  }
+
+  /**
+   * Test access control and simple feature settings using as example the
+   * Simple Blog feature that ships with Spaces.
+   */
+  public function test() {
+
+    // Create admin and editor user.
+    $admin = $this->drupalCreateUser(
+      array(
+        'access content',
+        'administer nodes',
+        'administer content types',
+        'administer site configuration',
+        'administer spaces',
+      )
+    );
+    $editor = $this->drupalCreateUser(
+      array(
+        'access content',
+        'create features_test content',
+        'edit own features_test content',
+        'delete own features_test content',
+      )
+    );
+    $this->drupalLogin($editor);
+
+    // Verify that create story link is not available.
+    $this->drupalGet('node/add');
+    $this->assertNoRaw('node/add/features-test', 'Create content link not available');
+
+    // Log in as admin user and enable test feature on global space.
+    $this->drupalLogin($admin);
+    $edit = array(
+      'spaces_features[features_test]' => '1',
+    );
+    $this->drupalPost('features', $edit, 'Save configuration');
+    $this->assertText('The configuration options have been saved.');
+
+    // Log in as editor user and create story post.
+    $this->drupalLogin($editor);
+    $this->drupalGet('node/add');
+
+    $this->assertRaw('node/add/features-test', 'Create content link is available');
+    $edit = array(
+      'title' => $this->randomName(10),
+      'body' => $this->randomName(20),
+    );
+    $this->drupalPost('node/add/features-test', $edit, 'Save');
+    $this->assertText('has been created');
+
+    // Start adding new comment and assert that there is no Save link for the
+    // comment.
+    $this->clickLink('Add new comment');
+    $this->assertNoText('Save');
+
+    // Shut off blog feature again.
+    $this->drupalLogin($admin);
+    $edit = array(
+      'spaces_features[features_test]' => '0',
+    );
+    $this->drupalPost('features', $edit, 'Save configuration');
+    $this->assertText('The configuration options have been saved.');
+
+    // Now the node/add/features-test path should be denied to editor user, and
+    // the previously created node should no longer be editable.
+    $this->drupalLogin($editor);
+    $this->drupalGet('node/add/features-test');
+    $this->assertResponse(403);
+
+    $this->drupalGet('node/1/edit');
+    $this->assertResponse(403);
+
+    // Enable feature again and change the comment preview setting to optional,
+    // assert.
+    $this->drupalLogin($admin);
+    $this->drupalPost('features/features_test', array('features_test_setting' => '1'), 'Save configuration');
+    $this->assertText('The configuration options have been saved.');
+  }
+}
+
+/**
+ * Test for menu re-ordering
+ */
+class SpacesMenuTestCase extends DrupalWebTestCase {
+  /**
+   * Test info.
+   */
+  public function getInfo() {
+    return array(
+      'name' => t('Spaces Menu'),
+      'description' => t('Test menu re-ordering.') ,
+      'group' => t('Spaces'),
+    );
+  }
+
+  /**
+   * Set up test.
+   */
+  public function setUp() {
+    parent::setUp(
+      'ctools',
+      'features',
+      'features_test',
+      'spaces',
+      'jquery_ui'
+    );
+
+    // Create and login user
+    $admin_user = $this->drupalCreateUser(array('administer site configuration', 'administer blocks', 'administer menu'));
+    $this->drupalLogin($admin_user);
+
+  }
+
+  function getMenuOrder() {
+    $base_path = base_path();
+    $elems = $this->xpath('//ul[@class="links primary-links"] /li /a');
+    $links = array();
+    foreach ($elems as $e) {
+      foreach ($e->attributes() as $k => $v) {
+        if ($k == 'href') {
+          $links[] = $base_path . substr($v.'', 1);
+        }
+      }
+    }
+    return $links;
+  }
+
+  function testMenuOrdering() {
+    // Select the Navigation block to be configured and moved.
+    $block = array();
+    $block['module'] = 'spaces';
+    $block['delta'] = 'menu_editor';
+
+    // Set the created block to a specific region.
+    $edit = array();
+    $edit[$block['module'] .'_'. $block['delta'] .'[region]'] = 'left';
+    $this->drupalPost('admin/build/block', $edit, t('Save blocks'));
+
+    // Confirm that the block was moved to the proper region.
+    $this->assertText(t('The block settings have been updated.'), t('Block successfully moved to left region.'));
+    $this->assertText(t('Reorder menu'), t('Block successfully being displayed on the page.'));
+
+    // Set the navigation menu as primary
+    $edit = array();
+    $edit['menu_primary_links_source'] = 'navigation';
+    $this->drupalPost('admin/build/menu/settings', $edit, t('Save configuration'));
+
+    // Get link order
+    $links = $this->getMenuOrder();
+
+    // Reverse link order
+    $edit = array('space_menu_items' => json_encode(array_reverse($links)));
+    $this->drupalPost('node', $edit, t('Save'));
+    $this->assertText(t('The configuration options have been saved.'), t('Menu order successfully saved.'));
+
+    $changed = $this->getMenuOrder();
+    $this->assert($changed == array_reverse($links), t('Menu changes successfully displayed'));
+  }
+}
+
+/**
+ * Test for the Views acces plugin
+ */
+class ViewsAccessTestCase extends DrupalWebTestCase {
+  /**
+   * Test info.
+   */
+  public function getInfo() {
+    return array(
+      'name' => t('Spaces Views Access'),
+      'description' => t('Test the Spaces access plugin for views.') ,
+      'group' => t('Spaces'),
+    );
+  }
+
+  /**
+   * Set up test.
+   */
+  public function setUp() {
+    parent::setUp(
+      'ctools',
+      'features',
+      'features_test',
+      'spaces',
+      'spaces_test',
+      'views',
+      'views_ui'
+    );
+
+    // Create basic user 
+    $this->basic_user = $this->drupalCreateUser(array(
+      'access content'));
+
+    // Create and login admin user
+    $this->admin_user = $this->drupalCreateUser(array(
+      'administer site configuration',
+      'administer blocks',
+      'administer menu',
+      'administer views',
+      'use PHP for block visibility'));
+    $this->drupalLogin($this->admin_user);
+
+    $this->drupalGet('admin/build/views/export/comments_recent');
+    $elems = $this->xpath('//textarea[@id="edit-code"]');
+
+    // Within the exported view locate the page display and change the access
+    // plugin.
+    $view_code = explode("\n", (string)$elems[0]);
+    foreach ($view_code as $n => $line) {
+      if (strpos($line, '$handler = $view->new_display(\'page\'') === 0) {
+        $mark = $n + 1;
+        break;
+      }
+    }
+
+    $insert = '$handler->override_option("access", array(
+                "type" => "spaces_feature", 
+                "spaces_feature" => "spaces_test", 
+                "perm" => "administer site configuration",
+              ));';
+
+    array_splice($view_code, $mark, 0, $insert);
+
+    $edit = array(
+      'name' => 'comments_recent_spaces',
+      'view' => implode("\n", $view_code),
+    );
+    $this->drupalPost('admin/build/views/import', $edit, t('Import'));
+    $this->drupalPost(null, array(), t('Save'));
+    
+  }
+
+  public function testAccessPlugin() {
+    $this->drupalLogin($this->basic_user);
+    $this->drupalGet('comments/recent');
+    $this->assertResponse('403', t('Unauthorized user blocked'));
+
+    $this->drupalLogin($this->admin_user);
+    $this->drupalGet('comments/recent');
+    $this->assertResponse('200', t('Authorized user allowed'));
+  }
+}

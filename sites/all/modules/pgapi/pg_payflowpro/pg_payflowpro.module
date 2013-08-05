@@ -1,0 +1,521 @@
+<?php
+
+/********************************************************************
+ * Constants
+ ********************************************************************/
+define("cpayflowproPayActionUrl" ,"https://payflowpro.ru/acceptpurchase.aspx");
+
+/********************************************************************
+ * Drupal Hooks
+ ********************************************************************/
+ 
+/**
+ * Implementation of hook_menu()
+ */
+
+function pg_payflowpro_menu() {
+
+  $items['payflowpro/done'] = array(
+    'title'           => 'Internal Data',
+    'page callback'   => 'pg_payflowpro_done_payment',
+    'access callback' => TRUE,
+    'file'            => 'pg_payflowpro.pages.inc',
+    'type'            => MENU_CALLBACK
+  );
+
+  $items['admin/pgdata/pgsettings/payflowpro'] = array(
+    'title'           => 'PayFlowPro',
+    'description'     => 'PayFlowPro settings.',
+    'page callback'   => 'drupal_get_form',
+    'page arguments'  => array('pg_payflowpro_settings'),
+    'access callback' => 'user_access',
+    'access arguments' => array('administer pgapi'),
+    'file'            => 'pg_payflowpro.admin.inc',
+    'type'            => MENU_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_mail().
+ */
+function pg_payflowpro_mail($key, &$message, $params) {
+  if ($key == 'notify_admin') {
+    $message['subject'] = t('Notification about new payment on !site', array('!site' => variable_get('site_name', '')));
+    $message['body'][]  = $params['body'];
+  }
+}
+
+/********************************************************************
+ * Pgapi Gateway Hooks
+ ********************************************************************/
+
+/**
+ * Implements hook_pgapi_gw().
+ */
+function pg_payflowpro_pgapi_gw($op,$a3=NULL,$a4=NULL){
+  switch($op){
+    case 'display name':
+        $ret = t('PayFlowPro Gateway');
+      break;
+    case 'payment gateway info':
+        $ret['name']=t('PayFlowPro');
+        
+        $rate = variable_get('pg_payflowpro_rate','1.00');
+        $currency = variable_get('pg_payflowpro_currency','USD');
+        
+        $prices[$currency] = $a3*$rate;
+        
+        $ret['price']= $prices;
+      break;        
+    case 'process form':
+        $form_result = $a4;
+        $t = $a3;
+        $ret = pg_payflowpro_process_form($form_result,$t);
+      break;
+    case 'validate form':
+        $form_result = $a4;
+        $t = $a3;
+        $ret = pg_payflowpro_extraform_validate($form_result, $t);
+      break;
+    case 'get form':
+        $t = $a3;
+        $form_result = $a4;
+        $ret = pg_payflowpro_extraform($form_result,$t);
+      break;        
+
+  }
+  return $ret;
+}
+
+/**
+ * Implements hook_pgapi_transaction().
+ */
+function pg_payflowpro_pgapi_transaction($status,&$t){
+  switch($status){
+    case PG_PENDING:
+        $rate = variable_get('pg_payflowpro_rate','1.00');
+        $currency = variable_get('pg_payflowpro_currency','USD');
+        $prices[$currency] = round(($t->amount*$rate), 2);
+        $t->extra['prices'] =  $prices;
+      break;
+  }
+}
+
+/********************************************************************
+ * Other Functions
+ ********************************************************************/
+function pg_payflowpro_extraform($form_state,$t) {
+
+  $form['message'] = array(
+    '#value' => '<pre>'.t('You will pay !amount !currency via Credit Card.
+', array ('!amount' => $t->amount * variable_get('pg_payflowpro_rate','1.00'),'!currency' => variable_get('pg_payflowpro_currency','USD') )).'</pre>',
+  );
+
+  $form['cc'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Credit Card Information'),
+  );
+
+  $form['cc']['number'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Credit Card number'),
+    '#description' => t('16-digit number'),
+    '#required' => TRUE,
+  );
+
+  $form['cc']['expr'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Expiration date'),
+  );
+
+  $form['cc']['expr']['month'] = array(
+    '#type' => 'select',
+    '#title' => t('Month'),
+    '#options' => drupal_map_assoc(array('01','02','03','04','05','06','07','08','09','10','11','12')),
+  );
+
+  $form['cc']['expr']['year'] = array(
+    '#type' => 'select',
+    '#title' => t('Year'),
+    '#options' => array(
+      '2012' => '2012',
+      '13' => '2013',
+      '14' => '2014',
+      '15' => '2015',
+      '16' => '2016',
+    ),
+  );
+
+  $form['cc']['cvv2'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Card Security Code'),
+    '#description' => t('Last 3 or 4 digits on the back of credit card.'),    
+    '#required' => TRUE,
+  );
+
+  $form['cc']['firstname'] = array(
+    '#type' => 'textfield',
+    '#title' => t('First name'),
+    '#required' => TRUE,
+  );
+
+  $form['cc']['lastname'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Last name'),
+    '#required' => TRUE,
+  );
+
+  $form['cc']['state'] = array(
+    '#type' => 'textfield',
+    '#title' => t('State or Province'),
+    '#description' => t('Enter US for United States or CA for Canada. In other case enter your state name without abbreviations.'),
+  );
+
+  $form['cc']['country'] = array(
+    '#type' => 'select',
+    '#title' => t('Country'),
+    '#options' => pg_payflow_county_list(),
+  );
+
+  $form['cc']['street'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Street'),
+    '#required' => TRUE,
+  );
+
+  $form['cc']['city'] = array(
+    '#type' => 'textfield',
+    '#title' => t('City'),
+    '#required' => TRUE,
+  );
+
+  $form['cc']['zip'] = array(
+    '#type' => 'textfield',
+    '#title' => t('ZIP or Postal code'),
+    '#required' => TRUE,
+  );
+
+  $form['cc']['email'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Email'),
+    '#required' => TRUE,
+  );
+
+  $form['cc']['comment'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Additional information'),
+    '#rows' => 3,
+    '#resizable' => FALSE,
+    '#cols' => 57,
+    '#description' => t('Information length should not be more than 256 symbols. Otherwise it will be trimmed.'),
+  );
+
+  return $form;    
+}
+
+function pg_payflowpro_extraform_validate($form_state, $t) {
+  $credit_card = $form_state['cc'];
+
+  if (!is_numeric($credit_card['cvv2']) || !in_array(drupal_strlen($credit_card['cvv2']), array(3, 4))) {
+    form_set_error('cc][cvv2', t('Please enter valid Card Security Code.'));
+  }
+
+  if(!_pg_payflowpro_valid_card_number($credit_card['number'])){
+    form_set_error('cc][number', t('Please enter valid credit card.'));
+  }
+
+  if(!_pg_payflowpro_valid_card_expiration($credit_card['expr']['month'], $credit_card['expr']['year'])){
+    form_set_error('cc][expr', t('Please enter valid expiration date.'));
+  }
+
+  if (!valid_email_address($credit_card['email'])) {
+    form_set_error('cc][email', t('Please enter valid Email.'));
+  }
+}
+
+function _pg_payflowpro_valid_card_number($number) {
+  if (!ctype_digit($number)) {
+    return FALSE;
+  }
+
+  $total = 0;
+  for ($i = 0; $i < strlen($number); $i++) {
+    $digit = substr($number, $i, 1);
+    if ((strlen($number) - $i - 1) % 2) {
+      $digit *= 2;
+      if ($digit > 9) {
+        $digit -= 9;
+      }
+    }
+    $total += $digit;
+  }
+
+  if ($total % 10 != 0) {
+    return FALSE;
+  }
+
+  return TRUE;
+}
+
+function _pg_payflowpro_valid_card_expiration($month, $year) {
+  $year='20' . $year;
+  if ($year < date('Y')) {
+    return FALSE;
+  }
+  elseif ($year == date('Y')) {
+    if ($month < date('n')) {
+      return FALSE;
+    }
+  }
+
+  return TRUE;
+}
+
+function pg_payflowpro_process_form($form_result, $t) {
+  $output = drupal_get_form('pg_payflowpro_payform',$form_result, $t);
+  $output = str_ireplace('accept-charset="UTF-8"','accept-charset="cp1251"', $output);
+  $t->method='pg_payflowpro';
+  pgapi_transaction_save($t);
+  echo '<html><body>'.$output.'<script>pgpayform.submit();</script></body>';
+  exit();
+}
+
+ 
+function pg_payflowpro_payform($form_state, $payment_form, $t) {
+  global $user;
+
+  // Get correct purchase amount.
+  $rate = variable_get('pg_payflowpro_rate', '1.00');
+  $amount = round(($t->amount * $rate), 2);
+
+  // Add comment to request data.
+  $comment = $payment_form['cc']['comment'];
+  if (drupal_strlen($comment) > 128) {
+    $payment_form['cc']['comment1'] = drupal_substr($comment, 0, 128);
+    $payment_form['cc']['comment2'] = drupal_substr($comment, 128, 256);
+  }
+  else {
+    $payment_form['cc']['comment1'] = $comment;
+    $payment_form['cc']['comment2'] = '';
+  }
+
+  $t->amount = $amount;
+  $request_data = pg_payflowpro_request_values($payment_form['cc'], $t);
+
+  // Send request to payflowpro.
+  $response = pg_payflowpro_request($request_data);
+  if ($response['RESULT'] == 0) {
+    $t->status = PG_COMPLETED;
+  }
+  else {
+    $t->status = PG_FAILED;
+  }
+  $t->extra['hostname'] = $user->hostname;
+  pgapi_transaction_save($t);
+
+  // Notify admin.
+  if (variable_get('pg_payflowpro_notification', 0)) {
+    pg_payflowpro_send_notification($payment_form['cc'], $response, $t->extra);
+  }
+  
+  watchdog('test', print_r($response, 1), array(), WATCHDOG_INFO);
+
+  $form['#attributes'] = array('name' => 'pgpayform');
+  $form['#action'] = '/' . pgapi_GetBackUrl($t);
+  return $form;
+}
+
+/**
+ * Submits a request to PaypalDirect.
+ */
+function pg_payflowpro_request($request_data) {
+
+  // Get the API endpoint URL for the method's transaction mode.
+  $url = pg_payflowpro_gateway_url();
+
+  // Prepare the name-value pair array to be sent as a string.
+  $pairs = array();
+  foreach ($request_data as $key => $value) {
+    $pairs[] = $key . '=' . urlencode($value);
+  }
+  $data = implode('&', $pairs);
+  watchdog('test', 'URL: ' . $url, array(), WATCHDOG_INFO);
+  watchdog('test', 'REQUEST DATA: ' . print_r($request_data, 1), array(), WATCHDOG_INFO);
+  watchdog('test', 'REQUEST DATA (string): ' . print_r($data, 1), array(), WATCHDOG_INFO);
+
+  // Setup the cURL request.
+  $ch = curl_init();
+  curl_setopt($ch, CURLOPT_URL, $url);
+  curl_setopt($ch, CURLOPT_VERBOSE, 0);
+  curl_setopt($ch, CURLOPT_POST, 1);
+  curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+  curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+  curl_setopt($ch, CURLOPT_NOPROGRESS, 1);
+  curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 0);
+  $result = curl_exec($ch);
+  curl_close($ch);
+
+  // Make the response an array and trim off the encapsulating characters.
+  $response = explode('&', $result);
+
+  $return = array();
+  for ($i = 0; $i < count($response); $i++) {
+    $kv = explode('=', $response[$i]);
+    $return[$kv[0]] = $kv[1];
+  }
+
+  if (!isset($return['PNREF'])) {
+    watchdog('pg_payflowpro', 'Payflow Pro: Unable to complete transaction: @error', array('@error' => $return['RESPMSG']));
+  }
+
+  return $return;
+}
+
+/**
+ * Return with counties list and its codes.
+ */
+function pg_payflow_county_list() {
+  return array(
+    "51"  => "ARMENIA",
+    "036" => "AUSTRALIA",
+    "40"  => "AUSTRIA",
+    "31"  => "AZERBAIJAN",
+    "112" => "BELARUS",
+    "56"  => "BELGIUM",
+    "60"  => "BERMUDA",
+    "100" => "BULGARIA",
+    "124" => "CANADA",
+    "156" => "CHINA",
+    "208" => "DENMARK",
+    "818" => "EGYPT",
+    "233" => "ESTONIA",
+    "246" => "FINLAND",
+    "249" => "FRANCE",
+    "278" => "GERMANY",
+    "300" => "GREECE",
+    "304" => "GREENLAND",
+    "308" => "GRENADA",
+    "332" => "HAITI",
+    "352" => "ICELAND",
+    "372" => "IRELAND",
+    "376" => "ISRAEL",
+    "380" => "ITALY",
+    "392" => "JAPAN",
+    "400" => "JORDAN",
+    "398" => "KAZAKHSTAN",
+    "417" => "KYRGYZSTAN",
+    "428" => "LATVIA",
+    "430" => "LIBERIA",
+    "434" => "LIBYA",
+    "807" => "MARCEDONIA",
+    "450" => "MADAGASCAR",
+    "470" => "MALTA",
+    "498" => "MOLDOVA",
+    "492" => "MONACO",
+    "496" => "MONGOLIA",
+    "528" => "NETHERLANDS",
+    "578" => "NORWAY",
+    "586" => "PAKISTAN",
+    "616" => "POLAND",
+    "620" => "PORTUGAL",
+    "642" => "ROMANIA",
+    "643" => "RUSSIA",
+    "703" => "SLOVAKIA",
+    "705" => "SLOVENIA",
+    "748" => "SWAZILAND",
+    "752" => "SWEDEN",
+    "756" => "SWITZERLAND",
+    "760" => "SYRIA",
+    "762" => "TAJIKISTAN",
+    "792" => "TURKEY",
+    "795" => "TURKMENISTAN",
+    "804" => "UKRAINE",
+    "840" => "UNITED STATED",
+    "860" => "UZBEKISTAN",
+    "890" => "YUGOSLAVIA",
+  );
+}
+
+/**
+ * Return structure for PayflowPro payment request.
+ */
+function pg_payflowpro_request_values($credit_card, $transaction) {
+
+  $data = array(
+
+    // User parameters: Required.
+    'USER'          => variable_get('pg_payflowpro_user', ''),
+    'VENDOR'        => variable_get('pg_payflowpro_vendor', ''),
+    'PARTNER'       => variable_get('pg_payflowpro_partner', 'PayPal'),
+    'PWD'           => variable_get('pg_payflowpro_password', ''),
+
+    // Sale transaction: Required.
+    'TRXTYPE'       => variable_get('pg_payflowpro_payment_action', 'S'), // S:Sale transaction, C:Credit, A:autorization, D:Delayed caption
+    'TENDER'        => 'C', // A:ACH C:Credit D:Debit K:Telecheck P:Paypal
+    'ACCT'          => $credit_card['number'], // Credit card number. Required for TRXTYPE:C
+    'AMT'           => $transaction->amount, // Amount, float.
+    'EXPDATE'       => $credit_card['expr']['month'] . $credit_card['expr']['year'], // Expiration (MMYY)
+
+    // Additional information: Optional, but probably reduces discount rate.
+    'CVV2'          => $credit_card['cvv2'], // Code on the back of credit card. (3-4 digits)
+    'FIRSTNAME'     => $credit_card['firstname'], // (30 chars)
+    'LASTNAME'      => $credit_card['lastname'], // (30 chars)
+    'STREET'        => $credit_card['street'], // (30 chars)
+    'CITY'          => $credit_card['city'],
+    'ZIP'           => $credit_card['zip'], // (5-9 chars)
+
+    // Additional information: Optional.
+    //'INVNUM'              => $transaction->txnid, // Invoice number.
+    'COMMENT1'      => $credit_card['comment1'], // (128 chars)
+    'COMMENT2'      => $credit_card['comment2'], // (128 chars)
+    'EMAIL'         => $credit_card['email'], // (60 chars)
+    'STATE'         => $credit_card['state'], // (2 chars)
+    'BILLTOCOUNTRY' => $credit_card['country'],
+  );
+
+  return $data;
+}
+
+/**
+ * Return correct URL for payment.
+ */
+function pg_payflowpro_gateway_url() {
+  if (variable_get('pg_payflowpro_mode', 'test') == 'test') {
+    return 'https://pilot-payflowpro.paypal.com';
+  }
+  return'https://payflowpro.paypal.com';
+}
+
+/**
+ * Send notification to site administrator.
+ */
+function pg_payflowpro_send_notification($user_info, $result, $transaction_data) {
+
+  $payment_result = 'success';
+  if ($result['RESULT'] != 0) {
+    $payment_result = 'failed';
+  }
+
+  $product_url = '';
+  if (isset($transaction_data['nid'])) {
+    $product_url = url('node/' . $transaction_data['nid'], array('absolute' => TRUE));
+  }
+
+  // Create mail body.
+  $mail_body   = array();
+  $mail_body[] = t('Payment result: !result', array('!result' => $payment_result));
+  $mail_body[] = t('Product: !product', array('!product' => $product_url));
+  $mail_body[] = t('User name: !username', array('!username' => $user_info['firstname'] . ' ' . $user_info['surname']));
+  $mail_body[] = t('User email: !email', array('!email' => $user_info['email']));
+
+  // Build mail params.
+  $mail_params = array();
+  $mail_params['body'] = implode("\r\n", $mail_body);
+  $site_mail = variable_get('site_mail', '');
+  if (valid_email_address($site_mail)) {
+    drupal_mail('pg_payflowpro', 'notify_admin', $site_mail, language_default(), $mail_params);
+  }
+}

@@ -1,0 +1,21 @@
+name = "Journal"
+description = "Journal theme for AA 100"
+core = "6.x"
+engine = "phptemplate"
+
+regions[left] = "Left sidebar"
+regions[content] = "Content"
+regions[footer] = "Footer"
+regions[header] = "Header"
+
+stylesheets[all][] = "css/style.css"
+stylesheets[all][] = "css/reset.css"
+stylesheets[print][] = "css/print.css"
+stylesheets[all][] = "css/sftheme_override.css"
+
+; Information added by drupal.org packaging script on 2012-06-21
+version = "6.x-1.0"
+core = "6.x"
+project = "elms_themes"
+datestamp = "1340301979"
+

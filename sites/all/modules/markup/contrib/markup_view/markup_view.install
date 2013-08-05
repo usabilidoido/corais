@@ -1,0 +1,37 @@
+<?php
+/**
+ * @file
+ * Implementation of hook_install().
+ */
+function markup_view_install() {
+  drupal_load('module', 'content');
+  content_notify('install', 'markup_view');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function markup_view_uninstall() {
+  drupal_load('module', 'content');
+  content_notify('uninstall', 'markup_view');
+}
+
+/**
+ * Implementation of hook_enable().
+ *
+ * Notify content module when this module is enabled.
+ */
+function markup_view_enable() {
+  drupal_load('module', 'content');
+  content_notify('enable', 'markup_view');
+}
+
+/**
+ * Implementation of hook_disable().
+ *
+ * Notify content module when this module is disabled.
+ */
+function markup_view_disable() {
+  drupal_load('module', 'content');
+  content_notify('disable', 'markup_view');
+}

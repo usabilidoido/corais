@@ -1,0 +1,9 @@
+#edit-comment-registration-password-pass1-wrapper,
+#edit-comment-registration-password-pass2-wrapper {
+  float: left;
+  margin-right: 20px;
+}
+#edit-comment-wrapper,
+#edit-subject-wrapper {
+  clear: left;
+}

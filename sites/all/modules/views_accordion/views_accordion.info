@@ -1,0 +1,13 @@
+name = Views Accordion
+description = Provides an accordion views display plugin.
+package = Views
+core = 6.x
+dependencies[] = views
+
+
+; Information added by drupal.org packaging script on 2011-09-20
+version = "6.x-1.5"
+core = "6.x"
+project = "views_accordion"
+datestamp = "1316537808"
+

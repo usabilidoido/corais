@@ -1,0 +1,19 @@
+<?php
+function og_cc_block($op = 'list', $delta = 0, $edit = array()) {
+  if ($op == 'list') {
+    $blocks[0] = array('info' => t('Project Licence'),
+      'weight' => 0, 'status' => 1);
+    return $blocks;
+  }
+
+  else if ($op == 'view') {
+    global $base_url;
+	$space = spaces_get_space();
+	if ($space->group->cc){
+		$content = $space->group->cc->get_html();
+	} else {
+		$content = t("Todos os direitos reservados.");
+	}
+	return array('subject'=>t('Project Licence'), 'content'=>$content);
+  }  
+}

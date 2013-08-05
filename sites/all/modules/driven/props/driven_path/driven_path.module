@@ -1,0 +1,49 @@
+<?php
+// $Id: driven_path.module,v 1.1 2010/03/27 22:56:52 arhak Exp $
+
+if (module_exists('driven_diff')) {
+  // don't include code that depends on a disabled module
+  module_load_include('inc', 'driven_path', 'driven_path.diff');
+}
+
+/**
+ * Implements hook_driven_properties().
+ */
+function driven_path_driven_properties($node_type) {
+  $available_props = array();
+  
+  $label = t('URL alias');
+  // property_id = realm:target
+  // for simplest cases the target is the property_path
+  // resulting property_id = realm:property_path
+  // in that case the property_path requires to
+  // match the form's structure (#parents + $element itself)
+  $realm = 'path';
+  $target = $property_path = 'path:path';
+  $property_id = $realm . ':' . $target;
+  
+  // realm is the first chunk of the property_id
+  // target is everything after the realm in the property_id
+  $available_props[$property_id] = array(
+    // optional: by default first title found in parents chain would be picked
+    // which would be the fieldset's title: 'URL path settings'
+    'label' => $label,
+    // optional: title for this realm on admin pages
+    // otherwise the machine name of the realm will be used
+    'realm_title' => t('Path'),
+    // optional: title for this property on admin pages
+    // otherwise the target will be used (with colons replaced by &raquo;)
+    'target_title' => $label,
+    // optional: property specific data needed for diff_values/diff_render
+    'meta' => array(
+      // specify whether should render links (even if target doesn't exists)
+      // setting it to an empty value would render a plain text instead
+      'theme' => 'driven_diff_link',
+    ),
+    // this module could delegate to driven_node,
+    // but then it would be a required dependency
+    //'provider' => 'driven_node',
+  );
+  
+  return $available_props;
+}

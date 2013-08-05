@@ -1,0 +1,87 @@
+<?php
+// $Id: domain_locale.install,v 1.1.2.2 2010/12/21 00:39:49 nonsie Exp $
+
+/**
+ * @file
+ * Provides domain specific locale settings
+ */
+/**
+ * Implementation of hook_install().
+ */
+function domain_locale_install() {
+  // Create database tables
+  drupal_install_schema('domain_locale');
+  // Make all enabled languages available on all domains by default
+  $enabled_languages = db_query('SELECT language, weight FROM {languages} WHERE enabled=1');
+  module_load_include('module', 'domain');
+  $existing_domains = domain_domains();
+  while ($lang = db_fetch_object($enabled_languages)) {
+    $current_language = $lang->language;
+    $language_weight = $lang->weight;
+    foreach ($existing_domains as $current_domain) {
+      if ($current_domain['domain_id'] > 0) {
+        db_query("INSERT INTO {domain_locale}(language, domain_id, weight) VALUES ('%s', %d, %d)", $current_language, $current_domain['domain_id'], $language_weight);
+      }
+    }
+  }
+  // Set domain_locale higher than i18n if it exists
+  $result = db_result(db_query("SELECT weight FROM {system} WHERE name = 'i18n'"));
+  if ($result) {
+    $weight = $result + 1;
+    $ret[] = update_sql("UPDATE {system} SET weight = ". $weight ." WHERE name = 'domain_locale'");
+  }
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function domain_locale_uninstall() {
+  drupal_uninstall_schema('domain_locale');
+}
+/**
+ * Implementation of hook_schema().
+ */
+function domain_locale_schema() {
+  $schema['domain_locale'] = array(
+    'description' => t('Domain Access specific language settings'),
+    'fields' => array(
+      'language' => array(
+        'type' => 'varchar',
+        'length' => 12,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'domain_id' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'description' => t("Domain id"),
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'weight' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => t("Language weight"),
+      ),
+    ),
+    'primary key' => array('domain_id', 'language'),
+    'indexes' => array(
+      'domain_id' => array('domain_id'),
+      'domain_language' => array('domain_id', 'language'),
+      'domain_language_weight' => array('domain_id', 'language', 'weight'),
+    ),
+  );
+  return $schema;
+}
+
+function domain_locale_update_6101() {
+  $ret = array();
+  // Set domain_locale higher than i18n if it exists
+  $result = db_result(db_query("SELECT weight FROM {system} WHERE name = 'i18n'"));
+  if ($result) {
+    $weight = $result + 1;
+    $ret[] = update_sql("UPDATE {system} SET weight = ". $weight ." WHERE name = 'domain_locale'");
+  }
+  return $ret;
+}

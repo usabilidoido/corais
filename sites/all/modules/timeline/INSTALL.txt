@@ -1,0 +1,57 @@
+
+REQUIREMENTS
+------------
+- PHP 5.2
+- Drupal 6.x 
+- Views 3.x module [1]
+- Libraries module [2]
+- Date API module [3]
+
+- Libraries:
+    SIMILE timeline 
+    SIMILE Ajax
+
+- Support for the following modules:
+
+  * CCK [4] and Date [3] modules
+      The module supports plotting timeline events for any Drupal content type, and includes
+      extended support for custom content types created using CCK  with the Date field type.
+  * imagefield [5] or taxonomy_image [6] and
+      You can define icons for events based on cck imagefield or taxonomy terms using taxonomy_image module.
+  * imagecache [7]
+      Both icon image sources can be pushed through a imagecache preset. 
+
+[1] http://drupal.org/project/views
+[2] http://drupal.org/project/libraries
+[3] http://drupal.org/project/date
+[4] http://drupal.org/project/cck
+[5] http://drupal.org/project/imagefield
+[6] http://drupal.org/project/taxonomy_image
+[7] http://drupal.org/project/imagecache
+
+
+INSTALLATION
+------------
+1. Copy all the module files into a subdirectory called sites/all/modules/timeline/
+   under your Drupal installation directory.
+
+2. Obtain the libraries of SIMILE Timeline and SIMILE Ajax.
+
+   * You can download a prepackaged and version from
+     http://github.com/xamanu/SIMILE-Timeline-libraries/tree/3.x (press download button)
+
+   * Or get the lastest directly from SIMILE's SVN Server
+     svn export http://simile-widgets.googlecode.com/svn/timeline/trunk/src/webapp/api timeline_js
+     svn export http://simile-widgets.googlecode.com/svn/ajax/trunk/src/webapp/api timeline_ajax 
+
+3. Place the two libraries into a new sites/all/libraries/simile_timeline directory.
+   Note: timeline libraries have to be inside the folder: timeline_js
+         ajax libraries have to be inside the folder: timeline_ajax
+
+4. Go to administer >> modules and enable the timeline module.
+   Ensure that the Views, libraries and date api modules are installed and enabled.
+
+3. Go to administer/settings/timeline to review the state of library inclusion and change the configuration options to your liking.
+
+4. See README.txt for information on creating timeline views.
+

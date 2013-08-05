@@ -1,0 +1,397 @@
+<?php
+
+
+/**
+ * @defgroup domain_settings Domain Settings : expanded site configuration options for Domain Access
+ *
+ * Makes standard system settings forms domain-sensitive.
+ */
+
+/**
+ * @file
+ * Allows domain-specific use of Drupal system settings forms.
+ *
+ * @ingroup domain_settings
+ */
+
+/**
+ * Forms filtering method constants.
+ *
+ * Used to specify how to filter forms on which we want to add the
+ * domain-specific settings form element.
+ */
+define('DOMAIN_SETTINGS_SHOW_EXCEPT_LISTED', 0);
+define('DOMAIN_SETTINGS_SHOW_ONLY_LISTED', 1);
+define('DOMAIN_SETTINGS_ALL_DOMAINS', -5);
+
+/**
+ * Implement hook_perm().
+ */
+function domain_settings_perm() {
+  return array('access domain settings form');
+}
+
+/**
+ * Implement hook_form_alter()
+ *
+ * This function checks the #submit value of the form to see
+ * if system_settings_form() has been invoked. If so, we may
+ * attach domain-specific settings to the form, if the user is
+ * permitted to use this module and the form is not on the
+ * administrator's denied list.
+ */
+function domain_settings_form_alter(&$form, $form_state, $form_id) {
+  global $_domain;
+
+  // Remove settings that cannot be used reliably.
+  if (!user_access('access domain settings form') || // Does the user have access?
+      !isset($form['#submit']) || // Is there a submit handler?
+      !in_array('system_settings_form_submit', $form['#submit']) || // Is the handler the default?
+      !domain_settings_add_element($form_id)) // Is this form_id allowed?
+  {
+    return;
+  }
+
+  // Set our drop down's weight to be one lighter than the submit button's,
+  // ensuring that it always appears right above it (assuming nobody else
+  // form_alters us out.)
+  drupal_set_message(t('This form is domain-sensitive, be sure you select the proper domain before saving.'), 'warning', FALSE);
+  $weight = isset($form['buttons']['#weight']) ? $form['buttons']['#weight'] : 0;
+  $form['buttons']['#weight'] = $weight + 2;
+  $domain_weight = $weight + 1;
+  $form['#submit'][] = 'domain_settings_form_submit';
+  $options = array(DOMAIN_SETTINGS_ALL_DOMAINS => t('All domains'));
+  // Get the display format of the form element.
+  $format = domain_select_format();
+  foreach (domain_domains() as $data) {
+    // Cannot pass zero in checkboxes.
+    ($data['domain_id'] == 0) ? $key = -1 : $key = $data['domain_id'];
+    // The domain must be valid.
+    if ($data['valid'] || user_access('access inactive domains')) {
+      // Checkboxes must be filtered, select listts should not.
+      $options[$key] = empty($format) ? check_plain($data['sitename']) : $data['sitename'];
+    }
+  }
+  $form['domain_settings'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Domain-specific settings'),
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+    '#weight' => $domain_weight,
+  );
+  // Set the proper default.
+  $behavior = variable_get('domain_settings_behavior', 0);
+  $default = -1;
+  if ($behavior == 1) {
+    $default = ($_domain['domain_id'] == 0) ? -1 : $_domain['domain_id'];
+  }
+  if ($behavior == 2) {
+    $default = DOMAIN_SETTINGS_ALL_DOMAINS;
+  }
+  $form['domain_settings']['domain_id'] = array(
+    '#type' => empty($format) ? 'radios' : 'select',
+    '#title' => t('Save settings for'),
+    '#options' => $options,
+    '#required' => TRUE,
+    '#description' => t('Select the domain to which these settings apply. If you select <em>All domains</em>, domain-specific settings will be removed.'),
+    '#default_value' => $default,
+  );
+  if ($format) {
+    $form['domain_settings']['domain_id']['#multiple'] = FALSE;
+    $form['domain_settings']['domain_id']['#size'] = count($options) > 10 ? 10 : count($options);
+  }
+  foreach ($form['#submit'] as $key => $value) {
+    if ($value == 'system_settings_form_submit') {
+      unset($form['#submit'][$key]);
+    }
+  }
+  if (isset($form['site_name'])) {
+    $form['site_name']['#description'] .= ' <em>'. t('This value will change the registered name of the selected domain.') .'</em>';
+  }
+  // Disable special sitename variable handling.
+  foreach ($form['#submit'] as $key => $value) {
+    if ($value == 'domain_form_sitename_submit') {
+      unset($form['#submit'][$key]);
+    }
+  }
+}
+
+/**
+ * Submit handler for domain-specific settings.
+ */
+function domain_settings_form_submit($form, &$form_state) {
+  $domain_id = $form_state['values']['domain_id'];
+  $reset = FALSE;
+  if ($form_state['values']['op'] == $form_state['values']['reset']) {
+    $reset = TRUE;
+  }
+  $values = array();
+  foreach ($form_state['values'] as $key => $value) {
+    if (!in_array($key, array('op', 'submit', 'reset', 'form_build_id', 'form_token', 'form_id', 'domain_id'))) {
+      $values[$key] = $value;
+    }
+  }
+  // -1 is the primary domain.
+  foreach ($values as $name => $value) {
+    // Handle checkboxes when array_filter is set. (Do not return empty checkboxes at all.)
+    if (is_array($value) && isset($form_state['values']['array_filter'])) {
+      $value = array_keys(array_filter($value));
+    }
+    if ($domain_id == -1 || $domain_id == DOMAIN_SETTINGS_ALL_DOMAINS) {
+      if ($reset) {
+        variable_del($name);
+        if ($name == 'site_name') {
+          db_query("UPDATE {domain} SET sitename = '%s' WHERE domain_id = 0", 'Drupal');
+          variable_set('domain_sitename', 'Drupal');
+        }
+      }
+      else {
+        variable_set($name, $value);
+        if ($name == 'site_name') {
+          db_query("UPDATE {domain} SET sitename = '%s' WHERE domain_id = 0", $value);
+          variable_set('domain_sitename', $value);
+        }
+      }
+    }
+    else {
+      if ($reset) {
+        domain_conf_variable_delete($domain_id, $name);
+        if ($name == 'site_name') {
+          db_query("UPDATE {domain} SET sitename = '%s' WHERE domain_id = %d", 'Drupal', $domain_id);
+        }
+      }
+      else {
+        domain_conf_variable_save($domain_id, $name, $value);
+        if ($name == 'site_name') {
+          db_query("UPDATE {domain} SET sitename = '%s' WHERE domain_id = %d", $value, $domain_id);
+        }
+      }
+    }
+    if ($domain_id == DOMAIN_SETTINGS_ALL_DOMAINS && !$reset) {
+      foreach (domain_domains() as $id => $value) {
+        domain_conf_variable_delete($id, $name);
+      }
+    }
+  }
+  // Set a message about the affected domains.
+  $extra = '';
+  if ($domain_id > 0) {
+    $domain = domain_lookup($domain_id);
+    $affected = $domain['sitename'];
+  }
+  elseif ($domain_id == -1) {
+    $default = domain_default();
+    $affected = $default['sitename'];
+    $extra = t('These settings will be inherited unless overridden per domain.');
+  }
+  else {
+    $affected = t('all domains');
+  }
+  if ($reset) {
+    drupal_set_message(t('The configuration options have been reset to their default values for %domains.', array('%domains' => $affected)));
+  }
+  else {
+    drupal_set_message(t('The configuration options have been saved for %domains. !extra', array('%domains' => $affected, '!extra' => $extra)));
+  }
+  module_invoke_all('domain_settings', $domain_id, $form_state['values']);
+  cache_clear_all();
+}
+
+/**
+ * Implements hook_domainform().
+ */
+function domain_settings_domainform(&$form) {
+  // Add the form element to the main screen.
+  $form['domain_settings_module'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Domain-specific settings'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+  );
+  $form['domain_settings_module']['domain_settings_behavior'] = array(
+    '#type' => 'radios',
+    '#title' => t('Domain settings behavior'),
+    '#options' => array(0 => t('Use the default domain'), 1 => t('Use the active domain'), 2 => t('All domains')),
+    '#default_value' => variable_get('domain_settings_behavior', 0),
+    '#description' => t('Default form value when submitting system settings.')
+  );
+  $form['domain_settings_module']['domain_settings_form_visibility'] = array(
+    '#type' => 'radios',
+    '#title' => t('Visibility of domain-specific settings on forms'),
+    '#options' => array(
+      DOMAIN_SETTINGS_SHOW_EXCEPT_LISTED => t('Show on every system settings form, except those listed below.'),
+      DOMAIN_SETTINGS_SHOW_ONLY_LISTED => t('Show only on system settings forms listed below.'),
+    ),
+    '#default_value' => variable_get('domain_settings_form_visibility', DOMAIN_SETTINGS_SHOW_EXCEPT_LISTED),
+  );
+  $form['domain_settings_module']['domain_settings_forms'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Forms'),
+    '#rows' => 5,
+    '#cols' => 40,
+    '#default_value' => variable_get('domain_settings_forms', ''),
+    '#description' => t('Allow or disallow specific forms by entering a list of form_ids, one per line.'),
+  );
+}
+
+/**
+ * Helper function to test if a form has to display the domain-specific
+ * settings, based on 'domain_settings' settings the user defined.
+ *
+ * By design, the configuration for Domain Access itself is disallowed
+ * (and some other forms known to be problematic).
+ *
+ * @param $form_id
+ *   The form_id string that we want to test.
+ * @return
+ *    Boolean TRUE if the given form_id has to display the domain-
+ *    specific settings. FALSE otherwise.
+ */
+function domain_settings_add_element($form_id) {
+  // Cache results.
+  static $forms_visibility;
+  if (isset($forms_visibility[$form_id])) {
+    return $forms_visibility[$form_id];
+  }
+
+  // These forms are known to be problematic, so omit them.
+  $disallow = array(
+    'domain_configure_form',
+    'system_file_system_settings', // Changing file paths is dangerous.
+    'system_performance_settings', // JS and CSS aggregation is not supported.
+  );
+
+  // Retrieve the form filtering method:
+  $filter_method = variable_get('domain_settings_form_visibility', DOMAIN_SETTINGS_SHOW_EXCEPT_LISTED);
+
+  // Retrieve the user-listed forms:
+  $user_listed_forms = array();
+  $setting_var = trim(variable_get('domain_settings_forms', ''));
+  if (!empty($setting_var)) {
+    $match = preg_replace('/(\r\n?|\n)/', '|', $setting_var);
+    $user_listed_forms = explode("|", $match);
+  }
+
+  // If we want to show the setting on all forms except those listed:
+  if ($filter_method == DOMAIN_SETTINGS_SHOW_EXCEPT_LISTED) {
+    $forms_to_ignore = array_merge($user_listed_forms, $disallow);
+    $forms_visibility[$form_id] = !in_array($form_id, $forms_to_ignore);
+  }
+  // If we want to show the settings only on listed forms:
+  else if ($filter_method == DOMAIN_SETTINGS_SHOW_ONLY_LISTED) {
+    $forms_to_authorize = array_diff($user_listed_forms, $disallow);
+    $forms_visibility[$form_id] = in_array($form_id, $forms_to_authorize);
+  }
+
+  return $forms_visibility[$form_id];
+}
+
+/**
+ * Implement hook_domain_warnings_alter().
+ */
+function domain_settings_domain_warnings_alter(&$forms) {
+  // Forms which Domain Settings handles and are set as warnings.
+  $core_forms = array(
+    'system_admin_theme_settings',
+    'system_site_information_settings',
+    'system_site_maintenance_settings',
+    'menu_configure',
+  );
+  foreach ($core_forms as $form_id) {
+    if (isset($forms[$form_id])) {
+      unset($forms[$form_id]);
+    }
+  }
+}
+
+/**
+ * Handle the erasure of Domain Conf settings properly.
+ */
+function domain_settings_form_domain_conf_reset_form_alter(&$form, &$form_state) {
+  $form['#submit'] = array('domain_settings_reset_form_submit');
+  $form['domain_settings_erase'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Retain values from Domain Settings module.'),
+    '#default_value' => 1,
+    '#weight' => 1,
+  );
+  $form['actions']['#weight'] = 2;
+}
+
+/**
+ * Form submit handler to batch reset custom settings.
+ *
+ * @see domain_conf_reset_form()
+ */
+function domain_settings_reset_form_submit($form, &$form_state) {
+  if (empty($form_state['values']['domain_settings_erase'])) {
+    domain_conf_reset_form_submit($form, $form_state);
+    return;
+  }
+  drupal_set_message(t('Domain configuration settings have been reset. Custom module settings have been retained.'));
+  $form_state['redirect'] = 'admin/build/domain/conf/'. $form_state['values']['domain_id'];
+  domain_settings_reset($form_state['values']['domain_id']);
+  // Clear the cache.
+  cache_clear_all();
+}
+
+/**
+ * Handle the batch erasure of Domain Conf settings properly.
+ */
+function domain_settings_form_domain_batch_form_alter(&$form, &$form_state) {
+  if (!isset($form['#parameters'][2]) || $form['#parameters'][2] != 'domain_conf') {
+    return;
+  }
+  $form['#submit'] = array('domain_settings_batch_form_submit');
+  $form['domain_settings_erase'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Retain values from Domain Settings module.'),
+    '#default_value' => 1,
+    '#weight' => 1,
+  );
+  $form['submit']['#weight'] = 2;
+}
+
+/**
+ * Submit handler for batch domain settings.
+ */
+function domain_settings_batch_form_submit($form, &$form_state) {
+  if (empty($form_state['values']['domain_settings_erase'])) {
+    domain_batch_form_submit($form, $form_state);
+    return;
+  }
+  foreach (array_filter($form_state['values']['domain_batch']) as $domain_id=> $value) {
+    domain_settings_reset($domain_id);
+  }
+  drupal_set_message(t('Domain configuration settings have been reset. Custom module settings have been retained.'));
+  // Clear the cache.
+  cache_clear_all();
+}
+
+/**
+ * Erase Domain Conf and Batch settings but keep those set by this module.
+ *
+ * @param $domain_id
+ *   The domain_id to reset.
+ */
+function domain_settings_reset($domain_id) {
+  // Get the conf elements and erase them from the record.
+  $batch = module_invoke_all('domainbatch');
+  $conf = module_invoke_all('domainconf');
+  $list = array_merge(array_keys($batch), array_keys($conf));
+  // Get the existing data.
+  $data = db_fetch_array(db_query("SELECT settings FROM {domain_conf} WHERE domain_id = %d", $domain_id));
+  if (empty($data)) {
+    return;
+  }
+  // Erase the settings by key.
+  $settings = domain_unserialize($data['settings']);
+  foreach ($list as $item) {
+    if (isset($settings[$item])) {
+      unset($settings[$item]);
+    }
+  }
+  // Write the update.
+  $sql = "UPDATE {domain_conf} SET settings = %b WHERE domain_id = %d";
+  db_query($sql, serialize($settings), $form_state['values']['domain_id']);
+}

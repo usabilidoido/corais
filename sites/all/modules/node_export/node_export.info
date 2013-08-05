@@ -1,0 +1,11 @@
+name = Node export
+description = "Allows users to export a node and the import into another Drupal installation."
+core = 6.x
+package = "Node export"
+dependencies[] = uuid
+; Information added by drupal.org packaging script on 2012-08-06
+version = "6.x-3.4"
+core = "6.x"
+project = "node_export"
+datestamp = "1344222738"
+

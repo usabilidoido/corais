@@ -1,0 +1,11 @@
+name = Node export CSV
+description = "Adds CSV format to Node export"
+dependencies[] = node_export
+core = 6.x
+package = "Node export"
+; Information added by drupal.org packaging script on 2012-04-13
+version = "6.x-3.3"
+core = "6.x"
+project = "node_export"
+datestamp = "1334279765"
+

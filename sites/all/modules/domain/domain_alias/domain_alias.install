@@ -1,0 +1,59 @@
+<?php
+
+/**
+ * @file
+ * Provide hostname alias registration for domain records.
+ *
+ * @ingroup domain_alias
+ */
+
+/**
+ * Implement hook_schema().
+ */
+function domain_alias_schema() {
+  $schema['domain_alias'] = array('description' => 'Domain aliases and patterns for domain entries in {domain}.',
+    'fields' => array(
+      'alias_id' => array('type' => 'serial',
+        'description' => 'The primary identifier for an alias/pattern.',
+        'not null' => TRUE,
+        ),
+      'domain_id' => array('type' => 'int',
+        'description' => 'The related domain entry in the {domain} table.',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        ),
+      'pattern' => array('type' => 'varchar',
+        'description' => 'The domain alias/pattern',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+        ),
+      'redirect' => array('type' => 'int',
+        'description' => 'Boolean flag indicating whether the alias should be redireced to the main domain.',
+        'size' => 'tiny',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        ),
+      ),
+    'primary key' => array('alias_id'),
+    'indexes' => array('pattern' => array('pattern'), 'domain' => array('domain_id')),
+    );
+
+  return $schema;
+}
+
+/**
+ * Implement hook_install().
+ */
+function domain_alias_install() {
+  drupal_install_schema('domain_alias');
+}
+
+/**
+ * Implement hook_uninstall().
+ */
+function domain_alias_uninstall() {
+  drupal_uninstall_schema('domain_alias');
+}

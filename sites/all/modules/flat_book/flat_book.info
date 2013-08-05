@@ -1,0 +1,14 @@
+; $Id: flat_book.info,v 1.3 2010/08/27 15:41:45 criticalpatch Exp $
+
+name = "Flat Book"
+description = "Flattens books below a given menu depth, and provides a 'jump to' menu for easy access"
+core = "6.x"
+package = "Book"
+dependencies[] = book
+
+; Information added by drupal.org packaging script on 2010-09-28
+version = "6.x-1.24"
+core = "6.x"
+project = "flat_book"
+datestamp = "1285688462"
+

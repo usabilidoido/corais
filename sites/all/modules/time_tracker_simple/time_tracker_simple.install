@@ -1,0 +1,28 @@
+<?php
+/**
+ * @file
+ * Install, update and uninstall functions for the time_tracker_simple module.
+ */
+/**
+ * Implementation of hook_install().
+ */
+function time_tracker_simple_install() {
+  db_add_field($ret, 'time_tracker_timer', 'note', array('type' => 'text'));
+  db_add_field($ret, 'time_tracker_timer', 'activity', array('type' => 'int', 'unsigned' => TRUE));
+  return $ret;
+}
+/**
+ * Implementation of hook_uninstall().
+ */
+function time_tracker_simple_uninstall() {
+  $schema = drupal_get_schema('time_tracker_timer', TRUE);
+  //make sure no other module added these fields
+  $ret = array();
+  if (!isset($schema['fields']['activity'])) {
+    db_drop_field($ret, 'time_tracker_timer', 'activity');
+  }
+  if (!isset($schema['fields']['note'])) {
+    db_drop_field($ret, 'time_tracker_timer', 'note');
+  }
+  return $ret;
+}

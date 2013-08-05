@@ -1,0 +1,12 @@
+name = Localization client
+description = Provides on-page localization
+dependencies[] = locale
+core = 6.x
+package = Multilanguage
+
+; Information added by drupal.org packaging script on 2012-04-26
+version = "6.x-2.1"
+core = "6.x"
+project = "l10n_client"
+datestamp = "1335420678"
+

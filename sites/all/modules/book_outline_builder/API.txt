@@ -1,0 +1,77 @@
+
+Book Outline Builder API
+--------------------------------
+
+This API is fairly straight forward.  You can use it to get new book outlines automatically populated for drupal sites.  This is for creating book structures quickly and is especially useful in ELMS (see elms_id_best_practices and elms_content for complex examples).
+
+Here is the basic structure:
+$outline['YOUR_TEMPLATE_MACHINE_NAME'] = array(
+     'title' => 'YOUR TEMPLATE NAME',
+      array(
+       'type' => '',
+       'title' => '',
+       'content => '', //optional body content
+       'format' => '', //optional text input format
+       'duplicate' => TRUE //or number of times to replicate,
+       'children' => array(
+         //SAME STRUCTURE AS ABOVE NOW
+       )
+     ));
+
+--Acceptable values for type is link, page, folder
+--'link' is only used if type is link
+--@i can be used in the title of something that's going to be duplicated as to where the incemental value should be placed.  This is not required.
+--duplicate: number of times to duplicate, the loop value can be altered based on criteria, see hook_book_outline_builder_loop_alter.
+--children: An array of additional items that make up the full outline
+
+/**
+ * Implementation of hook_book_outline_builder_template().
+ */
+function YOURMODULENAME_book_outline_builder_template() {
+  $outline['TEMPLATENAME'] = array(
+    'title' => 'Outline',
+    array(
+      'type' => 'folder',
+      'title' => 'Lesson @i',
+      'duplicate' => TRUE,
+      'children' => array(
+        array(
+          'type' => 'page',
+          'title' => 'Introduction',
+        ),
+        array(
+          'type' => 'page',
+          'title' => 'Content',
+        ),
+      ),
+    ),
+  );
+  return $outline;
+}
+
+/**
+ * Implementation of hook_book_outline_builder_template_alter().
+ */
+function YOUMODULENAME_book_outline_builder_template_alter(&$templates) {
+  $templates['default']['title'] = 'My Custom Outline Title';
+}
+
+/**
+ * Implementation of hook_book_outline_builder_loop_alter().
+ */
+function YOURMODULENAME_book_outline_builder_loop_alter(&$book_item, &$loop, $additional_parms) {
+  //this says, if the defined content type is cool and the duplicate variable is set to 3, change the number of times to loop to 6
+  //see elms_content for an example of this in action
+  if ($book_item['type'] == 'cool' && $book_item['duplicate'] === 3) {
+    $loop = 6;
+  }
+}
+
+/**
+ * Implementation of hook_book_outline_builder_node_alter().
+ */
+function YOURMODULENAME_book_outline_builder_node_alter(&$node, &$book_item, $additional_parms) {
+  if ($node->type == 'link') {
+    $node->field_link[0]['value'] = 'http://www.google.com/';
+  }
+}

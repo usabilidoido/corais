@@ -1,0 +1,131 @@
+# $Id: it.po,v 1.1.2.2 2010/11/12 18:04:07 thepanz Exp $
+#
+# LANGUAGE translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  date_picker_formatter.theme.inc: n/a
+#  date_picker_formatter.module: n/a
+#  date_picker_formatter.info,v 1.1 2009/11/15 15:30:57 zeropaper
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2010-11-12 19:00+0100\n"
+"PO-Revision-Date: 2010-11-12 19:03+0100\n"
+"Last-Translator: Ema Panz <thepanz@gmail.com>\n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1)\n"
+"X-Poedit-Language: Italian\n"
+"X-Poedit-Country: ITALY\n"
+
+#: date_picker_formatter.admin.inc:11
+msgid "Date format"
+msgstr "Formato data"
+
+#: date_picker_formatter.admin.inc:16
+msgid "Time format"
+msgstr "Formato orario"
+
+#: date_picker_formatter.admin.inc:21
+msgid "Display user picture"
+msgstr "Visualizza immagine utente"
+
+#: date_picker_formatter.admin.inc:26
+msgid "Vote method"
+msgstr "Modalità di voto"
+
+#: date_picker_formatter.admin.inc:28
+msgid "Checkbox"
+msgstr "Checkbox"
+
+#: date_picker_formatter.admin.inc:29
+msgid "Select"
+msgstr "Select"
+
+#: date_picker_formatter.admin.inc:30
+msgid "Radios"
+msgstr "Radios"
+
+#: date_picker_formatter.admin.inc:36
+msgid "Vote labels"
+msgstr "Etichette dei voti"
+
+#: date_picker_formatter.admin.inc:38
+msgid "Use a value|Label formatting (one per line) where value is a numerical value between 0 and 100 and the Label a human readable string (the label is translated)."
+msgstr ""
+
+#: date_picker_formatter.admin.inc:38
+msgid "This setting only does not apply with the checkbox \"Vote method\"."
+msgstr ""
+
+#: date_picker_formatter.theme.inc:81
+msgid "You"
+msgstr "Tu"
+
+#: date_picker_formatter.theme.inc:92
+msgid "No Record"
+msgstr "Nessun dato"
+
+#: date_picker_formatter.theme.inc:118
+msgid "Users"
+msgstr "Utenti"
+
+#: date_picker_formatter.theme.inc:15
+msgid "1 User votes"
+msgid_plural "@count Users votes"
+msgstr[0] "1 voto utente"
+msgstr[1] "@count voti utente"
+
+#: date_picker_formatter.theme.inc:26
+msgid "@votelabel : 1 Vote"
+msgid_plural "@votelabel : @count Votes"
+msgstr[0] "@votelabel: 1 Voto"
+msgstr[1] "@votelabel: @count Voti"
+
+#: date_picker_formatter.module:209
+msgid "You have to <a href=\"!loginurl\">login</a> or <a href=\"!registerurl\">register</a> to choose convenient dates."
+msgstr "Per effettuare la scelta delle date è necessario eseguire l'<a href=\"!loginurl\">accesso</a> o la <a href=\"!registerurl\">registrazione</a>."
+
+#: date_picker_formatter.module:214
+msgid "You have to <a href=\"!loginurl\">login</a> to choose convenient dates."
+msgstr "Per effettuare la scelta delle date è necessario eseguire l'<a href=\"!loginurl\">accesso</a>."
+
+#: date_picker_formatter.module:271
+msgid "Update"
+msgstr "Aggiorna"
+
+#: date_picker_formatter.module:271
+msgid "Save"
+msgstr "Salva"
+
+#: date_picker_formatter.module:356;23
+msgid "Date picker formatter"
+msgstr ""
+
+#: date_picker_formatter.module:359
+msgid "Allow users to vote for each date/time set (using VotingAPI)"
+msgstr ""
+
+#: date_picker_formatter.module:13
+msgid "pick dates"
+msgstr ""
+
+#: date_picker_formatter.info:0
+msgid "Date Picker Formatter"
+msgstr ""
+
+#: date_picker_formatter.info:0
+msgid "Doodle like date choice feature."
+msgstr ""
+
+#~ msgid "Pick a date"
+#~ msgstr "Scegliere una data"
+
+#~ msgid "or"
+#~ msgstr "o"
+
+#~ msgid "login"
+#~ msgstr "accesso"

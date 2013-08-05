@@ -1,0 +1,49 @@
+<!-- $Id: gmapfield-overview.html,v 1.1.2.1 2008/12/14 18:18:41 binarybill Exp $ -->
+
+<p><em>Not entirely sure how to link to the Advanced Help overall page of a module, so the links below may not work.</em></p>
+
+<h3>Overview</h3>
+
+<p><strong>Gmapfield</strong> is a <a href="&topic:content&">CCK</a> module that allows a user to input a <a href="&topic:gmap&">GMap Macro</a>, which creates a Google Map on the node, and allows for the placement of markers from <a href="&topic:location&">Location(s)</a>.</p>
+
+<h3>CCK Configuration</h3>
+
+<ul>
+<li>Create a new CCK field of type <strong>Gmap Field</strong>, with widget as <strong>GMap Field Text Area</strong>.</li>
+<li>Check <strong>Add Markers</strong> if you want locations to be added to your map.</li>
+<li>Check <strong>Choose Marker Type</strong> if you want the node-editor to be able to choose the marker type.</li>
+<li>Choose <strong>Default Marker Type</strong>.  Of course, if you are not displaying markers, this field does not matter.</li>
+<li>Choose <strong>Coordinate Data Source</strong>.  Currently only Location (not CCK Location) is supported.</li>
+<li>CCK allows for <strong>default values</strong>.  You can choose the default value for the GMap Macro, but the default value for the marker will be overridden by the <strong>Default Marker Type</strong>.</li>
+</ul>
+
+<h3>Field Usage</h3>
+
+<ul>
+<li>In the node edit form, enter a GMap Macro into the text area of the widget.</li>
+<li>If you have permission, you can choose the marker.</li>
+</ul>
+
+<h3>Theming</h3>
+
+<p>You can theme the markers that are created in the map.  By default, the location theme is used.</p>
+
+<pre>
+/**
+ * Impelemtation of theme hook
+ */
+function theme_gmapfield_markerwindow($location = NULL, $node = NULL) {
+  return theme('location', $location);
+}
+</pre>
+
+<p>To override in your template.php file:</p>
+
+<pre>
+/**
+ * Override gmapfield_markerwindow
+ */
+function yourtheme_gmapfield_markerwindow($location = NULL, $node = NULL) {
+  return 'Some new output!';
+}
+</pre>

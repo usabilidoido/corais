@@ -1,0 +1,17 @@
+<?php
+
+/**
+ * Implementation of hook_enable().
+ */
+function spaces_user_enable() {
+  // Weight spaces_user() to just above PURL.
+  db_query("UPDATE {system} SET weight = -19 WHERE name = 'spaces_user' AND type = 'module'");
+}
+
+/**
+ * Set module weight of spaces_user to -19
+ */
+function spaces_user_update_6001() {
+  db_query("UPDATE {system} SET weight = -19 WHERE name = 'spaces_user' AND type = 'module'");
+  return array(array('success' => true, 'query' => 'Set weight of spaces_user to -19.'));
+}

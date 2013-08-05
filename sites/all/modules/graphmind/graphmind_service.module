@@ -1,0 +1,818 @@
+<?php
+// $Id: graphmind_service.module,v 1.1.2.16 2011/02/08 16:26:09 itarato Exp $
+
+// Permission that allows to upload freemind map.
+define('GRAPHMIND_SERVICES__PERM__UPLOAD_MAP', 'upload graphmind mindmap');
+define('GRAPHMIND_SERVICE_FEATURE_PERM_PREFIX', 'graphmind feature ');
+define('GRAPHMIND_SERVICE_PLUGIN_PERM_PREFIX', 'graphmind plugin ');
+
+
+/**
+ * Implementation of hook_init().
+ */
+function graphmind_service_init() {
+  if (variable_get('services_use_key', '0') != '0') {
+    drupal_set_message(t('GraphMind needs Services module with no key authentication: <a href="@link">setup</a>', array('@link' => url('admin/build/services/settings'))), 'error');
+  }
+  if (variable_get('services_use_sessid', '0') != '1') {
+    drupal_set_message(t('GraphMind needs Services module with only sessid authentication: <a href="@link">setup</a>', array('@link' => url('admin/build/services/settings'))), 'error');
+  }
+
+  if (arg(0) == 'node' && ((int)arg(1) > 0)) {
+    $node = node_load((int)arg(1));
+    if ($node->type == 'graphmind') {
+      global $user;
+      $user->graphmindEditable = node_access('update', $node) ? '1' : '0';
+    }
+  }
+}
+
+
+/**
+ * Implementation of hook_service().
+ *
+ * @return array
+ */
+function graphmind_service_service() {
+  return array(
+    array(
+      '#method' => 'graphmind.getViews',
+      '#access arguments' => array('access content'),
+      '#callback' => 'graphmind_service_get_views',
+      '#file' => array('file' => 'inc', 'module' => 'graphmind_service'),
+      '#args' => array(),
+      '#return' => 'struct',
+    ),
+    array(
+      '#method' => 'graphmind.saveGraphMind',
+      '#access arguments' => array(array('access content', 'edit own graphmind content'), 'user_access'),
+      '#access callback' => 'graphmind_service_access',
+      '#callback' => 'graphmind_service_save_graphmind',
+      '#file' => array('file' => 'inc', 'module' => 'graphmind_service'),
+      '#args' => array(
+        array(
+           '#name' => 'nid',
+           '#type' => 'int',
+           '#description' => t('Node\'s nid.'),
+         ),
+         array(
+           '#name' => 'mm',
+           '#type' => 'string',
+           '#description' => t('GraphMind map in FreeMind format.'),
+         ),
+         array(
+           '#name' => 'changed',
+           '#type' => 'int',
+           '#description' => t('Last time node changed.'),
+         ),
+       ),
+       '#return' => 'string',
+     ),
+    array(
+      '#method' => 'graphmind.update',
+      '#access arguments' => array('access content'),
+      '#callback' => 'graphmind_service_update',
+      '#file' => array('file' => 'inc', 'module' => 'graphmind_service'),
+      '#args' => array(
+        array(
+          '#name' => 'nid',
+          '#type' => 'integer',
+          '#description' => t('Node\'s ID.'),
+          '#optional' => FALSE,
+        ),
+        array(
+          '#name' => 'cliend_id',
+          '#type' => 'string',
+          '#description' => t('Client\'s ID.'),
+          '#optional' => FALSE,
+        ),
+        array(
+          '#name' => 'latest_cid',
+          '#type' => 'integer',
+          '#description' => t('Latest committed Command\'s ID.'),
+          '#optional' => FALSE,
+        ),
+        array(
+          '#name' => 'commands',
+          '#type' => 'object',
+          '#description' => t('Executable commands.'),
+          '#optional' => TRUE,
+        ),
+      ),
+      '#return' => 'string',
+    ),
+    array(
+      '#method' => 'graphmind.getFeatures',
+      '#access arguments' => array('access content'),
+      '#callback' => 'graphmind_service_load_mindmap_features',
+      '#file' => array('file' => 'inc', 'module' => 'graphmind_service'),
+      '#args' => array(
+        array(
+          '#name' => 'nid',
+          '#type' => 'integer',
+          '#description' => t('Node ID.'),
+          '#optional' => FALSE,
+        ),
+      ),
+    ),
+    array(
+      '#method' => 'graphmind.getNodeView',
+      '#access arguments' => array('access content'),
+      '#callback' => 'graphmind_service_tooltip_get_view',
+      '#file' => array('file' => 'inc', 'module' => 'graphmind_service'),
+      '#return' => 'string',
+      '#args' => array(
+        array(
+          '#name' => 'nid',
+          '#type' => 'int',
+          '#description' => 'Node ID.',
+          '#optional' => FALSE,
+        ),
+      ),
+    ),
+  );
+}
+
+
+/**
+ * Implementation of hook_menu().
+ * @return array
+ */
+function graphmind_service_menu() {
+  return array(
+    'admin/settings/graphmind' => array(
+      'type' => MENU_NORMAL_ITEM,
+      'title' => t('GraphMind settings'),
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('graphmind_service_admin_form'),
+      'access callback' => 'user_access',
+      'access arguments' => array('administer site configuration'),
+    ),
+    'upload_graphmind_map' => array(
+      'title' => 'Upload mindmap',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('graphmind_service_upload_form'),
+      'access callback' => 'user_access',
+      'access arguments' => array(GRAPHMIND_SERVICES__PERM__UPLOAD_MAP),
+      'type' => MENU_NORMAL_ITEM,
+    ),
+    'node/%graphmind_map/download' => array(
+      'title' => 'Download mindmap',
+      'page callback' => 'graphmind_service_download_map',
+      'page arguments' => array(1),
+      'access callback' => 'node_access',
+      'access arguments' => array('view', 1),
+      'type' => MENU_LOCAL_TASK,
+      'weight' => 3,
+    ),
+    'download/%graphmind_map/file/%' => array(
+      'title' => 'Download mindmap',
+      'page callback' => 'graphmind_service_download_map_download',
+      'page arguments' => array(1),
+      'access callback' => 'node_access',
+      'access arguments' => array('view', 1),
+      'type' => MENU_CALLBACK,
+    ),
+  );
+}
+
+
+/**
+ * Form for admin settings.
+ * @return array
+ */
+function graphmind_service_admin_form() {
+  $form = array(
+    'graphmind_views_tags' => array(
+      '#type' => 'textfield',
+      '#title' => t('Filtered views tags'),
+      '#default_value' => variable_get('graphmind_views_tags', ''),
+      '#description' => t('Views tag values separated by commas, like: graphmind,user,project. If it\'s empty, all the views will be available for services.'),
+      '#weight' => -1,
+    ),
+  );
+
+  return system_settings_form($form);
+}
+
+
+/**
+ * Implementation of hook_node_info().
+ * @return array
+ */
+function graphmind_service_node_info() {
+  return array(
+    'graphmind' => array(
+      'name' => t('GraphMind map'),
+      'module' => 'node',
+      'description' => t('GraphMind mindmap container. Important: filter is controlled by the module (GraphMind filter).'),
+      'body_label' => t('FreeMind XML'),
+    ),
+  );
+}
+
+
+/**
+ * Implementation of hook_nodeapi().
+ * @param object $node
+ * @param string $op
+ * @param array $a3
+ * @param array $a4
+ */
+function graphmind_service_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+  if ($node->type == 'graphmind') {
+    switch ($op) {
+      case 'insert': // Node was inserted
+        if ($node->type == 'graphmind') {
+          $features = array_keys(array_filter($node->graphmind_features));
+          $plugins  = array_keys(array_filter($node->graphmind_plugins));
+          graphmind_service_settings_save($node->nid, $features, $plugins);
+        }
+        break;
+      case 'presave':
+        if ($node->type == 'graphmind') {
+          $result = db_fetch_object(db_query("SELECT format FROM {filter_formats} WHERE name = 'GraphMind';"));
+          $node->format = $result->format;
+
+          // Condition is needed because save can happen from Services call.
+          if ($node->nid && is_array($node->graphmind_features) && is_array($node->graphmind_plugins)) { // Node is exists
+            $features = array_keys(array_filter($node->graphmind_features));
+            $plugins  = array_keys(array_filter($node->graphmind_plugins));
+            graphmind_service_settings_save($node->nid, $features, $plugins);
+          }
+        }
+        break;
+      case 'load':
+        $node->graphmindEditable = node_access('update', $node) ? '1' : '0';
+        $node->teaser = NULL;
+        break;
+      case 'view':
+        $node->content['body'] = array();
+        
+        $flashvars = array(
+          'nid' => $node->nid,
+        );
+
+        drupal_alter('graphmind_flashvars', $flashvars, $node->nid);
+        array_walk($flashvars, create_function('&$item, $key', '$item = urlencode($key) . "=" . urlencode($item);'));
+
+        $node->graphmind['flashvars'] = join('&', $flashvars);
+        break;
+    }
+  }
+}
+
+
+/**
+ * Implementation of hook_theme().
+ * @return array
+ */
+function graphmind_service_theme() {
+  return array(
+    'node' => array(
+      'arguments' => array('node' => NULL, 'teaser' => FALSE, 'page' => FALSE),
+      'template' => 'node',
+    ),
+  );
+}
+
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ * 
+ * @param array $form
+ * @param array $form_state
+ */
+function graphmind_service_form_graphmind_node_form_alter(&$form, $form_state) {
+  $form['body_field']['body']['#description'] = t('If you start with a new
+    mindmap, leave it open. If you want to import a FreeMind mm file, copy
+    the *.mm file\'s content. Body field can consist only valid FreeMind XML format.');
+  $form['body_field']['format']['#access'] = FALSE;
+  
+  if (!$form['nid']['#value']) {
+    $form['body_field']['#access'] = FALSE;
+    $form['revision_information']['#access'] = FALSE;
+    $form['comment_settings']['#access'] = FALSE;
+    $form['author']['#access'] = FALSE;
+    $form['options']['#access'] = FALSE;
+    $form['menu']['#access'] = FALSE;
+  }
+
+  $form['graphmind'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('GraphMind settings'),
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+  );
+
+  $plugins = graphmind_service_get_available_plugins();
+  $plugin_options = array();
+  foreach ((array)$plugins as $key => $plugin) {
+    if (user_access(GRAPHMIND_SERVICE_PLUGIN_PERM_PREFIX . $key)) {
+      $plugin_options[$plugin['plugin']] = $plugin['name'];
+    }
+  }
+  $form['graphmind']['graphmind_plugins_wrapper'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Graphmind plugins'),
+    'graphmind_plugins' => array(
+      '#type' => 'checkboxes',
+      '#title' => t('Available plugins'),
+      '#options' => $plugin_options,
+      '#default_value' => graphmind_service_plugins_get($form['nid']['#value']),
+    ),
+  );
+
+  // Extend form with Graphmind features.
+  $features = graphmind_service_get_available_features();
+  $accessible_features = array();
+  foreach ((array)$features as $key => $name) {
+    if (user_access(GRAPHMIND_SERVICE_FEATURE_PERM_PREFIX . $key)) {
+      $accessible_features[$key] = $name; 
+    }
+  }
+  $form['graphmind']['graphmind_features_wrapper'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Graphmind features'),
+    'graphmind_features' => array(
+      '#type' => 'checkboxes',
+      '#title' => t('Features'),
+      '#options' => $accessible_features,
+      '#default_value' => graphmind_service_features_get($form['nid']['#value']),
+    ),
+  );
+  
+  // Use default settings when creating a node
+  if ($form['nid']['#value'] == array()) {
+    $setting = variable_get('graphmind_content_type_' . $form['#node']->type, array());
+    $form['graphmind']['graphmind_plugins_wrapper']['graphmind_plugins']['#default_value'] = $setting['plugins'];
+    $form['graphmind']['graphmind_features_wrapper']['graphmind_features']['#default_value'] = isset($setting['features']) ? $setting['features'] : graphmind_service_get_default_features();
+    if (isset($setting['plugins']) && isset($setting['features']) && (!empty($setting['plugins']) || !empty($setting['features']))) {
+      $form['graphmind']['#collapsed'] = TRUE;
+    }
+  }
+}
+
+
+/**
+ * Custom access handler.
+ *
+ * @param array $permissions
+ * @param string $function
+ * @return boolean
+ */
+function graphmind_service_access($permissions, $function = 'user_access') {
+  if (!function_exists($function)) {
+    watchdog(WATCHDOG_CRITICAL, 'Undefined function in graphmind_service_access(): ' . $function, NULL);
+    return FALSE;
+  }
+
+  if (empty($permissions)) {
+    watchdog(WATCHDOG_WARNING, 'Missing graphmind_service_access() variables.', NULL);
+    return FALSE;
+  }
+
+  if (!is_array($permissions)) {
+    $permissions = array($permissions);
+  }
+
+  foreach ($permissions as $permission) {
+    if (!$function($permission)) {
+      return FALSE;
+    }
+  }
+  
+  return TRUE;
+}
+
+
+/**
+ * Implementation of hook_graphmind_flashvars_alter().
+ *
+ * @param array $flashvars
+ */
+function graphmind_service_graphmind_flashvars_alter(&$flashvars) {
+  global $base_path;
+  $path = drupal_get_path('module', 'graphmind_service');
+  $nid = arg(1);
+
+  $flashvars['iconDir']  = $base_path . $path . '/graphmind/icons/';
+  $flashvars['basePath'] = url('<front>', array('absolute' => TRUE));
+  $flashvars['endPoint'] = 'services/amfphp';
+
+  $plugins = graphmind_service_plugins_get($nid);
+  $flashvars['plugins']  = join(',', $plugins);
+
+  $features = graphmind_service_features_get($nid);
+  if (!empty($features)) {
+    $flashvars['features'] = join(',', $features);
+  }
+}
+
+
+/*
+ * @todo Document
+ */
+function graphmind_service_upload_form($form_state) {
+  $form = array();
+
+  $form['#attributes'] = array('enctype' => 'multipart/form-data');
+
+  $form['graphmind'] = array(
+    '#type' => 'file',
+    '#title' => t('Graphmind map file'),
+  );
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Upload'),
+  );
+
+  return $form;
+}
+
+/**
+ * Saves the uploaded file
+ * @todo better node title generation
+ *
+ * @global Object $user
+ * @param array $form
+ * @param array $form_state
+ * @return 
+ */
+function graphmind_service_upload_form_submit($form, &$form_state) {
+  global $user;
+  $validators = array();
+  $file = file_save_upload('graphmind', $validators, file_directory_path());
+
+  if (!$file) {
+    drupal_set_message(t('File upload failed'), 'error');
+    return;
+  }
+
+  $drupal_path = explode('/', $_SERVER['SCRIPT_FILENAME']);
+  array_pop($drupal_path);
+  $drupal_path = implode('/', $drupal_path) . '/';
+
+  $filepath = $file->filepath;
+  $filename = file_check_path($filepath);
+
+  $absolute_path = $drupal_path . $file->filepath;
+
+  $body = file_get_contents($absolute_path);
+
+  if (!graphmind_service_upload_validate($body)) {
+    drupal_set_message(t('File is not a valid Freemind map'), 'error');
+    return;
+  }
+
+  $node = new stdClass();
+  $node->title = check_plain($filename);
+  $node->type = 'graphmind';
+  $node->status = 1;
+  $node->promote = 1;
+  $node->body = $body;
+  $node->uid = $user->uid;
+  $node->name = $user->name;
+
+  $node = node_submit($node);
+  node_save($node);
+
+  if ($node->nid > 0) {
+    drupal_goto('node/' . $node->nid);
+  }
+}
+
+
+/**
+ * Checks a string if it's a valid graphmind map (xml)
+ * 
+ * WARNING: The function is not ready yet, and only checks Well-formedness
+ *
+ * @param string $doc
+ * @return bool TRUE if the string is valid, FALSE else
+ */
+function graphmind_service_upload_validate($doc) {
+  libxml_use_internal_errors(true);
+  $xml_doc = simplexml_load_string($doc);
+  if (!$xml_doc) {
+    $errormessage = 'Not a valid XML document:<br>';
+    foreach(libxml_get_errors() as $error) {
+      $errormessage .= '- '.check_plain($error->message).'<br>';
+    }
+    //drupal_set_message(t($errormessage),'error');
+    return FALSE;
+  }
+  return TRUE;
+}
+
+
+/**
+ * Implementation of hook_menu()
+ *
+ * @return array
+ */
+function graphmind_service_perm() {
+  $permissions = array(GRAPHMIND_SERVICES__PERM__UPLOAD_MAP);
+  
+  $features = graphmind_service_get_available_features();
+  $feature_perms = array_keys($features);
+  array_walk($feature_perms, '_graphmind_service_prepare_feature_perm_prefix');
+
+  $plugins = graphmind_service_get_available_plugins();
+  $plugins_perms = array_keys($plugins);
+  array_walk($plugins_perms, '_graphmind_service_prepare_plugin_perm_prefix');
+  
+  return array_merge($permissions, $feature_perms, $plugins_perms);
+}
+
+
+/**
+ * @todo document
+ *
+ * @global <type> $base_path
+ * @param <type> $nid
+ * @return <type> 
+ */
+function graphmind_service_download_map($node) {
+  global $base_path;
+  
+  $url = $base_path .'download/'.$node->nid.'/file/'.graphmind_service_gen_filename($node->title);
+  return '<a href="'.$url.'">Download</a>';
+}
+
+
+/**
+ * @todo document
+ *
+ * @param <type> $nid 
+ */
+function graphmind_service_download_map_download($node) {
+  //@TODO compress the data sent out
+  //@TODO check Content-Type if it doesn't let any browser to open it in a tab!
+  $filename = graphmind_service_gen_filename($node->title);
+
+  @ob_clean();
+  header('Content-Type:  text/xml');
+  header('Content-Disposition: attachment; filename=" '.$filename.' "');
+  header('Content-Transfer-Encoding: binary');
+  header('Accept-Ranges: bytes');
+
+  print $node->body;
+  exit();
+}
+
+
+/**
+ * @todo document
+ *
+ * @param integer $nid
+ * @return object 
+ */
+function graphmind_map_load($nid) {
+  $node = node_load($nid);
+  if ($node->type == 'graphmind') {
+    return $node;
+  }
+  else
+    return FALSE;
+}
+
+
+/**
+ * Creates a filename from a node(graphmind map) title
+ *
+ * @param string $title
+ * @return string
+ */
+function graphmind_service_gen_filename($title) {
+  return graphmind_service_check_alphanumeric($title).'.mm';
+}
+
+/**
+ * Converts a string:
+ *   -removes all non alphabetical chars except - and _
+ *   - replaces whitespaces with -
+ *
+ * @param string $str
+ * @return string
+ */
+function graphmind_service_check_alphanumeric($str) {
+  $str = str_replace(' ','-',$str);
+  return preg_replace("/[^\.\-\_a-zA-Z0-9\s]/", "", $str);
+}
+
+
+/**
+ * Get available features.
+ *
+ * @return array
+ */
+function graphmind_service_get_available_features() {
+  $features = array();
+  $features = module_invoke_all('graphmind_features');
+  return $features;
+}
+
+
+/**
+ * Implementation of hook_graphmind_features().
+ *
+ * @return array
+ */
+function graphmind_service_graphmind_features() {
+  return array(
+    'nodeInfo' => t('Node information panel'),
+    'createMindmapNode' => t('Create mindmap node'),
+    'loadDrupalNode' => t('Load Drupal node'),
+    'loadDrupalViewsList' => t('Load Drupal Views list'),
+    'updateDrupalViews' => t('Update Views list'),
+    'removeNode' => t('Remove mindmap node'),
+    'attributes' => t('Using node attributes'),
+    'connections' => t('Remote site connections'),
+    'tooltips' => t('Show tooltips on Drupal related nodes'),
+  );
+}
+
+
+/**
+ * Returns the default set of features.
+ * 
+ * @return array
+ */
+function graphmind_service_get_default_features() {
+  return array(
+    'nodeInfo',
+    'createMindmapNode',
+    'loadDrupalNode',
+    'removeNode',
+    'attributes'
+  );
+}
+
+
+/**
+ * Creates permission strings from features.
+ *
+ * @param string $item
+ */
+function _graphmind_service_prepare_feature_perm_prefix(&$item) {
+  $item = GRAPHMIND_SERVICE_FEATURE_PERM_PREFIX . $item;
+}
+
+
+/**
+ * Creates permission strings from plugins.
+ *
+ * @param string $item
+ */
+function _graphmind_service_prepare_plugin_perm_prefix(&$item) {
+  $item = GRAPHMIND_SERVICE_PLUGIN_PERM_PREFIX . $item;
+}
+
+
+/**
+ * Save graphmind node settings (features, plugins).
+ *
+ * @param integer $nid
+ * @param array $features
+ * @param array $plugins
+ * @return boolean
+ */
+function graphmind_service_settings_save($nid, $features = array(), $plugins = array()) {
+  if (!$nid) {
+    return FALSE;
+  }
+
+  $settings = array(
+    'features' => $features,
+    'plugins'  => $plugins,
+  );
+
+  $res = db_result(db_query('SELECT COUNT(*) AS count FROM {graphmind_service_nodeinfo} WHERE nid = %d', $nid));
+  if ($res >= 1) {
+    db_query('UPDATE {graphmind_service_nodeinfo} SET settings = \'%s\' WHERE nid = %d', serialize($settings), $nid);
+  } else {
+    db_query('INSERT INTO {graphmind_service_nodeinfo} (nid, settings) VALUES (%d, \'%s\');', $nid, serialize($settings));
+  }
+  
+  return TRUE;
+}
+
+
+/**
+ * Get all the enabled features of a node.
+ *
+ * @param integer $nid
+ * @return array
+ */
+function graphmind_service_features_get($nid) {
+  return _graphmind_service_settings_get($nid, 'features');
+}
+
+
+/**
+ * Get all the enabled plugins of a node.
+ *
+ * @param integer $nid
+ * @return array
+ */
+function graphmind_service_plugins_get($nid) {
+  return _graphmind_service_settings_get($nid, 'plugins');
+}
+
+
+/**
+ * Get different settings of a node from the database.
+ *
+ * @param integer $nid
+ * @param string $setting
+ * @return array
+ */
+function _graphmind_service_settings_get($nid, $setting) {
+  if (!$nid) {
+    return array();
+  }
+
+  $res = db_result(db_query('SELECT settings FROM {graphmind_service_nodeinfo} WHERE nid = %d', $nid));
+  if (!$res) {
+    return array();
+  }
+
+  $settings = unserialize($res);
+  return isset($settings[$setting]) ? $settings[$setting] : array();
+}
+
+
+/**
+ * Get all the available plugins provided be modules.
+ * 
+ * @return array
+ */
+function graphmind_service_get_available_plugins() {
+  return module_invoke_all('graphmind_plugin_info');
+}
+
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ * 
+ * @param array $form
+ * @param array $form_state 
+ */
+function graphmind_service_form_node_type_form_alter(&$form, $form_state) {
+  if ($form['#node_type']->type == 'graphmind') {
+    $form['graphmind_services'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Graphmind settings'),
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+    );
+    
+    $plugins = graphmind_service_get_available_plugins();
+    $features = graphmind_service_get_available_features();
+    
+    $setting = variable_get('graphmind_content_type_' . $form['#node_type']->type, array());
+    
+    if ($plugins) {
+      $plugin_options = array();
+      foreach ((array)$plugins as $key => $plugin) {
+        $plugin_options[$plugin['plugin']] = $plugin['name'];
+      }
+      
+      $form['graphmind_services']['graphmind_plugins'] = array(
+        '#type' => 'checkboxes',
+        '#title' => t('Default plugins'),
+        '#options' => $plugin_options,
+        '#default_value' => (array)$setting['plugins'],
+      );
+    }
+    
+    if ($features) {
+      $form['graphmind_services']['graphmind_features'] = array(
+        '#type' => 'checkboxes',
+        '#title' => t('Default features'),
+        '#options' => $features,
+        '#default_value' => isset($setting['features']) ? $setting['features'] : graphmind_service_get_default_features(),
+      );
+    }
+    
+    $form['#submit'][] = 'graphmind_service_node_type_form_submit';
+  }
+}
+
+
+/**
+ * Extra submit hook for the content type edit form.
+ * 
+ * @param array $form
+ * @param array $form_state 
+ */
+function graphmind_service_node_type_form_submit($form, $form_state) {
+  $features = array_filter($form_state['values']['graphmind_features']);
+  $plugins  = array_filter($form_state['values']['graphmind_plugins']);
+  variable_set('graphmind_content_type_' . $form['#node_type']->type, array(
+    'features' => $features,
+    'plugins'  => $plugins,
+  ));
+}

@@ -1,0 +1,15 @@
+core = "6.x"
+dependencies[] = "features"
+dependencies[] = "features_test"
+dependencies[] = "strongarm"
+features[ctools][] = "strongarm:strongarm:1"
+features[variable][] = "og_content_type_usage_features_test"
+name = "Spaces Tests"
+package = "Testing"
+
+; Information added by drupal.org packaging script on 2012-07-25
+version = "6.x-3.6"
+core = "6.x"
+project = "spaces"
+datestamp = "1343253485"
+

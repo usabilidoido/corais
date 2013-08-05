@@ -1,0 +1,267 @@
+<?php
+// vim: set filetype=php expandtab tabstop=2 shiftwidth=2 autoindent smartindent:
+
+function googtube_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#googtube':
+      $output = '<p>'. t('Googtube is a filter module that automatically converts Youtube and Vimeo video urls into embedded code.  Useful if users want to post videos easily.') .'</p>';
+      $output .= t('<p>Use Input Formats to enable the googtube filter</p>
+<ol>
+<li>Select an existing Input Format or add a new one</li>
+<li>Configure the Input Format</li>
+<li>Enable googtube filter and Save configuration</li>
+<li>Rearrange the weight of the googtube filter depending on what filters exist in the format. (Before Url Filter and after HTML works for me)</li>
+</ol>');
+      $output .= t('<p>You can</p>
+      <ul><li>enable the googtube in an input format from <a href="%admin-filters">administer &gt;&gt; Input Filter</a>.</li></ul>', array('%admin-filters' => url('admin/filters')));
+      $output .= '<p>'. t('For more information please read the configuration and customization handbook <a href="%googtube">googtube filter page</a>.', array('%googtube' => 'http://www.drupal.org/handbook/modules/googtube/')) .'</p>';
+      return $output;
+  }
+}
+
+function googtube_filter_tips($delta, $format, $long = false) {
+  return t('Youtube and Vimeo video links are automatically converted into embedded videos.');
+}
+
+function googtube_filter($op, $delta = 0, $format = -1, $text = '') {
+  switch ($op) {
+    case 'list':
+      return array(0 => t('googtube filter'));
+
+    case 'description':
+      return t('Youtube and Vimeo video links are automatically converted into embedded videos.');
+
+    case 'settings':
+      return _googtube_settings($format);
+
+    case 'process':
+ 
+      //youtube regex
+      if (preg_match_all('#(((http://)?)|(^./))(((www.)?)|(^./))youtube\.com/watch[?]v=([^\[\]()<.,\s\n\t\r]+)(?![^<]*</a>)#i', $text, $matches)); {
+        foreach ($matches[0] as $mi => $match) {
+	      $replace = googtube_youtube($match, $filter);
+          $text = str_replace($match, $replace, $text);
+        };
+	  }
+
+      //vimeo video regex
+      if (preg_match_all('#(((http://)?)|(^./))(((www.)?)|(^./))vimeo\.com/([0-9]+)(?![^<]*</a>)#i', $text, $matches)) {
+        foreach ($matches[0] as $mi => $match) {
+	      $replace = googtube_vimeo($match, $filter);
+          $text = str_replace($match, $replace, $text);
+        };
+      }
+
+      return $text;
+
+	case 'no_cache':
+	  return false;
+
+    default:
+      return $text;
+  }
+}
+
+function _googtube_settings($format) {
+
+  $methods = array(
+    'embedded' => t('Embedded'),
+	'iframe' => t('Iframe'),
+  );
+  // check is colorbox module installed
+  if (module_exists('colorbox')) {
+    $methods = $methods + array('colorbox'=> t('Colorbox'));
+  }
+  // check if floatbox module installed
+  if (module_exists('floatbox')) {
+    $methods = $methods + array('floatbox'=> t('Floatbox'));
+  }
+  // all possible parameters
+  $form['googtube'] = array(
+    '#type' => 'fieldset', 
+    '#title' => t('Googtube'), 
+    '#collapsible' => TRUE,
+  );
+
+  $form['googtube']['googtube_method'] = array(
+    '#type' => 'select',
+    '#title' => t('Method to show video'),
+    '#default_value' => variable_get('googtube_method', $methods[0]),
+    '#options' => $methods,
+	'#description'=> t('Method to use in showing the video.'),
+  );
+  $form['googtube']['googtube_width'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Default width setting'),
+    '#default_value' => variable_get('googtube_width', '425'),
+    '#maxlength' => 4,
+  );
+  $form['googtube']['googtube_height'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Default height setting'),
+    '#default_value' => variable_get('googtube_height', '344'),
+    '#maxlength' => 4,
+  );
+  $form['googtube']['googtube_info_hw'] = array(
+    '#type' => 'radios',
+    '#title' => t('Use height and width from videoinfo when available'),
+    '#description' => t('When available (Vimeo) height and width from videoinfo will be used.'),
+    '#default_value' => variable_get('googtube_info_hw', 1),
+    '#options' => array(
+      0 => t('No'),
+      1 => t('Yes'),
+    ),
+  );
+  $form['googtube']['googtube_fs'] = array(
+    '#type' => 'radios',
+    '#title' => t('Enable fullscreen button'),
+    '#default_value' => variable_get('googtube_fs', 0),
+    '#options' => array(
+      0 => t('No'),
+      1 => t('Yes'),
+    ),
+  );
+  $form['googtube']['googtube_autoplay'] = array(
+    '#type' => 'radios',
+    '#title' => t('Default autoplay setting'),
+    '#default_value' => variable_get('googtube_autoplay', 0),
+    '#options' => array(
+      0 => t('No'),
+      1 => t('Yes'),
+    ),
+  );
+  $form['googtube']['googtube_rel'] = array(
+    '#type' => 'radios',
+    '#title' => t('Related videos setting'),
+    '#description' => t('Show "related videos"? Not all video formats support this setting.'),
+    '#default_value' => variable_get('googtube_rel', 1),
+    '#options' => array(
+      0 => t('No'),
+      1 => t('Yes'),
+    ),
+  );	
+  $form['googtube']['googtube_removed'] = array(
+    '#type' => 'radios',
+    '#title' => t('Removed videos setting'),
+    '#description' => t('Show removed videos?'),
+    '#default_value' => variable_get('googtube_removed', 1),
+    '#options' => array(
+      0 => t('No'),
+      1 => t('Yes'),
+    ),
+  );
+  return $form;
+}
+
+function googtube_youtube($match, $format) {
+  // extract id from complete url
+  $parsed_url = parse_url(check_url($match));
+  parse_str($parsed_url['query'], $parsed_query);
+  $youtube_id = $parsed_query['v'];
+  $headers = get_headers("http://gdata.youtube.com/feeds/api/videos/" . $youtube_id); 
+  // existing video?
+  if (preg_match('/^HTTP\/\d\.\d\s+(200|301|302)/', $headers[0])) { 
+    // existing video
+    // load info about video in xml format
+    $xmlData = simplexml_load_file("http://gdata.youtube.com/feeds/api/videos/" . $youtube_id);
+    // parse video entry
+    $video= new stdClass; 
+    // get nodes in media: namespace for media information 
+    $media = $xmlData->children('http://search.yahoo.com/mrss/');
+    // get video title	  
+    $video->title = $media->group->title;
+    // get video description	  
+    $video->description = $media->group->description; 
+    // get video thumbnail 
+    $attrs = $media->group->thumbnail[2]->attributes(); 
+    $video->thumbnailURL = $attrs['url'];  
+    // these variables include the video information 
+    // replace incorrect double hyphens in description by single hyphens and new-line by space (found some video's with these) 
+    $youtube_title = str_replace('"', '\'', stripslashes($video->title));
+ 	$youtube_description = str_replace('"', '\'', str_replace("\n", " ", stripslashes($video->description)));
+    $youtube_thumbnail = stripslashes($video->thumbnailURL);
+  } else {
+    // non-existing video
+    // show removed videos?
+    if (variable_get('googtube_removed', 1)) {
+      // fill variables with Not available message
+      $youtube_title = t('Not available.'); 
+      $youtube_description = t('This video has been removed.'); 
+      $youtube_thumbnail = drupal_get_path('module', 'googtube') . '/default.jpg';
+    } else {
+      // don't show removed video
+      return;
+    };
+  }	
+  // construct html for each method
+  switch (variable_get('googtube_method', 'embedded')) {
+    case 'embedded':
+      return '<object width="' . variable_get('googtube_width', '425') . '" height="' . variable_get('googtube_height', '344') . '"><param name="movie" value="http://www.youtube.com/v/' . $youtube_id . '?version=3&fs=' . variable_get('googtube_fs', 0) . '&autoplay=' . variable_get('googtube_autoplay', 0) .'&rel=' . variable_get('googtube_rel', 1) . '"></param><param name="wmode" value="transparent"></param><param name="allowFullScreen" value="true"></param><param name="allowscriptaccess" value="always"></param><embed src="http://www.youtube.com/v/' . $youtube_id . '?version=3&fs=' . variable_get('googtube_fs', 0) . '&autoplay=' . variable_get('googtube_autoplay', 0) . '&rel=' . variable_get('googtube_rel', 1) . '" type="application/x-shockwave-flash" wmode="transparent" allowscriptaccess="always" allowfullscreen="true" width="' . variable_get('googtube_width') . '" height="' . variable_get('googtube_height') . '"></embed></object>';
+      break;
+    case 'iframe':
+      return '<iframe class="youtube-video" width="' . variable_get('googtube_width', '425') . '" height="' . variable_get('googtube_height', '344') . '" src="http://www.youtube.com/embed/' . $youtube_id . '?fs=' . variable_get('googtube_fs', 0) . '&autoplay=' . variable_get('googtube_autoplay', 0) . '&rel=' . variable_get('googtube_rel', 1) . '" frameborder="0" allowfullscreen></iframe>'; 
+      break;
+    case 'floatbox':	  
+      return '<a href="http://www.youtube.com/embed/' . $youtube_id . '?fs=' . variable_get('googtube_fs', 0) . '&rel=' . variable_get('googtube_rel', 1) . '&hd=1&autoplay=' . variable_get('googtube_autoplay', 0) . '" class="floatbox youtube-video" data-fb-options="width:' . variable_get('googtube_width', '425') . ' height:' . variable_get('googtube_height', '344') . ' autoFitMedia:true"><img title="' . $youtube_title . ': ' . $youtube_description . ' ' . t('[CLICK TO PLAY VIDEO]') . '" src="' . $youtube_thumbnail . '" /></a>';
+      break;
+    case 'colorbox':  
+      return '<a class="colorbox-load" href="http://www.youtube.com/embed/' . $youtube_id . '?fs=' . variable_get('googtube_fs', 0) . '&rel=' . variable_get('googtube_rel', 1) . '&hd=1&autoplay='. variable_get('googtube_autoplay', 0) . '&amp;width=' . variable_get('googtube_width', '425') . '&amp;height=' . variable_get('googtube_height', '344') . '&amp;iframe=true&amp;wmode=transparent" title="' . $youtube_title . ': ' . $youtube_description  . '"><img title="'  . $youtube_title . ': ' . $youtube_description . ' ' . t('[CLICK TO PLAY VIDEO]') . '" src="' . $youtube_thumbnail . '" /></a>';
+      break;
+  }	  
+}
+
+function googtube_vimeo($match, $format) {
+  // extract id from complete url
+  $parsed_url = parse_url(check_url($match));
+  $vimeo_id = substr($parsed_url['path'],strripos($parsed_url['path'],"/")+1);
+  $headers = get_headers("http://vimeo.com/api/v2/video/" . $vimeo_id . ".php"); 
+  // existing video?
+  if (preg_match('/^HTTP\/\d\.\d\s+(200|301|302)/', $headers[0])) { 
+    // existing video  
+    // load info about video
+    $videodata = file_get_contents("http://vimeo.com/api/v2/video/" . $vimeo_id . ".php");
+    // parse videodata
+    $hash = unserialize($videodata);
+    // replace incorrect double hyphens in description by single hyphens (found some video's with these)
+    $vimeo_description = str_replace('"', '\'', $hash[0]['description']);
+    // set height and width from videoinfo or from settings
+    if (variable_get('googtube_info_hw', 1)) {
+      $height = $hash[0]['height'];
+      $width  = $hash[0]['width'];
+    }else{
+      $height = variable_get('googtube_height');
+      $width  = variable_get('googtube_width');
+    }
+    $vimeo_title = $hash[0]['title'];
+    $vimeo_thumbnail = $hash[0]['thumbnail_small'];
+  }else{
+    // non-existing video
+    if (variable_get('googtube_removed', 1)) {
+      // no: fill variables with Not available message
+      $height = variable_get('googtube_height', '344');
+      $width  = variable_get('googtube_width', '425');
+      $vimeo_title = t('Not available.');
+      $vimeo_description = t('This video has been removed.'); 
+      $vimeo_thumbnail = drupal_get_path('module', 'googtube') . '/default.jpg';
+    } else {
+      // don't show removed video
+      return;
+    };
+  }  
+  // construct html for each method
+  switch (variable_get('googtube_method', 'embedded')) {
+    case 'embedded':
+      return '<object width="' . $width . '" height="' . $height . '"><param name="movie" value="http://vimeo.com/moogaloop.swf?clip_id=' . $vimeo_id . '&amp;server=vimeo.com&amp;show_byline=0&amp;show_portrait=0&amp;autoplay=' . variable_get('googtube_autoplay', 0) . '&amp;fullscreen=' . variable_get('googtube_fs', 0) . '" /></param><param name="wmode" value="transparent"></param><param name="allowFullScreen" value="true"></param><param name="allowscriptaccess" value="always"></param><embed src="http://vimeo.com/moogaloop.swf?clip_id=' . $vimeo_id . '&amp;server=vimeo.com&amp;show_byline=0&amp;show_portrait=0&amp;fullscreen=' . variable_get('googtube_fs', 0) . '" type="application/x-shockwave-flash" allowfullscreen="true" allowscriptaccess="always" width="' . $width . '" height="' . $height . '"></embed></object>'; 
+      break;
+    case 'iframe':
+      return '<iframe class="vimeo-video" width="' . $width . '" height="' . $height . '" src="http://player.vimeo.com/video/' . $vimeo_id . '?fullscreen=' . variable_get('googtube_fs', 0) . '&autoplay=' . variable_get('googtube_autoplay', 0) . '&byline=0&portrait=0" frameborder="0" allowfullscreen></iframe>'; 
+      break;
+    case 'floatbox':	  
+      return '<a href="http://player.vimeo.com/video/' . $vimeo_id . '?autoplay=' . variable_get('googtube_autoplay', 0) . '&amp;fullscreen=' . variable_get('googtube_fs', 0) . '&amp;byline=0&amp;portrait=0" class="floatbox vimeo-video" data-fb-options="width:' . $width . ' height:' . $height . ' autoFitMedia:true"><img title="' . $vimeo_title . ': ' . $vimeo_description . ' ' . t('[CLICK TO PLAY VIDEO]') . '"src="' . $vimeo_thumbnail . '" /></a>';
+      break;
+    case 'colorbox':  
+      return '<a class="colorbox-load" href="http://player.vimeo.com/video/' . $vimeo_id . '?autoplay=' . variable_get('googtube_autoplay', 0) . '&amp;fullscreen=' . variable_get('googtube_fs', 0) . '&amp;byline=0&amp;portrait=0&amp;width=' . $width . '&amp;height=' . $height . '&amp;iframe=true&amp;wmode=transparent" title="' . $vimeo_title . ': ' . $vimeo_description . '"><img title="' . $vimeo_title . ': ' . $vimeo_description . ' ' . t('[CLICK TO PLAY VIDEO]') . '"src="' . $vimeo_thumbnail . '" /></a>';
+      break;
+  }	  
+}
+?>

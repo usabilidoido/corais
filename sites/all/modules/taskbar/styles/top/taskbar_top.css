@@ -1,0 +1,23 @@
+body.with-taskbar {
+  margin-top: 25px!important;
+}
+
+#taskbar-container {
+  top: 0;
+}
+#taskbar {
+  border-top: none;
+}
+.taskbar-item-extra {
+  top: 25px;
+  bottom: inherit;
+}
+
+/** Support admin_menu **/
+body.admin-menu.with-taskbar {
+  margin-top: 45px!important;
+}
+body.admin-menu.with-taskbar #admin-menu {
+  top: 25px;
+}
+

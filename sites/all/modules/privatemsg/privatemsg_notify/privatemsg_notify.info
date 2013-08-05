@@ -1,0 +1,8 @@
+name = privatemsg_notify
+description = Integrates Privatemsg with notifications
+package = Mail
+core = 6.x
+dependencies[] = privatemsg
+dependencies[] = messaging
+dependencies[] = notifications
+

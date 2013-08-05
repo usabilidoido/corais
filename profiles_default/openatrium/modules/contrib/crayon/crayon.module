@@ -1,0 +1,133 @@
+<?php
+// $Id: crayon.module,v 1.1 2010/08/10 16:15:27 yhahn Exp $
+
+/**
+ * Implementation of hook_enable().
+ * Weight crayon to be after a set of modules.
+ */
+function crayon_enable() {
+  $weight = db_result(db_query("SELECT MAX(weight) FROM {system} WHERE type = 'module' AND name IN('casetracker', 'og', 'spaces_og')"));
+  if (!empty($weight)) {
+    db_query("UPDATE {system} SET weight = %d WHERE name = 'crayon'", ($weight + 1));
+  }
+}
+
+/**
+ * Implementation of hook_views_api().
+ */
+function crayon_views_api() {
+  return array('api' => '2');
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function crayon_theme() {
+  $items = array();
+  $items['crayon_popup'] = array(
+    'arguments' => array('label' => '', 'color' => NULL),
+    'template' => 'crayon-popup',
+    'file' => 'crayon.theme.inc',
+  );
+  $items['crayon_swatch'] = array(
+    'arguments' => array('label' => '', 'color' => NULL, 'popup' => NULL, 'path' => NULL, 'options' => array()),
+    'template' => 'crayon-swatch',
+    'file' => 'crayon.theme.inc',
+  );
+  return $items;
+}
+
+/**
+ * Determine whether a given string is a css RGB color value.
+ */
+function crayon_is_color($value) {
+  return preg_match('/(#[0-9a-f]{6}|#[0-9a-f]{3})/i', $value);
+}
+
+/**
+ * Use mod math to generate a palette index.
+ */
+function crayon_generate_index($id, $palette_size = 42) {
+  static $crayon = array();
+  static $strings = array();
+
+  // Do a string to int conversion if necessary.
+  // @TODO: Determine the best distinct string to distinct int conversion here.
+  if (!is_numeric($id)) {
+    if (!isset($strings[$id])) {
+      $strings[$id] = abs(crc32($id));
+    }
+    $id = $strings[$id];
+  }
+
+  // Return the modulo crayon color id.
+  if (!isset($crayon[$id])) {
+    $modulo = $id % $palette_size;
+    // Try 5 times to avoid color collision.
+    $try = 0;
+    while (in_array($modulo, $crayon, TRUE) && $try < 5) {
+      $modulo = ($modulo + 1) % 42;
+      $try++;
+    }
+    $crayon[$id] = $modulo;
+  }
+  return $crayon[$id];
+}
+
+/**
+ * Generate an acronym from a given string.
+ */
+function crayon_generate_acronym($string, $reset = FALSE) {
+  static $cache = array();
+
+  if (!isset($cache[$string]) || $reset) {
+    $split = preg_split('/[ .-]+/', $string, -1, PREG_SPLIT_NO_EMPTY);
+    $acro = '';
+
+    // Capital-letter based acronyms
+    if (preg_match('/[0-9A-Z]+/', $string)) {
+
+      // Eliminate small words
+      foreach ($split as $k => $chunk) {
+        // No caps or numbers, trash it
+        if (!preg_match('/[0-9A-Z]+/', $chunk)) {
+          unset($split[$k]);
+        }
+      }
+      reset($split);
+
+      // Multiword titles -- form acronym from key characters.
+      if (count($split) > 1) {
+        foreach ($split as $chunk) {
+          $char = array();
+          preg_match_all('/[0-9A-Z]/', $chunk, $char);
+          $acro .= implode('', $char[0]);
+        }
+      }
+      // 1 word titles
+      else {
+        $split = array_shift($split);
+        $char = array();
+        preg_match_all('/[0-9A-Z]/', $split, $char);
+        // Use caps as the acronym, but if there's only 1 cap use the whole string.
+        $acro = count($char[0]) > 1 ? implode('', $char[0]) : $split;
+      }
+    }
+    // Lower case title, bail and use first word
+    else {
+      // Multi-word -- use first letter of each
+      if (count($split) > 1) {
+        foreach ($split as $chunk) {
+          $acro .= drupal_substr($chunk, 0, 1);
+        }
+      }
+      // Bail, use first word
+      else {
+        $acro = current($split);
+      }
+    }
+    $cache[$string] = $acro;
+  }
+
+  return $cache[$string];
+}

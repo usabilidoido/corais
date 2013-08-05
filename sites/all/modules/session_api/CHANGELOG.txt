@@ -1,0 +1,10 @@
+; $Id: CHANGELOG.txt,v 1.1.2.3 2009/10/04 23:34:53 jhedstrom Exp $
+
+DRUPAL-6--1-2, 2009-10-04 
+-------------------------
+- A cookie is now set to track the session ID between log in and log
+  out.
+
+- #380510 - Comment style now conforms to Drupal coding standards.
+
+- #380550 - Implements a better cleanup hook system.

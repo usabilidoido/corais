@@ -1,0 +1,48 @@
+
+Sticky Notes 6.x-1.x, xxxx-xx-xx
+--------------------------------
+
+#459210: fixes #986732 by maho: make database queries postgre compliant
+
+
+Sticky Notes 6.x-1.1, 2010-11-20
+--------------------------------
+
+#451468: bugfixes #971204: added defaults to edit forms and revised access
+  control, both on node as well as on page level
+#426796: #754740 - page title of notes source page gets saved and is accessible
+  in views
+#426636: #754740 - page title of notes source page gets saved and is
+  accessible in views
+
+
+Sticky Notes 6.x-1.0, 2010-09-07
+--------------------------------
+
+#403810 bugfix: added css styles for resizable handlers to achieve the same
+  appearance and functionality in jQuery UI 1.6 and 1.7
+#403654: added translation file sticky_notes.pot and a first german
+  translation version, still pretty rough
+#403648: bugfix: made priorities really optional
+#377040: #818624 Prevent missing save button when node preview is required.
+#368304: #801204 feature: Allow role specific control of access to private /
+  public setting for notes
+#365284: #794866 bugfix: implemented hook_requirements to check correct
+  jquery_ui installation
+#363974: feature extensions: role based visibility, remember visibility state
+  in session, restructured settings pages
+#360386: #778620 fixed, added a bunch of new settings and features, notes are
+  now resizable
+#359418: #748916 by berliner, MGN: Changed access verification for integration
+  with node access modules, implemented hook_search, added additional
+  permissions for note creation and access to search, the last commit didn't
+  cover all files
+#359416: #748916 by berliner, MGN: Changed access verification for integration
+  with node access modules, implemented hook_search, added additional
+  permissions for note creation and access to search
+#341084: #740554 Fixed, urls build using url() and given as settings vars to
+  javascript
+#341042: Added CHANGELOG.txt
+#341038: #740572 by a_c_m: Fixed and uses l() instead of custom building the
+  links in the TPL, as well as moving that logic to the pre-process function.
+#339098: Initial dev release of sticky_notes module.

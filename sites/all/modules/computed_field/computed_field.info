@@ -1,0 +1,13 @@
+name = Computed Field
+description = Allows the user to define computed values in custom content types.
+core = 6.x
+dependencies[] = content
+package = CCK
+
+
+; Information added by drupal.org packaging script on 2012-02-15
+version = "6.x-1.0"
+core = "6.x"
+project = "computed_field"
+datestamp = "1329309341"
+

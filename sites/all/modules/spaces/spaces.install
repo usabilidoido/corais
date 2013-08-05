@@ -1,0 +1,401 @@
+<?php
+
+/**
+ * Implementaton of hook_install().
+ */
+function spaces_install() {
+  drupal_install_schema('spaces');
+}
+
+/**
+ * Implementation of hook_uninstall()
+ */
+function spaces_uninstall() {
+  drupal_uninstall_schema('spaces');
+}
+
+/**
+ * Implementaton of hook_enable().
+ */
+function spaces_enable() {
+  db_query("UPDATE {system} SET weight = -1 WHERE name = 'spaces' AND type = 'module'");
+}
+
+/**
+ * Implementation of hook_schema()
+ */
+function spaces_schema() {
+  $schema = array();
+  $schema['spaces_overrides'] = array(
+    'description' => t('Object overrides per space.'),
+    'fields' => array(
+      'type' => array(
+        'description' => t('The space type.'),
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+      ),
+      'id' => array(
+        'description' => t('The space id.'),
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+      'object_type' => array(
+        'description' => t('The override object type.'),
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+      ),
+      'object_id' => array(
+        'description' => t('The override object id.'),
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+      'value' => array(
+        'description' => t('Serialized storage of space-specific override values.'),
+        'type' => 'text',
+        'serialize' => TRUE,
+      ),
+    ),
+    'indexes' => array(
+      'space' => array('type', 'id'),
+      'object' => array('object_type', 'object_id'),
+    ),
+  );
+  $schema['spaces_presets'] = array(
+    'description' => t('Spaces presets.'),
+    'export' => array(
+      'key' => 'name',
+      'identifier' => 'spaces_presets',
+      'default hook' => 'spaces_presets',
+      'status' => 'spaces_preset_status',
+      'api' => array(
+        'owner' => 'spaces',
+        'api' => 'spaces',  // Base name for api include files.
+        'minimum_version' => 3,
+        'current_version' => 3,
+      ),
+      'export callback' => 'spaces_preset_export',
+    ),
+    'fields' => array(
+      'name' => array(
+        'description' => t('The preset string identifier.'),
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+      ),
+      'title' => array(
+        'description' => t('The human-readable name for this preset.'),
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+      ),
+      'description' => array(
+        'description' => t('The description for this preset.'),
+        'type' => 'text',
+      ),
+      'space_type' => array(
+        'description' => t('The space type for which this preset applies.'),
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+      ),
+      'value' => array(
+        'description' => t('A serialized array that represents this preset\'s definition.'),
+        'type' => 'text',
+        'serialize' => TRUE,
+      ),
+    ),
+    'primary key' => array('name'),
+    'indexes' => array(
+      'type' => array('space_type'),
+    ),
+  );
+  return $schema;
+}
+
+/**
+ * Update script 6001.
+ */
+function spaces_update_6001() {
+  $ret = array();
+
+  // Lose some weight, spaces!
+  db_query("UPDATE {system} SET weight = -1 WHERE name = 'spaces' AND type ='module'");
+
+  // Schema -- add weight column to features table
+  $schema = spaces_schema();
+  db_add_field($ret, 'spaces_features', 'weight', $schema['spaces_features']['fields']['weight']);
+
+  return $ret;
+}
+
+/**
+ * Update script 6002.
+ */
+function spaces_update_6002() {
+  // Install modules that constitute "sideways" migrations
+  $modules = array('purl', 'features');
+  foreach ($modules as $module) {
+    if (!module_exists($module)) {
+      drupal_install_modules(array($module));
+    }
+  }
+  return array();
+}
+
+/**
+ * Update script 6003.
+ */
+function spaces_update_6003() {
+  $ret = array();
+  $ret[] = update_sql("ALTER TABLE spaces MODIFY sid int(10) NOT NULL");
+  $ret[] = update_sql("ALTER TABLE spaces_settings MODIFY sid int(10) NOT NULL");
+  $ret[] = update_sql("ALTER TABLE spaces_features MODIFY sid int(10) NOT NULL");
+  return $ret;
+}
+
+/**
+ * Update to version 3.
+ *
+ * Assumes that all presets are default, i. e. none of them exists in the
+ * database. Further, only those space_settings are being converted that are
+ * known. Therefore space_settings table is kept for other Spaces API users to
+ * migrate their settings in a separate step.
+ */
+function spaces_update_6301() {
+  // Schema as of 6301.
+  $schema = array();
+  $schema['spaces_overrides'] = array(
+    'description' => t('Object overrides per space.'),
+    'fields' => array(
+      'type' => array(
+        'description' => t('The space type.'),
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+      ),
+      'id' => array(
+        'description' => t('The space id.'),
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+      'object_type' => array(
+        'description' => t('The override object type.'),
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+      ),
+      'object_id' => array(
+        'description' => t('The override object id.'),
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+      ),
+      'value' => array(
+        'description' => t('Serialized storage of space-specific override values.'),
+        'type' => 'text',
+        'serialize' => TRUE,
+      ),
+    ),
+    'indexes' => array(
+      'space' => array('type', 'id'),
+      'object' => array('object_type', 'object_id'),
+    ),
+  );
+  $schema['spaces_presets'] = array(
+    'description' => t('Spaces presets.'),
+    'export' => array(
+      'key' => 'name',
+      'identifier' => 'spaces_presets',
+      'default hook' => 'spaces_presets',
+      'status' => 'spaces_preset_status',
+      'api' => array(
+        'owner' => 'spaces',
+        'api' => 'spaces',  // Base name for api include files.
+        'minimum_version' => 3,
+        'current_version' => 3,
+      ),
+    ),
+    'fields' => array(
+      'name' => array(
+        'description' => t('The preset string identifier.'),
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+      ),
+      'title' => array(
+        'description' => t('The human-readable name for this preset.'),
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+      ),
+      'description' => array(
+        'description' => t('The description for this preset.'),
+        'type' => 'text',
+      ),
+      'space_type' => array(
+        'description' => t('The space type for which this preset applies.'),
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+      ),
+      'value' => array(
+        'description' => t('A serialized array that represents this preset\'s definition.'),
+        'type' => 'text',
+        'serialize' => TRUE,
+      ),
+    ),
+    'primary key' => array('name'),
+    'indexes' => array(
+      'type' => array('space_type'),
+    ),
+  );
+
+  // Install CTools.
+  drupal_install_modules(array('ctools'));
+
+  // Read legacy configuration.
+  $spaces = array();
+  $result = db_query('SELECT * FROM {spaces}');
+  while ($row = db_fetch_object($result)) {
+    $spaces[$row->type][$row->sid] = $row;
+  }
+  $features = array();
+  $result = db_query('SELECT * FROM {spaces_features}');
+  while ($row = db_fetch_object($result)) {
+    $features[$row->type][$row->sid][$row->id] = $row;
+  }
+  $settings = array();
+  $result = db_query('SELECT * FROM {spaces_settings}');
+  while ($row = db_fetch_object($result)) {
+    $settings[] = $row;
+  }
+
+  // Remove legacy tables.
+  $ret = array();
+  db_drop_table($ret, 'spaces');
+  db_drop_table($ret, 'spaces_features');
+  db_drop_table($ret, 'spaces_presets');
+
+  // Create new tables.
+  db_create_table($ret, 'spaces_presets', $schema['spaces_presets']);
+  db_create_table($ret, 'spaces_overrides', $schema['spaces_overrides']);
+
+  // Migrate legacy spaces.
+  $known_presets = array(
+    'og' => array(
+      'controlled' => 'og_controlled',
+      'private' => 'og_private',
+      'public' => 'og_public',
+    ),
+  );
+  foreach ($spaces as $type => $type_spaces) {
+    foreach ($type_spaces as $sid => $space) {
+      // Note how a space entry is converted to an override:
+      // spaces_overrides.object_id = "spaces_preset_{spaces2.spaces.type}"
+      $preset = isset($known_presets[$type][$space->preset]) ? $known_presets[$type][$space->preset] : $space->preset;
+      db_query("INSERT INTO {spaces_overrides}(type, id, object_type, object_id, value) VALUES('%s', '%s', 'variable', '%s', '%s')", $type, $sid, "spaces_preset_$type", serialize($preset));
+    }
+  }
+
+  // Migrate legacy features.
+  foreach ($features as $type => $type_features) {
+    foreach ($type_features as $sid => $sid_features) {
+      $weights = array();
+      foreach ($sid_features as $id => $feature) {
+        // Note how a feature entry is converted to a spaces_override by folding
+        // the feature setting into the value array of a
+        // spaces_features override.
+        $value = array(
+          $id => empty($feature->value) ? '0' : '1',
+        );
+        if ($override = db_fetch_array(db_query("SELECT * FROM {spaces_overrides} WHERE type = '%s' AND id = '%s' AND object_type = 'variable' AND object_id = 'spaces_features'", $type, $sid))) {
+          $value += unserialize($override['value']);
+          db_query("UPDATE {spaces_overrides} SET value ='%s' WHERE type = '%s' AND id = '%s' AND object_type = 'variable' AND object_id = 'spaces_features'", serialize($value), $type, $sid);
+        }
+        else {
+          db_query("INSERT INTO {spaces_overrides}(type, id, object_type, object_id, value) VALUES('%s', '%s', 'variable', 'spaces_features', '%s')", $type, $sid, serialize($value));
+        }
+        $weights[$id] = $feature->weight;
+      }
+      // write the override for the space
+      if (!empty($weights)) {
+        db_query("INSERT INTO {spaces_overrides}(type, id, object_type, object_id, value) VALUES('%s', '%s', 'variable', 'space_menu_items', '%s')", $type, $sid, serialize($weights));
+      }
+    }
+  }
+
+  // Migrate home page settings.
+  foreach ($settings as $setting) {
+    if ($setting->id === 'home') {
+      db_query("INSERT INTO {spaces_overrides} (type, id, object_type, object_id, value) VALUES ('%s', '%s', 'variable', 'site_frontpage', '%s')", $setting->type, $setting->sid, $setting->value);
+    }
+  }
+
+  return $ret;
+}
+
+/**
+ * Update old spaces preset exportables. This update script may be re-run at
+ * any time to update spaces 2 preset objects that have been exported.
+ */
+function spaces_update_6302() {
+  $presets = array();
+  // Invoke spaces 2 presets hook so that the spaces  presets can be migrated.
+  foreach (module_invoke_all('spaces_presets') as $name => $preset) {
+    $preset = (object) $preset;
+    if (!isset($preset->api_version)) {
+      $presets[$name] = $preset;
+    }
+  }
+  // Migrate objects.
+  spaces_migrate_api_3_presets($presets);
+  return array();  
+}
+
+/**
+ * Helper function to update spaces 2 presets to spaces 3.
+ * Expects spaces 3 schema to be fully installed.
+ */
+function spaces_migrate_api_3_presets($presets) {
+  foreach ($presets as $name => $preset) {
+    if (!db_result(db_query("SELECT name FROM {spaces_presets} WHERE name = '%s'", $name))) {
+      $new = array(
+        'name' => $name,
+        'title' => isset($preset->name) ? $preset->name : $name,
+        'description' => isset($preset->description) ? $preset->description : '',
+        'space_type' => $preset->type,
+        'value' => array(),
+      );
+      // Features
+      if (!empty($preset->preset['features'])) {
+        $new['value']['variable']['spaces_features'] = $preset->preset['features'];
+      }
+      // Settings
+      if (!empty($preset->preset['settings'])) {
+        foreach ($preset->preset['settings'] as $key => $value) {
+          // Prefix settings so that someone can migrate them by hand.
+          $new['value']['variable']["spaces_setting_{$key}"] = $value;
+        }
+      }
+      // OG mask
+      if (!empty($preset->preset['og'])) {
+        foreach ($preset->preset['og'] as $key => $value) {
+          $new['value']['variable']["spaces_{$key}"] = $value;
+        }
+      }
+      // @TODO
+      // $preset->preset['locked']
+
+      $new['value'] = serialize($new['value']);
+
+      // update_sql does not escape strings properly.
+      db_query("INSERT INTO {spaces_presets} (name,title,description,space_type,value) VALUES ('%s', '%s', '%s', '%s', '%s')", $new['name'], $new['title'],$new['description'], $new['space_type'], $new['value']);
+      drupal_set_message('Updated spaces preset: '. $new['name']);
+    }
+  }  
+}

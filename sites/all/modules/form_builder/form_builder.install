@@ -1,0 +1,111 @@
+<?php
+
+/**
+ * Implementation of hook_install().
+ */
+function form_builder_install() {
+  drupal_install_schema('form_builder');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function form_builder_uninstall() {
+  drupal_uninstall_schema('form_builder');
+  $result = db_query("SELECT name FROM {variable} WHERE name LIKE 'form_builder_%'");
+  while ($row = db_fetch_object($result)) {
+    variable_del($row->name);
+  }
+}
+
+/**
+ * Implementation of hook_requirements().
+ */
+function form_builder_requirements($phase) {
+  $requirements = array();
+  $t = get_t();
+  if ($phase == 'runtime') {
+    $form_builder_types = module_invoke_all('form_builder_types');
+    if (empty($form_builder_types)) {
+      $requirements['form_builder_types']['title'] = $t('Form builder');
+      $requirements['form_builder_types']['severity'] = REQUIREMENT_ERROR;
+      $requirements['form_builder_types']['value'] = $t('No dependent modules found.');
+      $requirements['form_builder_types']['description'] = t('Form builder module is installed but no modules implement support for it. You may want to disable Form builder module until it is needed.');
+    }
+  }
+
+  return $requirements;
+}
+
+/**
+ * Implementation of hook_schema().
+ */
+function form_builder_schema() {
+  $schema = array();
+
+  $schema['form_builder_cache'] = array(
+    'fields' => array(
+      'sid' => array(
+        'type' => 'varchar',
+        'length' => '64',
+        'not null' => FALSE,
+        ),
+      'form_id' => array(
+        'type' => 'varchar',
+        'length' => '128',
+        'not null' => FALSE,
+      ),
+      'type' => array(
+          'type' => 'varchar',
+          'length' => '32',
+          'not null' => FALSE,
+      ),
+      'updated' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-width' => '10',
+      ),
+      'data' => array(
+        'type' => 'blob',
+        'not null' => FALSE,
+        'size' => 'big',
+      ),
+    ),
+    'indexes' => array(
+       'sid_obj_name' => array('sid', 'type', 'form_id'),
+       'updated' => array('updated'),
+    ),
+  );
+
+  return $schema;
+}
+
+/**
+ * Change the {form_builder_cache} table to use a 'longblob' data column.
+ */
+function form_builder_update_6000() {
+  $ret = array();
+  $spec = array(
+    'type' => 'blob',
+    'not null' => FALSE,
+    'size' => 'big',
+  );
+  db_change_field($ret, 'form_builder_cache', 'data', 'data', $spec);
+  return $ret;
+}
+
+/**
+ * Change the {form_builder_cache} table to use a longer form_id column.
+ */
+function form_builder_update_6001() {
+  $ret = array();
+  $spec = array(
+    'type' => 'varchar',
+    'length' => '128',
+    'not null' => FALSE,
+  );
+  db_change_field($ret, 'form_builder_cache', 'form_id', 'form_id', $spec);
+  return $ret;
+}

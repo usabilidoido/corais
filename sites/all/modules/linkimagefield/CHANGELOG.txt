@@ -1,0 +1,45 @@
+// $Id: CHANGELOG.txt,v 1.6 2009/09/04 18:37:12 johnfyoung Exp $
+6--1.0-beta2
+========
+Features
+-------
+- #561922 by johnfyoung: fixed call by reference
+
+6--1.0-beta1
+========
+Features
+-------
+- #561402 by johnfyoung: remove the link if the url field is empty
+- #538220 by johnfyoung: added nofollow functionality to the link
+
+6--1.0-alpha4
+========
+Features
+-------
+- #511128 by johnfyoung: added a formatter to show just the link without the field
+- #527642 by johnfyoung: if the target is set to _self, the target tag will be dropped
+- Improved implementation of defaults
+- added a check to allow/disallow custom target
+
+Bugfix
+------
+- #522890 by agilpwc: fixed render for a node whose type provides a linkimagefield but the node doesn't actually have one associated
+- #515456 by johnfyoung: added help text telling user that URL can be inputted after an image is uploaded
+
+
+6--1.0-alpha3
+========
+Bugfix
+------
+- #512000 by johnfyoung: Fixed imagecache formatter to print the URL correctly
+
+
+6--1.0-alpha2
+========
+Features
+-------
+- #509518 by johnfyoung: Added target support for the URL
+
+Bugfix
+------
+- #509806 by johnfyoung: Fixed install bug wherein the installer wasn't checking for the existence of imagecache

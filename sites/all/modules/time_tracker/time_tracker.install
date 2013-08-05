@@ -1,0 +1,258 @@
+<?php
+
+/**
+ * @file
+ * Implementation of hook_install().
+ */
+function time_tracker_schema() {
+  $schema = array();
+
+  $schema['time_tracker_entry'] = array(
+    'fields' => array(
+      'teid' => array(
+        'type' => 'serial',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+      ),
+      'nid' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+      ),
+      'cid' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => 0,
+      ),
+      'uid' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+        'default' => 0,
+      ),
+      'activity' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'default' => 0,
+      ),
+      'timestamp' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'start' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'default' => 0,
+      ),
+      'end' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'default' => 0,
+      ),
+      'deductions' => array(
+        'type' => 'float',
+        'unsigned' => TRUE,
+        'default' => 0,
+      ),
+      'duration' => array(
+        'type' => 'float',
+        'not null' => TRUE,
+        'unsigned' => FALSE,
+        'default' => 0,
+      ),
+      'note' => array(
+        'type' => 'text',
+      ),
+      'locked' => array(
+        'type' => 'int',
+        'size' => 'tiny',
+      ),
+      'billable' => array(
+        'type' => 'int',
+        'size' => 'tiny',
+      ),
+      'billed' => array(
+        'type' => 'int',
+        'size' => 'tiny',
+      ),
+    ),
+    'primary key' => array('teid'),
+  );
+
+  $schema['time_tracker_activity'] = array(
+    'fields' => array(
+      'taid' => array(
+        'type' => 'serial',
+        'not null' => TRUE,
+        'unsigned' => TRUE,
+      ),
+      'name' => array(
+        'type' => 'varchar',
+        'length' => 100,
+      ),
+      'weight' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+      ),
+      'status' => array(
+        'type' => 'int',
+        'size' => 'tiny',
+      ),
+    ),
+    'primary key' => array('taid'),
+  );
+
+  return $schema;
+}
+
+function time_tracker_update_6100() {
+  $return = array();
+  db_add_field($return, 'time_tracker_entry', 'pid', array('type' => 'int', 'not null' => TRUE, 'unsigned' => TRUE));
+  return $return;
+}
+
+/**
+ * Adding support for start and end times rather than just durations
+ */
+function time_tracker_update_6101() {
+  $return = array();
+  db_add_field($return, 'time_tracker_entry', 'start', array('type' => 'int', 'not null' => TRUE, 'unsigned' => TRUE));
+  db_add_field($return, 'time_tracker_entry', 'end', array('type' => 'int', 'not null' => TRUE, 'unsigned' => TRUE));
+  return $return;
+}
+
+/**
+ * Weighs the time_tracker module so it comes before most other modules.
+ */
+function time_tracker_update_6102() {
+  $return = array();
+  $return[] = $ret[] = update_sql("UPDATE {system} SET weight = -1 WHERE name = 'time_tracker'");
+  return $return;
+}
+
+/**
+ * Weighs the time_tracker module so it comes before most other modules.
+ */
+function time_tracker_update_6103() {
+  $return = array();
+  db_add_field($return, 'time_tracker_entry', 'note', array('type' => 'text', 'not null' => TRUE));
+  return $return;
+}
+
+/**
+ * Adds locked field to time_tracker_entry
+ */
+function time_tracker_update_6104() {
+  $return = array();
+  db_add_field($return, 'time_tracker_entry', 'locked', array('type' => 'int', 'size' => 'tiny'));
+  return $return;
+}
+
+/**
+ * Adds status field to time_tracker_entry
+ */
+function time_tracker_update_6105() {
+  $return = array();
+  db_add_field($return, 'time_tracker_activity', 'status', array('type' => 'int', 'size' => 'tiny'));
+  $return[] = update_sql("UPDATE {time_tracker_activity} SET status = 1 WHERE 1");
+  return $return;
+}
+
+/**
+ * Adds deductions and billed fields to time_tracker_entry
+ */
+function time_tracker_update_6106() {
+  $return = array();
+  db_add_field($return, 'time_tracker_entry', 'deductions', array('type' => 'float', 'not null' => TRUE, 'unsigned' => TRUE));
+  db_add_field($return, 'time_tracker_entry', 'billed', array('type' => 'int', 'size' => 'tiny'));
+  return $return;
+}
+
+/**
+ * Adds deductions and billed fields to time_tracker_entry
+ */
+function time_tracker_update_6107() {
+  $return = array();
+  db_drop_field($return, 'time_tracker_entry', 'pid');
+  return $return;
+}
+
+/**
+ * Adds default values to columns
+ */
+function time_tracker_update_6108() {
+  $return = array();
+  db_change_field($return, 'time_tracker_entry', 'cid', 'cid', array(
+    'type' => 'int',
+    'not null' => TRUE,
+    'unsigned' => TRUE,
+    'default' => 0,
+  ));
+  db_change_field($return, 'time_tracker_entry', 'uid', 'uid', array(
+    'type' => 'int',
+    'not null' => TRUE,
+    'unsigned' => TRUE,
+    'default' => 0,
+  ));
+  db_change_field($return, 'time_tracker_entry', 'activity', 'activity', array(
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'default' => 0,
+  ));
+  db_change_field($return, 'time_tracker_entry', 'timestamp', 'timestamp', array(
+    'type' => 'int',
+    'not null' => TRUE,
+    'default' => 0,
+  ));
+  db_change_field($return, 'time_tracker_entry', 'start', 'start', array(
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'default' => 0,
+  ));
+  db_change_field($return, 'time_tracker_entry', 'end', 'end', array(
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'default' => 0,
+  ));
+  db_change_field($return, 'time_tracker_entry', 'deductions', 'deductions', array(
+    'type' => 'float',
+    'unsigned' => TRUE,
+    'default' => 0,
+  ));
+  db_change_field($return, 'time_tracker_entry', 'duration', 'duration', array(
+    'type' => 'float',
+    'not null' => TRUE,
+    'unsigned' => FALSE,
+    'default' => 0,
+  ));
+  db_change_field($return, 'time_tracker_entry', 'note', 'note', array(
+    'type' => 'text',
+    'default' => '',
+  ));
+  return $return;
+}
+
+/**
+ * Adds default values to columns
+ */
+function time_tracker_update_6109() {
+  $return = array();
+  // Type text can't have a default
+  db_change_field($return, 'time_tracker_entry', 'note', 'note', array(
+    'type' => 'text',
+  ));
+  return $return;
+}
+
+
+function time_tracker_install() {
+  drupal_install_schema('time_tracker');
+  db_query("UPDATE {system} SET weight = %d WHERE name = '%s'", -1, 'time_tracker');
+  drupal_set_message(t("Time Tracker has been installed successfully. To begin tracking time, you first must enable time tracking on at least one content type. You can do so on any content type's edit page at admin/content/node-type/%content-type-name"));
+}
+
+function time_tracker_uninstall() {
+  drupal_uninstall_schema('time_tracker');
+}

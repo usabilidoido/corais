@@ -1,0 +1,16 @@
+<?php
+// $Id: imagepicker_postlet.install,v 1.1.2.1 2009/11/06 18:59:40 hutch Exp $
+// $Name: DRUPAL-6--2-10 $
+// for D6. Version 2
+/**
+ * @file
+ * imagepicker_postlet module install, update and uninstall functions.
+ */
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function imagepicker_postlet_uninstall() {
+  // delete entries in the variable table
+  db_query("DELETE FROM {variable} WHERE name LIKE 'imagepicker_postlet%'");
+}

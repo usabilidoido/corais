@@ -1,0 +1,280 @@
+<p>
+The <em>New import</em> wizard guides the user through a number of
+steps to configure an import.
+</p>
+
+<a name="select-content-type"></a>
+<h3>Select content type</h3>
+
+<p>
+On the <em>Select content type</em> page you can select the content type
+to create content for. Only the content types you have permission to
+create are listed.
+</p>
+
+<a name="select-file"></a>
+<h3>Select file</h3>
+
+<p>
+The <em>Select file</em> page allows you to upload and select the file
+that contains the content to import. There is a list of available files
+to choose from (previously uploaded files), or you can upload a new file.
+</p>
+
+<h4>Using FTP</h4>
+
+<p>
+The <em>Node import</em> module can be configured to allow users to
+upload files using FTP rather than by the form.
+</p>
+
+<ul>
+<li>on <a href="&base_url&admin/content/node_import/settings">Administer &raquo; Content &raquo; Import content &raquo; Settings</a>
+you need to <em>Allow FTP uploads</em>,</li>
+<li>all files uploaded by form are "owned" by the user that uploaded
+them - no other user will be able to use that file to import content.
+For FTP uploaded files, you need to specify what user "owns" those
+files.</li>
+</ul>
+
+<p>
+After you have uploaded a (big) file using FTP, you need to press
+<em>Reload page</em> to inform the form about the new file.
+</p>
+
+<a name="set-file-options"></a>
+<h3>Set file options</h3>
+
+<p>
+On the <em>Set file options</em> page you can specify the file format
+by selecting one of the predefined formats, such as <abbr title="Comma
+Separated Values">CSV</abbr> or <abbr title="Tab Separated Values">TSV</abbr>,
+or specify the <em>Record separator</em>, <em>Field separator</em>,
+<em>Text delimiter</em> and <em>Escape character</em> yourself.
+</p>
+
+<p>
+After changing the options, press <em>Reload page</em> to view the
+first 5 rows of the file in a tabular format.
+</p>
+
+<a name="map-file-columns"></a>
+<h3>Map file columns</h3>
+
+<p>
+On the <em>Map file columns</em> page you must tell <em>Node import</em>
+which file columns contain the content for which content fields.
+</p>
+
+<p>
+Some content fields, such as <em>Title</em> for <em>Node content</em>
+is required, while other content fields may be optional.
+</p>
+
+<p>
+You can map the same file column to different content fields if the
+content in that column happens to apply to multiple content fields.
+</p>
+
+<h4>Multi-valued content fields</h4>
+
+<p>
+Some content fields may allow for multiple values to be assigned. For
+example <em>Vocabulary terms</em>. In this case you have two options:
+</p>
+
+<ol>
+
+<li>
+<table>
+<thead>
+<tr><th>title</th><th>body</th><th>field value 1</th><th>field value 2</th></tr>
+</thead>
+<tbody>
+<tr><td>Some title</td><td>Some body</td><td>Value 1</td><td>Value 2</td></tr>
+</tbody>
+</table>
+
+<p>
+If you want some content field to contain the values of both the
+<em>field value 1</em> and <em>field value 2</em> columns, you
+will need to select the two columns in the select list for that
+content field.
+</p>
+</li>
+
+<li>
+<table>
+<thead>
+<tr><th>title</th><th>body</th><th>field values</th></tr>
+</thead>
+<tbody>
+<tr><td>Some title</td><td>Some body</td><td>Value 1||Value 2</td></tr>
+</tbody>
+</table>
+
+<p>
+In this case, you put both values in the same file column, but separated
+by some separator which you will be able to set on the following page.
+By default it is || - double pipe character.
+</p>
+</li>
+
+</ol>
+
+<h4>Hierarchical content fields</h4>
+
+<p>
+Some content fields may contain a value that is inherently hierarchical,
+such as a <em>Parent item</em> in a <em>Book outline</em>. In this
+case you also have the option to map either a single column or
+multiple file columns to the content field.
+</p>
+
+<ol>
+<li>
+<table>
+<thead>
+<tr><th>title</th><th>body</th><th>parent</th><th>child</th></tr>
+</thead>
+<tbody>
+<tr><td>Some title</td><td>Some body</td><td>Parent</td><td>Child</td></tr>
+</tbody>
+</table>
+
+<p>
+If you want to set the value of a content field to <em>Parent &raquo; Child</em>
+you need to select both file columns in the select list for that
+content field.
+</p>
+</li>
+
+<li>
+<table>
+<thead>
+<tr><th>title</th><th>body</th><th>parent</th></tr>
+</thead>
+<tbody>
+<tr><td>Some title</td><td>Some body</td><td>Parent&gt;&gt;Child</td></tr>
+</tbody>
+</table>
+
+<p>
+Similar to multi-valued content fields, you can also map the content
+field to exactly one file column and have the hierarchy of the item
+separated by separators which you can set on the next page. By
+default this separator is &gt;&gt; - double greater-than character.
+</p>
+</li>
+</ol>
+
+<h4>Multi-valued hierarchical content fields</h4>
+
+<p>
+In the case a content field can have multiple values which are all
+hierarchical by nature, you can also map the content field to either
+one file column or to multiple file columns.
+</p>
+
+<p>
+The interpretation in this case is that the multiple value nature
+of the content field has precedence over the hierarchical nature
+of the field.
+</p>
+
+<ol>
+
+<li>
+<table>
+<thead>
+<tr><th>title</th><th>body</th><th>value 1</th><th>value 2</th></tr>
+</thead>
+<tbody>
+<tr><td>Some title</td><td>Some body</td><td>Parent 1>>Child 1</td><td>Parent 2>>Child 2</td></tr>
+</tbody>
+</table>
+</li>
+
+<li>
+<table>
+<thead>
+<tr><th>title</th><th>body</th><th>parents</th></tr>
+</thead>
+<tbody>
+<tr><td>Some title</td><td>Some body</td><td>Parent 1>>Child 1||Parent 2>>Child 2</td></tr>
+</tbody>
+</table>
+</li>
+
+</ol>
+
+<p>
+In both cases, the values <em>Parent 1 &raquo; Child 1</em> and
+<em>Parent 2 &raquo; Child 2</em> will be assigned to the content
+field it is mapped to.
+</p>
+
+<a name="set-import-options"></a>
+<h3>Set import options</h3>
+
+<p>
+On the <em>Set import options</em> you can set additional options
+on how to interpret the supplied data from the file.
+</p>
+
+<h4>Hierarchical and multi-valued content fields</h4>
+
+<p>
+You will get an option to set the <em>Multiple values separator</em>
+and <em>Hierarchical separator</em> if it applies for a content
+field.
+</p>
+
+<a name="set-default-values"></a>
+<h3>Set default values</h3>
+
+<p>
+On the <em>Set default values</em> page you can set the
+default value to use in the case the content field either
+has not been mapped to a file column or the data in that
+file column is empty for a given record.
+</p>
+
+<p>
+Note that the default values are only used in those two
+cases! Selected a number of <em>Taxonomy terms</em> here
+will not assign those terms to all imported records for
+example.
+</p>
+
+<a name="preview-import"></a>
+<h3>Preview import</h3>
+
+<p>
+On the <em>Preview import</em> page you can see a preview
+of the content you will created. You can go <em>Back</em>
+to correct any errors you encounter.
+</p>
+
+<p>
+Note that the preview of the imported content is not always
+100% correct as some content fields may only appear after
+the content has really been created, such as <em>Menu items</em>.
+</p>
+
+<a name="start-import"></a>
+<h3>Start import</h3>
+
+<p>
+The <em>Start import</em> page offers the last chance
+to change any options. When you press <em>Start import</em>
+you will be guided to a different page which starts the
+import.
+</p>
+
+<p>
+You can set a name for the import so you can keep track
+of the different imports on <a href="&base_url&admin/content/node_import">Administer &raquo; Content &raquo; Import content</a>
+page.
+</p>
+

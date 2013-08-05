@@ -1,0 +1,24 @@
+<?php
+/**
+ * AJAX TinyMce Plugin
+ *
+ * @see http://drupal.org/project/ajax
+ * @see irc://freenode.net/#drupy
+ * @depends Drupal 6
+ * @author brendoncrawford
+ * @note This file uses a 79 character width limit.
+ *
+ */
+
+/**
+ * Implementation of hook_preprocess_hook().
+ *
+ * @param variables Assoc
+ * @return Bool
+ *
+ */
+function ajax_wysiwyg_preprocess_page(&$variables) {
+  drupal_add_js(drupal_get_path('module', 'ajax_wysiwyg') .
+    '/ajax_wysiwyg.js', 'theme');
+  return TRUE;
+}

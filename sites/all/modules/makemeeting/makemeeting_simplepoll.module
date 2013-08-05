@@ -1,0 +1,776 @@
+<?php
+
+/**
+ * @file
+ *
+ * Make Meeting Simple Poll module
+ *
+ */
+
+
+/**
+ * Implementation of hook_theme
+ *
+ * @return
+ */
+function makemeeting_simplepoll_theme() {
+  return array(
+    'makemeeting_simplepoll_form' => array(
+      'arguments' => array('element' => NULL),
+      'template' => 'makemeeting-simplepoll-form'
+    ),
+    'makemeeting_simplepoll_pollpanel' => array(
+      'arguments' => array('element' => NULL),
+      'template' => 'makemeeting-simplepoll-pollpanel'
+    ),
+    'makemeeting_simplepoll_showpoll_theme' => array(
+      'arguments' => array('node' => NULL, 'show_form' => NULL),
+      'template' => 'makemeeting-simplepoll-showpoll'
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_elements() - we have two custom poll element: the poll
+ * table and the admin interface of the poll table
+ *
+ * @return
+ */
+function makemeeting_simplepoll_elements() {
+  $type = array();
+  $type['makemeeting_simplepoll_form'] = array(
+    '#input' => TRUE,
+    '#process' => array('makemeeting_simplepoll_form_process'),
+    '#description' => '',
+    '#attributes' => array(
+      'answers' => array()
+    ),
+  );
+
+  $type['makemeeting_simplepoll_pollpanel'] = array(
+    '#input' => TRUE,
+    '#process' => array('makemeeting_simplepoll_pollpanel_process'),
+    '#description' => '',
+    '#attributes' => array(
+      'answers' => array(),
+      'votes' => array(),
+      'multiple_allowed' => NULL,
+      'secure' => NULL
+    ),
+  );
+
+  return $type;
+}
+
+/**
+ * makemeeting_simplepoll_form_process()
+ *
+ * @param mixed $element
+ * @param mixed $form_state
+ * @return
+ */
+function makemeeting_simplepoll_form_process($element, $form_state) {
+  // collecting the answers for the question from the posted data
+  $options = array();
+  foreach ($element['#post'] as $field => $value) {
+    preg_match("/(field)([0-9]*)/", $field, $matches);
+    if (is_numeric($matches[2])) {
+      $value = trim($value);
+      if (!empty($value))
+        $options[$matches[2]] = $value;
+    }
+  }
+  $element['#value'] = $options;
+
+  return $element;
+}
+
+/**
+ * makemeeting_simplepoll_pollpanel_process()
+ *
+ * @param mixed $element
+ * @param mixed $form_state
+ * @return
+ */
+function makemeeting_simplepoll_pollpanel_process($element, $form_state) {
+
+  $vote_array = array();
+
+  if (isset($element['#post']['vote'])) {
+    if ($element['#attributes']['multiple_allowed'] == 1) {
+      foreach ($element['#post']['vote'] as $vote_id) {
+        $vote_array[$vote_id] = 1;
+      }
+    }
+    else {
+      $vote_array[$element['#post']['vote']] = 1;
+    }
+  }
+
+  $element['#value'] = array(
+    'vote' => $vote_array,
+    'name' => $element['#post']['your_name']
+  );
+
+  drupal_add_css(drupal_get_path('module', 'makemeeting') . '/pollpanel.css');
+  return $element;
+}
+
+/**
+ * Disabling the preview button
+ *
+ * @param mixed $form_id
+ * @param mixed $form
+ * @return
+ */
+function makemeeting_simplepoll_form_alter($form_id, &$form) {
+  switch ($form_id['form_id']['#value']) {
+    case 'makemeeting_simplepoll_node_form':
+      unset($form_id['buttons']['preview']);
+      break;
+  }
+}
+
+/*********** makemeeting_simplepoll_node *********/
+
+/**
+ * node_info()
+ *
+ * @return
+ */
+function makemeeting_simplepoll_node_info() {
+  return array(
+    'makemeeting_simplepoll' => array(
+      'name' => t('Simple poll'),
+      'module' => 'node_makemeeting_simplepoll',
+      'description' => t("Create a regular poll and see your friends votes."),
+      'has_title' => TRUE,
+      'title_label' => t('Your question'),
+      'has_body' => TRUE,
+      'body_label' => t('Add some description'),
+    )
+  );
+}
+
+/**
+ * node_access()
+ *
+ * @param mixed $op
+ * @param mixed $node
+ * @param mixed $account
+ * @return
+ */
+function node_makemeeting_simplepoll_access($op, $node, $account) {
+  if ($op == 'create') {
+    return user_access('create poll', $account);
+  }
+
+  if ($op == 'update') {
+    return FALSE;
+  }
+
+  if ($op == 'delete') {
+    if (user_access('delete poll', $account) && ($account->uid == $node->uid)) {
+      return TRUE;
+    }
+  }
+}
+
+/**
+ * node_form()
+ *
+ * @param mixed $node
+ * @return
+ */
+function node_makemeeting_simplepoll_form(&$node) {
+  GLOBAL $user;
+
+  $type = node_get_types('type', $node);
+
+  if ($type->has_title) {
+    $form['title'] = array(
+      '#type' => 'textfield',
+      '#title' => check_plain($type->title_label),
+      '#required' => TRUE,
+      '#default_value' => $node->title,
+      '#weight' => -5
+    );
+  }
+
+  if ($type->has_body) {
+    $form['body'] = array(
+      '#type' => 'textarea',
+      '#title' => check_plain($type->body_label),
+      '#default_value' => $node->body,
+      '#rows' => 5
+    );
+  }
+
+  if ((isset($node->nid) && $node->uid == 0) || $user->uid == 0) {
+    $form['anonym'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Add your name and email'),
+      '#tree' => TRUE,
+    );
+
+    $form['anonym']['user_name'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Your name'),
+      '#maxlength' => 100,
+      '#description' => t('This is optional.'),
+    );
+
+    $form['anonym']['user_email'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Your e-mail'),
+      '#description' => t('This is optional, too. But if you add, we can send e-mail notification after every valid vote.'),
+      '#maxlength' => 100,
+    );
+  }
+
+  if (!isset($node->nid)) {
+    $answers = array(
+      'field0' => t('Sample answer #1'),
+      'field1' => t('Sample answer #2')
+    );
+  }
+  else {
+    $answers = $node->answers;
+  }
+
+  $form['ans'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Answers'),
+    '#tree' => TRUE,
+    '#description' => t('You can add extra field with the link at the bottom of the form fields.'),
+  );
+
+  $form['ans']['answers'] = array(
+    '#type' => 'makemeeting_simplepoll_form',
+    '#title' => t('Poll answers'),
+    '#attributes' => array('answers' => $answers),
+  );
+
+  $form['poll_options'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Poll options'),
+    '#tree' => TRUE,
+  );
+
+  $form['poll_options']['secure'] = array(
+    '#type' => 'radios',
+    '#title' => t('Show previous votes'),
+    '#description' => t("Deny new voters to see the previous votes."),
+    '#options' => array('0' => t('Yes'), '1' => t('No')),
+    '#default_value' => isset($node->secure) ? $node->secure : 0,
+  );
+
+  $form['poll_options']['multiple_allowed'] = array(
+    '#type' => 'radios',
+    '#title' => t('Multiple option is selectable per answers.'),
+    '#options' => array('0' => t('Disabled'), '1' => t('Enabled')),
+    '#default_value' => isset($node->multiple_allowed) ? $node->multiple_allowed : 0,
+  );
+
+  $form['email'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('E-mail notification')
+  );
+
+  $form['email']['email_notification'] = array(
+    '#type' => 'radios',
+    '#title' => t('Send me an e-mail after every valid vote'),
+    '#options' => array('1' => t('Yes'), '0' => t('No')),
+    '#default_value' => isset($node->email_notification) ? $node->email_notification : 1,
+  );
+
+  return $form;
+}
+
+/**
+ * node_validate()
+ *
+ * @param mixed $node
+ * @return
+ */
+function node_makemeeting_simplepoll_validate(&$node) {
+
+}
+
+/**
+ * node_insert()
+ *
+ * @param mixed $node
+ * @return
+ */
+function node_makemeeting_simplepoll_insert($node) {
+  GLOBAL $user;
+
+  // creating custom urls
+  $poll_url = makemeeting_keygen(10);
+  while (db_result(db_query("SELECT COUNT(*) FROM {makemeeting_poll_heads} WHERE url = '%s'", $poll_url)) > 0)
+    $poll_url = makemeeting_keygen(10);
+
+  $admin_url = makemeeting_keygen(25);
+  while (db_result(db_query("SELECT COUNT(*) FROM {makemeeting_poll_heads} WHERE url = '%s'", $admin_url)) > 0)
+    $admin_url = makemeeting_keygen(25);
+
+  // saving the poll options
+  db_query("INSERT INTO {makemeeting_poll_heads} 
+    (nid, vid, uid, anonym_name, anonym_email, email_notification, poll_type, url, admin_url, multiple_allowed, secure, maybe_option) 
+      VALUES 
+    ('%d', '%d', '%d', '%s', '%s', '%d', '%d', '%s', '%s', '%d', '%d', '%d')",
+           $node->nid, $node->vid, $user->uid, $node->anonym['user_name'], $node->anonym['user_email'], $node->email['email_notification'], 2, $poll_url, $admin_url, $node->poll_options['multiple_allowed'], $node->poll_options['secure'], 0);
+
+  // saving the answers for the question
+  foreach ($node->ans['answers'] as $value) {
+    db_query("INSERT INTO {makemeeting_poll_rows} (nid, answer_text, type) VALUES (%d, '%s', 2)", $node->nid, $value);
+  }
+
+  // set drupal messages
+  drupal_set_message(l(t("Poll page URL: !url", array("!url" => url('makemeeting/' . $poll_url, array("absolute" => TRUE)))), "makemeeting/" . $poll_url));
+  drupal_set_message(l(t("Admin page URL: !url", array("!url" => url('makemeeting/' . $admin_url, array("absolute" => TRUE)))), "makemeeting/" . $admin_url));
+
+  // send an email message
+  $mail = "";
+  if ($user->uid > 0 && valid_email_address($user->mail)) {
+    $mail = $user->mail;
+  }
+  elseif (valid_email_address($node->anonym['user_email'])) {
+    $mail = $node->anonym['user_email'];
+  }
+
+  if ($mail != "") {
+    if ($user->uid > 0) {
+      $name = $user->name;
+    }
+    elseif (isset($node->anonym['user_name'])) {
+      $name = $node->anonym['user_name'];
+    }
+    else {
+      t("user");
+    }
+
+    $params = array(
+      "name" => $name,
+      "poll_url" => $poll_url,
+      "admin_url" => $admin_url
+    );
+    drupal_mail('makemeeting', 'create_new_poll', $mail, language_default(), $params);
+  }
+}
+
+/**
+ * node_update()
+ *
+ * @param mixed $node
+ * @return
+ */
+function node_makemeeting_simplepoll_update($node) {
+  // do nothing here
+  // reason: we using custom urls to update the poll
+}
+
+/**
+ * node_nodeapi()
+ *
+ * @param mixed $node
+ * @param mixed $op
+ * @param mixed $teaser
+ * @param mixed $page
+ * @return
+ */
+function node_makemeeting_simplepoll_nodeapi(&$node, $op, $teaser, $page) {
+  switch ($op) {
+    case 'delete revision':
+      db_query('DELETE FROM {makemeeting_poll_heads} WHERE vid = %d', $node->vid);
+      break;
+
+    case 'update':
+      break;
+  }
+}
+
+/**
+ * node_delete()
+ *
+ * @param mixed $node
+ * @return
+ */
+function node_makemeeting_simplepoll_delete($node) {
+  db_query("DELETE FROM {makemeeting_poll_rows} WHERE nid = %d", $node->nid);
+  db_query("DELETE FROM {makemeeting_poll_heads} WHERE nid = %d", $node->nid);
+  db_query("DELETE FROM {makemeeting_poll_votes} WHERE poll_id = %d", $node->nid);
+}
+
+/**
+ * node_load()
+ *
+ * @param mixed $node
+ * @return
+ */
+function node_makemeeting_simplepoll_load($node) {
+
+  // load the answers
+  $answers = array();
+  $result = db_query("SELECT * FROM {makemeeting_poll_rows} WHERE nid = %d", $node->nid);
+  while ($row = db_fetch_array($result))
+    $answers['field' . $row['answer_id']] = $row['answer_text'];
+
+  // load the votes
+  $votes = array();
+  $result = db_query("SELECT * FROM {makemeeting_poll_votes} WHERE poll_id = %d ORDER BY dt", $node->nid);
+  while ($row = db_fetch_array($result)) {
+    $votes[$row['user_name']][$row['answer_id']] = $row['answer_value'];
+  }
+
+  // load poll options
+  $poll_head = db_fetch_array(db_query("SELECT * FROM {makemeeting_poll_heads} WHERE nid = %d", $node->nid));
+
+  return array(
+    "answers" => $answers,
+    "votes" => $votes,
+    "poll_type" => $poll_head['poll_type'],
+    "poll_url" => $poll_head['url'],
+    "poll_admin_url" => $poll_head['admin_url'],
+    "anonym_name" => $poll_head['anonym_name'],
+    "anonym_email" => $poll_head['anonym_email'],
+    "email_notification" => $poll_head['email_notification'],
+    "secure" => $poll_head['secure'],
+    "multiple_allowed" => $poll_head['multiple_allowed'],
+    "maybe_option" => $poll_head['maybe_option'],
+  );
+}
+
+/**
+
+ */
+/**
+ * node_view()
+ *
+ * If $teaser is TRUE, we return empty string, so we can hide the poll body
+ * from the list site/node.
+ *
+ * @param mixed $node
+ * @param bool $teaser
+ * @param bool $page
+ * @return
+ */
+function node_makemeeting_simplepoll_view($node, $teaser = FALSE, $page = FALSE) {
+
+  unset($node->title);
+  $node = node_prepare($node, $teaser);
+
+  $node->content['poll_panel'] = array(
+    "#value" => theme("makemeeting_simplepoll_showpoll_theme", $node, drupal_get_form('makemeeting_simplepoll_pollpanel_form', $node)),
+    "#weight" => 1
+  );
+
+  if ($teaser || $page) {
+    unset($node->content);
+  }
+  elseif (!preg_match("/" . $node->poll_url . "/i", request_uri())) {
+    unset($node->content);
+  }
+
+  return $node;
+}
+
+
+/**
+ * makemeeting_simplepoll_pollpanel_form()
+ *
+ * This is the form for voting
+ *
+ * @param mixed $form_state
+ * @param mixed $node
+ * @return
+ */
+function makemeeting_simplepoll_pollpanel_form(&$form_state, $node) {
+  $form['add_your_vote'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Add your vote'),
+    '#tree' => TRUE
+  );
+
+  $form['add_your_vote']['pollpanel'] = array(
+    '#type' => 'makemeeting_simplepoll_pollpanel',
+    '#attributes' => array(
+      'answers' => $node->answers,
+      'votes' => $node->votes,
+      'multiple_allowed' => $node->multiple_allowed,
+      'secure' => $node->secure
+    ),
+    '#description' => t('Choose your name and select the answers.'),
+  );
+
+  $form['node_id'] = array(
+    '#type' => 'value',
+    '#value' => $node->nid
+  );
+
+  $form['poll_url'] = array(
+    '#type' => 'value',
+    '#value' => $node->poll_url
+  );
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit')
+  );
+
+  return $form;
+}
+
+/**
+ * makemeeting_simplepoll_pollpanel_form_validate()
+ *
+ * @param mixed $form
+ * @param mixed $form_state
+ * @return
+ */
+function makemeeting_simplepoll_pollpanel_form_validate($form, &$form_state) {
+  $node = node_load($form_state['values']['node_id']);
+
+  if ($form_state['values']['poll_url'] != $node->poll_url) {
+    form_set_error('add_your_vote', t('Hacking attempt.'));
+  }
+  if ($form_state['clicked_button']['#post']['your_name'] == "") {
+    form_set_error('pollpanel', t('You must enter your name.'));
+  }
+}
+
+/**
+ * makemeeting_simplepoll_pollpanel_form_submit()
+ *
+ * Making the vote
+ *
+ * @param mixed $form
+ * @param mixed $form_state
+ * @return
+ */
+function makemeeting_simplepoll_pollpanel_form_submit($form, &$form_state) {
+  $node = node_load($form_state['values']['node_id']);
+
+  // submit the vote (or votes, if multiple answers are allowed)
+  foreach ($form_state['values']['add_your_vote']['pollpanel']['vote'] as $k => $v) {
+    db_query("INSERT INTO {makemeeting_poll_votes} (user_name, poll_id, answer_id, answer_value, dt) VALUES ('%s', %d, %d, %d, %d)", $form_state['values']['add_your_vote']['pollpanel']['name'], $node->nid, $k, 1, time());
+  }
+
+  // log
+  makemeeting_insert_log($node->nid, $form['#post']['your_name']);
+
+  // send notification email
+  if ($node->email_notification == 1) {
+    // if anonym and has valid email address
+    if ($node->uid == 0) {
+      if (valid_email_address($node->user_email)) {
+        $params = array(
+          'name' => $node->user_name == "" ? t("user") : $node->user_name,
+          'poll_url' => $node->poll_url);
+
+        drupal_mail('makemeeting', 'new_vote', $node->user_email, language_default(), $params);
+      }
+    }
+    else {
+      // if registered and has valid email address
+      $account = user_load(array("uid" => $node->uid));
+      if (valid_email_address($account->mail)) {
+        $params = array(
+          'name' => $account->name,
+          'poll_url' => $node->poll_url
+        );
+
+        drupal_mail('makemeeting', 'new_vote', $account->mail, user_preferred_language($account), $params);
+      }
+    }
+  }
+
+  drupal_set_message(t("Succesfull."));
+  return;
+}
+
+/* ------ end makemeeting_node ------ */
+
+/**
+ * makemeeting_simplepoll_update_poll()
+ *
+ * The following two functions are the custom update form,
+ * we using this instead of node_update() hook,
+ * because we can't use the node/%d/edit page, only the
+ * makemeeting/admin_string url
+ *
+ * @param mixed $form_state
+ * @param mixed $node
+ * @return
+ */
+function makemeeting_simplepoll_update_poll(&$form_state, $node) {
+  GLOBAL $user;
+
+  $type = node_get_types('type', $node);
+
+  if ($type->has_title) {
+    $form['title'] = array(
+      '#type' => 'textfield',
+      '#title' => check_plain($type->title_label),
+      '#required' => TRUE,
+      '#default_value' => $node->title,
+      '#weight' => -5
+    );
+  }
+
+  if ($type->has_body) {
+    $form['body'] = array(
+      '#type' => 'textarea',
+      '#title' => check_plain($type->body_label),
+      '#default_value' => $node->body,
+      '#rows' => 5
+    );
+  }
+
+  if ((isset($node->nid) && $node->uid == 0) || $user->uid == 0) {
+    $form['anonym'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Add your name and email'),
+      '#tree' => TRUE,
+    );
+
+    $form['anonym']['user_name'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Your name'),
+      '#maxlength' => 100,
+      '#default_value' => check_plain($node->anonym_name),
+      '#description' => t('This is optional.'),
+    );
+
+    $form['anonym']['user_email'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Your e-mail'),
+      '#description' => t('This is optional, too. But if you add, we can send e-mail notification after every valid vote.'),
+      '#default_value' => check_plain($node->anonym_email),
+      '#maxlength' => 100,
+    );
+  }
+
+  $form['ans'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Answers'),
+    '#tree' => TRUE,
+    '#description' => t('You can add extra field with the link at the bottom of the form fields.'),
+  );
+
+  $form['ans']['answers'] = array(
+    '#type' => 'makemeeting_simplepoll_form',
+    '#title' => t('Poll answers'),
+    '#attributes' => array('answers' => $node->answers),
+  );
+
+  $form['poll_options'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Poll options'),
+    '#tree' => TRUE,
+  );
+
+  $form['poll_options']['secure'] = array(
+    '#type' => 'radios',
+    '#title' => t('Show previous votes'),
+    '#description' => t("Deny new voters to see the previous votes."),
+    '#options' => array('0' => t('Yes'), '1' => t('No')),
+    '#default_value' => isset($node->secure) ? $node->secure : 0,
+  );
+
+  $form['poll_options']['multiple_allowed'] = array(
+    '#type' => 'radios',
+    '#title' => t('Multiple option is selectable per answers.'),
+    '#options' => array('0' => t('Disabled'), '1' => t('Enabled')),
+    '#default_value' => isset($node->multiple_allowed) ? $node->multiple_allowed : 0,
+  );
+
+  $form['email'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('E-mail notification')
+  );
+
+  $form['email']['email_notification'] = array(
+    '#type' => 'radios',
+    '#title' => t('Send me an e-mail after every valid vote'),
+    '#options' => array('1' => t('Yes'), '0' => t('No')),
+    '#default_value' => isset($node->email_notification) ? $node->email_notification : 0,
+  );
+
+  $form['poll_admin_url'] = array(
+    '#type' => 'value',
+    '#value' => $node->poll_admin_url
+  );
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit')
+  );
+
+  return $form;
+}
+
+/**
+ * makemeeting_simplepoll_update_poll_submit()
+ *
+ * @param mixed $form
+ * @param mixed $form_state
+ * @return
+ */
+function makemeeting_simplepoll_update_poll_submit($form, &$form_state) {
+  // load the node
+  $node_id = db_result(db_query("SELECT nid FROM {makemeeting_poll_heads} WHERE admin_url = '%s'", $form_state['values']['poll_admin_url']));
+  $node = node_load($node_id);
+
+  // save node options
+  $node->title = $form_state['values']['title'];
+  $node->body = $form_state['values']['body'];
+  node_save($node);
+
+  // save poll options 
+  db_query("UPDATE {makemeeting_poll_heads} SET anonym_name = '%s', anonym_email = '%s', email_notification = %d, multiple_allowed = %d, secure = %d, maybe_option = %d WHERE nid = %d", $form_state['values']['anonym']['user_name'], $form_state['values']['anonym']['user_email'], $form_state['values']['email_notification'], $form_state['values']['poll_options']['multiple_allowed'], $form_state['values']['poll_options']['secure'], $form_state['values']['poll_options']['maybe_option'], $node_id);
+
+  // save or update answers  
+  $active_answer_ids = array();
+
+  // walk through the answers
+  foreach ($form_state['values']['ans']['answers'] as $ans_id => $val) {
+    // check if it's already in the db
+    $is_answer = db_result(db_query("SELECT COUNT(*) FROM {makemeeting_poll_rows} WHERE answer_id = %d", $ans_id));
+    if ($is_answer == 1) {
+      // if yes, update
+      db_query("UPDATE {makemeeting_poll_rows} SET answer_text = '%s' WHERE answer_id = %d", $val, $ans_id);
+    }
+    else {
+      // if no, insert
+      db_query("INSERT INTO {makemeeting_poll_rows} (nid, answer_text, type) VALUES (%d, '%s', 2)", $node_id, $val);
+      // get the inserted id
+      $ans_id = db_result(db_query("SELECT MAX(answer_id) FROM {makemeeting_poll_rows}"));
+    }
+
+    // saving the active answer id's for further check
+    $active_answer_ids[] = $ans_id;
+  }
+
+  // we collect all the answers that are in the database
+  $all_answer_ids = array();
+  $result = db_query("SELECT answer_id FROM {makemeeting_poll_rows WHERE nid = %d", $node_id);
+  while ($row = db_fetch_array($result))
+    $all_answer_ids[] = $row['answer_id'];
+
+  // if there is an id wich isn't in active_answer_ids, we deleting it, because
+  // we removed it from the edit page
+  foreach ($all_answer_ids as $ans_id) {
+    if (array_search($ans_id, $active_answer_ids) === FALSE) {
+      db_query("DELETE FROM {makemeeting_poll_rows} WHERE answer_id = %d", $ans_id);
+      db_query("DELETE FROM {makemeeting_poll_votes} WHERE answer_id = %d", $ans_id);
+    }
+  }
+
+  drupal_set_message(t("Saved."));
+
+  return;
+}
+
+

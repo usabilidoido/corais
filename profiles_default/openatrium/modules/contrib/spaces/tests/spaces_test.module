@@ -1,0 +1,38 @@
+<?php
+
+include_once('spaces_test.features.inc');
+
+/**
+ * Implementation of hook_system_info_alter()
+ *
+ * Expose the testing feature in Features module to spaces
+ */
+function spaces_test_system_info_alter(&$info, $file) {
+  if ($file->name == 'features_test') {
+    $info['spaces']['types'][] = 'all';
+  }
+}
+
+// Implementation of hook_menu()
+function spaces_test_menu() {
+  $items = array();
+  $items['features/features_test'] = array(
+    'title' => 'Settings',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('spaces_test_admin_form'),
+    'access callback' => 'spaces_access_admin_perms',
+    'access arguments' => array(array('administer site configuration')),
+    'type' => MENU_NORMAL_ITEM,
+  );
+  return $items;
+}
+
+// Spaces_test_admin_form implemenation.
+function spaces_test_admin_form() {
+  $form['features_test_setting'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Customized'),
+    '#default_value' => variable_get('features_test_setting', FALSE),
+  );
+  return system_settings_form($form);
+}

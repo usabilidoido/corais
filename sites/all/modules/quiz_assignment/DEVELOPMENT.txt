@@ -1,0 +1,49 @@
+
+AIM
+
+The aim of the question type is to handle submission of files as part of a quiz.
+
+The siste administrator can:
+
+* Set local storage path (if path is outside of root, all files must be downlaoded from "quiz/quiz_assignment/file/<id>)
+* Set a glbal list of valid filetype extensions
+* Decide if original filenames should be used when storing uploaded files
+* Decide if files uploaded should be stored in subdirectories
+
+The owner can:
+
+* Create quiz
+* Add a question/description
+* Decide on valid file formats
+
+The quiz taker can:
+
+* Submit file
+
+
+DATABASE
+
++-----------------------------------------------------------------------------------+
+| quiz_assignment_properties                                                        |
++-------------------------------------+---------------------------------------------+
+| Column                | Type        | Description                                 |
++-----------------------+-------------+---------------------------------------------+
+| nid                   | int         | Node ID                                     |
+| vid                   | int         | Node version ID                             |
+| valid_extensions      | text        | Valid extension for this question           |
++-----------------------+-------------+---------------------------------------------+
+
++-----------------------------------------------------------------------------------+
+| quiz_assignment_user_answers                                                      |
++-----------------------+-------------+---------+-----------------------------------+
+| Column                | Type        | Length  | Description                       |
++-----------------------+-------------+---------+-----------------------------------+
+| question_nid          | int         | 10      | Node ID                           |
+| question_vid          | int         | 10      | Node version ID                   |
+| result_id             | int         | 10      | Quiz result ID                    |
+| original_filename     | text        |         | Name of file submitted            |
+| filepath              | text        |         | Path to file submitted            |
+| score                 | float       |         | Answer score                      |
+| is_evaluated          | tinyint     | 3       | Bool to indicate if scored        |
++-----------------------+-------------+---------+-----------------------------------+
+

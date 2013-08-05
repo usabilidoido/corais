@@ -1,0 +1,250 @@
+<?php
+module_load_include('inc', 'featured_comments', 'featured_comments.views');
+
+function featured_comments_perm() {
+  return array('feature comments');
+}
+
+
+function featured_comments_menu() {
+  $items = array();
+  
+  $items["admin/content/featured_comments"] = array(
+    'title' => 'Featured Comments',
+    'access arguments' => array('feature comments'),
+    'access callback' => 'user_access',
+    'page callback' => 'featured_comments_admin',
+  );
+  
+  $items["admin/content/featured_comments/feature/%"] = array(
+    'access arguments' => array('feature comments'),
+    'access callback' => 'user_access',
+    'page callback' => 'featured_comments_feature',
+    'page arguments' => array(4),
+    'type' => MENU_CALLBACK,
+  );
+  
+  $items["admin/content/featured_comments/unfeature/%"] = array(
+    'access arguments' => array('feature comments'),
+    'access callback' => 'user_access',
+    'page callback' => 'featured_comments_unfeature',
+    'page arguments' => array(4),
+    'type' => MENU_CALLBACK,
+  );
+  
+  return $items;
+}
+
+
+function featured_comments_admin() {
+  drupal_add_js(drupal_get_path('module', 'featured_comments') .'/featured_comments.js');
+  drupal_add_css(drupal_get_path('module', 'featured_comments') .'/featured_comments.css');
+  
+  return drupal_get_form('featured_comments_admin_form');
+}
+
+function featured_comments_admin_form() {
+
+  $form = array();
+  
+  $table = <<<EOT
+    <table>
+      <tr>
+        <th>Comment</th>
+        <th></th>
+        <th>Weight</th>
+      </tr>
+EOT;
+  
+  $form['table'] = array(
+    '#value' => $table,
+  );
+  
+  $q = 'SELECT fc.cid, c.nid, c.subject, fc.weight FROM {featured_comments} fc
+          JOIN {comments} c ON fc.cid = c.cid
+          WHERE fc.status=1
+          ORDER BY fc.weight ASC';
+  
+  $res = db_query($q);
+  while($row = db_fetch_object($res)) {
+    $row_prefix = <<<EOT
+      <tr>
+        <td><a href="/node/{$row->nid}#comment-{$row->cid}">{$row->subject}</a></td>
+        <td><a href="/admin/content/featured_comments/unfeature/{$row->cid}" class="featured-comments-ajax-toggle toggle-remove">unfeature this comment</a></td>
+        <td>
+EOT;
+
+    $form['html-' . $row->cid] = array(
+      '#value' => $row_prefix
+    );
+    $form['weight-' . $row->cid] = array(
+      '#type' => 'textfield',
+      '#title' => '',
+      '#suffix' => '</td>',
+      '#default_value' => $row->weight,
+    );
+    $form['status-' . $row->cid] = array(
+      '#type' => 'hidden',
+      '#value' => 1,
+    );
+  }
+  
+  $form['closetable'] = array(
+    '#value' => '</table>',
+  );
+  
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => 'Save',
+  );
+  
+  return $form;
+}
+
+function featured_comments_admin_form_validate($form, &$form_state) {
+  //check weight for numeric values.
+  foreach ($form_state['values'] as $key => $value) {
+    if (substr($key, 0, 7) == 'weight-') {
+      if (empty($form_state['values'][$key])) {
+        $form_state['values'][$key] = 0;
+      }
+      if (!is_numeric($form_state['values'][$key])) {
+        form_set_error($key, 'Weight field must be numeric.');
+      }
+    }
+  }
+}
+
+function featured_comments_admin_form_submit($form, &$form_state) {
+  foreach($form_state['values'] as $key => $value) {
+    if(substr($key, 0, 7) == 'weight-') {
+      $cid = substr($key, 7);
+      $record = new stdClass;
+      $record->cid = $cid;
+      $record->weight = $value;
+      $record->status = $form_state['values']['status-' . $cid];
+      drupal_write_record('featured_comments', $record, 'cid');
+    }
+  }
+}
+
+
+/**
+ * Implementation of hook_link().
+ */
+function featured_comments_link($type, $object, $teaser = FALSE) {
+  $links = array();
+
+  if ($type == 'comment' && user_access('feature comments')) {
+    if(featured_comments_comment_is_featured($object->cid)) {
+      $links['feature_comment'] = array(
+        'title' => t('unfeature this comment'),
+        'href' => 'admin/content/featured_comments/unfeature/' . $object->cid,
+        'attributes' => array('class' => 'featured-comments-ajax-toggle'),
+        'query' => drupal_get_destination(),
+      );
+    }
+    else {
+      $links['feature_comment'] = array(
+        'title' => t('feature this comment'),
+        'href' => 'admin/content/featured_comments/feature/' . $object->cid,
+        'attributes' => array('class' => 'featured-comments-ajax-toggle'),
+        'query' => drupal_get_destination(),
+      );
+    }
+    
+    drupal_add_js(drupal_get_path('module', 'featured_comments') .'/featured_comments.js');
+    drupal_add_css(drupal_get_path('module', 'featured_comments') .'/featured_comments.css');
+  }
+
+  return $links;
+}
+
+
+function featured_comments_comment_is_featured($cid) {
+  $q = 'SELECT status FROM {featured_comments} fc WHERE cid=%d';
+  $res = db_query($q, $cid);
+  $status = db_result($res);
+  
+  if($status == 1) {
+    return TRUE;
+  }
+  
+  return FALSE;
+}
+
+
+/**
+ * Page callback to feature a comment
+ */
+function featured_comments_feature($cid) {
+
+  _featured_comments_set_status($cid, 1);
+
+  // Provide a response if this is javascript.
+  if (!empty($_POST['js'])) {
+    featured_comment_js_output(
+      t('unfeature this comment'),
+      url("admin/content/featured_comments/unfeature/$cid"),
+      $cid
+    );
+  }
+
+  // There should always be a destination set for this, so just goto wherever.
+  drupal_goto();
+}
+
+
+/**
+ * Page callback to unfeature a comment
+ */
+function featured_comments_unfeature($cid) {
+
+  _featured_comments_set_status($cid, 0);
+
+  // Provide a response if this is javascript.
+  if (!empty($_POST['js'])) {
+    featured_comment_js_output(
+      t('feature this comment'),
+      url("admin/content/featured_comments/feature/$cid"),
+      $cid
+    );
+  }
+
+  // There should always be a destination set for this, so just goto wherever.
+  drupal_goto();
+}
+
+
+/**
+ * Print the JSON output for our AJAX calls.
+ */
+function featured_comment_js_output($label, $href, $cid) {
+  $return = new stdClass();
+  $return->status = 1;
+  $return->label = check_plain($label);
+  $return->href = $href;
+  $return->cid = $cid;
+
+  drupal_json($return);
+  exit;
+}
+
+
+function _featured_comments_set_status($cid, $status) {
+  $record = new stdClass;
+  $record->cid = $cid;
+  $record->status = $status;
+  
+  $q = "SELECT COUNT(*) FROM {featured_comments} fc WHERE cid = %d";
+  $res = db_query($q, $cid);
+  $count = db_result($res);
+  
+  if($count > 0) {
+    drupal_write_record('featured_comments', $record, 'cid');
+  }
+  else {
+    drupal_write_record('featured_comments', $record);
+  }
+}
+

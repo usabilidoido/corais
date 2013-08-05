@@ -1,0 +1,12 @@
+<?php
+/**
+ * @file
+ *  Installation code for OG Node Access module.
+ */
+
+/**
+ * Implementation of hook_install().
+ */
+function og_node_access_install() {
+  db_query("UPDATE {system} SET weight = 20 WHERE name='og_node_access'");
+}

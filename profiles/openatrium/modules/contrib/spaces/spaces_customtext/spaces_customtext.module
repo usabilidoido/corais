@@ -1,0 +1,158 @@
+<?php
+
+/**
+ * @file
+ *
+ * Spaces Custom Text.
+ *
+ * Because of an unclearable static cache in t(), spaces_customtext must
+ * implement a rather unusual sequence of events to allow the custom strings
+ * variable to take effect for a given space. In particular, t() can be called
+ * very early in the Drupal bootstrap, potentially before the initialization
+ * of the active space for a given page. If this occurs, t() will static cache
+ * the locale_custom_text_[langcode] strings before spaces can override them.
+ *
+ * To get around this problem, spaces_customtext does the following:
+ *
+ * - Ensures that it has the lowest weight possible in the {system} table. This
+ *   means that barring a call to t() in hook_boot(), spaces_customtext_init()
+ *   will run *before* any calls to t().
+ *
+ * - In spaces_customtext_init(), the global language langcode is switched
+ *   to a temporary placeholder.
+ *
+ * - **WARNING: Any calls to t() that occur between spaces_customtext_init()
+ *   and the initialization of a space will not be properly translated or
+ *   customized.**
+ *
+ * - When a space is inited, variable overrides are loaded and the global
+ *   language langcode is restored to its initial value. If no space is
+ *   activated by spaces_init(), spaces will return the langcode to its
+ *   initial value.
+ *
+ * - Any subsequent calls to t() will use any custom overrides that exist for
+ *   the active space.
+ */
+
+/**
+ * Implementation of hook_requirements()
+ */
+function spaces_customtext_requirements($phase) {
+  $requirements = array();
+  $t = get_t();
+
+  if ($phase == 'runtime') {
+    if (module_exists('locale')) {
+      $requirements['spaces_customtext'] = array(
+        'title' => $t('Spaces Custom Text compatibility'),
+        'description' => $t('Spaces Custom Text is not compatible with the Locale module. Either Spaces Custom Text or Locale must be disabled.'),
+        'severity' => REQUIREMENT_ERROR,
+        'value' => $t('Incompatible'),
+      );
+    }
+  }
+  return $requirements;
+}
+
+/**
+ * Implementation of hook_enable().
+ * Weight spaces_customtext as the lowest possible module.
+ */
+function spaces_customtext_enable() {
+  $min = db_result(db_query("SELECT weight FROM {system} WHERE type = 'module' ORDER BY weight ASC LIMIT 1"));
+  $weight = $min < -10000 ? $min - 1 : -10000;
+  db_query("UPDATE {system} SET weight = %d WHERE name = 'spaces_customtext' AND type = 'module'", $weight);
+}
+
+/**
+ * Implementation of hook_init().
+ */
+function spaces_customtext_init() {
+  global $language;
+  spaces_customtext_cache($language->language);
+  $language->language = 'spaces_customtext';
+}
+
+/**
+ * Simple static cache for storing the actual language code for the current
+ * page request.
+ */
+function spaces_customtext_cache($langcode = NULL, $reset = FALSE) {
+  static $cache;
+  if ($reset) {
+    unset($cache);
+  }
+  $cache = isset($langcode) ? $langcode : $cache;
+  return isset($cache) ? $cache : NULL;
+}
+
+/**
+ * Implementation of hook_spaces_plugins().
+ */
+function spaces_customtext_spaces_plugins() {
+  return array(
+    'spaces_controller_customtext' => array(
+      'handler' => array(
+        'path' => drupal_get_path('module', 'spaces_customtext') .'/plugins',
+        'file' => 'spaces_controller_customtext.inc',
+        'class' => 'spaces_controller_customtext',
+        'parent' => 'spaces_controller_variable',
+      ),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function spaces_customtext_menu() {
+  return array(
+    'features/customtext/%' => array(
+      'access callback' => 'spaces_customtext_menu_access',
+      'access arguments' => array(),
+      'file' => 'spaces_customtext.admin.inc',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('spaces_customtext_settings_form', 2),
+      'title' => 'Settings',
+      'type' => MENU_CALLBACK,
+    ),
+  );
+}
+
+/**
+ * Access callback for custom text.
+ */
+function spaces_customtext_menu_access() {
+  return spaces_access_admin() && user_access('administer string overrides');
+}
+
+/**
+ * Implementation of hook_form_alter() for spaces_features_form.
+ */
+function spaces_customtext_form_spaces_features_form_alter(&$form, &$form_state) {
+  $parent = menu_get_item();
+  foreach (element_children($form['settings']) as $feature) {
+    $link = l(t('Customize text'), "{$parent['href']}/customtext/{$feature}");
+    $link = !empty($form['settings'][$feature]['#value']) ? " | {$link}" : $link;
+    $form['settings'][$feature]['#value'] .= $link;
+  }
+}
+
+/**
+ * Implementation of hook_theme().
+ */
+function spaces_customtext_theme() {
+  return array(
+    'spaces_customtext_settings_form' => array(
+      'arguments' => array(),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_perm().
+ * Note that this is the same perm provided by the stringoverrides module.
+ */
+function spaces_customtext_perm() {
+  return array('administer string overrides');
+}

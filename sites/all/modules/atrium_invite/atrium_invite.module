@@ -1,0 +1,53 @@
+<?php
+//$id$
+/**
+ * @file
+ * 		Atrium User Roles
+ * 		Fixes the ability to control roles per group in the members sections
+ * 
+ * @author
+ * 		Greg Gunner
+ */
+
+/**
+ * Implemenation of hook_menu
+ * 
+ */
+function atrium_invite_link_menu()
+{
+  $items['members/invite_link'] = array(
+    'title' => 'Invite other members',
+    'page callback' => 'atrium_invite_link_page',
+    'access callback' => 'atrium_invite_link_access',
+    'weight' => 5,
+    'type' => MENU_LOCAL_TASK,
+  );
+  return $items;
+}
+
+/**
+ * Dummy page to return the page og_invite_link_page
+ * 
+ */
+function atrium_invite_link_page()
+{
+	$node = og_get_group_context();
+	if ($node) {
+		module_load_include('inc', 'og_invite_link', 'og_invite_link.pages');
+		return og_invite_link_invite_page_form($node);
+	}
+}
+
+/**
+ * Dummy access control function to call og_user_roles_is_allowed
+ * 
+ */
+function atrium_invite_link_access()
+{
+	$node = og_get_group_context();
+	if ($node) {
+		return og_invite_link_invite_access($node);
+	} else {
+		return FALSE;
+	}
+}

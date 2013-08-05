@@ -1,0 +1,327 @@
+# $Id: xmlsitemap.nl.po,v 1.1.2.2 2009/07/11 10:28:05 hass Exp $
+#
+# LANGUAGE translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  xmlsitemap.module,v 1.1.2.5 2007/11/15 01:10:25 darrenoh
+#  xmlsitemap.info,v 1.1 2007/11/09 17:56:04 darrenoh
+#  xmlsitemap_engines.info,v 1.1 2007/11/09 17:56:05 darrenoh
+#  xmlsitemap_node.info,v 1.1 2007/11/09 17:56:05 darrenoh
+#  xmlsitemap_term.info,v 1.1 2007/11/09 17:56:05 darrenoh
+#  xmlsitemap_user.info,v 1.1 2007/11/09 17:56:05 darrenoh
+#  xmlsitemap_node.module,v 1.1.2.9 2007/11/19 22:13:24 darrenoh
+#  xmlsitemap_user.module,v 1.1.2.5 2007/11/19 19:20:43 darrenoh
+#  xmlsitemap.php,v 1.2 2007/11/09 18:44:49 darrenoh
+#  xmlsitemap_engines.module,v 1.1.2.1 2007/11/20 14:19:04 darrenoh
+#  xmlsitemap_term.module,v 1.1.2.4 2007/11/19 22:13:25 darrenoh
+msgid ""
+msgstr ""
+"Project-Id-Version: Dutch translation of xmlsitemap\n"
+"POT-Creation-Date: 2009-07-02 19:50+0200\n"
+"PO-Revision-Date: 2009-07-11 12:26+0100\n"
+"Last-Translator: Alexander Haß\n"
+"Language-Team: Hans Lodder\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Poedit-Language: Dutch\n"
+"X-Poedit-Country: NETHERLANDS\n"
+"X-Poedit-SourceCharset: utf-8\n"
+
+#: xmlsitemap.admin.inc:25
+msgid "Settings"
+msgstr "Instellingen"
+
+#: xmlsitemap.admin.inc:31
+msgid "Add all the links to the default language sitemap"
+msgstr "Voeg alle links toe aan de standaard taal sitemap"
+
+#: xmlsitemap.admin.inc:33
+msgid "This option will be used only when the language negotiation uses a path prefix mechanism."
+msgstr "Deze optie zal alleen gebruikt worden als de taalselectie een padvoorvoegsel gebruikt."
+
+#: xmlsitemap.admin.inc:37
+msgid "Cron limit"
+msgstr "Cron limiet"
+
+#: xmlsitemap.admin.inc:38
+msgid "The number of links that are updated in each pass of a <a href=\"@cron\">cron maintenance task</a>."
+msgstr "Het aantal links dat gedurende elke <a href=\"@cron\">cron onderhoudstaak</a> wordt aangepast."
+
+#: xmlsitemap.admin.inc:44
+msgid "Cache directory"
+msgstr "Directory van de bewaarplaats"
+
+#: xmlsitemap.admin.inc:48
+msgid "The directory where the cache files are created; change it only if you are having problems with the default setting."
+msgstr "De directory waar de bewaarbestanden worden gecrëerd; verander dit alleen als u problelemen heeft met de standaard instelling."
+
+#: xmlsitemap.admin.inc:52
+msgid "Use stylesheet"
+msgstr "Gebruik stylesheet"
+
+#: xmlsitemap.admin.inc:54
+msgid "Specify a xml stylesheet for the sitemap?"
+msgstr "Specificeer een xml stylesheet voor de sitemap?"
+
+#: xmlsitemap.admin.inc:58
+msgid "Front page"
+msgstr "Prioriteit home pagina"
+
+#: xmlsitemap.admin.inc:63
+msgid "Front page change frequency"
+msgstr "Wijzigingsfrequentie van de home pagina"
+
+#: xmlsitemap.admin.inc:64
+msgid "The change frequency associated with the front page."
+msgstr "De wijzigingsfrequentie van de home pagina."
+
+#: xmlsitemap.admin.inc:76
+msgid "Front page priority"
+msgstr "Prioriteit voorpagina"
+
+#: xmlsitemap.admin.inc:77
+msgid "The absolute priority for the front page."
+msgstr "Dit is de absolute prioriteit van de home pagina."
+
+#: xmlsitemap.admin.inc:110
+msgid "Operations"
+msgstr "Operaties"
+
+#: xmlsitemap.admin.inc:128
+msgid "Apply"
+msgstr "Voer wijzigingen door"
+
+#: xmlsitemap.pages.inc:49
+msgid "Chunk size has been updated to @chunk-size."
+msgstr "De grootte van de clusters is gewijzigd in @chunk-size."
+
+#: xmlsitemap.pages.inc:52
+msgid "The maximum number of allowed links has been reached."
+msgstr "Het maximum toegestane aantal links is bereikt."
+
+#: xmlsitemap.pages.inc:245;270;281
+msgid "Could not create the cache file @file."
+msgstr "Kon de bewaarfile @file niet creëren."
+
+#: xmlsitemap.module:88
+msgid "The sitemap is located at <a href=\"@sitemap\">@sitemap</a>."
+msgstr "De sitemap bevindt zich in <a href=\"@sitemap\">@sitemap</a>."
+
+#: xmlsitemap.module:92
+msgid "XML sitemap automatically creates a sitemap that conforms to the <a href=\"@sitemaps.org\">sitemaps.org specification</a>. This helps search engines keep their search results up to date."
+msgstr "XML sitemap creert automatisch een sitemap die voldoet aan de <a href=\"@sitemaps.org\">sitemaps.org specificaties</a>. Dit helpt zoekmachines om hun zoekresultaten actueel te houden."
+
+#: xmlsitemap.module:93
+msgid "Supporting modules"
+msgstr "Ondersteunende modules"
+
+#: xmlsitemap.module:94
+msgid "By itself, the XML sitemap module adds only the front page of your site to the sitemap. Other types of links are handled by supporting modules."
+msgstr "De XML Sitemap module voegt alleen de home pagina van uw site toe aan de  sitemap. Andere typen links worden verzorgd door de hulpmodules."
+
+#: xmlsitemap.module:103
+msgid "Links may be assigned a priority between 0.0 and 1.0. The default priority is 0.5. A priority of <em>Not in sitemap</em> excludes a link from the sitemap."
+msgstr "Links kunnen een prioriteit toegekend krijgen tussen 0,0 en 1,0. De standaard prioriteit is 0,5. De prioriteit <em>Niet in de sitemap</em> sluit een link van de sitemap."
+
+#: xmlsitemap.module:104
+msgid "For more information, see the online handbook entry for <a href=\"@xmlsitemap\">XML sitemap module</a>."
+msgstr "Raadpleeg voor meer informatie het online handbook voor <a href=\"@xmlsitemap\">XML sitemap module</a>."
+
+#: xmlsitemap.module:190
+msgid "Delete the sitemap cache files"
+msgstr "Verwijder de sitemap bewaar bestanden"
+
+#: xmlsitemap.module:194
+msgid "Flag the sitemap as requiring update"
+msgstr "Vink aan dat de sitemap bijgewerkt moet worden"
+
+#: xmlsitemap.module:209
+msgid "The update has been performed."
+msgstr "Bijwerken is gebeurd."
+
+#: xmlsitemap.module:212
+msgid "An error occurred and processing did not complete."
+msgstr "Er is een fout opgetreden en de verwerking is niet afgerond."
+
+#: xmlsitemap.module:215
+msgid "Last items successfully processed:"
+msgstr "De laatste succesvol verwerkte items:"
+
+#: xmlsitemap.module:235
+msgid "2000 rows"
+msgstr "2000 rijen"
+
+#: xmlsitemap.module:236
+msgid "1500 rows"
+msgstr "1500 rijen"
+
+#: xmlsitemap.module:237
+msgid "1000 rows"
+msgstr "1000 rijen"
+
+#: xmlsitemap.module:238
+msgid "500 rows"
+msgstr "500 rijen"
+
+#: xmlsitemap.module:239
+msgid "250 rows"
+msgstr "250 rijen"
+
+#: xmlsitemap.module:240
+msgid "100 rows"
+msgstr "100 rijen"
+
+#: xmlsitemap.module:241
+msgid "50 rows"
+msgstr "50 rijen"
+
+#: xmlsitemap.module:242
+msgid "25 rows"
+msgstr "25 rijen"
+
+#: xmlsitemap.module:243
+msgid "20 rows"
+msgstr "20 rijen"
+
+#: xmlsitemap.module:244
+msgid "15 rows"
+msgstr "15 rijen"
+
+#: xmlsitemap.module:245
+msgid "10 rows"
+msgstr "10 rijen"
+
+#: xmlsitemap.module:246
+msgid "5 rows"
+msgstr "5 rijen"
+
+#: xmlsitemap.module:247
+msgid "Do not process via cron"
+msgstr "Niet met cron verwerken"
+
+#: xmlsitemap.module:312
+msgid "1.0"
+msgstr "1,0"
+
+#: xmlsitemap.module:313
+msgid "0.9"
+msgstr "0,9"
+
+#: xmlsitemap.module:314
+msgid "0.8"
+msgstr "0,8"
+
+#: xmlsitemap.module:315
+msgid "0.7"
+msgstr "0,7"
+
+#: xmlsitemap.module:316
+msgid "0.6"
+msgstr "0,6"
+
+#: xmlsitemap.module:317
+msgid "0.5"
+msgstr "0,5"
+
+#: xmlsitemap.module:318
+msgid "0.4"
+msgstr "0,4"
+
+#: xmlsitemap.module:319
+msgid "0.3"
+msgstr "0,3"
+
+#: xmlsitemap.module:320
+msgid "0.2"
+msgstr "0,2"
+
+#: xmlsitemap.module:321
+msgid "0.1"
+msgstr "0.1"
+
+#: xmlsitemap.module:322
+msgid "0.0"
+msgstr "0,0"
+
+#: xmlsitemap.module:325
+msgid "Not in sitemap"
+msgstr "Niet in sitemap"
+
+#: xmlsitemap.module:328
+msgid "Default"
+msgstr "Standaard"
+
+#: xmlsitemap.module:404;122
+#: xmlsitemap.info:0;0
+#: xmlsitemap_engines/xmlsitemap_engines.info:0
+#: xmlsitemap_node/xmlsitemap_node.module:107;134
+#: xmlsitemap_node/xmlsitemap_node.info:0
+#: xmlsitemap_taxonomy/xmlsitemap_taxonomy.module:56;77
+#: xmlsitemap_taxonomy/xmlsitemap_taxonomy.info:0
+#: xmlsitemap_user/xmlsitemap_user.module:49;80
+#: xmlsitemap_user/xmlsitemap_user.info:0
+msgid "XML sitemap"
+msgstr "XML Sitemap"
+
+#: xmlsitemap.module:213
+msgid "1 item successfully processed."
+msgid_plural "@count items successfully processed."
+msgstr[0] "1 item met succes verwerkt."
+msgstr[1] "@count items met succes verwerkt."
+
+#: xmlsitemap.module:174
+msgid "override node settings"
+msgstr "Vervang de node instellingen"
+
+#: xmlsitemap.module:174
+msgid "override profile settings"
+msgstr "Vervang de profiel instellingen"
+
+#: xmlsitemap.module:123;131
+msgid "Configure the XML sitemap."
+msgstr "Configureer XML sitemap."
+
+#: xmlsitemap.module:130
+msgid "Sitemap"
+msgstr "Sitemap"
+
+#: xmlsitemap.module:137
+msgid "Tools"
+msgstr "Gereedschap"
+
+#: xmlsitemap.module:138
+msgid "Sitemap tools."
+msgstr "Sitemap gereedschap."
+
+#: xmlsitemap.module:146
+msgid "Sitemap index"
+msgstr "Sitemap index"
+
+#: xmlsitemap.module:157
+msgid "Sitemap !number"
+msgstr "Sitemap !number"
+
+#: xmlsitemap.install:506
+msgid "XML sitemap term has been deprecated in favor of XML sitemap taxonomy; enable it in the <a href=\"@modules\">modules page</a>."
+msgstr "XML sitemap term is vervangen door de module XML sitemap taxonomy; activeer het op de <a href=\"@modules\">modules pagina</a>."
+
+#: (duplicate) xmlsitemap.install:550
+#: ;547
+msgid "You have not correctly followed the installation instructions for this module. You must make certain that the old xmlsitemap/xmlsitemap diretory is removed. The xmlsitemap/xmlsitemap/xmlsitemap.* files have been moved back to the modules root directory. The install instructions were to remove the modules/xmlsitemap directory completely before extracting the update. If you had followed that step you would have prevented this message."
+msgstr "U heeft de installatieinstructies voor deze module niet correct gevolgd. U moet controleren of de oude xmlsitemap/xmlsitemap directory is verwijderd. De xmlsitemap/xmlsitemap/xmlsitemap.* zijn verhuist naar de begindirectory van de modules. De installatieinstructies luidden om de modules/xmlsitemap directory volledig te verwijderen voor extractie van de update. Als u dat had gedaan, had u dit bericht vermeden."
+
+#: (duplicate) xmlsitemap.install:567
+msgid "Installation issue"
+msgstr "Installatieprobleem"
+
+#: (duplicate) xmlsitemap.install:568
+#: ;564
+msgid "You have not correctly followed the installation instructions for this module. You must make certain that the old xmlsitemap/xmlsitemap diretory is removed. The xmlsitemap/xmlsitemap/xmlsitemap.* files have been moved back to the modules root directory. The install instructions were to removed the modules/xmlsitemap directory completely before extracting the update. If you had followed that step you would have prevented this message."
+msgstr "U heeft de installatieinstructies voor deze module niet correct gevolgd. U moet controleren of de oude xmlsitemap/xmlsitemap directory is verwijderd. De xmlsitemap/xmlsitemap/xmlsitemap.* zijn verhuist naar de begindirectory van de modules. De installatieinstructies luidden om de modules/xmlsitemap directory volledig te verwijderen voor extractie van de update. Als u dat had gedaan, had u dit bericht vermeden."
+
+#: xmlsitemap.info:0
+msgid "Create a XML sitemap conforming to sitemaps.org specifications."
+msgstr "Creëer een XML sitemap volgens de specificaties van sitemaps.org."
+

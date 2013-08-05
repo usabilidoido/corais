@@ -1,0 +1,231 @@
+@charset "UTF-8";
+/* CSS Document */
+
+#superfish 
+{
+background:none;
+width:100%;
+}
+
+/* ----------------------------- TOP LEVEL - PAGE MARKERS -------------------- */
+
+#superfish .menu li 
+{
+	
+	background: #d68c32; /* for non-css3 browsers */
+	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='d68c32', endColorstr='#fa6406'); /* for IE */
+	background:  url('../images/crumple.png'),-moz-linear-gradient(top, #d68c32, #fa6406, black); /* for Firefox 3.6+ */
+	background: url('../images/crumple.png'),-webkit-gradient(linear, left top, left bottom, from(#d68c32), to(#fa6406)); /* for webkit browsers */
+
+	height:52px;
+	margin-right: 5px;
+	
+	
+	
+	
+}
+
+#superfish .menu li:hover, 
+#superfish .menu li.sfHover,
+#superfish .menu a:focus, 
+#superfish .menu a:hover, 
+#superfish .menu a:active,
+#superfish .menu a.active 
+{
+	background: none;
+  	outline: 0;
+}
+
+#superfish .menu li:hover, 
+#superfish .menu li.sfHover
+{
+	
+	background: #feb864; /* for non-css3 browsers */
+	filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#feb864', endColorstr='#ffb619'); /* for IE */
+	background:  url('../images/crumple.png'),-moz-linear-gradient(top, #feb864, #ffb619, black); /* for Firefox 3.6+ */
+	background: url('../images/crumple.png'),-webkit-gradient(linear, left top, left bottom, from(#feb864), to(#ffb619)); /* for webkit browsers */
+}
+
+
+#superfish ul li
+{
+	-moz-border-radius-topleft: 10px;
+	-webkit-border-top-left-radius: 10px;
+
+	-moz-border-radius-topright:10px;
+	-webkit-border-top-right-radius: 10px;	
+}
+
+#superfish ul ul li
+{
+	-moz-border-radius-topleft:0px;
+	-webkit-border-top-left-radius: 0px;
+
+	-moz-border-radius-topright:0px;
+	-webkit-border-top-right-radius: 0px;	
+}
+
+
+#superfish .menu a 
+{
+	padding:8px 10px;
+}
+
+#superfish .menu li:hover ul,
+#superfish .menu li.sfHover ul 
+{
+	left:			0;
+	top:			36px; /* match top ul list item height */
+	z-index:		99;
+}
+
+
+/*	---------------------------- 2ND LEVEL DOWN - POSTIT NOTES ----------------- */ 
+/*  li.last gets different backgrounds because they use the bottom of post-it */
+
+#superfish .menu  ul
+{
+	padding-top: 37px;
+	padding-bottom: 40px;
+	background: url('../images/postit_top.png') top left no-repeat,url('../images/postit_bottom.png') bottom left no-repeat;
+	width: 200px;
+	margin-top: 10px;
+}
+
+
+#superfish .menu li li 
+{
+	background: url('../images/postit_middle.png') top left repeat-y;
+	height:	auto;
+}
+
+#superfish .menu ul ul
+{
+	margin-left: 30px;	
+}
+
+#superfish .menu li li.last
+{
+	background: none;	
+}
+
+#superfish .menu li .expanded 
+{
+	/* put in stuff for expanded sections here */
+	background: url('../images/postit_middle_ex.png') top left no-repeat, url('../images/postit_middle.png') top left repeat-y;	
+}
+
+#superfish .menu li .collapsed 
+{
+	/* put in stuff for collapsed sections here */
+	background: url('../images/postit_middle_ex.png') top left no-repeat, url('../images/postit_middle.png') top left repeat-y;	
+}
+
+#superfish .menu li li.last.expanded
+{
+	background: url('../images/postit_middle_ex.png') top left no-repeat;
+}
+
+#superfish .menu li li.last.collapsed
+{
+	background: url('../images/postit_middle_ex.png') top left no-repeat;
+}
+
+#superfish .menu li li:hover, 
+#superfish .menu li li.sfHover
+{
+	background:  url('../images/postit_middle_hover.png') top left no-repeat, url('../images/postit_middle.png') top left repeat-y;
+}
+
+#superfish .menu li li.last:hover,
+#superfish .menu li li.last.sfHover
+{
+	background: url('../images/postit_middle_hover.png') top left no-repeat;
+	
+}
+
+
+#superfish .menu li li.last.expanded:hover,
+#superfish .menu li li.last.expanded.sfHover
+{
+	background: url('../images/postit_middle_hover.png') top left no-repeat, url('../images/postit_middle_ex_hover.png') top left no-repeat;
+}
+
+#superfish .menu li li.expanded:hover,
+#superfish .menu li li.expanded.sfHover
+{
+background: url('../images/postit_middle_hover.png') top left no-repeat, url('../images/postit_middle_ex_hover.png') top left no-repeat, url('../images/postit_middle.png') top left repeat-y;
+}
+
+#superfish .menu li li.last.collapsed:hover,
+#superfish .menu li li.last.collapsed.sfHover
+{
+	background: url('../images/postit_middle_hover.png') top left no-repeat, url('../images/postit_middle_ex_hover.png') top left no-repeat;
+}
+
+#superfish .menu li li.collapsed:hover,
+#superfish .menu li li.collapsed.sfHover
+{
+background: url('../images/postit_middle_hover.png') top left no-repeat, url('../images/postit_middle_ex_hover.png') top left no-repeat, url('../images/postit_middle.png') top left repeat-y;
+}
+
+
+
+
+
+
+
+
+
+#superfish .menu li li.first
+{
+}
+
+#superfish .menu li li a:hover
+{
+}
+
+#superfish .menu li li a
+{
+	margin-right: 10px;
+	margin-left: 15px;
+}
+
+
+
+#superfish .menu li li li {
+}
+
+
+
+
+#superfish .menu a, #superfish .menu a:visited 
+{
+	font-family:Georgia, "Times New Roman", Times, serif;
+	color:#000000;
+	font-size:16px;
+}
+
+.fake-leaf 
+{
+	display: none;
+}
+
+#superfish .menu ul 
+{
+}
+
+
+
+
+
+
+
+
+
+#superfish .menu li li li:hover, 
+#superfish .menu li li li.sfHover
+{
+}
+
+

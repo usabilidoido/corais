@@ -1,0 +1,82 @@
+<?php 
+// $Id$
+/**
+ * @file
+ */
+
+/**
+ * Tests core actions of gitosis module
+ *
+ * Things to test:
+ * Basic connection to create sample repository
+ * Adding a group adds it to the list of groups
+ * Adding a repository in a group adds it
+ * Adding a user to a group adds it (if she has key)
+ * Adding a user key adds it to the keydir directory
+ * Removing a group quits it
+ * Removing a repo quits it
+ * Removing a user quits it
+ * Removing a user key quits it
+ */
+class GitosisTestCase extends DrupalWebTestCase {
+  /**
+   * Returns test repository path
+   *
+   * @return string
+   */
+  private function getRepoPath() {
+    return sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'gitosis-admin-test' . DIRECTORY_SEPARATOR;
+  }
+
+  function getInfo() {
+    return array(
+      'name' => t('Gitosis'),
+      'description' => t('Tests core functionality of Gitosis module. Creates a dummy repository at 
+                          your temp folder to perform tests against.'),
+      'group' => t('Gitosis'),
+    );  
+  }
+ 
+  /**
+   * Sets up environment and creates a dummy repository to work with
+   */
+  function setUp() {
+    parent::setUp();
+    
+    $site_dir = getcwd(); 
+    if (is_dir($this->getRepoPath())) {
+      $result = exec('rm -rf ' . $this->getRepoPath());
+    }
+    $this->assertTrue(mkdir($this->getRepoPath()), 'Create test repo folder'); 
+    $this->assertTrue(chdir($this->getRepoPath()), 'Setting current directory to ' . $this->getRepoPath());
+    $result = exec('git init', $response, $return_code); 
+    $this->assertTrue(mkdir('keydir'), 'Creating keydir directory'); 
+    
+    $fh = fopen('gitosis.conf', 'w');
+    fwrite($fh, "This is the header of the test repository\n\n");
+    fclose($fh);
+
+    $fh = fopen('keydir/dummy.txt', 'w');
+    fwrite($fh, "This is a dummy file used to make git take into account the keydir directory");
+    fclose($fh);
+    
+    $this->Pass(exec('git add .', $response, $return_code)); 
+    $this->Pass(exec($response . $return_code)); 
+    $this->Pass(exec('git commit -m "Initial commit', $response, $return_code)); 
+    $this->Pass(exec('git clone ' . $this->getRepoPath() . ' --bare', $response, $return_code)); 
+    
+    $this->assertTrue(chdir($site_dir), 'Restoring current dir to site root.'); 
+    
+  } 
+ 
+  
+  /**
+   * Tests basic connection to create a temporary repository to work with
+   */
+  function testCreateTempRepo() {
+  }
+  
+  function tearDown() {
+    parent::tearDown();
+  } 
+}

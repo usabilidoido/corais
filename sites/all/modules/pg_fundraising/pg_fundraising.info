@@ -1,0 +1,17 @@
+;$Id: pg_fundraising.info,v 1.1.2.1 2011/02/18 02:15:35 dokumori Exp $
+name = Fundraising
+description = Provides an easy-to-setup fundraising tools
+dependencies[] = pgapi
+dependencies[] = imagefield
+dependencies[] = features
+dependencies[] = imagecache
+dependencies[] = content
+package = "Fundraising"
+version = VERSION
+core = 6.x
+; Information added by drupal.org packaging script on 2011-02-18
+version = "6.x-1.0-beta3"
+core = "6.x"
+project = "pg_fundraising"
+datestamp = "1297996010"
+

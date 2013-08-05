@@ -1,0 +1,93 @@
+<?php
+// $Id$
+
+
+/**
+ * Implementation of hook_flag_default_flags().
+ * 
+ * @return array
+ */
+function graphmind_flags_flag_default_flags() {
+  $flags = array();
+  $flags[] = array(
+    'content_type' => 'node',
+    'name' => 'graphmind',
+    'title' => 'Graphmind',
+    'roles' => array('2'),
+    'global' => FALSE,
+    'types' => array_keys(node_get_types()),
+    'flag_short' => 'Add to map',
+    'flag_long' => 'Add this your mindmap list',
+    'flag_message' => 'Added to your mindmap list.',
+    'unflag_short' => 'Remove from Graphmind',
+    'unflag_long' => 'Remove this issue from your mindmap list',
+    'unflag_message' => 'Removed from your mindmap list.',
+    'show_on_page' => TRUE,
+    'show_on_teaser' => TRUE,
+    'show_on_form' => FALSE,
+    'status' => TRUE,
+    'locked' => array('show_on_teaser', 'name', 'types', 'roles', 'global'),
+  );
+  return $flags;
+}
+
+
+/**
+ * Implementation of hook_graphmind_plugin_info().
+ *
+ * @return array
+ */
+function graphmind_flags_graphmind_plugin_info() {
+  return array(
+    'graphmind_flags' => array(
+      // Module implement this plugin
+      'module' => 'graphmind_flags',
+      // Name of the plugin in flash (src/plugin/PLUGIN.as)
+      'plugin' => 'FlagsPlugin',
+      'name' => t('Graphmind Flag plugin'),
+      'description' => t('Allow using Flag module to mark nodes and fetch them to a map.'),
+    ),
+  );
+}
+
+
+/**
+ * Implementation of hook_service().
+ * 
+ * @return array
+ */
+function graphmind_flags_service() {
+  return array(
+    array(
+      '#method' => 'graphmindFlags.getContent',
+      '#access arguments' => array('access content'),
+      '#callback' => 'graphmind_flags_get_content',
+      '#args' => array(),
+      '#return' => 'struct',
+    ),
+  );
+}
+
+
+/**
+ * Callback of the get-content service.
+ * 
+ * @return array
+ */
+function graphmind_flags_get_content() {
+  $flag = flag_get_flag('graphmind');
+  $result = db_query('
+    SELECT content_id
+    FROM {flag_content}
+    WHERE content_type = \'node\' AND fid = %d
+  ', $flag->fid);
+  $nodes = array();
+  
+  while ($row = db_fetch_object($result)) {
+    $nodes[] = node_load($row->content_id);
+    // Remove the flag
+    $flag->flag('unflag', $row->content_id);
+  }
+  
+  return $nodes;
+}

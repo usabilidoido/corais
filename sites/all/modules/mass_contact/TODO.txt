@@ -1,0 +1,11 @@
+
+(In no particular order.)
+
+Continue upgrade.
+  Completed except for the following items:
+    Check out lines 140-142 with item 77. Get an object relevant on specific paths.
+
+Misc. stuff:
+  Add multiple attachments.
+  Update mass_contact.install for all the new and changed variables.
+  Update the translation file for all the new and changed text.

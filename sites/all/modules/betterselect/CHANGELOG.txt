@@ -1,0 +1,16 @@
+
+Betterselect 6.x-1.0-beta3, 2011-01-16
+----------------------------------
+- #510012: Not compatible with Jquery Update -- Breaks node edit page!.
+
+
+Betterselect 6.x-1.0-beta2, 2009-03-02
+----------------------------------
+- #376710: use drupal.behaviors instead of document.ready().
+- #380898: option to save taxonomy term lineage when saving node.
+- #376968: give each element it's own unique id.
+- #380894: added install file with hook_uninstall().
+- #384788: dont add taxonomy submit handler if enabled for node forms only.
+- #365363: distinguish parent & child in taxonomy select.
+- #385754: submit handler must be more careful when operating on data.
+- #362746: check that #options are valid before conversion to checkboxes.

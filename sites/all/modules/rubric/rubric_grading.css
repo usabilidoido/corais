@@ -1,0 +1,70 @@
+.rubric_grading_display {
+ width:100%;
+ font:Verdana, Arial, Helvetica, sans-serif;
+}
+.rubric_grading_category {
+ font-size:22px;
+}
+.rubric_grading_category span {
+ font-size:14px;
+}
+.rubric_grading_display tr {
+ font-size:14px;
+}
+.rubric_grading_feedback {
+ font-size:11px;
+ width:55%;
+}
+.rubric_grading_feedback textarea {
+ font-size:11px;
+ width:100%;
+}
+
+.rubric_grading_display td {
+ border:solid 1px #999999;
+}
+
+.rubric_grading_earned input {
+ font-size:14px;
+ text-align:center;
+}
+.rubric_grading_input_changed {
+ border:#990000 solid 2px;
+ background-color:#DDDDDD;
+}
+.rubric_image_lock {
+ display:none;
+}
+
+.rubric_grading_heading {
+ font-weight:bold;
+}
+.rubric_grading_total {
+ font-size:22px;
+}
+.rubric_grading_total_possible {
+ font-weight:bold;
+}
+.rubric_grading_possible, .rubric_grading_total_possible, .rubric_grading_earned, .rubric_grading_total_earned, .rubric_grading_criterion {
+ width:15%;
+}
+.rubric_grading_total_earned input {
+ font-size:14px;
+ text-align:center;
+ font-weight:bold;
+}
+.rubric_grading_center {
+ text-align:center;
+}
+.rubric_category_criterion_header:hover{
+ cursor:auto;
+ background-color:transparent; 
+}
+.rubric_category_header:hover {
+ background-color:transparent;
+ cursor:n-resize;
+}
+
+.rubric_image_lock, .rubric_image_lock-open {
+ cursor:pointer;
+}

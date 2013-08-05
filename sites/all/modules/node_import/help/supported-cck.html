@@ -1,0 +1,335 @@
+<p>
+CCK supported modules.
+</p>
+
+<p class="warning">
+If a module is not supported, the corresponding CCK fields will not
+be imported!
+</p>
+
+<ul>
+<li><a href="#asin">Amazon field (CCK Contrib)</a></li>
+<li><a href="#date">Date (CCK Contrib)</a></li>
+<li><a href="#email">Email (CCK Contrib)</a></li>
+<li><a href="#filefield">File Field (CCK Contrib)</a></li>
+<li><a href="#imagefield">Image Field (CCK Contrib)</a></li>
+<!--<li><a href="#nodereference">Node reference (CCK Core)</a></li>-->
+<li><a href="#number">Number (CCK Core)</a></li>
+<li><a href="#phone">Phone (CCK Contrib)</a></li>
+<li><a href="#text">Text (CCK Core)</a></li>
+<li><a href="#userreference">User reference (CCK Core)</a></li>
+</ul>
+
+<a name="asin"></a>
+<h3>Amazon field (CCK Contrib)</h3>
+
+<p>
+The <em>Amazon field</em> module from the <a href="http://drupal.org/project/amazon"><em>Amazon</em> module package</a> is <strong>fully supported</strong>.
+</p>
+
+<h4>Content fields</h4>
+
+<p>
+The <em>Amazon field</em> module adss the <strong>Amazon item</strong> content fields for node content types.
+</p>
+
+<table border="0">
+<thead>
+<tr><th>Content field</th><th>Format</th></tr>
+</thead>
+<tbody>
+<tr><td>Label of <em>Amazon item field</em></td><td>Any valid <abbr title="Amazon Standard Identification Number">ASIN</abbr></td></tr>
+</tbody>
+</table>
+
+<a name="date"></a>
+<h3>Date (CCK Contrib)</h3>
+
+<p>
+The <a href="http://drupal.org/project/date"><em>Date</em> module</a> is <strong>partially supported</strong>. The support currently only works for single-valued date fields, but not for multiple values nor for repeat dates.
+</p>
+
+<h4>Content fields</h4>
+
+<p>
+The <em>Date</em> module adds the <strong>Datetime</strong> content fields for node content types.
+</p>
+
+<table border="0">
+<thead>
+<tr><th>Content field</th><th>Format</th></tr>
+</thead>
+<tbody>
+<tr><td>Label of <em>Datetime field</em></td><td><a href="&topic:node_import/input-format&#date">Date</a></td></tr>
+</tbody>
+</table>
+
+<a name="email"></a>
+<h3>Email (CCK Contrib)</h3>
+
+<p>
+The <a href="http://drupal.org/project/email"><em>Email</em> module</a> is <strong>fully supported</strong>.
+</p>
+
+<h4>Content fields</h4>
+
+<p>
+The <em>Email field</em> module adds the <strong>Email</strong> content fields for node content types.
+</p>
+
+<table border="0">
+<thead>
+<tr><th>Content field</th><th>Format</th></tr>
+</thead>
+<tbody>
+<tr><td>Label of <em>Email field</em></td><td>E-mail address</td></tr>
+</tbody>
+</table>
+
+<h4>Supported settings</h4>
+
+<table border="0">
+<thead>
+<tr><th>Setting</th><th>Comment</th></tr>
+</thead>
+<tbody>
+<tr><td>Default value</td><td></td></tr>
+<tr><td>Required</td><td>If a field is <em>Required</em>, you must map it to a file column.</td></tr>
+<tr><td>Number of values</td><td>You can map multiple values to multiple file columns or use a separator.</td></tr>
+</tbody>
+</table>
+
+<a name="filefield"></a>
+<h3>File Field (CCK contrib)</h3>
+
+<p>
+The <a href="http://drupal.org/project/filefield"><em>File field</em> module</a> is fully supported.
+</p>
+
+<h4>Content fields</h4>
+
+<p>
+The <em>File field</em> module adds the <strong>File</strong> content fields for node content types.
+</p>
+
+<table border="0">
+<thead>
+<tr><th>Content field</th><th>Format</th><tr>
+</thead>
+<tbody>
+<tr><td>Label of <em>File</em></td><td><a href="&topic:node_import/input-format&#filepath">File path</a></td></tr>
+<tr><td>Label of <em>File</em> - Description</td><td>Any string</td></tr>
+</tbody>
+</table>
+
+<a name="imagefield"></a>
+<h3>Image Field (CCK contrib)</h3>
+
+<p>
+The <a href="http://drupal.org/project/imagefield"><em>Image field</em> module</a> is fully supported.
+</p>
+
+<h4>Content fields</h4>
+
+<p>
+The <em>Image field</em> module adds the <strong>Image</strong> content fields for node content types.
+</p>
+
+<table border="0">
+<thead>
+<tr><th>Content field</th><th>Format</th><tr>
+</thead>
+<tbody>
+<tr><td>Label of <em>Image</em></td><td><a href="&topic:node_import/input-format&#filepath">File path</a></td></tr>
+<tr><td>Label of <em>Image</em> - Description</td><td>Any string</td></tr>
+</tbody>
+</table>
+
+<!--
+<a name="nodereference"></a>
+<h3>Node reference (CCK Core)</h3>
+
+<p>
+The <em>Node reference</em> module is <strong>fully supported</strong>.
+</p>
+
+<h4>Content fields</h4>
+
+<p>
+The <em>Node reference</em> module adds the <strong>Node reference</strong> content fields for node content types.
+</p>
+
+<table border="0">
+<thead>
+<tr><th>Content field</th><th>Format</th></tr>
+</thead>
+<tbody>
+<tr><td>Label of <em>Select list</em></td><td><a href="&topic:node_import/input-format&#node-reference">Node reference</a></td></tr>
+<tr><td>Label of <em>Check boxes/radio buttons</em></td><td><a href="&topic:node_import/input-format&#node-reference">Node reference</a></td></tr>
+<tr><td>Label of <em>Autocomplete text field</em></td><td><a href="&topic:node_import/input-format&#node-reference">Node reference</a></td></tr>
+</tbody>
+</table>
+
+<h4>Supported settings</h4>
+
+<table border="0">
+<thead>
+<tr><th>Setting</th><th>Comment</th></tr>
+</thead>
+<tbody>
+<tr><td>Default value</td><td></td></tr>
+<tr><td>Required</td><td>If a field is <em>Required</em>, you must map it to a file column.</td></tr>
+<tr><td>Number of values</td><td>You can map multiple values to multiple file columns or use a separator.</td></tr>
+</tbody>
+</table>
+-->
+
+<a name="number"></a>
+<h3>Number (CCK Core)</h3>
+
+<p>
+The <em>Number</em> module is <strong>fully supported</strong>.
+</p>
+
+<h4>Content fields</h4>
+
+<p>
+The <em>Number</em> module adds the <strong>Decimal</strong>, <strong>Float</strong> and <strong>Integer</strong> content fields for node content types.
+</p>
+
+<table border="0">
+<thead>
+<tr><th>Content field</th><th>Format</th></tr>
+</thead>
+<tbody>
+<tr><td>Label of <em>Decimal</em></td><td>Decimal number</td></tr>
+<tr><td>Label of <em>Float</em></td><td>Float number</td></tr>
+<tr><td>Label of <em>Integer</em></td><td>Integer number</td></tr>
+</tbody>
+</table>
+
+<h4>Supported settings</h4>
+
+<table border="0">
+<thead>
+<tr><th>Setting</th><th>Comment</th></tr>
+</thead>
+<tbody>
+<tr><td>Default value</td><td></td></tr>
+<tr><td>Required</td><td>If a field is <em>Required</em>, you must map it to a file column.</td></tr>
+<tr><td>Number of values</td><td>You can map multiple values to multiple file columns or use a separator.</td></tr>
+<tr><td>Allowed values</td><td>You can specify the value by <strong>key</strong> or <strong>label</strong> (see <a href="&topic:node_import/input-format&#allowed-values">Allowed values</a>).</td></tr>
+</tbody>
+</table>
+
+<a name="phone"></a>
+<h3>Phone (CCK Contrib)</h3>
+
+<p>
+The <em>Phone</em> module is <strong>fully supported</strong>.
+</p>
+
+<h4>Content fields</h4>
+
+<p>
+The <em>Phone</em> module adds the <strong>Australian Phone Numbers</strong>, <strong>British (UK) Phone Numbers</strong>, etc content fields for node content types.
+</p>
+
+<table border="0">
+<thead>
+<tr><th>Content field</th><th>Format</th></tr>
+</thead>
+<tbody>
+<tr><td>Label of any <em>XXX Phone Numbers</em></td><td>Valid phone number for this country</td></tr>
+</tbody>
+</table>
+
+<h4>Supported settings</h4>
+
+<table border="0">
+<thead>
+<tr><th>Setting</th><th>Comment</th></tr>
+</thead>
+<tbody>
+<tr><td>Default value</td><td></td></tr>
+<tr><td>Required</td><td>If a field is <em>Required</em>, you must map it to a file column.</td></tr>
+<tr><td>Number of values</td><td>You can map multiple values to multiple file columns or use a separator.</td></tr>
+</tbody>
+</table>
+
+<a name="text"></a>
+<h3>Text (CCK Core)</h3>
+
+<p>
+The <em>Text</em> module is <strong>fully supported</strong>.
+</p>
+
+<h4>Content fields</h4>
+
+<p>
+The <em>Text</em> module adds the <strong>Text</strong> content fields for node content types.
+</p>
+
+<table border="0">
+<thead>
+<tr><th>Content field</th><th>Format</th></tr>
+</thead>
+<tbody>
+<tr><td>Label of <em>Text area</em></td><td>Any string</td></tr>
+<tr><td>Label of <em>Text field</em></td><td>Any string</td></tr>
+<tr><td>Input format</td><td><a href="&topic:node_import/input-format&#input-format">Input format</a></td></tr>
+</tbody>
+</table>
+
+<h4>Supported settings</h4>
+
+<table border="0">
+<thead>
+<tr><th>Setting</th><th>Comment</th></tr>
+</thead>
+<tbody>
+<tr><td>Default value</td><td></td></tr>
+<tr><td>Required</td><td>If a field is <em>Required</em>, you must map it to a file column.</td></tr>
+<tr><td>Number of values</td><td>You can map multiple values to multiple file columns or use a separator.</td></tr>
+<tr><td>Text processing</td><td>If a text field is <em>Filtered text</em>, you will be able to map the <em>Input format</em> (see <a href="&topic:node_import/input-format&#input-format">Input format</a>).</td></tr>
+<tr><td>Allowed values</td><td>You can specify the value by <strong>key</strong> or <strong>label</strong> (see <a href="&topic:node_import/input-format&#allowed-values">Allowed values</a>).</td></tr>
+</tbody>
+</table>
+
+<a name="userreference"></a>
+<h3>User reference (CCK Core)</h3>
+
+<p>
+The <em>User reference</em> module is <strong>fully supported</strong>.
+</p>
+
+<h4>Content fields</h4>
+
+<p>
+The <em>User reference</em> module adds the <strong>User reference</strong> content fields for node content types.
+</p>
+
+<table border="0">
+<thead>
+<tr><th>Content field</th><th>Format</th></tr>
+</thead>
+<tbody>
+<tr><td>Label of <em>Select list</em></td><td><a href="&topic:node_import/input-format&#user-reference">User reference</a></td></tr>
+<tr><td>Label of <em>Check boxes/radio buttons</em></td><td><a href="&topic:node_import/input-format&#user-reference">User reference</a></td></tr>
+<tr><td>Label of <em>Autocomplete text field</em></td><td><a href="&topic:node_import/input-format&#user-reference">User reference</a></td></tr>
+</tbody>
+</table>
+
+<h4>Supported settings</h4>
+
+<table border="0">
+<thead>
+<tr><th>Setting</th><th>Comment</th></tr>
+</thead>
+<tbody>
+<tr><td>Default value</td><td></td></tr>
+<tr><td>Required</td><td>If a field is <em>Required</em>, you must map it to a file column.</td></tr>
+<tr><td>Number of values</td><td>You can map multiple values to multiple file columns or use a separator.</td></tr>
+</tbody>
+</table>
+

@@ -1,0 +1,262 @@
+<?php
+
+/**
+ * @file
+ * The finder string translation module.
+ */
+
+/**
+ * Implementation of hook_locale().
+ *
+ * @see hook_locale()
+ */
+function finder_i18nstrings_locale($op = 'groups', $group = NULL) {
+  switch ($op) {
+    case 'groups':
+      return array('finder' => t('Finder'));
+    case 'refresh':
+      $finders = finder_load_multiple(NULL, array(), TRUE);
+      if (is_array($finders)) {
+        foreach ($finders as $finder) {
+          finder_save($finder);
+          foreach ($finder->elements as $key => $element) {
+            finder_element_save($element);
+          }
+        }
+      }
+  }
+}
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ *
+ * @see hook_form_FORM_ID_alter()
+ */
+function finder_i18nstrings_form_finder_admin_edit_alter(&$form, $form_state) {
+  $form['i18nstrings'] = finder_i18nstrings_multilingual_instructions();
+}
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ *
+ * @see hook_form_FORM_ID_alter()
+ */
+function finder_i18nstrings_form_finder_admin_element_edit_alter(&$form, $form_state) {
+  $form['i18nstrings'] = finder_i18nstrings_multilingual_instructions();
+}
+
+/**
+ * Get the form element which adds multilingual instructions to a form.
+ */
+function finder_i18nstrings_multilingual_instructions() {
+  $i18nstrings_element = array(
+    '#id' => 'multilingual-instructions',
+    '#title' => t('Multilingual instructions'),
+    '#required' => TRUE,
+  );
+  $i18nstrings_value =
+    t(
+      "Enter values in your site's default language and then use the
+      !translate_link to translate.",
+      array(
+        '!translate_link' =>
+          l(
+            t('Translate interface'),
+            'admin/build/translate'
+          ),
+      )
+    );
+  return array(
+    '#type' => 'markup',
+    '#value' => theme(
+      'form_element',
+      $i18nstrings_element,
+      $i18nstrings_value
+    ),
+    '#weight' => 2,
+  );
+}
+
+/**
+ * Implementation of hook_finderapi().
+ */
+function finder_i18nstrings_finderapi(&$object, $op, $a3 = NULL, $a4 = NULL) {
+  switch ($op) {
+    case 'finder_block':
+    case 'finder_view':
+      $finder = &$object;
+      if (!empty($finder->settings['i18nstrings'])) {
+        $map = &$finder->settings['i18nstrings'];
+        finder_i18nstrings_translate_strings($finder, $map);
+        if (is_array($finder->elements)) {
+          foreach ($finder->elements as $key => $element) {
+            $map = &$element->settings['i18nstrings'];
+            finder_i18nstrings_translate_strings($element, $map);
+            $finder->elements[$key] = $element;
+          }
+        }
+      }
+      return;
+
+    case 'finder_presave':
+    case 'finder_element_presave':
+      if (isset($object->settings)) {
+        $object->settings['i18nstrings'] = finder_i18nstrings_map($object);
+      }
+      return;
+
+    case 'finder_insert':
+    case 'finder_update':
+    case 'finder_element_insert':
+    case 'finder_element_update':
+      if (!empty($object->settings['i18nstrings'])) {
+        $map = &$object->settings['i18nstrings'];
+        finder_i18nstrings_save_strings($object, $map);
+      }
+      return;
+
+    case 'finder_delete':
+    case 'finder_element_delete':
+      $map = finder_i18nstrings_map($object);
+      finder_i18nstrings_delete_strings($object, $map);
+      return;
+
+  }
+}
+
+/**
+ * Get an arrray of form element types that are translatable.
+ */
+function finder_i18nstrings_types() {
+  $translatable_types = array('textfield', 'textarea');
+  // Allow modules to add form element types that are translatable.
+  // Set $translatable_types to empty in order to skip the default processing
+  // and supply your own map in the map alter hook.
+  drupal_alter('finder_i18nstrings_types', $translatable_types);
+  return $translatable_types;
+}
+
+/**
+ * Get a map of which fields are translatable.
+ */
+function finder_i18nstrings_map($object) {
+  $translatable_types = finder_i18nstrings_types();
+  $map = array();
+  $map = finder_i18nstrings_map_from_form($object, $translatable_types);
+  // Allow modules to override the map - also see comments in the other funcs called from this one.
+  drupal_alter('finder_i18nstrings_map', $map, $object, $translatable_types);
+  return $map;
+}
+
+/**
+ * Get a default map of which fields are translatable from the form.
+ */
+function finder_i18nstrings_map_from_form($object, $translatable_types, $form = NULL, $id = NULL, $parents = array()) {
+  $map = array();
+  // Don't do any processing if $translatable_types was emptied via hook_finder_i18nstrings_types_alter.
+  if (!empty($translatable_types)) {
+    if (is_null($form)) {
+      $args = array();
+      $form_state = array('storage' => NULL, 'submitted' => FALSE);
+      if (isset($object->finder_element_id)) {
+        $args[] = 'finder_admin_element_edit';
+        $args[] = &$form_state;
+        if (!isset($object->finder_id)) {
+          $object = finder_element_load($object->finder_element_id);
+        }
+        $args[] = finder_load($object->finder_id);
+        $args[] = $object->finder_element_id;
+        $id = 'finder:e'. $object->finder_element_id .':';
+      }
+      else {
+        // Ensure the admin include file is present.
+        finder_inc('admin');
+        $args[] = 'finder_admin_edit';
+        $args[] = &$form_state;
+        $args[] = $object;
+        $id = 'finder:f'. $object->finder_id .':';
+      }
+      $form = call_user_func_array('drupal_retrieve_form', $args);
+      $form_build_id = 'form-'. md5(uniqid(mt_rand(), TRUE));
+      $form['#build_id'] = $form_build_id;
+      drupal_prepare_form($form_id, $form, $form_state);
+    }
+    foreach (element_children($form) as $key) {
+      $path = $parents;
+      $path[] = $key;
+      if (in_array($form[$key]['#type'], $translatable_types) && $path != array('path')) {
+        $translatable = &$form[$key]['#translatable'];
+        // If #translatable is set to TRUE, or if it is not set.
+        if ((isset($translatable) && $translatable) || !isset($translatable)) {
+          $map[$key]['#i18nstrings'] = $id . implode('][', $path);
+        }
+      }
+      $children = finder_i18nstrings_map_from_form($object, $translatable_types, $form[$key], $id, $path);
+      if (!empty($children)) {
+        $map[$key] = array_merge((array)$map[$key], $children);
+      }
+    }
+  }
+  return $map;
+}
+
+/**
+ * Recursively save strings using the map.
+ */
+function finder_i18nstrings_save_strings($object, $map) {
+  $language = language_default('language');
+  $object = (array)$object;
+  if (!empty($map)) {
+    foreach ($map as $key => $value) {
+      if (isset($object[$key]) && !is_numeric($object[$key]) && $value['#i18nstrings']) {
+        i18nstrings_update($value['#i18nstrings'], $object[$key], $language);
+      }
+      if (is_array($map[$key])) {
+        finder_i18nstrings_save_strings($object[$key], $map[$key]);
+      }
+    }
+  }
+}
+
+/**
+ * Recursively translate strings using the map.
+ */
+function finder_i18nstrings_translate_strings(&$object, $map) {
+  if (!empty($map)) {
+    $was_object = FALSE;
+    if (is_object($object)) {
+      $was_object = TRUE;
+      $object = (array)$object;
+    }
+    foreach ($map as $key => $value) {
+      if (is_string($object[$key]) && !empty($value['#i18nstrings'])) {
+        $object[$key] = i18nstrings($value['#i18nstrings'], $object[$key]);
+      }
+      elseif (is_array($map[$key])) {
+        finder_i18nstrings_translate_strings($object[$key], $map[$key]);
+      }
+
+    }
+    if ($was_object) {
+      $object = (object)$object;
+    }
+  }
+}
+
+/**
+ * Recursively delete strings using the map.
+ */
+function finder_i18nstrings_delete_strings($object, $map) {
+  $object = (array)$object;
+  if (!empty($map)) {
+    foreach ($map as $key => $value) {
+      if (isset($object[$key]) && !empty($value['#i18nstrings'])) {
+        i18nstrings_remove($value['#i18nstrings'], $object[$key]);
+      }
+      if (is_array($map[$key])) {
+        finder_i18nstrings_delete_strings($object[$key], $map[$key]);
+      }
+    }
+  }
+}
+

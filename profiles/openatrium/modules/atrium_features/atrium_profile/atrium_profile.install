@@ -1,0 +1,34 @@
+<?php
+
+/**
+ * Update for Kit compliance
+ */
+function atrium_profile_update_6001() {
+  $components = array(
+    'views' => array(
+      'atrium_profile' => array(
+        'profile_listing' => array(), // No blocks
+      ),
+      'atrium_profile_blocks' => array(
+        'activity_listing' => array(
+          'block_1' => array(
+            'module' => 'views',
+            'delta' => 'block_3',
+          ),
+        ),
+        'groups_listing' => array(
+          'block_2' => array(
+            'module' => 'views',
+            'delta' => 'block_1',
+          ),
+        )
+      ),
+    ),
+  );
+
+  module_load_include('inc', 'atrium', 'includes/atrium_update_kit');
+  atrium_kit_comply_presets($components); 
+  atrium_kit_comply_overrides($components); 
+
+  return array(array('success' => true, 'query' => 'Atrium Profile updated for Kit compliance.'));
+}

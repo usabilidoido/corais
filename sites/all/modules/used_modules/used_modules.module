@@ -1,0 +1,210 @@
+<?php
+// $Id: used_modules.module,v 1.7.2.1.2.3 2009/05/17 00:09:05 narno Exp $
+
+/**
+ * @file
+ * Display the list of modules are used on a Drupal website.
+ *
+ * @author Arnaud Ligny <http://drupal.org/user/141690>
+ */
+
+/**
+ * Global default Drupal projects path
+ */
+define('DRUPAL_PROJET_PATH', 'http://drupal.org/project/%s');
+
+/**
+ * Implementation of hook_perm()
+ */
+function used_modules_perm() {
+  return array('administer used modules', 'view used modules');
+}
+
+/**
+ * Implementation of hook_help().
+ */
+function used_modules_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#used_modules':
+    case 'admin/settings/used-modules':
+      $output = '<p>' . t('Used modules displays as a table, within a block or a page, all the modules installed on a Drupal site.') . '<br />';
+      $output .= t('<a href="@user-access">Allowed users</a> are able to view used modules on this <a href="@used-modules">page</a> or in a <a href="@build-block">block</a>.', array('@user-access' => url('admin/user/permissions', array('fragment' => 'module-used_modules')), '@used-modules' => url('modules/used'), '@build-block' => url('admin/build/block'))) . '</p>';
+      break;
+  }
+  return $output;
+}
+
+/**
+ * Implementation of hook_menu()
+ */
+function used_modules_menu() {
+  // admin
+  $items['admin/settings/used-modules'] = array(
+    'title' => 'Used modules',
+    'description' => 'Settings for the used modules page.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('used_modules_admin_settings'),
+    'access arguments' => array('administer used modules'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'used_modules.admin.inc',
+  );
+  // page
+  $items['modules/used'] = array(
+    'title' => 'Used modules',
+    'description' => 'Used modules on this site.',
+    'page callback' => 'used_modules_page',
+    'access arguments' => array('view used modules'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+  return $items;
+}
+
+/**
+ * Used modules page
+ */
+function used_modules_page() {
+  // title
+  drupal_set_title(variable_get('used_modules_page_title', 'Used modules'));
+  // description
+  $output = variable_get('used_modules_page_description', 'List of modules are used on my website.');
+  // result table
+  $display_description = variable_get('used_modules_page_display_description', TRUE);
+  $display_version     = variable_get('used_modules_page_display_version', FALSE);
+  $add_link            = variable_get('used_modules_page_add_link', TRUE);
+  $table = _used_modules($display_description, $display_version, $add_link);
+  $output .= theme('table', $table['header'], $table['rows']);
+  return $output;
+}
+
+/**
+ * Implementation of hook_block()
+ */
+function used_modules_block($op = 'list', $delta = 0, $edit = array()) {
+  switch ($op) {
+    case 'list':
+      $blocks[0]['info'] = t('Used modules');
+      return $blocks;
+    case 'configure':
+      switch($delta) {
+        case 0:
+          $form['description'] = array(
+            '#type' => 'textarea',
+            '#title' => t('Block description'),
+            '#default_value' => variable_get('used_modules_block_' . $delta . '_description', 'List of modules are used on my website.'),
+            '#cols' => 72,
+            '#rows' => 3
+          );
+          $form['display_description'] = array(
+            '#type' => 'checkbox',
+            '#title' => t('Display modules description'),
+            '#default_value' => variable_get('used_modules_block_' . $delta . '_display_description', FALSE)
+          );
+          $form['display_version'] = array(
+            '#type' => 'checkbox',
+            '#title' => t('Display modules version'),
+            '#default_value' => variable_get('used_modules_block_' . $delta . '_display_version', FALSE)
+          );
+          $form['add_link'] = array(
+            '#type' => 'checkbox',
+            '#title' => t('Link to the module page (drupal.org)'),
+            '#default_value' => variable_get('used_modules_block_' . $delta . '_add_link', TRUE)
+          );
+          return $form;
+          break;
+      }
+    case 'save':
+      variable_set('used_modules_block_' . $delta . '_description', $edit['description']);
+      variable_set('used_modules_block_' . $delta . '_display_description', $edit['display_description']);
+      variable_set('used_modules_block_' . $delta . '_display_version', $edit['display_version']);
+      variable_set('used_modules_block_' . $delta . '_add_link', $edit['add_link']);
+      break;
+    case 'view':
+    default:
+      if (user_access('view used modules')) {
+        switch($delta) {
+          case 0:
+            $block['subject'] = t('Used modules');
+            $block['content'] = used_modules_contents($delta);
+            break;
+        }
+      }
+      return $block;
+  }
+}
+
+/**
+ * Block content function
+ */
+function used_modules_contents($block) {
+  switch ($block) {
+    case 0:
+      // description
+      $output = variable_get('used_modules_block_' . $block . '_description', '');
+      // result table
+      $display_description = variable_get('used_modules_block_' . $block . '_display_description', TRUE);
+      $display_version     = variable_get('used_modules_block_' . $block . '_display_version', FALSE);
+      $add_link            = variable_get('used_modules_block_' . $block . '_add_link', TRUE);
+      $table = _used_modules($display_description, $display_version, $add_link);
+      $output .= theme('table', $table['header'], $table['rows']);
+      return $output;
+  }
+}
+
+/**
+ * Build modules list
+ */
+function _used_modules($display_description = TRUE, $display_version = FALSE, $add_link = FALSE) {
+  // header
+  $header[] = t('Name');
+  if ($display_description) {
+    $header[] = t('Description');
+  }
+  if ($display_version) {
+    $header[] = t('Version');
+  }
+  // rows
+  $rows = array();
+  $module_list = _module_list();
+  foreach ($module_list as $module) {
+    if ($add_link) {
+      $rows_build = array(l($module['name'], sprintf(DRUPAL_PROJET_PATH, $module['project'])));
+    }
+    else {
+      $rows_build = array($module['name']);
+    }
+    if ($display_description) {
+      $rows_description = array($module['description']);
+      $rows_build = array_merge($rows_build, $rows_description);
+    }
+    if ($display_version) {
+      $rows_version = array($module['version']);
+      $rows_build = array_merge($rows_build, $rows_version);
+    }
+    $rows[] = $rows_build;
+  }
+  return array('header' => $header, 'rows' => $rows);
+}
+
+/**
+ * Get modules list
+ */
+function _module_list() {
+  $list = array();
+  $result = db_query("SELECT name, info FROM {system} WHERE type = 'module' AND status = 1 ORDER BY filename ASC, weight ASC"); 
+  while ($module = db_fetch_object($result)) {
+    $info = unserialize($module->info);
+    $name        = $info['name'];
+    $description = $info['description'];
+    $version     = $info['version'];
+    $project     = $info['project'];
+    if (!empty($project) && $project != 'drupal') {
+      $list[$module->name] = array(
+        'name' => $name,
+        'description' => $description,
+        'version' => $version,
+        'project' => $project,
+      );
+    }
+  }
+  return $list;
+}

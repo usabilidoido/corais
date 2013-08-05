@@ -1,0 +1,43 @@
+<?php
+/* this module sets up any tables we need for the data we will be storing
+   it may be necessary to alter some of the queries to your needs. */
+function comment_draw_schema() {
+  $schema['comment_draw'] = array(
+    'description' => t('Comment SVG drawings'),
+    'fields' => array(
+      'id' => array(
+        'type' => 'serial'
+        // zerofill auto_increment
+      ),
+      'xid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE
+        // default NULL
+        // zerofill
+      ),
+      'type' => array(
+        'type' => 'varchar',
+        'length' => 16
+        // enum('node', 'comment')
+        // not null
+        // null check
+      ),
+      'svg' => array(
+        'type' => 'varchar',
+        'length' => 9999
+        // default NULL
+      ),
+    ),
+    'primary key' => array('id')
+  );
+  return $schema;
+}
+
+function comment_draw_install() {
+  drupal_install_schema('comment_draw', 'comment_draw');
+}
+
+function comment_draw_uninstall() {
+  drupal_uninstall_schema('comment_draw', 'comment_draw');
+}
+?>

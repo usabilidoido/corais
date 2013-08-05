@@ -1,0 +1,109 @@
+<?php
+// $Id: driven_node.module,v 1.2 2010/04/01 01:08:01 arhak Exp $
+
+if (module_exists('driven_diff')) {
+  // don't include code that depends on a disabled module
+  module_load_include('inc', 'driven_node', 'driven_node.diff');
+}
+
+/**
+ * Implements hook_driven_properties().
+ */
+function driven_node_driven_properties($node_type) {
+  $available_props = array();
+  
+  $available_props['node:title'] = array(
+    'target_title' => t('Title'),
+  );
+  
+  // otherwise it won't find any ancestor with #title
+  $label = node_get_types('type', $node_type)->body_label;
+  // body_field:{body,format,teaser_include,teaser_js}
+  $available_props['node:body_field:bundled'] = array(
+    'label' => $label, // by default it would have none (from the bundle's parent)
+    'target_title' => t('Body'),
+    'meta' => array(
+      // request to include non changed children
+      // if at least one of them changed
+      // since all of them will be needed at diff_render time
+      'bundle' => array(
+        'body',
+        'format',
+        'teaser_include',
+        // note that teaser_js has #value but no #default_value
+        // since it is handled by node_teaser_js on #after_build
+        // and saved into $form['body']['#value'] which is already considered
+        // nevertheless, it need to be considered within the bundled property
+        // to have access to it, but comparison should be bypassed
+        'teaser_js'
+      )
+    ),
+  );
+  
+  $theme = 'driven_diff_yes_no';
+  $available_props['node:options:status'] = array(
+    'meta' => compact('theme'),
+    'target_title' => t('Published'),
+  );
+  
+  $label = t('Promoted');
+  $theme = 'driven_diff_yes_no';
+  $available_props['node:options:promote'] = array(
+    'label' => $label, // default would be: 'Promoted to front page'
+    'meta' => compact('theme'),
+    'target_title' => $label,
+  );
+  
+  $label = t('Sticky');
+  $theme = 'driven_diff_yes_no';
+  $available_props['node:options:sticky'] = array(
+    'label' => $label, // default would be: 'Sticky at top of lists'
+    'meta' => compact('theme'),
+    'target_title' => $label,
+  );
+  
+  $theme = 'driven_diff_comment_settings';
+  // IMPORTANT: point to the radios holder, not their parent fieldset
+  $available_props['node:comment_settings:comment'] = array(
+    'label' => t('Comments'), // default would be: 'Comment settings'
+    'meta' => compact('theme'),
+    'target_title' => t('Comment settings'),
+  );
+  
+  $theme = 'driven_diff_username';
+  $available_props['node:author:name'] = array(
+    'meta' => compact('theme'),
+    'target_title' => t('Authored by'),
+  );
+  
+  $available_props['node:author:date'] = array(
+    'target_title' => t('Authored on'),
+  );
+  
+  // revision info makes no sence, since it isn't a node property
+  // it always starts being empty log with a checkbox following content type settings
+  // therefore, changing them would always display the same old value
+  // and the new value will be accurate, but next change will reflect
+  // coming from same status than its precedents...
+  // which BTW, is not nonsense at all, since it would be
+  // like an incomming only behavior (aka producer)
+  // but anyway, having a node being comment driven is enought revision log IMO
+  /*
+  $label = t('New revision');
+  $theme = 'driven_diff_yes_no';
+  $available_props['node:revision_information:revision'] = array(
+    'label' => $label, // default would be: 'Create new revision'
+    'meta' => compact('theme'),
+    'target_title' => t('Revision') . ' » ' . $label,
+  );
+  $available_props['node:revision_information:log'] = array(
+    'label' => t('Revision log'), // default would be: 'Log message'
+    'target_title' => $prefix . t('Revision') . ' » ' . t('Log'),
+  );
+  */
+  
+  foreach ($available_props as $property_id => &$prop) {
+    $prop['realm_title'] = t('Node');
+  }
+  return $available_props;
+}

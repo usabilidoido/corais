@@ -1,0 +1,61 @@
+<?php
+
+require_once drupal_get_path('module', 'course') . '/tests/CourseTestCase.test';
+
+/**
+ * Test class for dealing with adding and removing elements from the course
+ * outline.
+ */
+class CourseOutlineUiTestCase extends CourseTestCase {
+
+  public static function getInfo() {
+    // Note that getInfo() strings are not translated with t().
+    return array(
+      'name' => 'Course outline',
+      'description' => 'Ensure that the Course outline functions properly.',
+      'group' => 'Course',
+    );
+  }
+
+  /**
+   * Create a course object through the interface.
+   *
+   * @param stdClass $courseNode
+   */
+  function createCourseObjectUi($courseNode) {
+    // Add a new course content object.
+    $edit = array();
+    $edit["more[object_type]"] = 'course_test-course_test_object';
+    $this->drupalPost(NULL, $edit, t('Add another'));
+
+    $this->assertText(t('Test course object'));
+  }
+
+  /**
+   * Test creating a course object through the UI.
+   */
+  function testCourseOutlineCrud() {
+    $courseNode = $this->createCourseNode();
+    $this->drupalGet("node/{$courseNode->nid}/course-outline");
+    $this->createCourseObjectUi($courseNode);
+  }
+
+  /**
+   * Test maximum course objects per course.
+   */
+  function testCourseOutlineMaxOccurences() {
+    $courseNode = $this->createCourseNode();
+    $this->drupalGet("node/{$courseNode->nid}/course-outline");
+    $this->createCourseObjectUi($courseNode);
+    $this->createCourseObjectUi($courseNode);
+
+    $elements = $this->xpath('//select[@id=:id]//option[@value=:option]', array(':id' => 'edit-more-object-type', ':option' => 'course_test-course_test_object'));
+    $this->assertTrue((bool) $elements, 'User able to add up to maxOccurances of course objects.');
+
+    $this->createCourseObjectUi($courseNode);
+
+    $elements = $this->xpath('//select[@id=:id]//option[@value=:option]', array(':id' => 'edit-more-object-type', ':option' => 'course_test-course_test_object'));
+    $this->assertFalse((bool) $elements, 'User was not able to add more than maxOccurances of course objects.');
+  }
+
+}

@@ -1,0 +1,3 @@
+table.spaces-customtext { table-layout: fixed; }
+table.spaces-customtext td { width:50%; }
+table.spaces-customtext input.form-text { width:95%; }

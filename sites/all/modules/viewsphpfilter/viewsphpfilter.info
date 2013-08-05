@@ -1,0 +1,20 @@
+name = Views PHP Filter
+description = "Adds a filter to Views that takes PHP code, and uses the return value of the code as an array of Node IDs to filter on."
+core = 6.x
+dependencies[] = views
+package = "Views"
+version = "$Name$"
+
+; Information added by drupal.org packaging script on 2010-11-12
+version = "6.x-1.x-dev"
+core = "6.x"
+project = "viewsphpfilter"
+datestamp = "1289564886"
+
+
+; Information added by drupal.org packaging script on 2011-02-25
+version = "6.x-1.x-dev"
+core = "6.x"
+project = "viewsphpfilter"
+datestamp = "1298620637"
+

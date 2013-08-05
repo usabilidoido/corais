@@ -1,0 +1,25 @@
+#edit-sinput-wrapper label {
+    display:inline;
+}
+.search_hidden {
+    display:none;
+}
+#edit-tag-button.selected,#edit-letter-button.selected,#edit-search-button.selected {
+    border-width: 2px;
+    disabled: true;
+}
+#edit-sinput-wrapper {
+    margin: 0px;
+}
+#install_queue {
+    position:absolute;
+    z-index:10;
+    background-color:white;
+    margin-top:-10px;
+}
+#which {
+    white-space:nowrap;
+}
+#which td {
+    padding:5px;
+}

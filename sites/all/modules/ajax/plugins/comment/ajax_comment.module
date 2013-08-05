@@ -1,0 +1,111 @@
+<?php
+/**
+ * AJAX Comment Plugin
+ *
+ * @see http://drupal.org/project/ajax
+ * @see irc://freenode.net/#drupy
+ * @depends Drupal 6
+ * @author brendoncrawford
+ * @note This file uses a 79 character width limit.
+ *
+ */
+
+/**
+ * Enables the comment form
+ *
+ * @param $form Assoc
+ * @param $form_id String
+ * @return Bool
+ */
+function ajax_comment_ajax_alter(&$form, &$form_state, $form_id) {
+  if ($form_id === 'comment_form') {
+    $form['submit'] = array(
+      '#type' => 'submit',
+      '#value' => t('Save'),
+      '#weight' => 19
+    );
+  }
+  return TRUE;
+}
+
+/**
+ * Gets ajax types
+ *
+ * @param $types Assoc
+ * @return Bool
+ *
+ */
+function ajax_comment_ajax_types(&$types) {
+  $types['comment_form'] = t('Comment Form');
+  return TRUE;
+}
+
+/**
+ * Validation cleanup procedures
+ *
+ * @param $form Assoc
+ * @param $form_state Assoc
+ * @param $data Assoc
+ * @return Bool
+ *
+ */
+function ajax_comment_ajax_validate_pass(&$form, &$form_state, &$data, &$pass) {
+  if ($form['form_id']['#value'] === 'comment_form' &&
+      $form['#post']['op'] === t('Preview')) {
+    $data['preview'] = ajax_comment_preview($form, $form_state);
+    $pass = FALSE;
+  }
+  return TRUE;
+}
+
+/**
+ * Grabs comment preview.
+ * This function taken from comment_form_add_preview
+ *
+ * @param $form Assoc
+ * @param $form_state Assoc
+ * @return String
+ */
+function ajax_comment_preview(&$form, &$form_state) {
+  global $user;
+  $edit = $form_state['values'];
+  $output = '';
+  $node = node_load($edit['nid']);
+  _comment_form_submit($edit);
+  $comment = (object)$edit;
+  // Attach the user and time information.
+  if (!empty($edit['author'])) {
+    $account = user_load(array('name' => $edit['author']));
+  }
+  elseif ($user->uid && !isset($edit['is_anonymous'])) {
+    $account = $user;
+  }
+  if (!empty($account)) {
+    $comment->uid = $account->uid;
+    $comment->name = check_plain($account->name);
+  }
+  elseif (empty($comment->name)) {
+    $comment->name = variable_get('anonymous', t('Anonymous'));
+  }
+  $comment->timestamp = !empty($edit['timestamp']) ?
+    $edit['timestamp'] : time();
+  if ($edit['pid']) {
+    $comment = db_fetch_object(db_query(
+      'SELECT c.*, u.uid, u.name AS registered_name, ' .
+      'u.signature, u.picture, u.data FROM {comments} c ' .
+      'INNER JOIN {users} u ON c.uid = u.uid ' .
+      'WHERE c.cid = %d AND c.status = %d',
+      $edit['pid'], COMMENT_PUBLISHED));
+    $comment = drupal_unpack($comment);
+    $comment->name = $comment->uid ? $comment->registered_name : $comment->name;
+  }
+  else {
+    $suffix = empty($form['#suffix']) ? '' : $form['#suffix'];
+    $form['#suffix'] = $suffix . node_view($node);
+    $edit['pid'] = 0;
+  }
+  $output  = '<div class="preview">';
+  $output .= theme('comment_view', $comment, $node);
+  $output .= '</div>';
+  return $output;
+}

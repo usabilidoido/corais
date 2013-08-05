@@ -1,0 +1,168 @@
+<?php
+
+/**
+ * Implementation of hook_features_api().
+ */
+function node_export_features_features_api() {
+  return array(
+    'node_export_features' => array(
+      'name' => t('Node export'),
+      'feature_source' => TRUE,
+      'default_hook' => 'node_export_features_default',
+      'default_file' => FEATURES_DEFAULTS_INCLUDED,
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_features_export_options().
+ */
+function node_export_features_features_export_options() {
+  $options = array();
+
+  $types = node_get_types('names');
+  $result = db_query("SELECT n.nid, n.title, n.type FROM {node} n ORDER BY n.type, n.title ASC");
+
+  while ($row = db_fetch_object($result)) {
+    $uuid = uuid_get_uuid('node', 'nid', $row->nid);
+
+    // Skip nodes that have no UUID
+    if (empty($uuid)) {
+      drupal_set_message(
+        t('Some nodes are <strong>not</strong> available for export' .
+          ' because of missing UUIDs. Ensure UUIDs are being generated for' .
+          ' all content types and click the <em>Create missing UUIDs</em>' .
+          ' button on the <a href="!url">UUID settings page</a> to help' .
+          ' resolve this issue.',
+          array('!url' => url('admin/settings/uuid'))
+        ),
+        'warning'
+      );
+    }
+    else {
+      $options[$uuid] = t('@type: @title', array(
+        '@type' => $types[$row->type],
+        '@title' => $row->title,
+      ));
+    }
+  }
+
+  return $options;
+}
+
+/**
+ * Implementation of hook_features_export().
+ */
+function node_export_features_features_export($data, &$export, $module_name = '') {
+  $pipe = array();
+
+  $export['dependencies']['module'] = 'node_export_features';
+
+  foreach ($data as $uuid) {
+    $node = node_export_node_get_by_uuid($uuid);
+    if (is_object($node)) {
+      $export['features']['node_export_features'][$uuid] = $uuid;
+      $pipe['node'][$node->type] = $node->type;
+    }
+  }
+
+  return $pipe;
+
+}
+
+/**
+ * Implementation of hook_features_export_render().
+ */
+function node_export_features_features_export_render($module, $data, $export = NULL) {
+  foreach ($data as $uuid) {
+    $node = node_export_node_get_by_uuid($uuid);
+    if (is_object($node)) {
+      $nids[] = $node->nid;
+    }
+  }
+  $result = node_export($nids);
+  if ($result['success']) {
+    $node_export['code_string'] = $result['output'];
+    $node_export_code = '  $node_export = ' . features_var_export($node_export) . ';';
+  }
+  else {
+    foreach ($result['output'] as $error) {
+      $node_export_code  = '  // ' . $error . PHP_EOL;
+    }
+    $node_export_code .= '  $node_export = array();';
+  }
+  $node_export_code .= PHP_EOL . '  return $node_export;';
+  return array('node_export_features_default' => $node_export_code);
+}
+
+/**
+ * Implementation of hook_features_revert().
+ */
+function node_export_features_features_revert($module = NULL) {
+  node_export_features_features_rebuild($module);
+}
+
+/**
+ * Implementation of hook_features_rebuild().
+ */
+function node_export_features_features_rebuild($module) {
+  $node_export = features_get_default('node_export_features', $module);
+  if (!empty($node_export)) {
+    $result = node_export_import($node_export['code_string']);
+    if (!$result['success']) {
+      foreach ($result['output'] as $error) {
+        drupal_set_message($error, 'error');
+      }
+    }
+    else {
+      foreach ($result['output'] as $status) {
+        drupal_set_message($status);
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_node_export_alter().
+ */
+function node_export_features_node_export_alter(&$nodes, $op, $format) {
+  // Detect a features export to prepare the node appropriately.
+  // FIXME: This detection is difficult, make this less hackish.
+  if ($op == 'export') {
+    // Only make these alterations when exporting the node_code for a feature.
+    $is_features_page = (boolean) preg_match('@^admin/build/features@', $_GET['q']);
+    $is_features_drush_command = FALSE;
+    // Detect Drush context [#548798]
+    if (PHP_SAPI == 'cli' && function_exists('drush_main')) {
+      // Available as of Drush 5.x-2.0-alpha2, determine what drush command is
+      // being run
+      $args = drush_get_arguments();
+      $command = array_shift($args);
+      // Attempt to match the current command against the commands that the
+      // features module provides (eg: features-diff, features-revert)
+      module_load_include('drush.inc', 'features');
+      $is_features_drush_command = FALSE;
+      foreach (features_drush_command() as $item_command => $items) {
+        if ($item_command == $command) {
+          $is_features_drush_command = TRUE;
+          break;
+        }
+        foreach ($items['aliases'] as $alias) {
+          if ($alias == $command) {
+            $is_features_drush_command = TRUE;
+            break 2;
+          }
+        }
+      }
+    }
+    // This export is definitely happening due to something invoked by the
+    // features module.  Apply necessary alterations.
+    if ($is_features_page || $is_features_drush_command) {
+      foreach ($nodes as $key => $node) {
+        // Perform cleaning of the node before creating the export for features.
+        // This can help strip volatile attributes like 'created' and 'changed'.
+        $nodes[$key] = node_export_node_clone($node);
+      }
+    }
+  }
+}

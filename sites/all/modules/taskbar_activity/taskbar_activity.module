@@ -1,0 +1,80 @@
+<?php
+/**
+ * @file
+ *   Activity provider for Taskbar.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function taskbar_activity_menu() {
+  $items['admin/build/taskbar/settings/activity'] = array(
+    'title' => 'Activity',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('taskbar_activity_admin'),
+    'access arguments' => array('administer site configuration'),
+    'description' => 'Allows administrators to adjust certain taskbar activity settings.',
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'taskbar_activity.admin.inc',
+    'weight' => 0,
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_taskbar_provider().
+ */
+function taskbar_activity_taskbar_provider() {
+  return array(
+    array(
+      'name' => 'activity',
+      'title' => 'Activities',
+      'ajax' => TRUE,
+      'realtime' => TRUE,
+      'callback' => 'taskbar_activity_provider_activity',
+      'settings form' => 'taskbar_activity_settings',
+      'settings form submit' => 'taskbar_activity_settings_submit',
+      'file' => 'taskbar_activity.admin.inc',
+      'path' => drupal_get_path('module', 'taskbar_activity'),
+    ),
+  );
+}
+
+/**
+ * Taskbar item callback.
+ */
+function taskbar_activity_provider_activity($item, $action = 'status') {
+  $sources = taskbar_activity_get_sources();
+  if (empty($sources[$item->settings['source']])) {
+    drupal_set_message(t('Acvitity source of item %item (%source) is not available.', array('%source' => $item->settings['source'], '%item' => $item->name)), 'warning');
+    return;
+  }
+  $source = $sources[$item->settings['source']];
+  if (!empty($source['dependencies']) && !module_exists($source['dependencies'])) {
+    drupal_set_message(t('Callback function of item %item is not available. Please enable module %module.', array('%item' => $item->name, '%module' => $source['dependancy'])), 'warning');
+    return;
+  }
+  if ($action == 'status') {
+    $count = $source['callbacks']['count'](TRUE);
+    $output['content'] = $item->settings['text'];
+    if ($count) {
+      $output['count'] = $count;
+    }
+    if (!$item->settings['ajax']) {
+      $output['extra'] = theme_item_list($source['callbacks']['list']($item->settings['max items']));
+    }
+    return $output;
+  }
+  else {
+    $list = $source['callbacks']['list']($item->settings['max items']);
+    $source['callbacks']['mark']();
+    return array('extra' => theme_item_list($list));
+  }
+}
+
+/**
+ * Returns list of available sources.
+ */
+function taskbar_activity_get_sources() {
+  return _taskbar_registry('activity_source');
+}

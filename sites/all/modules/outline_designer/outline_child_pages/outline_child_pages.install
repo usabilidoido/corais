@@ -1,0 +1,19 @@
+<?php
+// $Id: outline_child_pages.install
+/**
+ * @file
+ * Install, update and uninstall functions for the outline_child_pages module.
+ */
+
+function outline_child_pages_install() {
+}
+
+function outline_child_pages_uninstall() {
+  // Delete variables
+  $variables = array(
+    'outline_child_pages_type',
+  );
+  foreach ($variables as $variable) {
+    variable_del($variable);
+  }
+}

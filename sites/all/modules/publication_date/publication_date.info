@@ -1,0 +1,15 @@
+; $Id: publication_date.info,v 1.1 2009/07/20 19:49:00 cleverage Exp $
+name = Publication Date
+description = "Add a field containing the publication date."
+core = 6.x
+: package = 
+; dependencies[] =
+; php = 
+
+
+; Information added by drupal.org packaging script on 2009-11-12
+version = "6.x-1.1"
+core = "6.x"
+project = "publication_date"
+datestamp = "1258039576"
+

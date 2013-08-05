@@ -1,0 +1,23 @@
+.DarkTheme {color:#eee;}
+.DarkTheme .timeline-band-0 .timeline-ether-bg{background-color:#333}
+.DarkTheme .timeline-band-1 .timeline-ether-bg{background-color:#111}
+.DarkTheme .timeline-band-2 .timeline-ether-bg{background-color:#222}
+.DarkTheme .timeline-band-3 .timeline-ether-bg{background-color:#444}
+
+.DarkTheme .t-highlight1{background-color:#003;}
+.DarkTheme .p-highlight1{background-color:#300;}
+                
+.DarkTheme .timeline-highlight-label-start .label_t-highlight1{color:#f00;}
+.DarkTheme .timeline-highlight-label-end .label_t-highlight1{color:#115;}
+                
+.DarkTheme .timeline-band-events .important{color:#c00;}               
+.DarkTheme .timeline-band-events .small-important{background:#c00;}
+                
+.DarkTheme .timeline-date-label-em{color:#fff;}
+.DarkTheme .timeline-ether-lines{border-color:#555; border-style:solid;}
+.DarkTheme .timeline-ether-highlight{background:#555;}
+                
+.DarkTheme .timeline-event-tape,
+.DarkTheme .timeline-small-event-tape{background:#f60;}
+.DarkTheme .timeline-ether-weekends{background:#111;}
+

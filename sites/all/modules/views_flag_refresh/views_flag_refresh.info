@@ -1,0 +1,14 @@
+; $Id: views_flag_refresh.info,v 1.1 2010/08/30 15:31:11 cpliakas Exp $
+name = Views Flag Refresh
+description = Views Flag Refresh allows site administrators to configure which views are refreshed automatically via AJAX when certain flags are selected.
+dependencies[] = flag
+dependencies[] = views
+core = 6.x
+package = Views
+
+; Information added by drupal.org packaging script on 2010-09-08
+version = "6.x-1.0-beta3"
+core = "6.x"
+project = "views_flag_refresh"
+datestamp = "1283919410"
+

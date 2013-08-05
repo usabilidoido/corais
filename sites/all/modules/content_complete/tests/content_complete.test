@@ -1,0 +1,95 @@
+<?php
+// $Id: content_complete.test,v 1.1.2.2 2010/05/16 14:15:49 pvhee Exp $
+
+/**
+ * @file
+ * Content Complete tests.
+ * 
+ * TODO tests:
+ *  - use different CCK fields and test completeness checks
+ *  - test rules
+ *  - test views
+ */
+
+/**
+ * Test aggregating a feed as node items.
+ */
+class ContentCompleteTest extends DrupalWebTestCase {
+
+  /**
+   * Describe this test.
+   */
+  public function getInfo() {
+    return array(
+      'name' => t('Content Complete Test'),
+      'description' => t('Test creation of a content complete enabled type + node.'),
+      'group' => t('Content Complete'),
+    );
+  }
+
+  /**
+   * Set up test.
+   */
+  public function setUp() {
+    parent::setUp('content', 'content_complete');
+    $this->drupalLogin(
+      $this->drupalCreateUser(
+        array(
+          'administer nodes',
+          'administer content types', 
+          'access content complete',
+          'administer content complete',
+        )
+      )
+    );
+  }
+
+  /**
+   * Test creation of a content complete enabled type + node.
+   */
+  public function test() {
+    $content_name = $this->randomName();
+    $content_type = strtolower($this->randomName());
+
+    $edit = array(
+      'name' => $content_name,
+      'type' => $content_type,
+      'content_complete' => 1,
+    );
+    $this->drupalPost('admin/content/types/add', $edit, t('Save content type'));
+    $this->assertText('The content type '. $content_name .' has been added.');
+    
+    // Reset the content type cache
+    _content_type_info(true);
+    
+    $this->assertTrue(content_complete_enabled_type($content_type), t('Content type !type is Content Complete enabled', array('!type' => $content_type)));
+    
+    $edit = array(
+      'content_complete_fields[title]' => 'title',
+      'content_complete_fields[body]' => 'body',
+    );
+    
+    // Tag fields for completion
+    $this->drupalPost('admin/content/node-type/' .$content_type, $edit, t('Save content type'));
+    $this->assertText('The content type '. $content_name .' has been updated.'); 
+    $this->assertEqual(content_complete_get_tagged_fields($content_type), array('title', 'body'));
+    
+    // Make a node
+    $node = $this->drupalCreateNode(
+      array(
+        'type' => $content_type,
+      	'title' => 'Hello',
+      	'body'  => '', // leave body empty
+      )
+    );
+    
+    $data = content_complete_get_data($node);
+    $this->assertEqual($data['percent'], 50);
+    $this->assertEqual($data['completed'], 1);
+    $this->assertEqual($data['incomplete'], 1);
+    $this->assertEqual($data['total'], 2);
+    $this->assertEqual($data['nextfield'], 'Body');
+    $this->assertEqual($data['nextpercent'], 100);
+    $this->assertEqual($data['nextname'], 'body');
+  }
+}

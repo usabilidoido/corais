@@ -1,0 +1,12 @@
+name = Userpoints Register
+description = Users earn points just for registering on the site
+package = Userpoints
+dependencies[] = userpoints
+core = 6.x
+
+; Information added by drupal.org packaging script on 2010-04-07
+version = "6.x-1.0-beta1"
+core = "6.x"
+project = "userpoints_contrib"
+datestamp = "1270651218"
+

@@ -1,0 +1,32 @@
+
+Better Exposed Filters change log
+---------------------------------
+
+Better Exposed Filters 6.x-3.x  xxxx-xx-xx
+------------------------------------------
+by mikeker: Removed Views 2.x support, cleaned up settings form
+
+Better Exposed Filters 6.x-2.x  xxxx-xx-xx
+------------------------------------------
+#864614 by OxideInteractive: Fixes extra space in class attributes
+#874978 by vosechu: select_as_checkboxes now respects #default_value
+#812778 by mikeker: Fixes problem with "Show hierarchy in dropdown enabled"
+#811954 by pivica: Fixes duplicate Select All/None links with multiple Behavior executions
+#657148 by mikeker: Adds support for exposed sort manipulation
+#965388 by mikeker: Adds support for collapsible fieldsets
+#965388 by mikeker: Adds support for collapsible fieldsets
+mikeker: Adds nested list display for hierarchical taxonomy filters
+#894312 by kenorb, mikeker: Adds links as a BEF option
+#1006716 by attiks: Corrects <label>/<input> tag order
+Issue #1149254 by aaronbauman, mikeker: Hides Apply button when all filters are hidden
+Issue #1042502 by joelstein: Adds highlight class for selected checkboxes
+Issue #782480 by mikeker: Fixes concat problem with select-all-none class in Views 2.x
+Issue #967510 by tokimeki, mikeker: Fixes issues with radio buttons in block displays and nested displays
+Issue #1162488 by klickreflex: Fixes incorrect HTML in nested displays
+Issue #1164764 by mikeker: Apply button hidden when using default select list.  See issue #1149254.
+Issue #1072658 by tkoterwas: Fieldset #title not set in exposed filter block/panel
+Issue #1128688 by sreynen: Fixes Select all/none for nested checkboxes.
+
+Better Exposed Filters 6.x-1.0  2010-05-25
+------------------------------------------
+Initial release.  Supports Views 2.x and 3.x.

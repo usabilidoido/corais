@@ -1,0 +1,15 @@
+<?php
+// $Id$
+
+/**
+ * @file Expose the userpoints total value to Views.
+ */
+
+/**
+ *  Implement hook_views_api().
+ */
+function userpoints_views_total_views_api() {
+  return array(
+    'api' => 2.0,
+  );
+}

@@ -1,0 +1,206 @@
+/*
+  Time Tracker Control
+*/
+
+.timer_control form {
+  margin: 0;
+}
+
+table.time_tracker_timer tr.active_timer_msg {
+  background-color: #cceec4;
+}
+
+table.time_tracker_timer tr.unsaved_timer_msg {
+  background-color: #fdcbcb;
+}
+
+table.time_tracker_timer tr.stopped_timer_msg {
+  background-color: #fdcbcb;
+}
+
+table.time_tracker_timer tr.user_active_timer_msg {
+  background-color: #fef4cb;
+}
+
+table.time_tracker_timer tr.user_unsaved_timer_msg {
+  background-color: #fef4cb;
+}
+
+table.time_tracker_timer {
+  background-color: #f8f8f8;
+}
+
+table.time_tracker_timer td {
+  vertical-align: middle;
+}
+
+table.time_tracker_timer td.timer_time {
+  border-left: 1px solid #eee;
+  border-right: 1px solid #eee;
+  text-align: center;
+}
+
+td.timer_control {
+  width: 165px;
+}
+
+td.timer_msg {
+  color: #666666;
+  padding: 5px 10px 15px 15px;
+}
+
+td.timer_time {
+  font-size: 30px;
+  width: 150px;
+}
+
+td.timer_control input {
+  color: white;
+  font-weight: normal;
+  font-size: 18px;
+  padding: 0 0 3px 15px;
+  width: 162px;
+  height: 44px;
+  border: none;
+  cursor:pointer;
+  text-align:center;
+  overflow: hidden;
+}
+
+td.timer_control.stopped_timer_control {
+  width: 260px;
+}
+
+td.timer_control.stopped_timer_control.no_resume {
+  width: 165px;
+}
+
+td.timer_control.stopped_timer_control input.form-timer_control_reset {
+  float: left;
+  width: 112px;
+  padding: 0 0 3px 20px;
+}
+
+td.timer_control.stopped_timer_control input.form-timer_control_resume {
+  float: left;
+  width: 132px;
+  padding: 0 0 3px 20px;
+  margin-right: 10px;
+}
+
+input.form-timer_control_start {
+  background: url("images/start_timer_button.png") no-repeat 0 0;
+}
+
+input.form-timer_control_stop {
+  background: url("images/stop_timer_button.png") no-repeat 0 0;
+}
+
+input.form-timer_control_reset {
+  background: url("images/reset_timer_button.png") no-repeat 0 0;
+}
+
+input.form-timer_control_reset_only {
+  background: url("images/reset_timer_button_full.png") no-repeat 0 0;
+}
+
+input.form-timer_control_resume {
+  background: url("images/resume_timer_button.png") no-repeat 0 0;
+}
+
+td.new_timer_time {
+  color: #a5a5a5;
+}
+
+td.active_timer_time{
+  color:#333333;
+}
+
+/* Active Timers Page */
+
+td.stopped_timer_time  {
+  color: #45b200;
+}
+
+td.timer_page_icon {
+  vertical-align: middle;
+  padding: 5px 10px;
+  width: 32px;
+}
+
+td.timer_page_msg {
+  padding-left: 10px;
+}
+
+td.timer_page_time {
+  border-left: 1px #ccc dotted;
+  border-right: 1px #ccc dotted;
+  width: 100px;
+  font-size: 26px;
+  padding: 0px 20px;
+  vertical-align: middle;
+}
+
+/* Active Timers Block */
+
+table.active_timers_block {
+  background-color: #d2d2d2;
+}
+
+td.stopped_timer_time  {
+  color: #45b200;
+}
+
+td.timer_block_icon {
+  width: 30px;
+  height: 40px;
+  margin: 5px;
+  border-right: 1px white dotted;
+  border-bottom: 1px white dotted;
+}
+
+td.timer_block_time {
+  border-bottom: 1px white dotted;
+  font-size: 26px;
+  vertical-align: middle;
+}
+
+td.timer_block_msg {
+  border-top: 1px white dotted;
+  padding-left: 10px;
+}
+
+td.timer_block_msg a {
+  text-decoration: underline;
+  color: #666666;
+}
+
+.see_all_timers {
+  float: right;
+}
+
+/* Time Tracker Time Entry Form */
+#edit-duration-disabled-wrapper,
+#edit-duration-disabled-1-wrapper {
+  float:left;
+}
+
+.time_entry_disabled {
+  font-size: 12px;
+  color: #aaa;
+  line-height: 16px;
+  font-style: italic;
+  margin: 16px 10px 10px 10px;
+  float:left;
+}
+
+.time_entry_disabled.with_deductions {
+  margin: 4px 10px 10px 10px;
+}
+
+
+
+
+
+
+

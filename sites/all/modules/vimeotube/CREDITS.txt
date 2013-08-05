@@ -1,0 +1,6 @@
+$Id: CREDITS.txt,v 1.1 2010/07/13 21:41:28 bonked Exp $
+This filter-module was made by Paul Couture <bonked@gmail>
+Almost entirely based on googtube that was made by Keizo Gates <kzo@kzo.net>
+  which in turn was 
+Largely based on url_filter by Steven Wittens <unconed@drop.org>.
+

@@ -1,0 +1,13 @@
+; $Id: vimeotube.info,v 1.1 2010/07/13 21:41:28 bonked Exp $
+name = Vimeotube
+description = "Vimeo Video links are automatically converted into embedded videos."
+package = "Input filters"
+dependencies[] = filter
+core = 6.x
+
+; Information added by drupal.org packaging script on 2010-07-13
+version = "6.x-1.0"
+core = "6.x"
+project = "vimeotube"
+datestamp = "1279057511"
+

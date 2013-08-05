@@ -1,0 +1,40 @@
+<?php
+
+/**
+ * @file drupal module file implementing bluff charting.
+ */
+
+/**
+  * Implementation of hook_chartgraph_provider().
+  **/
+function charts_graphs_bluff_chartgraph_provider() {
+  $provider = array(
+    'path' => dirname(__FILE__) . '/charts_graphs_bluff.class.inc', // must be full path
+    'clazz' => 'ChartsGraphsBluff', // implementation class' name
+    'name' => 'bluff', // name used when invoking through a factory method
+    'nice_name' => 'Bluff',
+    'chart_types' => array(
+      'line' => t('Line'),
+      'bar' => t('Bar'),
+      'pie' => t('Pie'),
+      'area' => t('Area'),
+      'side_bar' => t('Side Bar'),
+      'stacked_side_bar' => t('Stacked Side Bar'),
+      'stacked_area' => t('Stacked Area'),
+      'stacked_bar' => t('Stacked Bar'),
+      'mini_bar' => t('Small Bar'),
+      'mini_pie' => t('Small Pie'),
+      'mini_side_bar' => t('Small Side Bar'),
+    ),
+    'themes' => array(
+      'keynote' => t('Keynote'),
+      '37signals' => t('37 Signals'),
+      'rails_keynote'  => t('Rails Keynote'),
+      'odeo'  => t('Odeo'),
+      'pastel'  => t('Pastel'),
+      'greyscale'  => t('Greyscale'),
+    ),
+  );
+
+  return (object) $provider;
+}

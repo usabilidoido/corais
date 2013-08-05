@@ -1,0 +1,243 @@
+<?php
+
+/**
+ * @file
+ * The finder node module.
+ */
+
+/**
+ * Implementation of hook_theme().
+ *
+ * @see hook_theme()
+ */
+function finder_node_theme() {
+  return array(
+    'finder_node_result' => array(
+      'arguments' => array(
+        'key' => NULL,
+        'result' => NULL,
+        'finder' => NULL,
+        'form_state' => NULL,
+      ),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_finder_base_handlers().
+ *
+ * @see hook_finder_base_handlers()
+ */
+function finder_node_finder_base_handlers() {
+  return array(
+    'node' => array(
+      '#title' => t('Node finder'),
+      '#module' => 'finder_node',
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_form_alter().
+ *
+ * @see hook_form_alter()
+ */
+function finder_node_form_finder_admin_element_edit_alter(&$form, $form_state) {
+
+  $finder = &$form_state['storage']['finder'];
+
+  if ($finder->base == 'node') {
+
+    $element = &$form_state['storage']['finder_element_defaults'];
+    $types = finder_node_get_types();
+
+    if ($types) {
+      $form['settings']['choices']['node_types'] = array(
+        '#type' => 'select',
+        '#title' => t('Restrict nodes that can be found to only these content types'),
+        '#default_value' => $element->settings['choices']['node_types'],
+        '#options' => $types,
+        '#description' => t('If no content type is selected, nodes of all types will be displayed.'),
+        '#multiple' => TRUE,
+        '#size' => min(6, count($types)+1),
+        '#weight' => 10,
+      );
+    }
+    else {
+      $form['settings']['choices']['no_types'] = array(
+        '#value' => t("<em>There are currently no content types to choose from.</em>"),
+        '#weight' => 10,
+      );
+    }
+
+    $form['settings']['choices']['published'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Published'),
+      '#default_value' => $element->settings['choices']['published'],
+      '#weight' => 90,
+      '#description' => t('Only show nodes that are published.'),
+    );
+
+    $form['settings']['choices']['per_result'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Choices per result'),
+      '#default_value' => $element->settings['choices']['per_result'],
+      '#weight' => 110,
+      '#description' => t('Forces finder to internally process a choice for each potential result node.'),
+    );
+
+  }
+
+}
+
+/**
+ * Implementation of hook_finder_fields().
+ *
+ * @see hook_finder_fields()
+ */
+function finder_node_finder_fields($finder, $finder_element_id) {
+  // specify fields like: 'table.field-name' => t('display title')
+  $prefix = t('Node') .': ';
+  $field_array = array(
+    'node.nid' => $prefix . t('Nid'),
+    'node.vid' => $prefix . t('Vid'),
+    'node_type.name' => $prefix . t('Type'),
+    'node.language' => $prefix . t('Language'),
+    'node.title' => $prefix . t('Title'),
+    'users.name' => $prefix . t('Author'),
+    'node.status' => $prefix . t('Status'),
+    'node.created' => $prefix . t('Created'),
+    'node.changed' => $prefix . t('Changed'),
+    'node.comment' => $prefix . t('Comment'),
+    'node.promote' => $prefix . t('Promote'),
+    'node.moderate' => $prefix . t('Moderate'),
+    'node.sticky' => $prefix . t('Sticky'),
+    'node.tnid' => $prefix . t('Tnid'),
+    'node.translate' => $prefix . t('Translate'),
+    'node_revisions.body' => $prefix . t('Body'),
+    'node_revisions.teaser' => $prefix . t('Teaser'),
+    'node_revisions.log' => $prefix . t('Log'),
+    'node_revisions.format' => $prefix . t('Format'),
+  );
+  return $field_array;
+}
+
+/**
+ * Get an array of content types for use in select forms.
+ */
+function finder_node_get_types() {
+  $types = node_get_types($op = 'types', $node = NULL, $reset = FALSE);
+  $type_array = array();
+  $type_array[''] = t('- all -');  // this is the 'select none' option in the form
+  foreach ((array)$types as $type) {
+    $type_array[$type->type] = $type->name;
+  }
+  if (count($type_array) === 1) {
+    return FALSE;
+  }
+  return $type_array;
+}
+
+/**
+ * Implementation of hook_finder_find().
+ *
+ * @see hook_finder_find()
+ */
+function finder_node_finder_find($finder, $finder_element_id, $keywords, $mode, $match, $pager) {
+
+  foreach ($keywords as $feid => $keyword_array) {
+
+    $element = &finder_element($finder, $feid);
+
+    $types[$feid] = &$element->settings['choices']['node_types'];
+    $published[$feid] = &$element->settings['choices']['published'];
+
+    // restrict by types
+    unset($types[$feid]['']);
+    if (!empty($types[$feid])) {
+      if ($feid == $finder_element_id) {
+        $query['wheres'][] = "node.type IN (". db_placeholders(array_keys($types[$feid]), 'text') .")";
+      }
+      else {
+        $query['wheres']['restrictions'][$feid][] = "node.type IN (". db_placeholders(array_keys($types[$feid]), 'text') .")";
+      }
+      $query['arguments'] = isset($query['arguments']) ? array_merge($query['arguments'], array_keys($types[$feid])) : array_keys($types[$feid]);
+    }
+
+  }
+
+  // restrict to published nodes if required
+  if (in_array(1, $published)) {
+    $query['wheres'][] = 'node.status = 1';
+  }
+
+  $join_ons = array(
+    'node_revisions' => array(
+      'node_revisions' => 'node_revisions.vid = node.vid',
+    ),
+    'node_type' => array(
+      'node_type' => 'node_type.type = node.type',
+    ),
+    'users' => array(
+      'users' => 'users.uid = node.uid',
+    ),
+  );
+
+  $base_table = 'node';
+  $base_field = 'nid';
+
+  $query = finder_find_query($query, $finder, $finder_element_id, $keywords, $mode, $match, $pager, $join_ons, $base_table, $base_field);
+
+  return finder_query($query);
+
+}
+
+/**
+ * Implementation of hook_finder_goto().
+ *
+ * @see hook_finder_goto()
+ */
+function finder_node_finder_goto($finder, $result) {
+  drupal_goto('node/'. $result->nid);
+}
+
+/**
+ * Implementation of hook_finder_result().
+ *
+ * @see hook_finder_result()
+ */
+function finder_node_finder_result($finder, $keywords, $result_array, $form_state) {
+  $output = '';
+  foreach ($result_array as $key => $result) {
+    $output .= theme('finder_node_result', $key, $result, $finder, $form_state);
+  }
+  return $output;
+}
+
+/**
+ * Theme a node finder result.
+ *
+ * @param $key
+ *   The result key.
+ * @param $result
+ *   A result object.
+ * @param $finder
+ *   The finder object.
+ * @param $form_state
+ *   The Forms API form state.
+ */
+function theme_finder_node_result($key, $result, $finder, $form_state) {
+  $output = '';
+  $result_node = node_load($result->nid);
+
+  // Open the results wrapper
+  $output .= '<div class="finder-node-result-'. $key .'" class="finder-node-result">';
+
+  // Output a teaser of the node
+  $output .= node_view($result_node, TRUE);
+
+  // Close the results wrapper
+  $output .= '</div>';
+
+  return $output;
+}

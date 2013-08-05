@@ -1,0 +1,62 @@
+<?php
+
+// $Id$
+
+/**
+ * @file
+ * Lets users add protonotes to pages.
+ *
+ * Inserts some javascript at the end of each
+ * page.
+ */
+
+/**
+ * Implementation of hook_menu().
+ */
+function protonotes_menu() {
+  $items['admin/settings/protonotes'] = array(
+    'title' => 'protonotes settings',
+    'description' => 'Change how protonotes behaves',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('protonotes_admin_settings'),
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'protonotes.admin.inc',
+  );
+  
+  return $items;
+}
+
+/**
+ * Implementation of hook_init().
+ */
+function protonotes_init() {
+  global $user;
+  
+  // Psuedo code
+  $enabled = variable_get('protonotes_enabled');
+  $data = "";
+  
+  if($enabled){ //  && $user has permission to view/add protonotes (TODO add permissions)
+      $groupnumber = variable_get('protonotes_groupnumber');
+      $show_notes_default = variable_get('protonotes_notes_default');
+      $show_menubar_default = variable_get('protonotes_menubar_default');
+      $private_database_key = variable_get('protonotes_database_key');
+      //build js code
+      $data .= '<script src="http://www.protonotes.com/js/protonotes.js" type="text/javascript"></script>'."\n";
+      $data .= '<script type="text/javascript">'."\n";
+      $data .= 'var groupnumber="'. $groupnumber . '";'."\n";
+      if($show_notes_default) {
+          $data .= 'var show_notes_default="'. $show_notes_default . '";'."\n";
+      }
+      if($show_menubar_default) {
+          $data .= 'var show_menubar_default="'. $show_menubar_default . '";'."\n";
+      }
+      if($private_database_key) {
+          $data .= 'var private_database_key="'. $private_database_key . '";'."\n";
+      }
+
+      $data = '</script>'."\n";
+  }
+
+}

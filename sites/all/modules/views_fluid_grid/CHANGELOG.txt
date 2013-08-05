@@ -1,0 +1,21 @@
+// $Id: CHANGELOG.txt,v 1.1.2.12 2009/12/03 01:31:12 markuspetrux Exp $
+
+6.x-1.1
+=======
+
+Features:
+- #603074 Enable a grouping field in the view.
+
+Bugfixes:
+- #602236 IE7 issue - Thumbnails are only showing below each other in one column.
+- #649680 by BWPanda: Reset padding and margin in top-level UL of the grid.
+
+
+6.x-1.0
+=======
+
+- Initial checkin.
+- Added advanced_help support.
+- Change CSS class used for fluid grid container to just views-fluid-grid.
+- Optimize hook_init() and template preprocess a little.
+- Added translation template.

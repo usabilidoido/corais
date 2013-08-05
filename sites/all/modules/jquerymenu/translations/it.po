@@ -1,0 +1,67 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Drupal Jquery V6.x-1.9\n"
+"POT-Creation-Date: 2009-01-06 10:40+0100\n"
+"PO-Revision-Date: \n"
+"Last-Translator: andromeda <f.dinucci@libero.it>\n"
+"Language-Team: andromeda <f.dinucci@libero.it>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+"X-Poedit-Language: Italian\n"
+"X-Poedit-Country: ITALY\n"
+"X-Poedit-SourceCharset: utf-8\n"
+
+#: jquerymenu.module:27
+msgid "Choose which menus will have a Jquery menu version and a corresponding block"
+msgstr "Imposta quali menu dovranno avere la versione jQuery menù ed il blocco corrispondente"
+
+#: jquerymenu.module:72
+msgid "Jquery menu blocks"
+msgstr "Blocchi jQuery Menù"
+
+#: jquerymenu.module:76
+msgid "Choose which menus you wish to create a jquery version for. <p> Please note that this only creates the block. You will still have to activate the block on the blocks page."
+msgstr "Imposta per quali menù devono essere create le versioni jQuery.<p>Attenzione! Saranno creati solo i blocchi che dovranno essere poi attivati nella pagina dei blocchi."
+
+#: jquerymenu.module:80
+msgid "Disable animation."
+msgstr "Disabilita l'animazione."
+
+#: jquerymenu.module:81
+msgid "If checked your menus will open without any transition effects."
+msgstr "Se impostato i menù si espanderanno senza alcun effetto di transizione."
+
+#: jquerymenu.module:86
+msgid "Save"
+msgstr "Salva"
+
+#: jquerymenu.module:112
+msgid "Your settings have been saved."
+msgstr "Le impostazioni sono state salvate."
+
+#: jquerymenu.module:26
+msgid "Jquerymenu Configuration"
+msgstr "Configurazione di jQuery Menù"
+
+#: jquerymenu.module:0
+msgid "jquerymenu"
+msgstr "jQuery Menù"
+
+#: jquerymenu.install:12
+msgid "Stores information about which menus are activated"
+msgstr "Memorizza le informazioni relative ai menù attivati."
+
+#: jquerymenu.info:0
+msgid "Jquery Menu"
+msgstr "jQuery Menù"
+
+#: jquerymenu.info:0
+msgid "Enables expandable jquery menus."
+msgstr "Abilita i menù espandibili jQuery"
+
+#: jquerymenu.info:0
+msgid "Advanced Navigation Pack"
+msgstr ""
+

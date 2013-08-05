@@ -1,0 +1,139 @@
+<?php
+
+/**
+ * API function to batch import several files using Batch API.
+ */
+function sheetnode_google_batch_import($username, $password, $keys, $destination = NULL, $callback = NULL, $params = array(), $batch = array()) {
+  $batch += array(
+    'finished' => '_sheetnode_google_batch_import_finished',
+    'title' => t('Importing spreadsheets'),
+    'init_message' => t('Import process is starting.'),
+    'progress_message' => t('Imported @current out of @total spreadsheets.'),
+    'error_message' => t('Import process has encountered an error.'),
+    'file' => drupal_get_path('module', 'sheetnode_google') . '/sheetnode_google.import.inc',
+  );
+  foreach ($keys as $key) {
+    $batch['operations'][] = array('_sheetnode_google_batch_import', array($username, $password, $key, $callback, $params));
+  }
+  batch_set($batch);
+  batch_process($destination);
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function sheetnode_google_menu() {
+  $items = array();
+    
+  $items['sheetnode/google'] = array(
+    'title' => 'Export to Google Spreadsheet',
+    'access arguments' => array('access content'),
+    'page callback' => '_sheetnode_google_export',
+    'type' => MENU_CALLBACK,
+    'file' => 'sheetnode_google.export.inc',
+  );
+  $items['sheetnode/google/fetch'] = array(
+    'title' => 'Fetch private Google Spreadsheet',
+    'type' => MENU_CALLBACK,
+    'page callback' => '_sheetnode_google_js',
+    'page arguments' => array('_sheetnode_google_import_fetch'),
+    'access arguments' => array('create sheetnode'),
+    'file' => 'sheetnode_google.import.inc',
+  );
+  $items['node/add/googlesheet'] = array(
+    'title' => 'Sheetnode import from Google Spreadsheet',
+    'access arguments' => array('create sheetnode'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('_sheetnode_google_import_form'),
+    'description' => 'Create a new sheetnode with content from an existing Google Spreadsheet.',
+    'file' => 'sheetnode_google.import.inc',
+  );
+  $items['admin/settings/sheetnode/google'] = array(
+    'title' => 'Google Spreadsheets',
+    'access arguments' => array('administer site configuration'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('_sheetnode_google_settings'),
+    'description' => 'Administer settings for Sheetnode Google Spreadsheets.',
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+function _sheetnode_google_js($callback) {
+  $form_state = array('submitted' => FALSE);
+  $form_build_id = $_POST['form_build_id'];
+  // Add the new element to the stored form. Without adding the element to the
+  // form, Drupal is not aware of this new elements existence and will not
+  // process it. We retreive the cached form, add the element, and resave.
+  $form = form_get_cache($form_build_id, $form_state);
+
+  $render =& $callback($form, array('values' => $_POST));
+
+  form_set_cache($form_build_id, $form, $form_state);
+  $form += array(
+    '#post' => $_POST,
+    '#programmed' => FALSE,
+  );
+  // Rebuild the form.
+  $form = form_builder($_POST['form_id'], $form, $form_state);
+
+  // Render the new output.
+  print drupal_to_js(array('data' => drupal_render($render), 'status' => TRUE));
+  exit();
+}
+
+function _sheetnode_google_settings() {
+  $form['sheetnode_zend_gdata_path'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Zend Gdata library path'),
+    '#description' => t('Enter the full path of the extracted Zend Gdata package (pointing to but not including the Zend/ subfolder). 
+                         Leave empty if the Zend framework is already included in the PHP include_path setting. On this server, include_path is set to:<br /><pre>!path</pre>',
+                         array('!path' => ini_get('include_path'))
+                       ),
+    '#default_value' => variable_get('sheetnode_zend_gdata_path', ''),
+    '#size' => 80,
+  );
+  $form['#validate'][] = '_sheetnode_google_settings_validate';
+  return system_settings_form($form);
+}
+
+function _sheetnode_google_settings_validate($form, $form_state) {
+  $path = rtrim($form_state['values']['sheetnode_zend_gdata_path'], '/');
+  if (!empty($path) && (!is_dir($path) || !is_file($path . '/Zend/Gdata.php'))) {
+    form_set_error('sheetnode_zend_gdata_path', t('The path you entered does not point to a valid location. Please enter the full path of the extracted Zend Gdata package, including the library subdirectory.'));
+    return;
+  }
+}
+
+/**
+ * Implementation of hook_init().
+ */
+function sheetnode_google_init() {
+  // Set PHP include_path to find Zend files.
+  $path = variable_get('sheetnode_zend_gdata_path', '');
+  if (empty($path)) return;
+  $include_path = ini_get('include_path');
+  if (FALSE === strpos($include_path, $path)) {
+    ini_set('include_path', $include_path . PATH_SEPARATOR . $path);
+  }
+
+  // Register the autoload function for Batch API.
+  spl_autoload_register('_sheetnode_google_autoload');
+}
+
+/**
+ * Autoload callback.
+ */
+function _sheetnode_google_autoload($classname) {
+  if (strpos($classname, 'Zend_') === 0) {
+    include_once('Zend/Loader.php');
+    try {
+      Zend_Loader::loadClass($classname);
+    }
+    catch (Zend_Exception $e) {
+      // do nothing.
+    }
+  }
+}
+

@@ -1,0 +1,5 @@
+name = OG Image
+description = Creates a block containing the group image (image field)
+core = 6.x
+dependencies[] = imagecache
+dependencies[] = imagefield

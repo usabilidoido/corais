@@ -1,0 +1,12 @@
+name = Location Phone
+package = Location
+description = Allows you to add a phone number to a location.
+dependencies[] = location
+core = 6.x
+
+; Information added by drupal.org packaging script on 2012-07-25
+version = "6.x-3.2"
+core = "6.x"
+project = "location"
+datestamp = "1343220789"
+

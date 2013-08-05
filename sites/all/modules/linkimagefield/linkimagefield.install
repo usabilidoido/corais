@@ -1,0 +1,40 @@
+<?php
+// $Id: linkimagefield.install,v 1.3 2009/07/01 02:17:28 johnfyoung Exp $
+/**
+  * @file
+  *
+  * linkimagefield install and update code
+  * @author John Young <john@codeandcreative.com>
+  */
+  
+/**
+ * Implementation of hook_install().
+ */
+function linkimagefield_install() {
+  drupal_load('module', 'content');
+  content_notify('install', 'linkimagefield');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function linkimagefield_uninstall() {
+  drupal_load('module', 'content');
+  content_notify('uninstall', 'linkimagefield');
+}
+
+/**
+ * Implementation of hook_enable().
+ */
+function linkimagefield_enable() {
+  drupal_load('module', 'content');
+  content_notify('enable', 'linkimagefield');
+}
+
+/**
+ * Implementation of hook_disable().
+ */
+function linkimagefield_disable() {
+  drupal_load('module', 'content');
+  content_notify('disable', 'linkimagefield');
+}

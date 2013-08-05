@@ -1,0 +1,191 @@
+<?php
+// $Id: views_flag_refresh.module,v 1.4 2010/09/02 03:22:32 cpliakas Exp $
+
+/**
+ * @file
+ * Views Flag Refresh allows site administrators to configure which views are
+ * refreshed automatically via AJAX when certain flags are selected.
+ */
+
+/**
+ * Returns an array of flags keyed by machine readable name to an escaped
+ * display name.
+ *
+ * @return
+ *   An array of options.
+ */
+function views_flag_refresh_flag_options_get() {
+  $options = array();
+  foreach (flag_get_flags() as $flag_id => $flag) {
+    $options[$flag_id] = check_plain($flag->title);
+  }
+  return $options;
+}
+
+/**
+ * Returns an array of widgets keyed by machine readable name to an escaped
+ * display name.
+ *
+ * @return
+ *   An array of options.
+ */
+function views_flag_refresh_widget_options_get() {
+  $options = array();
+  foreach (views_flag_refresh_widgets_get() as $widget_name => $widget) {
+    $options[$widget_name] = check_plain($widget['title']);
+  }
+  return $options;
+}
+
+/**
+ * Returns widget definitions from hook_views_flag_refresh_widgets()
+ * implementations.
+ *
+ * @param $reset
+ *   A boolean flagging whether the static should be reset.
+ *
+ * @return
+ *   An array of widget definitions.
+ */
+function views_flag_refresh_widgets_get($reset = FALSE) {
+  static $widgets;
+  if (NULL === $widgets) {
+    $widgets = module_invoke_all('views_flag_refresh_widgets');
+    drupal_alter('views_flag_refresh_widgets', $widgets);
+  }
+  return $widgets;
+}
+
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ */
+function views_flag_refresh_form_views_ui_edit_display_form_alter(&$form, &$form_state) {
+  if ('use_ajax' == $form_state['section']) {
+    $display = &$form_state['view']->display[$form_state['display_id']];
+
+    $form['use_ajax_flags'] = array(
+      '#type' => 'checkboxes',
+      '#title' => t('Refresh display on flags'),
+      '#options' => views_flag_refresh_flag_options_get(),
+      '#default_value' => (array)$display->handler->get_option('use_ajax_flags'),
+      '#description' => t('Refreshes the display via AJAX whenever a user clicks one of the selected flags. This will only take effect if the <em>Use AJAX</em> option is set to <em>Yes</em>.'),
+    );
+
+    $default_value = $display->handler->get_option('use_ajax_flags_widget');
+    $form['use_ajax_flags_widget'] = array(
+      '#type' => 'radios',
+      '#title' => t('Refresh widget'),
+      '#options' => views_flag_refresh_widget_options_get(),
+      '#default_value' => $default_value ? $default_value : 'default',
+      '#description' => t('The widget alters the display of the view as it is refreshing, for example by adding a throbber or textual message.')
+    );
+
+    // Makes sure buttons are at the bottom.
+    $form['buttons']['#weight'] = 10;
+
+    // Adds our custom submit handler before the default so we don't have to
+    // re-cache the view in order to add our custom option.
+    // NOTE: $form['#submit'] doesn't work here.
+    array_unshift(
+      $form['buttons']['submit']['#submit'],
+      'views_flag_refresh_views_ui_edit_display_form_submit'
+    );
+  }
+}
+
+/**
+ * Processes views_ui_edit_display_form form submissions.
+ */
+function views_flag_refresh_views_ui_edit_display_form_submit(&$form, &$form_state) {
+  $display = &$form_state['view']->display[$form_state['display_id']];
+  $display->handler->set_option('use_ajax_flags', $form_state['values']['use_ajax_flags']);
+  $display->handler->set_option('use_ajax_flags_widget', $form_state['values']['use_ajax_flags_widget']);
+}
+
+/**
+ * Preprocess the primary theme implementation for a view.
+ *
+ * If AJAX is enabled for the view, adds javascript files and settings.
+ */
+function views_flag_refresh_preprocess_views_view(&$vars) {
+  if ($vars['view']->use_ajax) {
+    views_flag_refresh_add_js($vars['view']);
+  }
+}
+
+/**
+ * Adds javascript settings for the view, makes sure the core javascript and
+ * settings files
+ *
+ * @param $view
+ *   An object containing the view.
+ */
+function views_flag_refresh_add_js($view) {
+  static $processed;
+
+  // Only adds the core javascript files and settings once. The file isn't a
+  // problem, but the settings become an array if they are added more than once.
+  if (NULL === $processed) {
+    $path = drupal_get_path('module', 'views_flag_refresh');
+    drupal_add_js($path .'/views_flag_refresh.js');
+    $settings = array(
+      'viewsFlagRefresh' => array(
+        'imagePath' => base_path() . $path .'/images',
+      ),
+    );
+    drupal_add_js($settings, 'setting');
+    $processed = TRUE;
+  }
+
+  // Gets all widget definitions.
+  $widgets = views_flag_refresh_widgets_get();
+
+  // Adds our view specific settings and javascript files.
+  $settings = array('viewsFlagRefresh' => array());
+  $flags = (array)$view->display_handler->get_option('use_ajax_flags');
+  foreach ($flags as $flag_name => $enabled) {
+    if ($enabled) {
+
+      // Gets widget information, adds javascript, CSS files if defined.
+      if (!$widget = $view->display_handler->get_option('use_ajax_flags_widget')) {
+        $widget = 'default';
+      }
+      if (isset($widgets[$widget]['js file'])) {
+        drupal_add_js($widgets[$widget]['js file']);
+      }
+      if (isset($widgets[$widget]['css file'])) {
+        drupal_add_css($widgets[$widget]['css file']);
+      }
+
+      // Adds widget information to the javascript settings.
+      $key = $view->name .'-'. $view->current_display;
+      $settings['viewsFlagRefresh']['flags'][$flag_name][$key] = array(
+        'themeHook' => isset($widgets[$widget]['theme hook']) ? $widgets[$widget]['theme hook'] : FALSE,
+        'themeHookPost' => isset($widgets[$widget]['theme hook post']) ? $widgets[$widget]['theme hook post'] : FALSE,
+      );
+    }
+  }
+  drupal_add_js($settings, 'setting');
+}
+
+/**
+ * Implementation of hook_views_flag_refresh_widgets().
+ */
+function views_flag_refresh_views_flag_refresh_widgets() {
+  $widgets = array();
+
+  $widgets['default'] = array(
+    'title'       => t('No widget'),
+    'description' => t('No display changes are made to the view while it is being refreshed.'),
+  );
+
+  $widgets['throbber'] = array(
+    'title'           => t('Throbber image'),
+    'theme hook'      => 'throbber',
+    'theme hook post' => 'throbberPost',
+    'description'     => t('Display a throbber image in place of the view content while it is being refreshed.'),
+    'css file'        => drupal_get_path('module', 'views_flag_refresh') .'/views_flag_refresh.css',
+  );
+
+  return $widgets;
+}

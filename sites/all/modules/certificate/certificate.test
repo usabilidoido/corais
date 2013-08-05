@@ -1,0 +1,76 @@
+<?php
+
+/**
+ * @file certificate.test
+ */
+
+/**
+ * Tests for Certificate.
+ */
+class CertificateTestCase extends DrupalWebTestCase {
+
+  public static function getInfo() {
+    // Note that getInfo() strings are not translated with t().
+    return array(
+      'name' => 'Certificate',
+      'description' => 'Ensure that the Certificate module functions properly.',
+      'group' => 'Certificate',
+    );
+  }
+
+  public function setUp() {
+    parent::setUp(array('certificate', 'certificate_test'));
+
+    // Set up an activity.
+    $this->contentType = $this->drupalCreateContentType(array('type' => 'certificate_activity'));
+    variable_set("certificate_certifiable_" . $this->contentType->type, TRUE);
+  }
+
+  public function testCertificateAccess() {
+    $u1 = $this->drupalCreateUser();
+
+    // Create an activity. 
+    $activity_node = $this->drupalCreateNode(array('type' => $this->contentType->type));
+
+    // Check for forbidden certificate.
+    $result = certificate_can_access_certificate($activity_node, $u1);
+    $this->assertTrue($result !== TRUE, 'User cannot access certificate.');
+    $this->assertTrue($result == 'Custom access denied message.', 'Error message matched module provided message.');
+
+    // Set certificates to appear.
+    $GLOBALS['certificate_ok'] = TRUE;
+    $result = certificate_can_access_certificate($activity_node, $u1, TRUE);
+    $this->assertTrue($result === TRUE, 'User can access certificate.');
+  }
+
+  public function testCertificateMapping() {
+    $activity_node = $this->drupalCreateNode(array('type' => $this->contentType->type));
+    $certificate = $this->drupalCreateNode(array('type' => 'certificate'));
+
+    $u1 = $this->drupalCreateUser();
+    $firstletter = $u1->name[0];
+
+    $this->drupalLogin($u1);
+    $GLOBALS['certificate_ok'] = TRUE;
+
+    $this->drupalGet("node/{$activity_node->nid}/certificate", array('query' => 'certificate_ok'));
+    $this->assertNoResponse(403, 'Did not get access denied.');
+    $this->assertNoText('Custom access denied message.', 'Did not find moduled provided access denied message on certificate page.');
+    $this->assertText('Sorry, there is no certificate available.', 'Found no certificate available text.');
+
+    // Map the first letter of the user's name to the certificate.
+    certificate_update_node_mappings($activity_node->nid, array(
+      'firstletter' => array(
+        $firstletter => $certificate->nid,
+      ),
+    ));
+
+    certificate_course_node_template_settings($activity_node->nid);
+
+    $this->drupalGet("node/{$activity_node->nid}/certificate", array('query' => 'certificate_ok'));
+    $this->assertNoResponse(403, 'Did not get access denied.');
+    $this->assertNoText('Custom access denied message.', 'Did not find module provided access denied message on certificate page.');
+    $this->assertNoText('Sorry, there is no certificate available.', 'User received certificate.');
+  }
+
+}

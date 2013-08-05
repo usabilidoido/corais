@@ -1,0 +1,99 @@
+<?php
+
+/**
+ * Class for testing notifications module.
+ * Tests basic API functions
+ * 
+ * Notes:
+ *  - An exception (PHP warning) is thrown when content module (cck) is enabled, nothing to worry about.
+ */
+class NotificationsTeamTests extends DrupalWebTestCase {
+  
+  function getInfo() {
+    return array(
+      'name' => 'Notifications Team',
+      'group' => 'Notifications',
+      'description' => 'Notifications Team UI functions' );
+  }
+  
+  function setUp() {
+    parent::setUp('messaging', 'messaging_simple', 'notifications', 'notifications_content', 'notifications_ui', 'notifications_team');
+    // Set some defaults
+    // Default send interval will be: Inmediately
+    variable_set('notifications_default_send_interval', 0);
+    variable_set('notifications_default_send_method', 'simple');
+  }
+
+  /**
+   * Play with creating, retrieving, deleting a pair subscriptions
+   */
+  function testNotificationsTeam() {
+    $ctype = $this->drupalCreateContentType();
+    
+    // make this content type allowed
+    $allowed = notifications_content_types();
+    $allowed[$ctype->type] = $ctype->type;
+    variable_set('notifications_content_types', $allowed);
+    $unused = $this->drupalCreateUser();
+
+    // Create an unauthorized user and try permissions 
+    $author1 = $this->drupalCreateUser(array('access content', 'maintain own subscriptions', 'subscribe to content', 'subscribe to content type', 'subscribe to author', 'create '.$ctype->type.' content', 'edit own '.$ctype->type.' content'));
+    $this->drupalLogin($author1);
+    $node1 = $this->drupalCreateNode(array(
+      'title' => 'Notifications '. $this->randomName(),
+      'body' => 'This is a test node for content subscriptions.',
+      'type' => $ctype->type,
+      'uid' => $author1->uid,
+      'status' => 1,    
+    ));
+    //$this->assertEqual(notifications_user_allowed('subscription', $author1, $subs_thread), TRUE, 'Subscription is allowed for user with the right permissions');
+
+    $this->drupalGet('node/'. $node1->nid .'/edit');
+    $this->assertText("Title:", 'User can edit new content type');
+    $this->assertNoText("Notify all users", 'Unauthorized user cannot subscribe others');
+
+    // Create a user who can't be subscribed
+    $author3 = $this->drupalCreateUser(array('access content'));
+ 
+    // Create an authorized user and try permissions 
+    $author2 = $this->drupalCreateUser(array('access content', 'maintain own subscriptions', 'subscribe to content', 'subscribe to content type', 'subscribe to author', 'create '.$ctype->type.' content', 'edit own '.$ctype->type.' content', 'subscribe other users'));
+    $this->drupalLogin($author2);
+    $node2 = $this->drupalCreateNode(array(
+      'title' => 'Notifications '. $this->randomName(),
+      'body' => 'This is a test node for content subscriptions.',
+      'type' => $ctype->type,
+      'uid' => $author2->uid,
+      'status' => 1,    
+    ));
+
+
+
+    //$this->assertEqual(notifications_user_allowed('subscription', $author2, $subs_thread), TRUE, 'Subscription is allowed for user with the right permissions');
+
+    $this->drupalGet('node/'. $node2->nid .'/edit');
+    $this->assertText("Title:", 'User can edit new content type');
+    $this->assertText("Notify all users", 'Authorized user can subscribe others');
+
+    //login the other user with this form and see if it works
+    notifications_team_update($node2->nid, array($author1->uid, $author2->uid, $author3->uid), TRUE, TRUE);
+
+    // Retrieve the subscription from the database
+    $subs = notifications_user_get_subscriptions($author2->uid, 'node', $node2->nid, $node2, TRUE);
+    $this->assertEqual(count($subs), 1, 'The node subscription has been created for the author.');
+    $subs = notifications_user_get_subscriptions($author1->uid, 'node', $node2->nid, $node2, TRUE);
+    $this->assertEqual(count($subs), 1, 'The node subscription has been created for the other user.');
+    $subs = notifications_user_get_subscriptions($author3->uid, 'node', $node2->nid, $node2, TRUE);
+    $this->assertEqual(count($subs), 0, 'The node subscription hasn\'t been created for the unauthorized user.');
+
+    // run again, but unsubscribe one user
+    notifications_team_update($node2->nid, array($author2->uid), TRUE, TRUE);
+    // Retrieve the subscription from the database
+    $subs = notifications_user_get_subscriptions($author2->uid, 'node', $node2->nid, $node2, TRUE);
+    $this->assertEqual(count($subs), 1, 'The node subscription remains for the author.');
+    $subs = notifications_user_get_subscriptions($author1->uid, 'node', $node2->nid, $node2, TRUE);
+    $this->assertEqual(count($subs), 0, 'The node subscription has been removed for the other user.');
+
+  }
+}
+
+// Print page: $this->assertTrue(TRUE, $this->drupalGetContent());

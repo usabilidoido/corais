@@ -1,0 +1,5 @@
+
+table#course-objects tr.deleted {
+  background-color: #eee;
+  color: #ccc;
+}

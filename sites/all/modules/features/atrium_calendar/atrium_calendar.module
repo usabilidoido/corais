@@ -1,0 +1,123 @@
+<?php
+
+include_once('atrium_calendar.features.inc');
+
+/**
+ * Implementation of hook_help().
+ */
+function atrium_calendar_help($path, $arg) {
+  if (($path == 'help#atrium_calendar') || context_isset('context', 'calendar_calendar')) {
+    switch ($path) {
+      case 'node/add/event':
+      case 'node/add/feed-ical':
+      case 'node/%/edit':
+        $help = '';
+        $help .= '<h3>'. t('Calendar') .'</h3>';
+        $node = menu_get_object();
+        if ($path == 'node/add/event' || $node->type == 'event') {
+          $help .= '<p>'. t('Tips for adding and editing events:') .'</p>';
+          $help .= '<ul>';
+          $help .= '<li>'. t('Fill in a title and description for your event.') .'</li>';
+          $help .= '<li>'. t('Choose a start date and an end date for your event. If your event doesn\'t last longer than a day, leave out the end date.') .'</li>';
+          $help .= '</ul>';
+        }
+        else if ($path == 'node/add/feed-ical' || $node->type == 'feed_ical') {
+          $help .= '<p>'. t('Tips for adding and editing iCal feeds:') .'</p>';
+          $help .= '<ul>';
+          $help .= '<li>'. t('Add a title for your feed so you can identify it quickly later.') .'</li>';
+          $help .= '<li>'. t('Enter the URL of an iCal feed. Feed URLs often begin with <strong>webcal://</strong> and often end with a filename like <strong>my_calendar.ics</strong>.') .'</li>';
+          $help .= '</ul>';
+        }
+        return $help;
+
+      case 'help#atrium_calendar':
+      default:
+        $help = '';
+        $help .= '<h3>'. t('Calendar') .'</h3>';
+        $help .= '<p>'. t('The calendar displays events and calendar feeds submitted by your group.') .'</p>';
+        $help .= '<ul>';
+        $help .= '<li>'. t('!add_events to the calendar to let others know about what\'s coming up.', array('!add_events' => l(t('Add events'), 'node/add/event'))) .'</li>';
+        $help .= '<li>'. t('!add_feeds to automatically populate your calendar with events from external sources.', array('!add_feeds' => l(t('Add iCal feeds'), 'node/add/feed-ical'))) .'</li>';
+        $help .= '</ul>';
+        return $help;
+    }
+  }
+}
+
+/**
+ * Implementation of hook_context_links_alter().
+ * Removes ical event items from node links.
+ */
+function atrium_calendar_context_links_alter(&$links) {
+  if (!empty($links['feed_ical_item'])) {
+    unset($links['feed_ical_item']);
+  }
+}
+
+/**
+ * Implementation of hook_block().
+ */
+function atrium_calendar_block($op = 'list', $delta = 0, $edit = array()) {
+  switch ($op) {
+    case 'list':
+      return array('mini' => array('info' => t('Mini calendar')));
+    default:
+      $function = "_atrium_calendar_block_{$delta}";
+      if (function_exists($function)) {
+        return $function($op, $edit);
+      }
+  }
+}
+
+/**
+ * Implementation of hook_menu_alter().
+ */
+function atrium_calendar_menu_alter(&$items) {
+  // Remove ical item node add page.
+  if (isset($items['node/add/feed-ical-item'])) {
+    unset($items['node/add/feed-ical-item']);
+  }
+}
+
+/**
+ * Implementation of hook_nodeapi().
+ */
+function atrium_calendar_nodeapi(&$node, $op, $teaser = NULL, $page = NULL) {
+  switch ($op) {
+    // Custom code for forcing inheritance of OG groups from feed node to
+    // iCal items. See: http://drupal.org/node/632920.
+    case 'insert':
+    case 'update':
+      if ($node->type == 'feed_ical_item' && !empty($node->feeds_node_item->feed_nid)) {
+        $feed_node = node_load($node->feeds_node_item->feed_nid);
+        if (!empty($feed_node->og_groups)) {
+          $node->og_groups = $feed_node->og_groups;
+        }
+      }
+      break;
+    case 'view':
+      // Confirm we are actually on a page of relevance
+      if (menu_get_object() === $node && !empty($node->field_date)) {
+        $from = date_convert($node->field_date[0]['value'], DATE_ISO, DATE_OBJECT);
+        context_set('node', 'field_date', $from);
+      }
+      break;
+  }
+}
+
+/**
+ * Block: contextual mini calendar block
+ */
+function _atrium_calendar_block_mini($op, $edit) {
+  if ($op == 'view') {
+    $block = array();
+    if ($date = context_get('node', 'field_date')) {
+      $args = date_format($date, 'Y') . '-' . date_format($date, 'm');
+    }
+    else {
+      $args = format_date(time(), 'custom', 'Y') . '-' . format_date(time(), 'custom', 'm');
+    }
+    $block['content'] = views_embed_view('calendar_listing', 'block_1', $args);
+  }
+  return $block;
+}

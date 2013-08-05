@@ -1,0 +1,9 @@
+<?php
+// $Id: saveguard.install,v 1.1.2.1 2008/12/12 21:33:35 deekayen Exp $
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function saveguard_uninstall() {
+  variable_del('saveguard_message');
+}
